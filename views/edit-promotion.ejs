@@ -1,0 +1,306 @@
+<%- include('partials/header', {title: 'Sửa CTKM', currentPage: 'edit-promotion', time: time}) %>
+
+<style>
+    .edit-promotion-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f8f9fa;
+        min-height: 100vh;
+    }
+
+    .page-header {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .page-header h1 {
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+
+    .back-button {
+        background: #6c757d;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        text-decoration: none;
+        display: inline-block;
+        margin-bottom: 20px;
+    }
+
+    .promo-form {
+        background: white;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .form-section {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .form-section h3 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #3498db;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 16px;
+        background: white;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .checkbox-group {
+        margin-bottom: 15px;
+    }
+
+    .checkbox-group label {
+        display: flex;
+        align-items: center;
+        font-weight: normal;
+    }
+
+    .checkbox-group input {
+        width: auto;
+        margin-right: 10px;
+    }
+
+    .dynamic-item {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+        gap: 10px;
+        margin-bottom: 10px;
+        align-items: center;
+    }
+
+    .add-item {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    .remove-item {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 15px;
+        justify-content: flex-end;
+        margin-top: 30px;
+    }
+
+    .btn-primary {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        border: 1px solid #f5c6cb;
+    }
+</style>
+
+<div class="edit-promotion-container">
+    <a href="/promo-management" class="back-button">← Quay lại</a>
+
+    <div class="page-header">
+        <h1>✏️ Sửa CTKM: <%= promotion.name %></h1>
+        <p>ID: <%= promotion.id %></p>
+    </div>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+    <div class="error-message">
+        ⚠️ <%= error %>
+    </div>
+    <% } %>
+
+    <form action="/edit-promotion/<%= promotion.id %>" method="POST" class="promo-form">
+        <div class="form-section">
+            <h3>📋 Thông tin cơ bản</h3>
+            
+            <div class="form-group">
+                <label>Tên CTKM *</label>
+                <input type="text" name="name" value="<%= promotion.name %>" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Mô tả</label>
+                <textarea name="description" rows="3"><%= promotion.description || '' %></textarea>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>📅 Ngày bắt đầu *</label>
+                    <input type="date" name="start_date" value="<%= promotion.start_date %>" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>📅 Ngày kết thúc *</label>
+                    <input type="date" name="end_date" value="<%= promotion.end_date %>" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>🔄 Channel áp dụng</label>
+                    <select name="channel">
+                        <option value="All" <%= promotion.channel === 'All' ? 'selected' : '' %>>Tất cả</option>
+                        <option value="Online" <%= promotion.channel === 'Online' ? 'selected' : '' %>>Online</option>
+                        <option value="Offline" <%= promotion.channel === 'Offline' ? 'selected' : '' %>>Offline</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>🎁 Loại CTKM *</label>
+                    <select name="promo_type" required>
+                        <option value="Không có mã" <%= promotion.promo_type === 'Không có mã' ? 'selected' : '' %>>Không có mã</option>
+                        <option value="Coupon" <%= promotion.promo_type === 'Coupon' ? 'selected' : '' %>>Coupon</option>
+                        <option value="Voucher" <%= promotion.promo_type === 'Voucher' ? 'selected' : '' %>>Voucher</option>
+                        <option value="Ưu đãi thanh toán" <%= promotion.promo_type === 'Ưu đãi thanh toán' ? 'selected' : '' %>>Ưu đãi thanh toán</option>
+                        <option value="Gift" <%= promotion.promo_type === 'Gift' ? 'selected' : '' %>>Quà tặng (Gift)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>🔑 Mã coupon (nếu có)</label>
+                <input type="text" name="coupon_code" value="<%= promotion.coupon_code || '' %>">
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>🎯 Phạm vi áp dụng</h3>
+            
+            <div class="form-group">
+                <label>Áp dụng cho</label>
+                <select name="apply_to" onchange="toggleApplyTo()">
+                    <option value="all" <%= promotion.apply_to_all_skus ? 'selected' : '' %>>Tất cả sản phẩm</option>
+                    <option value="category" <%= promotion.promotion_categories && promotion.promotion_categories.length > 0 ? 'selected' : '' %>>Theo danh mục</option>
+                    <option value="brand" <%= promotion.promotion_brands && promotion.promotion_brands.length > 0 ? 'selected' : '' %>>Theo brand</option>
+                    <option value="sku" <%= promotion.promotion_skus && promotion.promotion_skus.length > 0 ? 'selected' : '' %>>Theo SKU</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="categoryField" style="display: none;">
+                <label>Danh mục</label>
+                <select name="categories" multiple>
+                    <% categories.forEach(cat => { %>
+                        <option value="<%= cat %>" 
+                            <%= promotion.promotion_categories && promotion.promotion_categories.some(pc => pc.category === cat) ? 'selected' : '' %>>
+                            <%= cat %>
+                        </option>
+                    <% }); %>
+                </select>
+            </div>
+
+            <div class="form-group" id="brandField" style="display: none;">
+                <label>Brand</label>
+                <select name="brands" multiple>
+                    <% brands.forEach(brand => { %>
+                        <option value="<%= brand %>" 
+                            <%= promotion.promotion_brands && promotion.promotion_brands.some(pb => pb.brand === brand) ? 'selected' : '' %>>
+                            <%= brand %>
+                        </option>
+                    <% }); %>
+                </select>
+            </div>
+
+            <div class="form-group" id="skuField" style="display: none;">
+                <label>SKU (phân cách bằng dấu phẩy)</label>
+                <textarea name="skus" placeholder="VD: SKU001, SKU002, SKU003">
+                    <%= promotion.promotion_skus ? promotion.promotion_skus.map(ps => ps.sku).join(', ') : '' %>
+                </textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">💾 Lưu thay đổi</button>
+            <a href="/promo-management" class="btn-secondary">❌ Hủy</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Hiển thị các field phù hợp khi trang load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleApplyTo();
+    });
+
+    function toggleApplyTo() {
+        const applyTo = document.querySelector('select[name="apply_to"]').value;
+        document.getElementById('categoryField').style.display = applyTo === 'category' ? 'block' : 'none';
+        document.getElementById('brandField').style.display = applyTo === 'brand' ? 'block' : 'none';
+        document.getElementById('skuField').style.display = applyTo === 'sku' ? 'block' : 'none';
+    }
+</script>
+
+<%- include('partials/footer') %>

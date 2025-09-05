@@ -1,0 +1,128 @@
+<%- include('partials/header', {title: 'Chi tiết CTKM', currentPage: 'promotion-detail', time: time}) %>
+
+<div class="promotion-card">
+    <% if (promotion) { %>
+        <h1 class="section-title">Chi tiết CTKM: <%= promotion.name %></h1>
+        
+        <h2 class="section-title">Thông tin CTKM</h2>
+        
+        <table class="detail-table">
+            <tr>
+                <th>Tên CTKM</th>
+                <td><%= promotion.name %></td>
+            </tr>
+            <tr>
+                <th>Mô tả</th>
+                <td><%= promotion.description || 'Không có mô tả' %></td>
+            </tr>
+            <tr>
+                <th>Thời gian áp dụng</th>
+                <td><%= new Date(promotion.start_date).toLocaleDateString('vi-VN') %> - <%= new Date(promotion.end_date).toLocaleDateString('vi-VN') %></td>
+            </tr>
+            <tr>
+                <th>Loại CTKM</th>
+                <td><%= promotion.promo_type %></td>
+            </tr>
+            <tr>
+                <th>Channel áp dụng</th>
+                <td><%= promotion.channel %></td>
+            </tr>
+            <% if (promotion.coupon_code) { %>
+            <tr>
+                <th>Mã coupon</th>
+                <td><%= promotion.coupon_code %></td>
+            </tr>
+            <% } %>
+        </table>
+        
+        <h2 class="section-title">Phạm vi áp dụng</h2>
+        
+        <% if (promotion.apply_to_all_skus) { %>
+            <p>Áp dụng cho tất cả sản phẩm</p>
+        <% } else { %>
+            <% if (promotion.promotion_categories && promotion.promotion_categories.length > 0) { %>
+                <h3>Danh mục áp dụng:</h3>
+                <ul>
+                    <% promotion.promotion_categories.forEach(cat => { %>
+                        <li><%= cat.category %></li>
+                    <% }); %>
+                </ul>
+            <% } %>
+            
+            <% if (promotion.promotion_brands && promotion.promotion_brands.length > 0) { %>
+                <h3>Brand áp dụng:</h3>
+                <ul>
+                    <% promotion.promotion_brands.forEach(brand => { %>
+                        <li><%= brand.brand %></li>
+                    <% }); %>
+                </ul>
+            <% } %>
+            
+            <% if (promotion.promotion_skus && promotion.promotion_skus.length > 0) { %>
+                <h3>SKU áp dụng:</h3>
+                <ul>
+                    <% promotion.promotion_skus.forEach(sku => { %>
+                        <li><%= sku.sku %></li>
+                    <% }); %>
+                </ul>
+            <% } %>
+        <% } %>
+        
+        <% if (promotion.promotion_gifts && promotion.promotion_gifts.length > 0) { %>
+            <h2 class="section-title">Quà tặng</h2>
+            <ul>
+                <% promotion.promotion_gifts.forEach(gift => { %>
+                    <li>SKU quà: <%= gift.gift_sku %>, Số lượng: <%= gift.gift_quantity %></li>
+                <% }); %>
+            </ul>
+        <% } %>
+        
+        <% if (promotion.special_promotion_rules && promotion.special_promotion_rules.length > 0) { %>
+            <h2 class="section-title">Quy tắc đặc biệt</h2>
+            <table class="discount-table">
+                <tr>
+                    <th>Brand</th>
+                    <th>Subcat</th>
+                    <th>Mức giảm</th>
+                    <th>Điều kiện</th>
+                </tr>
+                <% promotion.special_promotion_rules.forEach(rule => { %>
+                <tr>
+                    <td><%= rule.brand || 'Tất cả' %></td>
+                    <td><%= rule.subcat || 'Tất cả' %></td>
+                    <td><%= new Intl.NumberFormat('vi-VN').format(rule.discount_value) %> VNĐ</td>
+                    <td><%= rule.condition_description || 'Không có điều kiện' %></td>
+                </tr>
+                <% }); %>
+            </table>
+        <% } %>
+        
+        <div class="promo-actions" style="margin-top: 20px;">
+  <a href="/promo-management" class="btn btn-info">← Quay lại</a>
+  <% if (user && user.role === 'manager') { %>
+    <button class="btn btn-warning" onclick="location.href='/edit-promotion/<%= promotion.id %>'">✏️ Sửa CTKM</button>
+    <button class="btn btn-danger" onclick="deletePromo(<%= promotion.id %>)">🗑️ Xóa CTKM</button>
+    <script>
+      async function deletePromo(id) {
+        if (!confirm('Bạn có chắc muốn xóa CTKM này?')) return;
+        const res = await fetch(`/api/promotions/${id}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (result.success) {
+          alert('✅ Đã xóa CTKM');
+          location.href = '/promo-management';
+        } else {
+          alert('❌ ' + (result.error || 'Lỗi không xác định'));
+        }
+      }
+    </script>
+  <% } %>
+</div>
+    <% } else { %>
+        <div class="error-message">
+            Không tìm thấy thông tin CTKM
+        </div>
+        <a href="/promo-management" class="btn btn-info">← Quay lại</a>
+    <% } %>
+</div>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,408 @@
+<%- include('partials/header', {title: 'Quản lý CTKM', currentPage: 'promo-management', time: time}) %>
+
+<div class="promo-management">
+    <h1 class="section-title">Quản lý Chương trình Khuyến mãi</h1>
+    
+    <div class="action-buttons">
+        <button class="btn btn-primary" onclick="showCreateModal()">+ Tạo CTKM mới</button>
+        <button class="btn btn-secondary" onclick="showImportModal()">📤 Import Excel</button>
+        <a href="/" class="btn btn-info">🏠 Trang chủ</a>
+    </div>
+    
+    <div class="search-box" style="margin: 20px 0;">
+        <input type="text" id="promoSearch" placeholder="Tìm kiếm CTKM..." class="search-input">
+    </div>
+    
+    <div class="promo-list">
+        <% if (promotions && promotions.length > 0) { %>
+            <% promotions.forEach(promo => { %>
+                <div class="promo-card" data-name="<%= promo.name.toLowerCase() %>">
+                    <h3><%= promo.name %></h3>
+                    <p><strong>📅 Thời gian:</strong> <%= new Date(promo.start_date).toLocaleDateString('vi-VN') %> - <%= new Date(promo.end_date).toLocaleDateString('vi-VN') %></p>
+                    <p><strong>🎯 Loại:</strong> <%= promo.promo_type %></p>
+                    <p><strong>🔄 Channel:</strong> <%= promo.channel %></p>
+                    <p><strong>📊 Trạng thái:</strong> 
+                        <span class="status-badge <%= new Date(promo.end_date) > new Date() ? 'active' : 'expired' %>">
+                            <%= new Date(promo.end_date) > new Date() ? '🟢 Đang hoạt động' : '🔴 Đã hết hạn' %>
+                        </span>
+                    </p>
+                    <div class="promo-actions">
+                        <a href="/promotion-detail/<%= promo.id %>" class="btn btn-info">👁️ Xem chi tiết</a>
+                        <% if (user && user.role === 'manager') { %>
+                            <button class="btn btn-warning" onclick="editPromo(<%= promo.id %>)">✏️ Sửa</button>
+                            <button class="btn btn-danger" onclick="deletePromo(<%= promo.id %>)">🗑️ Xóa</button>
+                        <% } %>
+                    </div>
+                </div>
+            <% }); %>
+        <% } else { %>
+            <div class="no-data">
+                <p>📭 Chưa có CTKM nào được tạo</p>
+                <p>Hãy bấm "Tạo CTKM mới" để bắt đầu</p>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<!-- Modal tạo CTKM -->
+<div id="createPromoModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2>🎯 Tạo CTKM mới</h2>
+        
+        <form id="promoForm" class="promo-form">
+            <div class="form-section">
+                <h3>📋 Thông tin cơ bản</h3>
+                <div class="form-group">
+                    <label>Tên CTKM *</label>
+                    <input type="text" name="name" required placeholder="Nhập tên chương trình khuyến mãi">
+                </div>
+                <div class="form-group">
+                    <label>Mô tả</label>
+                    <textarea name="description" placeholder="Mô tả ngắn về CTKM"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>📅 Ngày bắt đầu *</label>
+                        <input type="date" name="start_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>📅 Ngày kết thúc *</label>
+                        <input type="date" name="end_date" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>🔄 Channel áp dụng</label>
+                        <select name="channel">
+                            <option value="All">Tất cả</option>
+                            <option value="Online">Online</option>
+                            <option value="Offline">Offline</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>🎁 Loại CTKM *</label>
+                        <select name="promo_type" required onchange="togglePromoFields()">
+                            <option value="">Chọn loại CTKM</option>
+                            <option value="Không có mã">Không có mã</option>
+                            <option value="Coupon">Coupon</option>
+                            <option value="Voucher">Voucher</option>
+                            <option value="Ưu đãi thanh toán">Ưu đãi thanh toán</option>
+                            <option value="Gift">Quà tặng (Gift)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" id="couponField" style="display: none;">
+                    <label>🔑 Mã coupon</label>
+                    <input type="text" name="coupon_code" placeholder="Nhập mã coupon">
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>🎯 Phạm vi áp dụng</h3>
+                <div class="form-group">
+                    <label>Áp dụng cho</label>
+                    <select name="apply_to" onchange="toggleApplyTo()">
+                        <option value="all">Tất cả sản phẩm</option>
+                        <option value="category">Theo danh mục</option>
+                        <option value="brand">Theo brand</option>
+                        <option value="sku">Theo SKU</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="categoryField" style="display: none;">
+                    <label>Danh mục</label>
+                    <select name="categories" multiple>
+                        <% categories.forEach(cat => { %>
+                            <option value="<%= cat %>"><%= cat %></option>
+                        <% }); %>
+                    </select>
+                </div>
+
+                <div class="form-group" id="brandField" style="display: none;">
+                    <label>Brand</label>
+                    <select name="brands" multiple>
+                        <% brands.forEach(brand => { %>
+                            <option value="<%= brand %>"><%= brand %></option>
+                        <% }); %>
+                    </select>
+                </div>
+
+                <div class="form-group" id="skuField" style="display: none;">
+                    <label>SKU (phân cách bằng dấu phẩy)</label>
+                    <textarea name="skus" placeholder="VD: SKU001, SKU002, SKU003"></textarea>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>⚡ Tính năng đặc biệt</h3>
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" name="is_special" onchange="toggleSpecialRules()"> CTKM đặc biệt
+                    </label>
+                </div>
+
+                <div id="specialRules" style="display: none;">
+                    <div class="form-group">
+                        <label>Quy tắc giảm giá theo brand/subcat</label>
+                        <div id="specialRulesContainer">
+                            <div class="dynamic-item">
+                                <input type="text" placeholder="Brand" name="special_brand[]">
+                                <input type="text" placeholder="Subcat" name="special_subcat[]">
+                                <input type="number" placeholder="Mức giảm" name="special_discount[]">
+                                <button type="button" class="remove-item" onclick="removeRule(this)">Xóa</button>
+                            </div>
+                        </div>
+                        <button type="button" class="add-item" onclick="addRule()">+ Thêm quy tắc</button>
+                    </div>
+                </div>
+
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" name="compatible_with_other"> Có thể dùng chung với CTKM khác
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">✅ Tạo CTKM</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">❌ Hủy</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // JavaScript để xử lý modal và form
+    function showCreateModal() {
+        document.getElementById('createPromoModal').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('createPromoModal').style.display = 'none';
+    }
+
+    function togglePromoFields() {
+        const promoType = document.querySelector('select[name="promo_type"]').value;
+        document.getElementById('couponField').style.display = promoType === 'Coupon' ? 'block' : 'none';
+    }
+
+    function toggleApplyTo() {
+        const applyTo = document.querySelector('select[name="apply_to"]').value;
+        document.getElementById('categoryField').style.display = applyTo === 'category' ? 'block' : 'none';
+        document.getElementById('brandField').style.display = applyTo === 'brand' ? 'block' : 'none';
+        document.getElementById('skuField').style.display = applyTo === 'sku' ? 'block' : 'none';
+    }
+
+    function toggleSpecialRules() {
+        const isSpecial = document.querySelector('input[name="is_special"]').checked;
+        document.getElementById('specialRules').style.display = isSpecial ? 'block' : 'none';
+    }
+
+    function addRule() {
+        const container = document.getElementById('specialRulesContainer');
+        const newRule = document.createElement('div');
+        newRule.className = 'dynamic-item';
+        newRule.innerHTML = `
+            <input type="text" placeholder="Brand" name="special_brand[]">
+            <input type="text" placeholder="Subcat" name="special_subcat[]">
+            <input type="number" placeholder="Mức giảm" name="special_discount[]">
+            <button type="button" class="remove-item" onclick="removeRule(this)">Xóa</button>
+        `;
+        container.appendChild(newRule);
+    }
+
+    function removeRule(button) {
+        button.parentElement.remove();
+    }
+    
+    function editPromo(id) {
+    window.location.href = `/edit-promotion/${id}`;
+  }
+    // Tìm kiếm CTKM
+    document.getElementById('promoSearch').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const promoCards = document.querySelectorAll('.promo-card');
+        
+        promoCards.forEach(card => {
+            const promoName = card.getAttribute('data-name');
+            if (promoName.includes(searchTerm)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+
+
+// Xử lý submit form - FIXED VERSION
+document.getElementById('promoForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    
+    submitBtn.disabled = true;
+    submitBtn.textContent = '🔄 Đang tạo...';
+    
+    try {
+        // Lấy dữ liệu form đúng cách cho arrays
+        const formData = new FormData(this);
+        const data = {};
+        
+        // Xử lý các field array
+        const specialBrands = [];
+        const specialSubcats = [];
+        const specialDiscounts = [];
+        
+        for (let [key, value] of formData.entries()) {
+            if (key === 'special_brand[]') {
+                specialBrands.push(value);
+            } else if (key === 'special_subcat[]') {
+                specialSubcats.push(value);
+            } else if (key === 'special_discount[]') {
+                specialDiscounts.push(value);
+            } else {
+                data[key] = value;
+            }
+        }
+        
+        // Thêm arrays vào data
+        data['special_brand[]'] = specialBrands;
+        data['special_subcat[]'] = specialSubcats;
+        data['special_discount[]'] = specialDiscounts;
+        
+        console.log('Form data to submit:', data);
+        
+        // Gửi request đến server
+        const response = await fetch('/create-promotion', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        console.log('Server response:', result);
+        
+        if (result.success) {
+            alert('✅ Tạo CTKM thành công!');
+            closeModal();
+            await refreshPromoList();
+        } else {
+            alert('❌ Lỗi: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Submit error:', error);
+        alert('❌ Lỗi kết nối: ' + error.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+});
+    
+// Đảm bảo modal hiển thị đúng
+function showCreateModal() {
+    console.log('Show modal triggered');
+    document.getElementById('createPromoModal').style.display = 'block';
+    
+    // Reset form khi mở modal
+    document.getElementById('promoForm').reset();
+}
+
+// Debug: Kiểm tra xem hàm có được gọi không
+document.querySelector('.btn.btn-primary').addEventListener('click', function() {
+    console.log('Create button clicked');
+    showCreateModal();
+});
+
+// Thêm event listener để debug
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded');
+    
+    const createBtn = document.querySelector('.btn.btn-primary');
+    if (createBtn) {
+        createBtn.addEventListener('click', showCreateModal);
+        console.log('Create button event listener added');
+    }
+});
+// Hàm refresh danh sách CTKM
+async function refreshPromoList() {
+    try {
+        console.log('Refreshing promotion list...');
+        
+        const response = await fetch('/api/promotions');
+        const result = await response.json();
+        
+        if (result.success) {
+            const promoList = document.querySelector('.promo-list');
+            promoList.innerHTML = '';
+            
+            if (result.promotions && result.promotions.length > 0) {
+                result.promotions.forEach(promo => {
+                    const promoCard = createPromoCard(promo);
+                    promoList.appendChild(promoCard);
+                });
+                console.log('Promotions loaded:', result.promotions.length);
+            } else {
+                promoList.innerHTML = `
+                    <div class="no-data">
+                        <p>📭 Chưa có CTKM nào được tạo</p>
+                        <p>Hãy bấm "Tạo CTKM mới" để bắt đầu</p>
+                    </div>
+                `;
+            }
+        } else {
+            console.error('Refresh failed:', result.error);
+        }
+    } catch (error) {
+        console.error('Refresh error:', error);
+    }
+}
+// Kiểm tra kết nối API
+async function testConnection() {
+    try {
+        const response = await fetch('/api/promotions');
+        console.log('API connection test:', response.status);
+    } catch (error) {
+        console.error('API connection failed:', error);
+    }
+}
+
+// Chạy kiểm tra khi trang load
+testConnection();
+
+    // Xóa CTKM (chỉ manager)
+    function deletePromo(id) {
+        if (confirm('Bạn có chắc muốn xóa CTKM này?')) {
+            fetch(`/api/promotions/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('✅ Xóa CTKM thành công!');
+                    location.reload();
+                } else {
+                    alert('❌ Lỗi: ' + result.error);
+                }
+            })
+            .catch(error => {
+                alert('❌ Lỗi kết nối: ' + error.message);
+            });
+        }
+    }
+
+    // Đóng modal khi click bên ngoài
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('createPromoModal');
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+</script>
+
+
+
+<%- include('partials/footer') %>

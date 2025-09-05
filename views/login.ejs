@@ -1,0 +1,33 @@
+<%- include('partials/header', {title: 'Đăng nhập', currentPage: 'login', time: time}) %>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <h2 class="section-title">Đăng nhập hệ thống</h2>
+        
+        <% if (error) { %>
+            <div class="error-message">
+                <%= error %>
+            </div>
+        <% } %>
+        
+        <form action="/login" method="POST" class="auth-form">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" required placeholder="Nhập email của bạn">
+            </div>
+            
+            <div class="form-group">
+                <label>Mật khẩu</label>
+                <input type="password" name="password" required placeholder="Nhập mật khẩu">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-full">Đăng nhập</button>
+        </form>
+        
+        <div class="auth-links">
+            <p>Chưa có tài khoản? <a href="/register">Đăng ký ngay</a></p>
+        </div>
+    </div>
+</div>
+
+<%- include('partials/footer') %>
