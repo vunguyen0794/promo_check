@@ -176,7 +176,9 @@ app.post('/login', async (req, res) => {
     }
 // Middleware để chia sẻ dữ liệu chung cho tất cả views
     req.session.user = user;
-    res.redirect('/');
+    const redirectTo = req.session.returnTo || '/';
+    delete req.session.returnTo;
+    req.session.save(() => res.redirect(redirectTo));
   } catch (error) {
     res.render('login', { 
       title: 'Đăng nhập', 
