@@ -1,23 +1,43 @@
 require('dotenv').config();
-
+const fs = require('fs');
 const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 const session = require('express-session');
-const bcrypt = require('bcryptjs');         // dùng bcryptjs
-const multer = require('multer');
-const upload = multer({ dest: 'uploads/', limits: { fileSize: 5 * 1024 * 1024, files: 3 } });
+const bcrypt = require('bcryptjs');
+// ----- Multer (upload) -----
+const isVercel = !!process.env.VERCEL;
+const uploadDir = path.join(__dirname, 'uploads');   // thư mục local
 
-// Supabase
+// Local: đảm bảo có thư mục uploads/
+if (!isVercel) {
+  try { fs.mkdirSync(uploadDir, { recursive: true }); } catch (e) {}
+}
+
+// Vercel: dùng memoryStorage (không ghi đĩa). Local: diskStorage.
+const storage = isVercel
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (req, file, cb) => cb(null, uploadDir),
+      filename: (req, file, cb) =>
+        cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '_'))
+    });
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 3 }
+});
+
+
 const { createClient } = require('@supabase/supabase-js');
 
-// Lấy ENV đúng tên biến
+// ⚠️ Dùng SERVICE_ROLE nếu có (only server-side), fallback ANON
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
-// (Tuỳ chọn) log kiểm tra
 console.log('SUPABASE_URL:', supabaseUrl ? 'OK' : 'MISSING');
-console.log('SUPABASE_ANON_KEY:', supabaseKey ? 'OK' : 'MISSING');
+console.log('SUPABASE_KEY :', supabaseKey ? 'OK' : 'MISSING');
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -37,6 +57,13 @@ app.use(session({
   cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
 }));
 
+app.use((req, res, next) => {
+  res.locals.user = req.session?.user || null;
+  res.locals.time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  next();
+});
+
+
 // Middleware xác thực
 const requireAuth = (req, res, next) => {
   if (!req.session.user) {
@@ -52,6 +79,24 @@ const requireManager = (req, res, next) => {
   next();
 };
 
+app.get('/healthz', async (req, res) => {
+  try {
+    const ping = await supabase.from('promotions').select('id').limit(1);
+    res.json({
+      ok: true,
+      env: {
+        SUPABASE_URL: !!supabaseUrl,
+        SUPABASE_ANON_KEY: !!supabaseKey,
+        SESSION_SECRET: !!process.env.SESSION_SECRET,
+        VERCEL: !!process.env.VERCEL
+      },
+      supabase_ok: !ping.error
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Middleware để chia sẻ dữ liệu chung
 app.use(async (req, res, next) => {
   res.locals.user = req.session.user;
@@ -66,7 +111,6 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Routes xác thực
 // Routes xác thực
 app.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/');
@@ -498,54 +542,41 @@ app.get('/api/sku-info', requireAuth, async (req, res) => {
         res.json(null);
     }
 });
-// Route cho trang chiến giá - hiển thị lịch sử
 // Route GET để hiển thị form tạo CTKM với dữ liệu danh mục, brand
-app.get('/promo-management', requireAuth, async (req, res) => {
-    try {
-        // Lấy danh sách CTKM
-        const { data: promotions, error: promoError } = await supabase
-            .from('promotions')
-            .select('*')
-            .order('created_at', { ascending: false });
+// Trang quản lý CTKM
+app.get('/promo-management', async (req, res) => {
+  try {
+    const { data: promotions, error: pErr } = await supabase
+      .from('promotions').select('*')
+      .order('created_at', { ascending: false });
+    if (pErr) console.error('promotions error:', pErr);
 
-        // Lấy danh sách categories và brands cho dropdown
-        const { data: categories } = await supabase
-            .from('skus')
-            .select('category')
-            .not('category', 'is', null)
-            .order('category');
+    // ⭐ không làm app lỗi nếu thiếu bảng skus hoặc RLS chặn
+    let categories = [], brands = [];
+    const { data: catRows, error: catErr } = await supabase
+      .from('skus').select('category').not('category', 'is', null);
+    if (!catErr && catRows) categories = [...new Set(catRows.map(r => r.category))];
+    else if (catErr) console.warn('skus.category error:', catErr.message);
 
-        const { data: brands } = await supabase
-            .from('skus')
-            .select('brand')
-            .not('brand', 'is', null)
-            .order('brand');
+    const { data: brandRows, error: brandErr } = await supabase
+      .from('skus').select('brand').not('brand', 'is', null);
+    if (!brandErr && brandRows) brands = [...new Set(brandRows.map(r => r.brand))];
+    else if (brandErr) console.warn('skus.brand error:', brandErr.message);
 
-        const uniqueCategories = [...new Set(categories.map(c => c.category))];
-        const uniqueBrands = [...new Set(brands.map(b => b.brand))];
-
-        res.render('promo-management', {
-            title: 'Quản lý CTKM',
-            currentPage: 'promo-management',
-            promotions: promotions || [],
-            categories: uniqueCategories,
-            brands: uniqueBrands,
-            user: req.session.user,
-            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-        });
-    } catch (error) {
-        console.error('Promo management error:', error);
-        res.render('promo-management', {
-            title: 'Quản lý CTKM',
-            currentPage: 'promo-management',
-            promotions: [],
-            categories: [],
-            brands: [],
-            user: req.session.user,
-            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-        });
-    }
+    return res.render('promo-management', {
+      title: 'Quản lý CTKM',
+      currentPage: 'promo-management',
+      promotions: promotions || [],
+      categories, brands,
+      user: req.session?.user || null,
+      time: res.locals.time
+    });
+  } catch (err) {
+    console.error('Promo management fatal:', err);
+    return res.status(500).send('Lỗi khi tải trang quản lý CTKM: ' + err.message);
+  }
 });
+
 
 // Route POST để tạo CTKM mới
 app.post('/create-promotion', requireAuth, async (req, res) => {
@@ -752,18 +783,18 @@ app.get('/api/promotions/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Các routes khác giữ nguyên với requireAuth...
-// [Các routes khác ở đây]
-// Xử lý cho Vercel
-const vercelHandler = app;
+app.get('/', (req, res) => res.redirect('/promo-management'));
 
-// Export cho Vercel
-module.exports = vercelHandler;
-
-// Chỉ chạy server locally khi không trên Vercel
-if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`Ứng dụng đang chạy tại http://localhost:${port}`);
-  });
+if (process.env.VERCEL) {
+  module.exports = app; // Vercel sẽ dùng export này làm handler
+} else {
+  app.listen(port, () => console.log(`Local: http://localhost:${port}`));
 }
+// Các routes khác giữ nguyên với requireAuth...
 
+// Cuối file:
+const vercelHandler = app;
+module.exports = vercelHandler;
+if (require.main === module) {
+  app.listen(3000, () => console.log('Local: http://localhost:3000'));
+}
