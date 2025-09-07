@@ -72,10 +72,10 @@ app.use((req, res, next) => {
 
 // Middleware xác thực
 const requireAuth = (req, res, next) => {
-  if (!req.session.user) {
-    return res.redirect('/login');
-  }
-  next();
+  if (req.session?.user) return next();
+  // Lưu URL gốc để quay lại sau khi đăng nhập
+  req.session.returnTo = req.originalUrl;
+  return res.redirect('/login');
 };
 
 const requireManager = (req, res, next) => {
