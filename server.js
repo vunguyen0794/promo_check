@@ -1,21 +1,24 @@
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 const session = require('express-session');
-const bcrypt = require('bcryptjs');
-
+const bcrypt = require('bcryptjs');         // dùng bcryptjs
 const multer = require('multer');
-const upload = multer({ 
-  dest: 'uploads/',
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 3 // tối đa 3 files
-  }
-});
+const upload = multer({ dest: 'uploads/', limits: { fileSize: 5 * 1024 * 1024, files: 3 } });
 
+// Supabase
 const { createClient } = require('@supabase/supabase-js');
+
+// Lấy ENV đúng tên biến
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+// (Tuỳ chọn) log kiểm tra
+console.log('SUPABASE_URL:', supabaseUrl ? 'OK' : 'MISSING');
+console.log('SUPABASE_ANON_KEY:', supabaseKey ? 'OK' : 'MISSING');
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const app = express();
