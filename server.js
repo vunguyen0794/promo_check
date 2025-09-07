@@ -8,10 +8,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 // ----- Multer (upload) -----
 const isVercel = !!process.env.VERCEL;
-const uploadDir = path.join(__dirname, 'uploads');   // thư mục local
-
-if (isVercel) app.set('trust proxy', 1);
-// Local: đảm bảo có thư mục uploads/
+const uploadDir = path.join(__dirname, 'uploads');
 if (!isVercel) {
   try { fs.mkdirSync(uploadDir, { recursive: true }); } catch (e) {}
 }
@@ -35,16 +32,17 @@ const { createClient } = require('@supabase/supabase-js');
 
 // ⚠️ Dùng SERVICE_ROLE nếu có (only server-side), fallback ANON
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 console.log('SUPABASE_URL:', supabaseUrl ? 'OK' : 'MISSING');
 console.log('SUPABASE_KEY :', supabaseKey ? 'OK' : 'MISSING');
 
-const supabase = createClient(supabaseUrl, supabaseKey);
 
+const supabase = createClient(supabaseUrl, supabaseKey);
 const app = express();
 const port = 3000;
+
+if (isVercel) app.set('trust proxy', 1);   // ✅ đặt sau khi đã có app
 
 // Cấu hình ứng dụng
 app.set('view engine', 'ejs');
@@ -307,9 +305,8 @@ app.post('/price-battle/save', requireAuth, upload.array('images', 3), async (re
         }
 
         // Xử lý file upload nếu có
-        let imageUrls = [];
         if (req.files && req.files.length > 0) {
-            imageUrls = req.files.map(file => file.filename);
+          imageUrls = req.files.map(f => f.originalname);
         }
         
         const comparisonData = {
