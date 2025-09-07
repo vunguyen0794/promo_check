@@ -10,6 +10,7 @@ const multer = require('multer');
 const isVercel = !!process.env.VERCEL;
 const uploadDir = path.join(__dirname, 'uploads');   // thư mục local
 
+if (isVercel) app.set('trust proxy', 1);
 // Local: đảm bảo có thư mục uploads/
 if (!isVercel) {
   try { fs.mkdirSync(uploadDir, { recursive: true }); } catch (e) {}
@@ -55,7 +56,13 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: !!process.env.VERCEL, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+  proxy: isVercel,                    // để express-session biết đang sau proxy
+  cookie: {
+    secure: isVercel,                 // bắt buộc HTTPS trên Vercel
+    sameSite: 'lax',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000
+  }
 }));
 
 app.use((req, res, next) => {
@@ -98,19 +105,37 @@ app.get('/healthz', async (req, res) => {
   }
 });
 
+
 // Middleware để chia sẻ dữ liệu chung
 app.use(async (req, res, next) => {
   res.locals.user = req.session.user;
   try {
-    const { data: brands } = await supabase.from('skus').select('brand').not('brand', 'is', null);
-    const { data: categories } = await supabase.from('skus').select('category').not('category', 'is', null);
-    res.locals.brands = [...new Set(brands.map(item => item.brand))];
-    res.locals.categories = [...new Set(categories.map(item => item.category))];
+    const { data: brandRows, error: brandErr } = await supabase
+      .from('skus')
+      .select('brand')
+      .not('brand', 'is', null);
+
+    const { data: catRows, error: catErr } = await supabase
+      .from('skus')
+      .select('category')
+      .not('category', 'is', null);
+
+    if (brandErr) console.warn('brand query error:', brandErr);
+    if (catErr) console.warn('category query error:', catErr);
+
+    res.locals.brands = [...new Set((brandRows ?? []).map(r => r.brand).filter(Boolean))];
+    res.locals.categories = [...new Set((catRows ?? []).map(r => r.category).filter(Boolean))];
+
     next();
   } catch (error) {
-    next(error);
+    console.error('locals middleware error:', error);
+    // đừng làm sập app vì block này; cho đi tiếp với list rỗng
+    res.locals.brands = [];
+    res.locals.categories = [];
+    next();
   }
 });
+
 
 // Routes xác thực
 app.get('/login', (req, res) => {
