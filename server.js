@@ -5,6 +5,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
 // ----- Multer (upload) -----
 const isVercel = !!process.env.VERCEL;
 const uploadDir = path.join(__dirname, 'uploads');   // thư mục local
@@ -51,10 +52,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(session({
-  secret: 'your-secret-key',
+  secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+  cookie: { secure: !!process.env.VERCEL, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 } // 24 hours
 }));
 
 app.use((req, res, next) => {
@@ -654,18 +655,18 @@ app.post('/create-promotion', requireAuth, async (req, res) => {
         // Thêm quy tắc đặc biệt nếu có
         if (is_special && special_brand && special_subcat && special_discount) {
             const rulesData = [];
-            const brands = Array.isArray(special_brand) ? special_brand : [special_brand];
+            const specialBrands = Array.isArray(special_brand) ? special_brand : [special_brand];
             const subcats = Array.isArray(special_subcat) ? special_subcat : [special_subcat];
             const discounts = Array.isArray(special_discount) ? special_discount : [special_discount];
 
-            for (let i = 0; i < brands.length; i++) {
-                if (brands[i] && subcats[i] && discounts[i]) {
+            for (let i = 0; i < specialBrands.length; i++) {
+                if (specialBrands[i] && subcats[i] && discounts[i]) {
                     rulesData.push({
                         promotion_id: promoId,
-                        brand: brands[i],
+                        brand: specialBrands[i],
                         subcat: subcats[i],
                         discount_value: parseFloat(discounts[i]),
-                        condition_description: `Giảm ${new Intl.NumberFormat('vi-VN').format(discounts[i])} VNĐ cho ${brands[i]} - ${subcats[i]}`
+                        condition_description: `Giảm ${new Intl.NumberFormat('vi-VN').format(discounts[i])} VNĐ cho ${specialBrands[i]} - ${subcats[i]}`
                     });
                 }
             }
@@ -783,18 +784,8 @@ app.get('/api/promotions/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/', (req, res) => res.redirect('/promo-management'));
-
 if (process.env.VERCEL) {
   module.exports = app; // Vercel sẽ dùng export này làm handler
 } else {
   app.listen(port, () => console.log(`Local: http://localhost:${port}`));
-}
-// Các routes khác giữ nguyên với requireAuth...
-
-// Cuối file:
-const vercelHandler = app;
-module.exports = vercelHandler;
-if (require.main === module) {
-  app.listen(3000, () => console.log('Local: http://localhost:3000'));
 }
