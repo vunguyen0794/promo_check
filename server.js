@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 const session = require('express-session');
+const bcrypt = require('bcryptjs');
 
 const multer = require('multer');
 const upload = multer({ 
@@ -13,8 +14,8 @@ const upload = multer({
 });
 
 const { createClient } = require('@supabase/supabase-js');
-const supabaseUrl = 'https://kctbvthxgzivexizcizm.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjdGJ2dGh4Z3ppdmV4aXpjaXptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5MTIwNTIsImV4cCI6MjA3MjQ4ODA1Mn0.fyT7fN-2NdC0yakHZXwDBckIkN5yFAgABA9xlX0IJGk';
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const app = express();
@@ -103,20 +104,6 @@ app.post('/login', async (req, res) => {
       });
     }
 // Middleware để chia sẻ dữ liệu chung cho tất cả views
-app.use(async (req, res, next) => {
-  res.locals.user = req.session.user;
-  res.locals.time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  
-  try {
-    const { data: brands } = await supabase.from('skus').select('brand').not('brand', 'is', null);
-    const { data: categories } = await supabase.from('skus').select('category').not('category', 'is', null);
-    res.locals.brands = [...new Set(brands.map(item => item.brand))];
-    res.locals.categories = [...new Set(categories.map(item => item.category))];
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
     req.session.user = user;
     res.redirect('/');
   } catch (error) {
@@ -168,30 +155,6 @@ app.get('/', requireAuth, (req, res) => {
 });
 
 // Trang quản lý CTKM
-app.get('/promo-management', requireAuth, async (req, res) => {
-  try {
-    const { data: promotions, error } = await supabase
-      .from('promotions')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    res.render('promo-management', {
-      title: 'Quản lý CTKM',
-      currentPage: 'promo-management',
-      promotions: promotions || [],
-      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    });
-  } catch (error) {
-    res.status(500).render('error', {
-      title: 'Lỗi',
-      message: 'Lỗi khi tải trang quản lý CTKM',
-      error: error.message
-    });
-  }
-});
-
 // API để lấy thông tin SKU
 app.get('/api/skus', async (req, res) => {
   try {
@@ -507,15 +470,6 @@ app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
 
 // server.js
 // Thêm vào server.js tạm thời
-app.post('/api/promotions', (req, res) => {
-    console.log('Received promo data:', req.body);
-    // Mock response - xóa sau khi setup database
-    res.json({ 
-        success: true, 
-        message: 'CTKM created successfully (mock)',
-        id: Math.random().toString(36).substr(2, 9)
-    });
-});
 
 // Route để lấy thông tin sản phẩm theo SKU
 app.get('/api/sku-info', requireAuth, async (req, res) => {
@@ -542,34 +496,6 @@ app.get('/api/sku-info', requireAuth, async (req, res) => {
     }
 });
 // Route cho trang chiến giá - hiển thị lịch sử
-app.get('/price-battle', requireAuth, async (req, res) => {
-  try {
-    // Lấy lịch sử so sánh gần đây
-    const { data: recentComparisons, error } = await supabase
-      .from('price_comparisons')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    res.render('price-battle', {
-      title: 'Chiến giá',
-      currentPage: 'price-battle',
-      recentComparisons: recentComparisons || [],
-      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      user: req.session.user
-    });
-  } catch (error) {
-    console.error('Price battle error:', error);
-    res.render('price-battle', {
-      title: 'Chiến giá',
-      currentPage: 'price-battle',
-      recentComparisons: [],
-      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      user: req.session.user
-    });
-  }
-});
-// Route hiển thị danh sách CTKM
 // Route GET để hiển thị form tạo CTKM với dữ liệu danh mục, brand
 app.get('/promo-management', requireAuth, async (req, res) => {
     try {
