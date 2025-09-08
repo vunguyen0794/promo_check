@@ -9,3 +9,4 @@ uploads/
 *.log
 .vercel/
 .next/
+.vercel
