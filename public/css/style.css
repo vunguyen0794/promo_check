@@ -1211,6 +1211,51 @@ label {
     color: #388e3c;
 }
 
+
+/* Thumbnails trong lịch sử */
+.history-images {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.img-thumb {
+  display: inline-block;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+  width: 64px; height: 64px;
+  background: #fafafa;
+}
+.img-thumb img {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block;
+}
+
+/* Badge đối thủ — nền rõ, màu khác nhau */
+.history-competitor {
+  background-color: #e8f0fe;
+  padding: 6px 10px;            /* tăng touch area */
+  border-radius: 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+/* Màu theo brand (key đã normalized) */
+.history-competitor.competitor-fpt {
+  background: #e3f2fd; border-color:#90caf9; color:#0d47a1;
+}
+.history-competitor.competitor-cps {
+  background: #fff3e0; border-color:#ffcc80; color:#e65100;
+}
+.history-competitor.competitor-tgdd {
+  background: #fffde7; border-color:#fff59d; color:#f57f17;
+}
+.history-competitor.competitor-khac {
+  background: #ede7f6; border-color:#b39ddb; color:#4527a0;
+}
+
 /* Navigation for authenticated users */
 .user-nav {
     display: flex;
