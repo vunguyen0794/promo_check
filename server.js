@@ -13,7 +13,7 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
-const session = require('express-session');
+const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
@@ -40,20 +40,14 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'dev-secret',
-    resave: false,
-    saveUninitialized: false,
-    proxy: isVercel,
-    cookie: {
-      secure: isVercel,
-      sameSite: 'lax',
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-    },
-  })
-);
+app.use(cookieSession({
+   name: 'promo_sess',
+   keys: [process.env.SESSION_SECRET || 'dev-secret'],
+   secure: isVercel,        // true trên Vercel (https), false ở localhost
+   sameSite: 'lax',
+   httpOnly: true,
+   maxAge: 24 * 60 * 60 * 1000,
+ }));
 
 // share user/time ra view
 app.use((req, res, next) => {
@@ -66,8 +60,16 @@ app.use((req, res, next) => {
 });
 
 // ------------------------- Auth middlewares -------------------------
+const wantsJSON = (req) =>
+  req.xhr ||
+  (req.headers.accept || '').includes('application/json') ||
+  req.path.startsWith('/api') ||
+  req.method !== 'GET';
+
 const requireAuth = (req, res, next) => {
   if (req.session?.user) return next();
+  if (wantsJSON(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  req.session = req.session || {};
   req.session.returnTo = req.originalUrl;
   return res.redirect('/login');
 };
@@ -301,10 +303,11 @@ app.post('/login', async (req, res) => {
       });
     }
 
-    req.session.user = user;
+    req.session = req.session || {};
+    req.session.user = { id: user.id, email: user.email, full_name: user.full_name, role: user.role };
     const redirectTo = req.session.returnTo || '/';
     delete req.session.returnTo;
-    req.session.save(() => res.redirect(redirectTo));
+    return res.redirect(redirectTo);
   } catch (error) {
     res.render('login', {
       title: 'Đăng nhập',
@@ -340,9 +343,8 @@ app.post('/register', async (req, res) => {
   }
 });
 
-app.post('/logout', (req, res) => {
-  req.session.destroy(() => res.redirect('/login'));
-});
+app.post('/logout', (req, res) => { req.session = null; return res.redirect('/login'); });
+
 
 // ------------------------- Trang chính -------------------------
 app.get('/', requireAuth, (req, res) => {
