@@ -189,6 +189,10 @@
                 timeoutId = setTimeout(async () => {
                     try {
                         const response = await fetch(`/api/skus?q=${encodeURIComponent(value)}`);
+                        if (response.status === 401) {
+                            location.href = '/login';
+                            return;
+                        }
                         const data = await response.json();
 
                         if (data && data.length > 0) {
@@ -380,6 +384,11 @@
                         body: formData,
                         credentials: 'include',
                     });
+
+                    if (response.status === 401) {
+                        location.href = '/login';
+                        return;
+                    }
 
 
                     const files = document.getElementById('competitorImages')?.files || [];

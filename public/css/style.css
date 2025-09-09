@@ -1317,3 +1317,85 @@ label {
         grid-template-columns: 1fr;
     }
 }
+
+/***** ==== MOBILE POLISH – HEADER, TABLES, SUMMARY ==== *****/
+
+/* Header gọn hơn, giữ sticky */
+.header { padding: 8px 0; min-height: 48px; }
+.header-content { gap: 8px; }
+.logo { font-size: 1rem; }
+.nav { gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.nav a { font-size: .9rem; padding: 6px 8px; border-radius: 8px; }
+.time-display { font-size: .8rem; opacity: .8; }
+
+/* Card chung */
+.promotion-card, .card {
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+
+/* Bảng thông tin sản phẩm: đọc dễ hơn + cắt dòng đẹp */
+.product-table {
+  table-layout: fixed;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.product-table th, .product-table td { padding: 12px 14px; }
+.product-table th { width: 36%; color:#374151; }
+.product-table td { color:#111827; word-break: break-word; overflow-wrap:anywhere; }
+.product-table td:nth-child(2){
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;   /* <- dấu :  chứ không phải ; */
+  line-clamp: 3;           /* chuẩn (không prefix) để hết cảnh báo linter */
+  overflow: hidden;
+}
+
+/* Thẻ “Tổng hợp giá” nổi bật */
+.price-summary {
+  background: linear-gradient(180deg,#fff7da,#fff1bf);
+  border: 1px solid #f2d48c;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.05);
+}
+.price-summary .title{
+  font-weight:800; font-size:15px; display:flex; align-items:center; gap:6px; margin-bottom:10px;
+}
+.price-summary .row{
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding:8px 0; border-top:1px dashed rgba(0,0,0,.08);
+}
+.price-summary .row:first-of-type{ border-top:0; }
+.price-summary .label{ color:#374151; font-weight:600; }
+.price-summary .value{ font-weight:800; letter-spacing:.3px; }
+.price-summary .final{ font-size:18px; color:#0f766e; }
+
+/* Bảng CTKM hiển thị theo “thẻ” trên mobile (nếu dùng table) */
+.promo-table { width:100%; border-collapse: collapse; border-radius:12px; overflow:hidden; background:#fff; }
+.promo-table th, .promo-table td { padding:10px 12px; border-top:1px solid #eee; }
+.promo-table th { background:#f8fafc; text-align:left; font-weight:700; color:#374151; }
+@media (max-width:560px){
+  .promo-table thead{ display:none; }
+  .promo-table, .promo-table tbody, .promo-table tr, .promo-table td{ display:block; width:100%; }
+  .promo-table tr{ margin:0 0 12px; border:1px solid #eee; border-radius:12px; box-shadow:0 1px 6px rgba(0,0,0,.04); }
+  .promo-table td{ border:0; border-bottom:1px solid #f1f5f9; }
+  .promo-table td:last-child{ border-bottom:0; }
+  .promo-table td::before{
+    content: attr(data-label);
+    display:block; font-size:12px; color:#6b7280; margin-bottom:2px;
+  }
+}
+
+/* Nút & khoảng cách chung trên mobile */
+.btn { border-radius:10px; }
+.section-title { font-size:16px; margin:10px 0 8px; }
+@media (max-width:480px){
+  .container{ padding-left:12px; padding-right:12px; }
+  .product-table th, .product-table td{ padding:10px 12px; }
+  .price-summary{ padding:12px; }
+  .price-summary .final{ font-size:17px; }
+}
+
+

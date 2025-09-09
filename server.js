@@ -382,30 +382,29 @@ app.get('/api/skus', async (req, res) => {
 // ------------------------- Chiến giá (UI + SAVE) -------------------------
 app.get('/price-battle', requireAuth, async (req, res) => {
   try {
-    // Check Drive chung đã sẵn sàng?
     const { data: gtok } = await supabase
-      .from('app_google_tokens')
-      .select('refresh_token')
-      .eq('id', 'global')
-      .single();
+      .from('app_google_tokens').select('refresh_token')
+      .eq('id', 'global').single();
     const globalDriveReady = !!gtok?.refresh_token;
 
-    // Lịch sử so sánh gần đây + thông tin người tạo
-    const { data: recentComparisons } = await supabase
+    const skuFilter = req.query.sku;
+    let q = supabase
       .from('price_comparisons')
       .select(`*, users:user_id (full_name, email)`)
-      .order('created_at', { ascending: false })
-      .limit(10);
+      .order('created_at', { ascending: false });
 
-    const comparisonsWithCreator = (recentComparisons || []).map((c) => ({
-      ...c,
-      created_by: c.users ? c.users.full_name || c.users.email : 'Unknown',
+    if (skuFilter) q = q.eq('sku', skuFilter).limit(50);
+    else q = q.limit(10);
+
+    const { data: recentComparisons } = await q;
+    const withCreator = (recentComparisons || []).map(c => ({
+      ...c, created_by: c.users ? (c.users.full_name || c.users.email) : 'Unknown'
     }));
 
     res.render('price-battle', {
       title: 'Chiến giá',
       currentPage: 'price-battle',
-      recentComparisons: comparisonsWithCreator,
+      recentComparisons: withCreator,
       globalDriveReady,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       user: req.session.user,
@@ -525,11 +524,13 @@ app.post('/search-promotion', requireAuth, async (req, res) => {
   try {
     const sku = req.body.sku;
 
+    // 1) Lấy sản phẩm
     const { data: product, error: productError } = await supabase
       .from('skus')
       .select('*')
       .eq('sku', sku)
       .single();
+
     if (productError || !product) {
       return res.render('promotion', {
         title: 'CTKM theo SKU',
@@ -541,55 +542,76 @@ app.post('/search-promotion', requireAuth, async (req, res) => {
       });
     }
 
+    // 2) Lấy danh sách CTKM còn hiệu lực
     const today = new Date().toISOString().split('T')[0];
 
-    const { data: allPromotions } = await supabase
-      .from('promotions')
-      .select(`*, promotion_categories(*), promotion_brands(*), promotion_skus(*), promotion_gifts(*), special_promotion_rules(*)`)
-      .eq('apply_to_all_skus', true)
-      .gte('end_date', today)
-      .lte('start_date', today);
+    const selects =
+      `*, promotion_categories(*), promotion_brands(*), promotion_skus(*), promotion_gifts(*), special_promotion_rules(*)`;
 
-    const { data: skuPromotions } = await supabase
-      .from('promotions')
-      .select(`*, promotion_categories(*), promotion_brands(*), promotion_skus(*), promotion_gifts(*), special_promotion_rules(*)`)
-      .eq('promotion_skus.sku', sku)
-      .gte('end_date', today)
-      .lte('start_date', today);
+    const [{ data: allPromotions = [] }, { data: skuPromotions = [] },
+           { data: categoryPromotions = [] }, { data: brandPromotions = [] }] = await Promise.all([
+      supabase.from('promotions').select(selects)
+        .eq('apply_to_all_skus', true).gte('end_date', today).lte('start_date', today),
+      supabase.from('promotions').select(selects)
+        .eq('promotion_skus.sku', sku).gte('end_date', today).lte('start_date', today),
+      supabase.from('promotions').select(selects)
+        .eq('promotion_categories.category', product.category).gte('end_date', today).lte('start_date', today),
+      supabase.from('promotions').select(selects)
+        .eq('promotion_brands.brand', product.brand).gte('end_date', today).lte('start_date', today),
+    ]);
 
-    const { data: categoryPromotions } = await supabase
-      .from('promotions')
-      .select(`*, promotion_categories(*), promotion_brands(*), promotion_skus(*), promotion_gifts(*), special_promotion_rules(*)`)
-      .eq('promotion_categories.category', product.category)
-      .gte('end_date', today)
-      .lte('start_date', today);
-
-    const { data: brandPromotions } = await supabase
-      .from('promotions')
-      .select(`*, promotion_categories(*), promotion_brands(*), promotion_skus(*), promotion_gifts(*), special_promotion_rules(*)`)
-      .eq('promotion_brands.brand', product.brand)
-      .gte('end_date', today)
-      .lte('start_date', today);
-
-    const all = [
-      ...(allPromotions || []),
-      ...(skuPromotions || []),
-      ...(categoryPromotions || []),
-      ...(brandPromotions || []),
-    ];
-
+    const all = [...allPromotions, ...skuPromotions, ...categoryPromotions, ...brandPromotions];
     const unique = all.filter((p, i, self) => i === self.findIndex((x) => x.id === p.id));
 
-    res.render('promotion', {
+    // 3) Tính Tổng có thể giảm & Giá khuyến mãi cuối
+    const ruleMatch = (rule, brand, subcat) => {
+      const any = (v) => !v || ['tất cả', 'all', '*'].includes(String(v).toLowerCase());
+      const brandOk = any(rule.brand) || rule.brand === brand;
+      const subcatOk = any(rule.subcat) || rule.subcat === subcat;
+      return brandOk && subcatOk;
+    };
+
+    let stackable = 0;    // CTKM cho phép cộng dồn
+    let nonStackMax = 0;  // CTKM độc quyền → lấy lớn nhất
+
+    for (const p of unique) {
+      let promoDiscount = 0;
+      if (Array.isArray(p.special_promotion_rules)) {
+        for (const r of p.special_promotion_rules) {
+          if (ruleMatch(r, product.brand, product.subcat)) {
+            promoDiscount += Number(r.discount_value) || 0;
+          }
+        }
+      }
+      if (promoDiscount > 0) {
+        if (p.compatible_with_other) stackable += promoDiscount;
+        else nonStackMax = Math.max(nonStackMax, promoDiscount);
+      }
+    }
+
+    const totalDiscount = stackable + nonStackMax;
+    const finalPrice = Math.max(0, (product.list_price || 0) - totalDiscount);
+
+    // 4) Đếm số lần so sánh giá theo SKU
+    const { count: comparisonCount } = await supabase
+      .from('price_comparisons')
+      .select('*', { count: 'exact', head: true })
+      .eq('sku', product.sku);
+
+    // 5) Render
+    return res.render('promotion', {
       title: 'CTKM theo SKU',
       currentPage: 'promotion',
       product,
       promotions: unique,
+      totalDiscount,
+      finalPrice,
+      comparisonCount,
       error: null,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
   } catch (error) {
-    res.render('promotion', {
+    return res.render('promotion', {
       title: 'CTKM theo SKU',
       currentPage: 'promotion',
       product: null,
@@ -599,6 +621,7 @@ app.post('/search-promotion', requireAuth, async (req, res) => {
     });
   }
 });
+
 
 app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
   try {
@@ -626,7 +649,6 @@ app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
     });
   }
 });
-
 // Trang quản lý CTKM
 app.get('/promo-management', async (req, res) => {
   try {

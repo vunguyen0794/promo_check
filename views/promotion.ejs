@@ -1,418 +1,450 @@
-<%- include('partials/header', {title: 'CTKM theo SKU', currentPage: 'promotion', time: time}) %>
+<%- include('partials/header', {title: 'CTKM theo SKU' , currentPage: 'promotion' , time: time}) %>
 
-<style>
-    .promotion-container {
-        max-width: 1000px;
-        margin: 0 auto;
-        padding: 20px;
-        background: #f8f9fa;
-        min-height: 100vh;
-    }
+    <style>
+        .promotion-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
 
-    .search-section {
-        background: white;
-        padding: 25px;
-        border-radius: 12px;
-        margin-bottom: 25px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        border: 1px solid #e9ecef;
-    }
+        .search-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
+        }
 
-    .search-section h1 {
-        color: #2c3e50;
-        margin-bottom: 20px;
-        font-size: 28px;
-        font-weight: 700;
-        text-align: center;
-    }
+        .search-section h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 28px;
+            font-weight: 700;
+            text-align: center;
+        }
 
-    .search-form {
-        display: flex;
-        gap: 15px;
-        align-items: end;
-        max-width: 600px;
-        margin: 0 auto;
-    }
+        .search-form {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+            max-width: 600px;
+            margin: 0 auto;
+        }
 
-    .form-group {
-        flex: 1;
-    }
+        .form-group {
+            flex: 1;
+        }
 
-    .form-group label {
-        display: block;
-        margin-bottom: 8px;
-        font-weight: 600;
-        color: #495057;
-        font-size: 14px;
-    }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
 
-    .form-group input {
-        width: 100%;
-        padding: 14px 16px;
-        border: 2px solid #dee2e6;
-        border-radius: 8px;
-        font-size: 16px;
-        background: white;
-        transition: border-color 0.3s ease;
-    }
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            transition: border-color 0.3s ease;
+        }
 
-    .form-group input:focus {
-        outline: none;
-        border-color: #3498db;
-        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-    }
+        .form-group input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
 
-    .btn-search {
-        background: #e74c3c;
-        color: white;
-        border: none;
-        padding: 14px 30px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        height: 50px;
-    }
+        .btn-search {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            height: 50px;
+        }
 
-    .btn-search:hover {
-        background: #c0392b;
-        transform: translateY(-2px);
-    }
+        .btn-search:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+        }
 
-    .product-info {
-        background: white;
-        padding: 25px;
-        border-radius: 12px;
-        margin-bottom: 25px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        border: 1px solid #e9ecef;
-    }
+        .product-info {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
+        }
 
-    .product-info h2 {
-        color: #2c3e50;
-        margin-bottom: 25px;
-        font-size: 22px;
-        font-weight: 700;
-        padding-bottom: 15px;
-        border-bottom: 3px solid #e74c3c;
-    }
+        .product-info h2 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 22px;
+            font-weight: 700;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #e74c3c;
+        }
 
-    .info-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-    }
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
 
-    .info-table th {
-        background: #f8f9fa;
-        padding: 15px;
-        text-align: left;
-        font-weight: 600;
-        color: #495057;
-        border: 1px solid #dee2e6;
-        width: 150px;
-    }
+        .info-table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            width: 150px;
+        }
 
-    .info-table td {
-        padding: 15px;
-        border: 1px solid #dee2e6;
-        font-weight: 500;
-        color: #2c3e50;
-        background: white;
-    }
+        .info-table td {
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            font-weight: 500;
+            color: #2c3e50;
+            background: white;
+        }
 
-    .info-table tr:nth-child(even) td {
-        background: #f8f9fa;
-    }
+        .info-table tr:nth-child(even) td {
+            background: #f8f9fa;
+        }
 
-    .promotions-section {
-        background: white;
-        padding: 25px;
-        border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        border: 1px solid #e9ecef;
-    }
+        .promotions-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
+        }
 
-    .promotions-section h2 {
-        color: #2c3e50;
-        margin-bottom: 25px;
-        font-size: 22px;
-        font-weight: 700;
-        padding-bottom: 15px;
-        border-bottom: 3px solid #27ae60;
-    }
+        .promotions-section h2 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 22px;
+            font-weight: 700;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #27ae60;
+        }
 
-    .promotion-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-    }
+        .promotion-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
 
-    .promotion-table th {
-        background: #27ae60;
-        color: white;
-        padding: 15px;
-        text-align: left;
-        font-weight: 600;
-        border: 1px solid #229954;
-    }
+        .promotion-table th {
+            background: #27ae60;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #229954;
+        }
 
-    .promotion-table td {
-        padding: 15px;
-        border: 1px solid #dee2e6;
-        vertical-align: top;
-    }
+        .promotion-table td {
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+        }
 
-    .promotion-table tr:nth-child(even) {
-        background: #f8f9fa;
-    }
+        .promotion-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
 
-    .promo-name {
-        font-weight: 600;
-        color: #2c3e50;
-        font-size: 16px;
-    }
+        .promo-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 16px;
+        }
 
-    .promo-detail {
-        color: #6c757d;
-        margin-bottom: 5px;
-        font-size: 14px;
-    }
+        .promo-detail {
+            color: #6c757d;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
 
-    .promo-detail strong {
-        color: #495057;
-    }
+        .promo-detail strong {
+            color: #495057;
+        }
 
-    .discount-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 10px;
-        margin-top: 10px;
-    }
+        .discount-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
 
-    .discount-item {
-        background: #e8f5e8;
-        padding: 10px;
-        border-radius: 6px;
-        border-left: 4px solid #27ae60;
-    }
+        .discount-item {
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #27ae60;
+        }
 
-    .discount-item strong {
-        color: #27ae60;
-    }
+        .discount-item strong {
+            color: #27ae60;
+        }
 
-    .price-summary {
-        background: #fff3cd;
-        padding: 20px;
-        border-radius: 8px;
-        margin-top: 25px;
-        border: 2px solid #ffc107;
-    }
+        .price-summary {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 25px;
+            border: 2px solid #ffc107;
+        }
 
-    .price-summary h3 {
-        color: #856404;
-        margin-bottom: 15px;
-        font-size: 18px;
-        font-weight: 700;
-    }
+        .price-summary h3 {
+            color: #856404;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 700;
+        }
 
-    .summary-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 10px 0;
-        border-bottom: 1px solid #ffeaa7;
-    }
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #ffeaa7;
+        }
 
-    .summary-item:last-child {
-        border-bottom: none;
-    }
+        .summary-item:last-child {
+            border-bottom: none;
+        }
 
-    .summary-item strong {
-        color: #856404;
-    }
+        .summary-item strong {
+            color: #856404;
+        }
 
-    .final-price {
-        font-size: 20px;
-        font-weight: 700;
-        color: #e74c3c;
-    }
+        .final-price {
+            font-size: 20px;
+            font-weight: 700;
+            color: #e74c3c;
+        }
 
-    .no-data {
-        text-align: center;
-        padding: 50px 20px;
-        color: #6c757d;
-    }
+        .no-data {
+            text-align: center;
+            padding: 50px 20px;
+            color: #6c757d;
+        }
 
-    .no-data i {
-        font-size: 64px;
-        margin-bottom: 20px;
-        display: block;
-        color: #adb5bd;
-    }
+        .no-data i {
+            font-size: 64px;
+            margin-bottom: 20px;
+            display: block;
+            color: #adb5bd;
+        }
 
-    .no-data p {
-        font-size: 18px;
-        margin-bottom: 10px;
-    }
+        .no-data p {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
 
-    .error-message {
-        background: #f8d7da;
-        color: #721c24;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        border: 1px solid #f5c6cb;
-        text-align: center;
-    }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+            text-align: center;
+        }
 
-    .btn-detail {
-        background: #3498db;
-        color: white;
-        padding: 8px 16px;
-        border: none;
-        border-radius: 6px;
-        text-decoration: none;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        display: inline-block;
-        margin-top: 10px;
-    }
+        .btn-detail {
+            background: #3498db;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin-top: 10px;
+        }
 
-    .btn-detail:hover {
-        background: #2980b9;
-        transform: translateY(-1px);
-    }
-</style>
+        .btn-detail:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+        }
+    </style>
 
-<div class="promotion-container">
-    <% if (typeof error !== 'undefined' && error) { %>
-    <div class="error-message">
-        ⚠️ <%= error %>
-    </div>
-    <% } %>
-
-    <div class="search-section">
-        <h1>CTKM theo SKU</h1>
-        <form action="/search-promotion" method="POST" class="search-form">
-            <div class="form-group">
-                <label for="sku">Nhập SKU hoặc CTKM</label>
-                <input type="text" id="sku" name="sku" placeholder="Ví dụ: 244994124" required 
-                       value="<%= typeof product !== 'undefined' && product ? product.sku : '' %>">
+    <div class="promotion-container">
+        <% if (typeof error !=='undefined' && error) { %>
+            <div class="error-message">
+                ⚠️ <%= error %>
             </div>
-            <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
-        </form>
-    </div>
+            <% } %>
 
-    <% if (typeof product !== 'undefined' && product) { %>
-    <div class="product-info">
-        <h2>Thông tin sản phẩm</h2>
-        <table class="info-table">
-            <tr>
-                <th>SKU</th>
-                <td><%= product.sku %></td>
-            </tr>
-            <tr>
-                <th>Tên sản phẩm</th>
-                <td><%= product.product_name %></td>
-            </tr>
-            <tr>
-                <th>Brand</th>
-                <td><%= product.brand %></td>
-            </tr>
-            <tr>
-                <th>Subcat</th>
-                <td><%= product.subcat %></td>
-            </tr>
-            <tr>
-                <th>Prices</th>
-                <td><strong><%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' VNĐ' : 'N/A' %></strong></td>
-            </tr>
-        </table>
-    </div>
+                <div class="search-section">
+                    <h1>CTKM theo SKU</h1>
+                    <form action="/search-promotion" method="POST" class="search-form">
+                        <div class="form-group">
+                            <label for="sku">Nhập SKU hoặc CTKM</label>
+                            <input type="text" id="sku" name="sku" placeholder="Ví dụ: 244994124" required
+                                value="<%= typeof product !== 'undefined' && product ? product.sku : '' %>">
+                        </div>
+                        <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
+                    </form>
+                </div>
 
-    <div class="promotions-section">
-        <h2>CTKM khả dụng</h2>
-        
-        <% if (typeof promotions !== 'undefined' && promotions.length > 0) { %>
-            <table class="promotion-table">
-                <thead>
-                    <tr>
-                        <th>CTKM</th>
-                        <th>Chi tiết</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% promotions.forEach(promo => { %>
-                    <tr>
-                        <td>
-                            <div class="promo-name"><%= promo.name %></div>
-                            <div class="promo-detail">
-                                <strong>📅:</strong> 
-                                <%= promo.start_date ? new Date(promo.start_date).toLocaleDateString('vi-VN') : 'N/A' %> - 
-                                <%= promo.end_date ? new Date(promo.end_date).toLocaleDateString('vi-VN') : 'N/A' %>
+                <% if (typeof product !=='undefined' && product) { %>
+                    <div class="product-info">
+                        <h2>Thông tin sản phẩm</h2>
+                        <table class="product-table">
+                            <tr>
+                                <th>SKU</th>
+                                <td>
+                                    <%= product.sku %>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Tên sản phẩm</th>
+                                <td>
+                                    <%= product.product_name %>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Brand</th>
+                                <td>
+                                    <%= product.brand %>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Subcat</th>
+                                <td>
+                                    <%= product.subcat %>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Prices</th>
+                                <td><strong>
+                                        <%= product.list_price ? new
+                                            Intl.NumberFormat('vi-VN').format(product.list_price) + ' VNĐ' : 'N/A' %>
+                                    </strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <p style="margin-top:12px">
+                        🔎 Lịch sử so sánh giá:
+                        <strong>
+                            <%= comparisonCount || 0 %> lần
+                        </strong>
+                        · <a href="/price-battle?sku=<%= product.sku %>">Xem chi tiết</a>
+                    </p>
+
+                    <div class="promotions-section">
+                        <h2>CTKM khả dụng</h2>
+
+                        <% if (typeof promotions !=='undefined' && promotions.length> 0) { %>
+                            <table class="promo-table">
+                                <thead>
+                                    <tr>
+                                        <th>CTKM</th>
+                                        <th>Chi tiết</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% promotions.forEach(promo=> { %>
+                                        <tr>
+                                            <td data-label="CTKM">
+                                                <div class="promo-name">
+                                                    <%= promo.name %>
+                                                </div>
+                                                <div class="promo-detail">
+                                                    <strong>📅:</strong>
+                                                    <%= promo.start_date ? new
+                                                        Date(promo.start_date).toLocaleDateString('vi-VN') : 'N/A' %> -
+                                                        <%= promo.end_date ? new
+                                                            Date(promo.end_date).toLocaleDateString('vi-VN') : 'N/A' %>
+                                                </div>
+                                                <div class="promo-detail"><strong>🎯:</strong>
+                                                    <%= promo.promo_type %>
+                                                </div>
+                                            </td>
+
+                                            <td data-label="Chi tiết">
+                                                <% if (promo.description) { %>
+                                                    <div class="promo-detail">
+                                                        <%= promo.description %>
+                                                    </div>
+                                                    <% } %>
+                                                        <% if (promo.coupon_code) { %>
+                                                            <div class="promo-detail"><strong>🔑:</strong>
+                                                                <%= promo.coupon_code %>
+                                                            </div>
+                                                            <% } %>
+
+                                                                <% if (promo.special_promotion_rules &&
+                                                                    promo.special_promotion_rules.length> 0) { %>
+                                                                    <div class="discount-grid">
+                                                                        <% promo.special_promotion_rules.forEach(rule=>
+                                                                            { %>
+                                                                            <div class="discount-item">
+                                                                                <strong>
+                                                                                    <%= rule.brand || 'Tất cả' %> - <%=
+                                                                                            rule.subcat || 'Tất cả' %>
+                                                                                </strong><br>
+                                                                                Giảm: <%= new
+                                                                                    Intl.NumberFormat('vi-VN').format(rule.discount_value)
+                                                                                    %> VNĐ
+                                                                            </div>
+                                                                            <% }); %>
+                                                                    </div>
+                                                                    <% } %>
+                                            </td>
+
+                                            <td data-label="Action">
+                                                <a href="/promotion-detail/<%= promo.id %>" class="btn-detail">👁️ Xem
+                                                    chi tiết</a>
+                                            </td>
+                                        </tr>
+                                        <% }); %>
+                                </tbody>
+                            </table>
+
+                            <!-- Phần tổng kết giá -->
+                            <div class="summary-item">
+                                <span>Tổng có thể giảm:</span>
+                                <strong>
+                                    <%= new Intl.NumberFormat('vi-VN').format(totalDiscount || 0) %> VNĐ
+                                </strong>
                             </div>
-                            <div class="promo-detail">
-                                <strong>🎯:</strong> <%= promo.promo_type %>
+                            <div class="summary-item final-price">
+                                <span>Giá khuyến mãi cuối:</span>
+                                <strong>
+                                    <%= new Intl.NumberFormat('vi-VN').format(finalPrice || 0) %> VNĐ
+                                </strong>
                             </div>
-                        </td>
-                        <td>
-                            <% if (promo.description) { %>
-                            <div class="promo-detail"><%= promo.description %></div>
-                            <% } %>
-                            <% if (promo.coupon_code) { %>
-                            <div class="promo-detail">
-                                <strong>🔑:</strong> <%= promo.coupon_code %>
-                            </div>
-                            <% } %>
-                            <!-- Hiển thị các quy tắc giảm giá nếu có -->
-                            <% if (promo.special_promotion_rules && promo.special_promotion_rules.length > 0) { %>
-                            <div class="discount-grid">
-                                <% promo.special_promotion_rules.forEach(rule => { %>
-                                <div class="discount-item">
-                                    <strong><%= rule.brand || 'Tất cả' %> - <%= rule.subcat || 'Tất cả' %></strong><br>
-                                    Giảm: <%= new Intl.NumberFormat('vi-VN').format(rule.discount_value) %> VNĐ
+
+
+                            <% } else { %>
+                                <div class="no-data">
+                                    <i>📭</i>
+                                    <p>Không có CTKM nào áp dụng cho sản phẩm này</p>
+                                    <p>Vui lòng kiểm tra lại SKU hoặc thử SKU khác</p>
                                 </div>
-                                <% }); %>
-                            </div>
-                            <% } %>
-                        </td>
-                        <td>
-                            <a href="/promotion-detail/<%= promo.id %>" class="btn-detail">👁️ Xem chi tiết</a>
-                        </td>
-                    </tr>
-                    <% }); %>
-                </tbody>
-            </table>
-
-            <!-- Phần tổng kết giá -->
-            <div class="price-summary">
-                <h3>💰 Tổng hợp giá</h3>
-                <div class="summary-item">
-                    <span>Giá niêm yết:</span>
-                    <strong><%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' VNĐ' : 'N/A' %></strong>
-                </div>
-                <div class="summary-item">
-                    <span>Tổng có thể giảm:</span>
-                    <strong>300.000 VNĐ</strong>
-                </div>
-                <div class="summary-item">
-                    <span>Giá khuyến mãi cuối:</span>
-                    <strong class="final-price">16.690.000 VNĐ</strong>
-                </div>
-            </div>
-
-        <% } else { %>
-            <div class="no-data">
-                <i>📭</i>
-                <p>Không có CTKM nào áp dụng cho sản phẩm này</p>
-                <p>Vui lòng kiểm tra lại SKU hoặc thử SKU khác</p>
-            </div>
-        <% } %>
+                                <% } %>
+                    </div>
+                    <% } %>
     </div>
-    <% } %>
-</div>
 
-<%- include('partials/footer') %>
+    <%- include('partials/footer') %>
