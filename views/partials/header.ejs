@@ -21,7 +21,7 @@
                         <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">Quản lý CTKM</a>
                     <% } %>
                 </nav>
-                <div class="time-display"><%= time %></div>
+                <span id="local-time" class="time-display"></span>
                 <% if (user) { %>
                     <div class="user-nav">
                         <div class="user-info">
@@ -40,6 +40,16 @@
             </div>
         </div>
     </header>
-    
+    <script>
+(function tick(){
+  var el = document.getElementById('local-time');
+  if (el) {
+    var now = new Date();
+    el.textContent = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  }
+  setTimeout(tick, 60 * 1000);
+})();
+</script>
+
     <main class="main-content">
         <div class="container">

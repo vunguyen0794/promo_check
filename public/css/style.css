@@ -1213,24 +1213,25 @@ label {
 
 
 /* Thumbnails trong lịch sử */
-.history-images {
-  margin-top: 8px;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+.history-images{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:8px;
 }
 .img-thumb {
-  display: inline-block;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  overflow: hidden;
-  width: 64px; height: 64px;
-  background: #fafafa;
+  display:inline-block;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  overflow:hidden;
+  width:96px; height:96px;          /* trước là 64x64 -> tăng lên 96x96 */
+  background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+  transition:transform .12s ease, box-shadow .12s ease;
 }
-.img-thumb img {
-  width: 100%; height: 100%; object-fit: cover;
-  display: block;
-}
+
+.img-thumb:hover{ transform:scale(1.02); box-shadow:0 4px 10px rgba(0,0,0,.08); }
+.img-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
 
 /* Badge đối thủ — nền rõ, màu khác nhau */
 .history-competitor {
@@ -1397,5 +1398,20 @@ label {
   .price-summary{ padding:12px; }
   .price-summary .final{ font-size:17px; }
 }
+/* ===== Compact header on small screens ===== */
+.header { padding: 6px 0; }
+.header .container { min-height: 44px; padding: 6px 12px; gap: 8px; }
+.header .brand, .navbar .brand { font-size: 15px; }
+.nav { gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.nav a { font-size: 13px; padding: 6px 8px; border-radius: 8px; }
+.time-display { font-size: 12px; opacity: .85; }
+
+.user-chip { gap: 6px; }
+.user-chip .avatar { width: 28px; height: 28px; font-size: 13px; }
+.user-chip .logout-btn { padding: 4px 8px; font-size: 12px; border-radius: 10px; }
+
+/* giảm khoảng trắng bên dưới header nếu có */
+.main, .container { scroll-margin-top: 56px; }
 
 

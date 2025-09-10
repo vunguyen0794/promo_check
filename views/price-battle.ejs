@@ -5,7 +5,7 @@
             <%= new Date().toLocaleDateString('vi-VN') %>
         </span></p>
     <p>Tạo bởi: <strong>
-            <%= user ? user.full_name || user.email : 'admin@example.com' %>
+            <%= user ? (user.full_name || user.email) : 'admin@example.com' %>
         </strong></p>
 
     <div class="price-battle-section">
@@ -50,7 +50,7 @@
                     <label><input type="radio" name="competitor" value="Khác"> Khác</label>
                 </td>
             </tr>
-            <tr id="otherCompetitorRow" style="display: none;">
+            <tr id="otherCompetitorRow" style="display:none;">
                 <th>Tên đối thủ khác *</th>
                 <td><input type="text" class="info-input" id="otherCompetitor" placeholder="Nhập tên đối thủ"></td>
             </tr>
@@ -61,22 +61,19 @@
             </tr>
             <tr>
                 <th>Link đối thủ</th>
-                <td><input type="url" class="info-input" id="competitorLink" placeholder="https://..."></td>
+                <td><input type="url" class="info-input" id="competitorLink" placeholder="https://example.com/san-pham">
+                </td>
             </tr>
             <tr>
                 <th>Hình ảnh (tối đa 3 ảnh)</th>
                 <td>
-                    <input type="file" name="images" id="competitorImages" accept="image/*" multiple />
-                    <div id="imagePreview" style="margin-top: 10px;"></div>
+                    <input type="file" id="competitorImages" accept="image/*" multiple>
+                    <div id="imagePreview" style="margin-top:8px;"></div>
                 </td>
             </tr>
         </table>
-    </div>
 
-    <div class="price-battle-section">
-        <h2 class="section-title">Tình trạng hàng hóa *</h2>
-
-        <div class="stock-options">
+        <div class="stock-section">
             <label class="stock-option">
                 <input type="radio" name="stock" value="available" checked required> Còn hàng
             </label>
@@ -107,19 +104,18 @@
         <h2 class="section-title">Lịch sử so sánh giá gần đây</h2>
         <div class="history-list">
             <% if (recentComparisons && recentComparisons.length> 0) { %>
-                <% recentComparisons.forEach(comparison=> { %>
+                <% recentComparisons.forEach(function(comparison){ %>
                     <div class="history-item">
                         <div class="history-header">
                             <span class="history-sku"><strong>
                                     <%= comparison.sku %>
                                 </strong></span>
-                            <% const __compName=(comparison.competitor_name || '' ); const __compKey=__compName
-                                .toLowerCase() .normalize('NFD') .replace(/[\u0300-\u036f]/g,'') .replace(/\s+/g,''); %>
+                            <% const __compName=(comparison.competitor_name || '' ); const
+                                __compKey=__compName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'');
+                                %>
                                 <span class="history-competitor competitor-<%= __compKey %>">
                                     <%= comparison.competitor_name %>
                                 </span>
-
-
                         </div>
                         <div class="history-details">
                             <div><strong>Tên SP:</strong>
@@ -139,16 +135,23 @@
                                 </span></div>
                             <div>Ngày: <%= new Date(comparison.created_at).toLocaleDateString('vi-VN') %>
                             </div>
+
                             <% let imgs=[]; try { imgs=Array.isArray(comparison.images) ? comparison.images :
-                                JSON.parse(comparison.images || '[]' ); } catch(e) { imgs=[]; } %>
-                                <% if (imgs && imgs.length) { %>
+                                JSON.parse(comparison.images || '[]' ); } catch (err) { imgs=[]; } function toDriveId(u)
+                                { try { const m=String(u).match(/(?:id=|\/d\/)([A-Za-z0-9_-]+)/); return m ? m[1] :
+                                null; } catch(e) { return null; } } %>
+                                <% if (imgs.length> 0) { %>
                                     <div class="history-images">
-                                        <% imgs.slice(0, 6).forEach((u, idx)=> { %>
-                                            <a class="img-thumb" href="<%= u %>" target="_blank" rel="noopener"
+                                        <% imgs.slice(0,6).forEach(function(raw, idx){ const id=toDriveId(raw); const
+                                            view=id ? ('https://drive.google.com/uc?export=view&id=' + id) : raw;
+                                     const thumb = id ? (' https://drive.google.com/thumbnail?id=' + id + ' &sz=w600')
+                                            : raw; %>
+                                            <a class="img-thumb" href="<%= view %>" target="_blank" rel="noopener"
                                                 title="Xem ảnh <%= idx+1 %>">
-                                                <img src="<%= u %>" alt="image <%= idx+1 %>" />
+                                                <img loading="lazy" src="<%= thumb %>" alt="Ảnh <%= idx+1 %>"
+                                                    onerror="this.onerror=null; this.src='<%= view %>'">
                                             </a>
-                                            <% }) %>
+                                            <% }); %>
                                     </div>
                                     <% } %>
                         </div>
@@ -176,23 +179,30 @@
             let selectedProduct = null;
             let timeoutId;
 
-            // Xử lý autocomplete cho SKU
+            // ---- helper: lấy product theo SKU (API /api/skus?q=...) ----
+            async function fetchProductInfo(sku) {
+                try {
+                    const r = await fetch(`/api/skus?q=${encodeURIComponent(sku)}`);
+                    if (r.status === 401) { location.href = '/login'; return null; }
+                    const arr = await r.json();
+                    if (!Array.isArray(arr) || arr.length === 0) return null;
+                    return arr.find(x => String(x.sku) === String(sku)) || arr[0];
+                } catch (e) {
+                    console.error('fetchProductInfo error:', e);
+                    return null;
+                }
+            }
+
+            // ---- Autocomplete SKU ----
             battleSku.addEventListener('input', function (e) {
                 clearTimeout(timeoutId);
                 const value = e.target.value.trim();
-
-                if (value.length < 1) {
-                    battleAutocomplete.style.display = 'none';
-                    return;
-                }
+                if (value.length < 1) { battleAutocomplete.style.display = 'none'; return; }
 
                 timeoutId = setTimeout(async () => {
                     try {
                         const response = await fetch(`/api/skus?q=${encodeURIComponent(value)}`);
-                        if (response.status === 401) {
-                            location.href = '/login';
-                            return;
-                        }
+                        if (response.status === 401) { location.href = '/login'; return; }
                         const data = await response.json();
 
                         if (data && data.length > 0) {
@@ -201,11 +211,10 @@
                                 const div = document.createElement('div');
                                 div.className = 'autocomplete-item';
                                 div.innerHTML = `
-                            <div><strong>${item.sku}</strong> - ${item.product_name}</div>
-                            <div style="font-size: 12px; color: #666;">
-                                ${item.brand} | ${item.list_price ? new Intl.NumberFormat('vi-VN').format(item.list_price) + ' VNĐ' : 'N/A'}
-                            </div>
-                        `;
+                <div><strong>${item.sku}</strong> - ${item.product_name}</div>
+                <div style="font-size:12px;color:#666;">
+                  ${item.brand} | ${item.list_price ? new Intl.NumberFormat('vi-VN').format(item.list_price) + ' VNĐ' : 'N/A'}
+                </div>`;
                                 div.addEventListener('click', function () {
                                     battleSku.value = item.sku;
                                     skuName.value = item.product_name;
@@ -226,6 +235,7 @@
                     }
                 }, 300);
             });
+
             battleSku.addEventListener('blur', async function () {
                 const skuValue = battleSku.value.trim();
                 if (skuValue && (!selectedProduct || selectedProduct.sku !== skuValue)) {
@@ -233,20 +243,22 @@
                     if (productInfo) {
                         selectedProduct = productInfo;
                         skuName.value = productInfo.product_name || '';
-                        listPrice.value = productInfo.list_price ?
-                            new Intl.NumberFormat('vi-VN').format(productInfo.list_price) : '';
+                        listPrice.value = productInfo.list_price
+                            ? new Intl.NumberFormat('vi-VN').format(productInfo.list_price)
+                            : '';
                         validateForm();
                     }
                 }
             });
-            // Ẩn autocomplete khi click outside
+
+            // Ẩn autocomplete khi click ra ngoài
             document.addEventListener('click', function (e) {
                 if (!e.target.closest('.autocomplete-container')) {
                     battleAutocomplete.style.display = 'none';
                 }
             });
 
-            // Xử lý competitor khác
+            // Đối thủ "Khác"
             document.querySelectorAll('input[name="competitor"]').forEach(radio => {
                 radio.addEventListener('change', function () {
                     document.getElementById('otherCompetitorRow').style.display =
@@ -255,57 +267,41 @@
                 });
             });
 
-            // Xử lý tính toán chênh lệch giá
+            // Tính chênh lệch + giá gợi ý
             function calculatePriceDifference() {
                 const ourPrice = parseFloat(promoPrice.value.replace(/\./g, '')) ||
-                    (selectedProduct ? selectedProduct.list_price : 0);
+                    (selectedProduct ? (selectedProduct.list_price || 0) : 0);
                 const compPrice = parseFloat(competitorPrice.value.replace(/\./g, ''));
 
                 if (ourPrice && compPrice) {
-                    const difference = ourPrice - compPrice;
+                    const difference = ourPrice - compPrice; // our - comp (khớp UI)
                     priceDifference.value = new Intl.NumberFormat('vi-VN').format(difference);
                     differenceAmount.textContent = new Intl.NumberFormat('vi-VN').format(difference);
-
-                    // Giá gợi ý = giá của ta - chênh lệch (để bằng giá đối thủ)
                     suggestedPrice.textContent = new Intl.NumberFormat('vi-VN').format(ourPrice - difference);
                 } else {
                     priceDifference.value = '';
                     differenceAmount.textContent = '0';
                     suggestedPrice.textContent = '0';
                 }
-
                 validateForm();
             }
-
-            // Xử lý sự kiện input cho các trường giá
             promoPrice.addEventListener('input', calculatePriceDifference);
             competitorPrice.addEventListener('input', calculatePriceDifference);
 
-            // Xử lý file upload
-            document.getElementById('competitorImages').addEventListener('change', function (e) {
+            // Preview ảnh
+            document.getElementById('competitorImages').addEventListener('change', function () {
                 const preview = document.getElementById('imagePreview');
                 preview.innerHTML = '';
-
                 if (this.files.length > 3) {
-                    alert('Chỉ được chọn tối đa 3 ảnh');
-                    this.value = '';
-                    return;
+                    alert('Chỉ được chọn tối đa 3 ảnh'); this.value = ''; return;
                 }
-
                 Array.from(this.files).forEach(file => {
-                    if (!file.type.match('image.*')) {
-                        alert('Chỉ được chọn file ảnh');
-                        this.value = '';
-                        return;
-                    }
-
+                    if (!file.type.match('image.*')) { alert('Chỉ được chọn file ảnh'); this.value = ''; return; }
                     const reader = new FileReader();
-                    reader.onload = function (e) {
+                    reader.onload = e => {
                         const img = document.createElement('img');
                         img.src = e.target.result;
-                        img.style.maxWidth = '100px';
-                        img.style.maxHeight = '100px';
-                        img.style.margin = '5px';
+                        img.style.maxWidth = '100px'; img.style.maxHeight = '100px'; img.style.margin = '5px';
                         preview.appendChild(img);
                     };
                     reader.readAsDataURL(file);
@@ -316,47 +312,40 @@
             function validateForm() {
                 const isSkuValid = battleSku.value.trim() !== '';
                 const isCompetitorValid = document.querySelector('input[name="competitor"]:checked') !== null;
-                const isCompetitorPriceValid = competitorPrice.value.trim() !== '' && !isNaN(parseFloat(competitorPrice.value));
+                const isCompetitorPriceValid = competitorPrice.value.trim() !== '' &&
+                    !isNaN(parseFloat(competitorPrice.value));
                 const isStockValid = document.querySelector('input[name="stock"]:checked') !== null;
-
                 saveButton.disabled = !(isSkuValid && isCompetitorValid && isCompetitorPriceValid && isStockValid);
             }
-
-            // Thêm event listeners cho validation
             battleSku.addEventListener('input', validateForm);
             competitorPrice.addEventListener('input', validateForm);
-            document.querySelectorAll('input[name="competitor"], input[name="stock"]').forEach(input => {
-                input.addEventListener('change', validateForm);
-            });
+            document.querySelectorAll('input[name="competitor"], input[name="stock"]')
+                .forEach(input => input.addEventListener('change', validateForm));
 
-            // Xử lý lưu so sánh giá
+            // ---- Lưu so sánh giá ----
             saveButton.addEventListener('click', async function () {
                 if (saveButton.disabled) return;
 
                 const selectedCompetitor = document.querySelector('input[name="competitor"]:checked');
-                const competitorName = selectedCompetitor.value === 'Khác' ?
-                    document.getElementById('otherCompetitor').value : selectedCompetitor.value;
-
+                const competitorName = selectedCompetitor.value === 'Khác'
+                    ? document.getElementById('otherCompetitor').value
+                    : selectedCompetitor.value;
                 if (selectedCompetitor.value === 'Khác' && !document.getElementById('otherCompetitor').value) {
-                    alert('Vui lòng nhập tên đối thủ');
-                    return;
+                    alert('Vui lòng nhập tên đối thủ'); return;
                 }
 
-                // Lấy thông tin sản phẩm nếu chưa có
+                // Lấy product nếu user chỉ nhập SKU
                 const skuValue = battleSku.value.trim();
                 if (!selectedProduct && skuValue) {
                     const productInfo = await fetchProductInfo(skuValue);
-                    if (productInfo) {
-                        selectedProduct = productInfo;
-                    }
+                    if (productInfo) selectedProduct = productInfo;
                 }
 
                 const ourPrice = parseFloat(promoPrice.value.replace(/\./g, '')) ||
-                    (selectedProduct ? selectedProduct.list_price : 0);
+                    (selectedProduct ? (selectedProduct.list_price || 0) : 0);
                 const compPrice = parseFloat(competitorPrice.value.replace(/\./g, ''));
-                const difference = compPrice - ourPrice;
+                const difference = ourPrice - compPrice;
 
-                // Tạo FormData để gửi file
                 const formData = new FormData();
                 formData.append('sku', skuValue);
                 formData.append('product_name', skuName.value);
@@ -368,40 +357,35 @@
                 formData.append('competitor_name', competitorName);
                 formData.append('competitor_price', compPrice);
                 formData.append('competitor_link', document.getElementById('competitorLink').value);
-                formData.append('stock_status', document.querySelector('input[name="stock"]:checked').value);
+                formData.append(
+                    'stock_status',
+                    document.querySelector('input[name="stock"]:checked').value
+                );
                 formData.append('price_difference', difference);
                 formData.append('suggested_price', ourPrice - difference);
 
-                // Thêm files nếu có
                 const imageFiles = document.getElementById('competitorImages').files;
-                for (let i = 0; i < imageFiles.length; i++) {
-                    formData.append('images', imageFiles[i]);
-                }
+                for (let i = 0; i < imageFiles.length; i++) formData.append('images', imageFiles[i]);
+
+                saveButton.disabled = true;
+                const oldText = saveButton.textContent;
+                saveButton.textContent = 'Đang lưu…';
 
                 try {
                     const response = await fetch('/price-battle/save', {
                         method: 'POST',
                         body: formData,
-                        credentials: 'include',
+                        credentials: 'include'
                     });
+                    if (response.status === 401) { location.href = '/login'; return; }
 
-                    if (response.status === 401) {
-                        location.href = '/login';
-                        return;
-                    }
-
-
-                    const files = document.getElementById('competitorImages')?.files || [];
-                    for (let i = 0; i < files.length; i++) formData.append('images', files[i]);
-
-                    // Kiểm tra content-type
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('application/json')) {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (!contentType.includes('application/json')) {
                         const text = await response.text();
-                        throw new Error('Server trả về không phải JSON: ' + text.substring(0, 100));
+                        throw new Error('Server trả về không phải JSON: ' + text.substring(0, 120));
                     }
-                    const result = await response.json();
 
+                    const result = await response.json();
                     const isOk = result && (result.success === true || result.ok === true);
                     if (isOk) {
                         alert('Lưu so sánh giá thành công!');
@@ -410,8 +394,11 @@
                         alert('Lỗi: ' + (result && result.error ? result.error : 'Không rõ nguyên nhân'));
                     }
                 } catch (error) {
-                    console.error('Save error:', error);
-                    alert('Lỗi kết nối: ' + error.message);
+                    console.error('Save comparison error:', error);
+                    alert('❌ Không lưu được: ' + (error.message || error));
+                } finally {
+                    saveButton.disabled = false;
+                    saveButton.textContent = oldText;
                 }
             });
         });

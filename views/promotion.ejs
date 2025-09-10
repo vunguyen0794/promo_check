@@ -292,7 +292,7 @@
                 ⚠️ <%= error %>
             </div>
             <% } %>
-
+                <div class="page-search">
                 <div class="search-section">
                     <h1>CTKM theo SKU</h1>
                     <form action="/search-promotion" method="POST" class="search-form">
@@ -303,6 +303,7 @@
                         </div>
                         <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
                     </form>
+                </div>
                 </div>
 
                 <% if (typeof product !=='undefined' && product) { %>
