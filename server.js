@@ -431,6 +431,40 @@ app.post('/price-battle/save', requireAuth, upload.array('images', 3), async (re
         error: 'Thiếu thông tin bắt buộc: SKU, tên đối thủ, giá đối thủ',
       });
     }
+    // === Thêm/Upsert SKU mới nếu cần ===
+const rawSku = String(req.body.sku || '').trim();
+const isNewSku = String(req.body.is_new_sku || 'false') === 'true';
+const newName = (req.body.product_name || '').trim();
+const newListPrice = Number(req.body.list_price) || null;
+
+if (rawSku) {
+  try {
+    if (isNewSku) {
+      await supabase.from('skus').upsert([{
+        sku: rawSku,
+        product_name: newName || rawSku,
+        brand: req.body.brand || null,
+        category: req.body.category || null,
+        subcat: req.body.subcat || null,
+        list_price: newListPrice
+      }], { onConflict: 'sku' });
+    } else {
+      const { data: existed } = await supabase.from('skus').select('sku').eq('sku', rawSku).limit(1);
+      if (!existed || existed.length === 0) {
+        await supabase.from('skus').insert([{
+          sku: rawSku,
+          product_name: newName || rawSku,
+          brand: req.body.brand || null,
+          category: req.body.category || null,
+          subcat: req.body.subcat || null,
+          list_price: newListPrice
+        }]);
+      }
+    }
+  } catch (e) {
+    console.warn('Insert new SKU warning:', e?.message || e);
+  }
+}
 
     // Ảnh
     let imageUrls = [];

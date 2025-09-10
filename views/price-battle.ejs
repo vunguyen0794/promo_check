@@ -17,6 +17,10 @@
                 <input type="text" class="info-input" id="battleSku"
                     placeholder="Nhập SKU (Có gợi ý theo list SKU-tên sp)" autocomplete="off" required>
                 <div class="autocomplete-results" id="battleAutocomplete"></div>
+                <input type="hidden" id="isNewSku" value="false" />
+                <small id="newSkuBadge" style="display:none;color:#e65100;font-weight:600;">
+                    Đang thêm SKU mới – vui lòng nhập Tên SP và Giá niêm yết.
+                </small>
             </div>
         </div>
 
@@ -71,16 +75,21 @@
                     <div id="imagePreview" style="margin-top:8px;"></div>
                 </td>
             </tr>
+        
+
+        <tr>
+            <th>Tình trạng kho đối thủ *</th>
+            <td>
+                <label class="stock-option">
+                    <input type="radio" name="stock" value="available" checked required> Còn hàng
+                </label>
+                <label class="stock-option">
+                    <input type="radio" name="stock" value="out-of-stock"> Hết hàng
+                </label>
+            </td>
+        </tr>
         </table>
 
-        <div class="stock-section">
-            <label class="stock-option">
-                <input type="radio" name="stock" value="available" checked required> Còn hàng
-            </label>
-            <label class="stock-option">
-                <input type="radio" name="stock" value="out-of-stock"> Hết hàng
-            </label>
-        </div>
 
         <div class="result-section">
             <h3 class="section-title">Kết quả</h3>
@@ -175,6 +184,14 @@
             const differenceAmount = document.getElementById('differenceAmount');
             const suggestedPrice = document.getElementById('suggestedPrice');
             const saveButton = document.getElementById('saveComparison');
+            const isNewSkuInput = document.getElementById('isNewSku');
+            const newSkuBadge = document.getElementById('newSkuBadge');
+            let newSkuMode = false;
+            function parseVN(n) {
+                if (typeof n !== 'string') n = String(n ?? '');
+                return parseFloat(n.replace(/\./g, '').replace(/,/g, '')) || 0;
+            }
+
 
             let selectedProduct = null;
             let timeoutId;
@@ -193,10 +210,10 @@
                 }
             }
 
-            // ---- Autocomplete SKU ----
             battleSku.addEventListener('input', function (e) {
                 clearTimeout(timeoutId);
                 const value = e.target.value.trim();
+                selectedProduct = null;
                 if (value.length < 1) { battleAutocomplete.style.display = 'none'; return; }
 
                 timeoutId = setTimeout(async () => {
@@ -205,36 +222,65 @@
                         if (response.status === 401) { location.href = '/login'; return; }
                         const data = await response.json();
 
-                        if (data && data.length > 0) {
-                            battleAutocomplete.innerHTML = '';
-                            data.forEach(item => {
-                                const div = document.createElement('div');
-                                div.className = 'autocomplete-item';
-                                div.innerHTML = `
-                <div><strong>${item.sku}</strong> - ${item.product_name}</div>
-                <div style="font-size:12px;color:#666;">
-                  ${item.brand} | ${item.list_price ? new Intl.NumberFormat('vi-VN').format(item.list_price) + ' VNĐ' : 'N/A'}
-                </div>`;
-                                div.addEventListener('click', function () {
-                                    battleSku.value = item.sku;
-                                    skuName.value = item.product_name;
-                                    listPrice.value = item.list_price ? new Intl.NumberFormat('vi-VN').format(item.list_price) : '';
-                                    selectedProduct = item;
-                                    battleAutocomplete.style.display = 'none';
-                                    validateForm();
-                                });
-                                battleAutocomplete.appendChild(div);
+                        battleAutocomplete.innerHTML = '';
+                        let exact = false;
+
+                        (data || []).forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'autocomplete-item';
+                            div.innerHTML = `
+          <div><strong>${item.sku}</strong> - ${item.product_name || ''}</div>
+          <div style="font-size:12px;color:#666;">
+            ${item.brand || ''} | ${item.list_price ? new Intl.NumberFormat('vi-VN').format(item.list_price) + ' VNĐ' : 'N/A'}
+          </div>`;
+                            div.addEventListener('click', function () {
+                                newSkuMode = false;
+                                isNewSkuInput.value = 'false';
+                                newSkuBadge.style.display = 'none';
+
+                                battleSku.value = item.sku;
+                                skuName.value = item.product_name || '';
+                                skuName.disabled = true;
+
+                                listPrice.value = item.list_price ? new Intl.NumberFormat('vi-VN').format(item.list_price) : '';
+                                listPrice.disabled = true;
+
+                                selectedProduct = item;
+                                battleAutocomplete.style.display = 'none';
+                                validateForm();
                             });
-                            battleAutocomplete.style.display = 'block';
-                        } else {
-                            battleAutocomplete.style.display = 'none';
+                            if (String(item.sku) === value) exact = true;
+                            battleAutocomplete.appendChild(div);
+                        });
+
+                        if (!exact && value) {
+                            const add = document.createElement('div');
+                            add.className = 'autocomplete-item add-new';
+                            add.innerHTML = `➕ Thêm SKU mới: <strong>${value}</strong>`;
+                            add.addEventListener('click', function () {
+                                newSkuMode = true;
+                                isNewSkuInput.value = 'true';
+                                newSkuBadge.style.display = 'inline';
+
+                                battleSku.value = value;
+                                skuName.disabled = false; skuName.value = '';
+                                listPrice.disabled = false; listPrice.value = '';
+
+                                selectedProduct = null;
+                                battleAutocomplete.style.display = 'none';
+                                validateForm();
+                            });
+                            battleAutocomplete.appendChild(add);
                         }
+
+                        battleAutocomplete.style.display = battleAutocomplete.children.length ? 'block' : 'none';
                     } catch (error) {
                         console.error('Autocomplete error:', error);
                         battleAutocomplete.style.display = 'none';
                     }
                 }, 300);
             });
+
 
             battleSku.addEventListener('blur', async function () {
                 const skuValue = battleSku.value.trim();
@@ -269,12 +315,15 @@
 
             // Tính chênh lệch + giá gợi ý
             function calculatePriceDifference() {
-                const ourPrice = parseFloat(promoPrice.value.replace(/\./g, '')) ||
-                    (selectedProduct ? (selectedProduct.list_price || 0) : 0);
-                const compPrice = parseFloat(competitorPrice.value.replace(/\./g, ''));
+                const baseListPrice = newSkuMode
+                    ? parseVN(listPrice.value)
+                    : (selectedProduct ? (selectedProduct.list_price || 0) : 0);
+
+                const ourPrice = parseVN(promoPrice.value) || baseListPrice;
+                const compPrice = parseVN(competitorPrice.value);
 
                 if (ourPrice && compPrice) {
-                    const difference = ourPrice - compPrice; // our - comp (khớp UI)
+                    const difference = ourPrice - compPrice;
                     priceDifference.value = new Intl.NumberFormat('vi-VN').format(difference);
                     differenceAmount.textContent = new Intl.NumberFormat('vi-VN').format(difference);
                     suggestedPrice.textContent = new Intl.NumberFormat('vi-VN').format(ourPrice - difference);
@@ -284,6 +333,16 @@
                     suggestedPrice.textContent = '0';
                 }
                 validateForm();
+            }
+
+            function validateForm() {
+                const isSkuValid = battleSku.value.trim() !== '';
+                const needNamePrice = newSkuMode ? (skuName.value.trim() !== '' && parseVN(listPrice.value) > 0) : true;
+                const isCompetitorValid = document.querySelector('input[name="competitor"]:checked') !== null;
+                const isCompetitorPriceValid = competitorPrice.value.trim() !== '' && !isNaN(parseVN(competitorPrice.value));
+                const isStockValid = document.querySelector('input[name="stock"]:checked') !== null;
+
+                saveButton.disabled = !(isSkuValid && needNamePrice && isCompetitorValid && isCompetitorPriceValid && isStockValid);
             }
             promoPrice.addEventListener('input', calculatePriceDifference);
             competitorPrice.addEventListener('input', calculatePriceDifference);
@@ -336,33 +395,41 @@
 
                 // Lấy product nếu user chỉ nhập SKU
                 const skuValue = battleSku.value.trim();
-                if (!selectedProduct && skuValue) {
+
+                // fallback nếu user gõ SKU có thật nhưng không click gợi ý
+                if (!newSkuMode && !selectedProduct && skuValue) {
                     const productInfo = await fetchProductInfo(skuValue);
                     if (productInfo) selectedProduct = productInfo;
                 }
 
-                const ourPrice = parseFloat(promoPrice.value.replace(/\./g, '')) ||
-                    (selectedProduct ? (selectedProduct.list_price || 0) : 0);
-                const compPrice = parseFloat(competitorPrice.value.replace(/\./g, ''));
+                const baseListPrice = newSkuMode
+                    ? parseVN(listPrice.value)
+                    : (selectedProduct ? (selectedProduct.list_price || 0) : 0);
+
+                const ourPrice = parseVN(promoPrice.value) || baseListPrice;
+                const compPrice = parseVN(competitorPrice.value);
                 const difference = ourPrice - compPrice;
 
                 const formData = new FormData();
                 formData.append('sku', skuValue);
+                formData.append('is_new_sku', newSkuMode ? 'true' : 'false');
                 formData.append('product_name', skuName.value);
-                formData.append('brand', selectedProduct ? selectedProduct.brand : '');
-                formData.append('category', selectedProduct ? selectedProduct.category : '');
-                formData.append('subcat', selectedProduct ? selectedProduct.subcat : '');
-                formData.append('our_price', ourPrice);
-                formData.append('promo_price', parseFloat(promoPrice.value.replace(/\./g, '')) || ourPrice);
+                formData.append('list_price', String(baseListPrice));
+
+                formData.append('brand', selectedProduct ? (selectedProduct.brand || '') : '');
+                formData.append('category', selectedProduct ? (selectedProduct.category || '') : '');
+                formData.append('subcat', selectedProduct ? (selectedProduct.subcat || '') : '');
+
+                formData.append('our_price', String(ourPrice));
+                formData.append('promo_price', String(parseVN(promoPrice.value) || ourPrice));
                 formData.append('competitor_name', competitorName);
-                formData.append('competitor_price', compPrice);
-                formData.append('competitor_link', document.getElementById('competitorLink').value);
-                formData.append(
-                    'stock_status',
-                    document.querySelector('input[name="stock"]:checked').value
-                );
-                formData.append('price_difference', difference);
-                formData.append('suggested_price', ourPrice - difference);
+                formData.append('competitor_price', String(compPrice));
+                formData.append('competitor_link', document.getElementById('competitorLink').value || '');
+                formData.append('stock_status', document.querySelector('input[name="stock"]:checked').value);
+                formData.append('price_difference', String(difference));
+                formData.append('suggested_price', String(ourPrice - difference));
+                // (giữ nguyên phần append ảnh)
+
 
                 const imageFiles = document.getElementById('competitorImages').files;
                 for (let i = 0; i < imageFiles.length; i++) formData.append('images', imageFiles[i]);

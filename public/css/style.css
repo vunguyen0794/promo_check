@@ -204,6 +204,7 @@ body {
 }
 
 /* Radio buttons */
+.competitor-table .stock-option { margin-right: 16px; white-space: nowrap; }
 .stock-options {
     display: flex;
     gap: 15px;
@@ -1413,5 +1414,8 @@ label {
 
 /* giảm khoảng trắng bên dưới header nếu có */
 .main, .container { scroll-margin-top: 56px; }
+.autocomplete-item.add-new { background:#fffde7; font-weight:600; }
+.autocomplete-item.add-new:hover { background:#fff9c4; }
+.competitor-table .stock-option { margin-right: 16px; white-space: nowrap; }
 
 
