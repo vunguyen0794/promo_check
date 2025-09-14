@@ -1,169 +1,475 @@
-<%- include('partials/header', {title: 'Chi tiết CTKM' , currentPage: 'promotion-detail' , time: time}) %>
+<%- include('partials/header', { title: 'Chi tiết CTKM' , currentPage: 'promotion-detail' , time: time }) %>
 
-    <div class="promotion-card">
+  <style>
+    .promotion-page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .promotion-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, .06);
+      padding: 18px;
+    }
+
+    .headline {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0 0 12px 0;
+      letter-spacing: .2px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      margin: 0 6px 8px 0;
+    }
+
+    .badge-blue {
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+
+    .badge-gray {
+      background: #eef2f7;
+      color: #475569;
+    }
+
+    .badge-green {
+      background: #dcfce7;
+      color: #166534;
+      font-weight: 700;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 18px 0 10px 0;
+      color: #0f172a;
+    }
+
+    .detail-grid {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .detail-grid th,
+    .detail-grid td {
+      padding: 10px 12px;
+      vertical-align: top;
+      border-bottom: 1px solid #eef2f7;
+    }
+
+    .detail-grid th {
+      width: 30%;
+      background: #f8fafc;
+      font-weight: 600;
+      color: #0f172a;
+      text-align: left;
+    }
+
+    .detail-grid tr:nth-child(even) td {
+      background: #fcfcfd;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 10px;
+      margin: 8px 0;
+    }
+
+    .pill {
+      display: inline-block;
+      background: #eef2f7;
+      color: #334155;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      margin: 2px 6px 2px 0;
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, #e5e7eb, transparent);
+      margin: 16px 0;
+    }
+
+    .empty {
+      color: #94a3b8;
+      font-style: italic;
+    }
+  </style>
+  <style>
+    /* Làm nổi card phía trên */
+    .promotion-card.hero {
+      background: #ffffff;
+      border: 1px solid #dbe3f0;
+      border-radius: 16px;
+      box-shadow: 0 10px 24px rgba(2, 6, 23, .08);
+      padding: 18px;
+    }
+
+    .headline {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+
+
+    /* Làm nhẹ phần bảng chi tiết */
+    /* ĐÚNG */
+    .detail-card {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+      margin-top: 10px;
+    }
+
+    .detail-grid {
+      border: 1px solid #f1f5f9;
+      border-radius: 12px;
+      table-layout: fixed;
+    }
+
+    .detail-grid colgroup col:first-child {
+      width: 30%;
+    }
+
+    .detail-grid colgroup col:last-child {
+      width: 70%;
+    }
+
+    .detail-grid th {
+      background: #f8fafc;
+      color: #0f172a;
+    }
+
+    .detail-grid tr:nth-child(even) td {
+      background: #fcfcfd;
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, #e5e7eb, transparent);
+      margin: 14px 0;
+    }
+
+    /* Badge trạng thái nổi bật */
+    .badge.badge-green {
+      background: #dcfce7;
+      color: #166534;
+      font-weight: 700;
+    }
+
+    /* Mobile tinh chỉnh */
+    @media (max-width: 768px) {
+      .detail-grid colgroup col:first-child {
+        width: 42%;
+      }
+
+      .detail-grid colgroup col:last-child {
+        width: 58%;
+      }
+    }
+
+    .section-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, .04);
+      padding: 14px;
+      margin: 14px 0;
+    }
+
+    .section-card .detail-grid {
+      margin-top: 6px;
+    }
+  </style>
+
+
+  <div class="promotion-page">
+    <% if (typeof error !=='undefined' && error) { %>
+      <div class="promotion-card" style="border-left:4px solid #ef4444;">
+        <div class="headline" style="color:#ef4444;">Lỗi hệ thống</div>
+        <div>
+          <%= error %>
+        </div>
+      </div>
+      <% } %>
+
+        <div class="headline">Chi tiết CTKM</div>
+
         <% if (promotion) { %>
-            <h1 class="section-title">Chi tiết CTKM: <%= promotion.name %>
-            </h1>
 
-            <h2 class="section-title">Thông tin CTKM</h2>
+          <!-- ========== 1) Thông tin cơ bản (bảng) ========== -->
+          <div class="section-card">
+            <h3 class="section-title">Thông tin cơ bản</h3>
+            <table class="detail-grid">
+              <colgroup>
+                <col />
+                <col />
+              </colgroup>
+              <tbody>
+                <tr>
+                  <th>Cập nhật lần cuối</th>
+                  <td>
+                    <%= promotion.updated_at ? new Date(promotion.updated_at).toLocaleString('vi-VN') : '-' %>
+                  </td>
+                </tr>
 
-            <table class="detail-table">
                 <tr>
-                    <th>Tên CTKM</th>
-                    <td>
-                        <%= promotion.name %>
-                    </td>
+                  <th>Tên CTKM</th>
+                  <td><strong>
+                      <%= promotion.name || promotion.promo_name || 'CTKM' %>
+                    </strong></td>
                 </tr>
                 <tr>
-                    <th>Mô tả</th>
-                    <td>
-                        <%= promotion.description || 'Không có mô tả' %>
-                    </td>
+                  <th>Mô tả</th>
+                  <td>
+                    <%= promotion.description || '' %>
+                  </td>
                 </tr>
                 <tr>
-                    <th>Thời gian áp dụng</th>
-                    <td>
-                        <%= new Date(promotion.start_date).toLocaleDateString('vi-VN') %> - <%= new
-                                Date(promotion.end_date).toLocaleDateString('vi-VN') %>
-                    </td>
+                  <th>Thời gian</th>
+                  <td>
+                    <%= promotion.start_date ? new Date(promotion.start_date).toLocaleDateString('vi-VN') : '...' %>
+                      &nbsp;-&nbsp;
+                      <%= promotion.end_date ? new Date(promotion.end_date).toLocaleDateString('vi-VN') : '...' %>
+                  </td>
                 </tr>
                 <tr>
-                    <th>Loại CTKM</th>
-                    <td>
-                        <%= promotion.promo_type %>
-                    </td>
+                  <th>Channel</th>
+                  <td>
+                    <%= promotion.channel || 'All' %>
+                  </td>
                 </tr>
                 <tr>
-                    <th>Channel áp dụng</th>
-                    <td>
-                        <%= promotion.channel %>
-                    </td>
+                  <th>Loại CTKM</th>
+                  <td>
+                    <%= promotion.promo_type || '...' %>
+                  </td>
                 </tr>
-                <% if (promotion.coupon_code) { %>
+                <tr>
+                  <th>Coupon/Voucher</th>
+                  <td>
+                    <%= promotion.coupon_code || '...' %>
+                  </td>
+                </tr>
+                <% if (promotion.group_name) { %>
+                  <tr>
+                    <th>Nhóm</th>
+                    <td><span class="badge badge-blue">
+                        <%= promotion.group_name %>
+                      </span></td>
+                  </tr>
+                  <% } %>
                     <tr>
-                        <th>Mã coupon</th>
-                        <td>
-                            <%= promotion.coupon_code %>
-                        </td>
+                      <th>Trạng thái</th>
+                      <td>
+                        <% if ((promotion.status || 'active' )==='active' ) { %>
+                          <span class="badge badge-green">Active</span>
+                          <% } else { %>
+                            <span class="badge badge-gray">
+                              <%= promotion.status %>
+                            </span>
+                            <% } %>
+                      </td>
+                    </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ========== 2) Bảng chi tiết (hiển thị) ========== -->
+          <div class="section-card">
+            <h3 class="section-title">Bảng chi tiết (hiển thị)</h3>
+            <% if (promotion.detail_fields && Object.keys(promotion.detail_fields).length) { %>
+              <table class="detail-grid">
+                <colgroup>
+                  <col />
+                  <col />
+                </colgroup>
+                <tbody>
+                  <% Object.keys(promotion.detail_fields).forEach(function(k){ const v=(promotion.detail_fields ||
+                    {})[k]; if (!v) return; %>
+                    <tr>
+                      <th>
+                        <%= k %>
+                      </th>
+                      <td><%- String(v).replace(/\n/g,'<br>') %></td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+              </table>
+              <% } else { %>
+                <div class="empty">Chưa có trường chi tiết nào.</div>
+                <% } %>
+          </div>
+
+          <!-- ========== 3) Phạm vi áp dụng (bảng) ========== -->
+          <% const included=(promotion.promotion_skus || []).map(x=> x.sku);
+            const excluded = (promotion.promotion_excluded_skus || []).map(x => x.sku);
+            function pillList(list){ return (list||[]).map(s=>`<span class="pill">${s}</span>`).join(''); }
+            %>
+            <div class="section-card">
+              <h3 class="section-title">Phạm vi áp dụng</h3>
+              <table class="detail-grid">
+                <colgroup>
+                  <col />
+                  <col />
+                </colgroup>
+                <tbody>
+                  <tr>
+                    <th>Áp dụng cho</th>
+                    <td>
+                      <% if (promotion.apply_to_all_skus) { %>
+                        <strong>Tất cả sản phẩm</strong>
+                        <% } else { %>
+                          <strong>Theo danh sách SKU chỉ định</strong>
+                          <% } %>
+                    </td>
+                  </tr>
+
+                  <% if (!promotion.apply_to_all_skus) { %>
+                    <tr>
+                      <th>SKU áp dụng</th>
+                      <td>
+                        <% if (included.length) { %>
+                          <%- pillList(included) %>
+                            <% } else { %>
+                              <span class="empty">Chưa khai báo</span>
+                              <% } %>
+                      </td>
                     </tr>
                     <% } %>
-            </table>
 
-            <h2 class="section-title">Phạm vi áp dụng</h2>
-
-            <% if (promotion.apply_to_all_skus) { %>
-                <p>Áp dụng cho tất cả sản phẩm</p>
-                <% } else { %>
-                    <% if (promotion.promotion_categories && promotion.promotion_categories.length> 0) { %>
-                        <h3>Danh mục áp dụng:</h3>
-                        <ul>
-                            <% promotion.promotion_categories.forEach(cat=> { %>
-                                <li>
-                                    <%= cat.category %>
-                                </li>
-                                <% }); %>
-                        </ul>
-                        <% } %>
-
-                            <% if (promotion.promotion_brands && promotion.promotion_brands.length> 0) { %>
-                                <h3>Brand áp dụng:</h3>
-                                <ul>
-                                    <% promotion.promotion_brands.forEach(brand=> { %>
-                                        <li>
-                                            <%= brand.brand %>
-                                        </li>
-                                        <% }); %>
-                                </ul>
+                      <tr>
+                        <th>SKU loại trừ</th>
+                        <td>
+                          <% if (excluded.length) { %>
+                            <%- pillList(excluded) %>
+                              <% } else { %>
+                                <span class="empty">Không có</span>
                                 <% } %>
+                        </td>
+                      </tr>
+                </tbody>
+              </table>
+            </div>
 
-                                    <% if (promotion.promotion_skus && promotion.promotion_skus.length> 0) { %>
-                                        <h3>SKU áp dụng:</h3>
-                                        <ul>
-                                            <% promotion.promotion_skus.forEach(sku=> { %>
-                                                <li>
-                                                    <%= sku.sku %>
-                                                </li>
-                                                <% }); %>
-                                        </ul>
-                                        <% } %>
-                                            <% } %>
-
-                                                <% if (promotion.promotion_gifts && promotion.promotion_gifts.length> 0)
-                                                    { %>
-                                                    <h2 class="section-title">Quà tặng</h2>
-                                                    <ul>
-                                                        <% promotion.promotion_gifts.forEach(gift=> { %>
-                                                            <li>SKU quà: <%= gift.gift_sku %>, Số lượng: <%=
-                                                                        gift.gift_quantity %>
-                                                            </li>
-                                                            <% }); %>
-                                                    </ul>
-                                                    <% } %>
-
-                                                        <% if (promotion.special_promotion_rules &&
-                                                            promotion.special_promotion_rules.length> 0) { %>
-                                                            <h2 class="section-title">Quy tắc đặc biệt</h2>
-                                                            <table class="discount-table">
-                                                                <tr>
-                                                                    <th>Brand</th>
-                                                                    <th>Subcat</th>
-                                                                    <th>Mức giảm</th>
-                                                                    <th>Điều kiện</th>
-                                                                </tr>
-                                                                <% promotion.special_promotion_rules.forEach(rule=> { %>
-                                                                    <tr>
-                                                                        <td>
-                                                                            <%= rule.brand || 'Tất cả' %>
-                                                                        </td>
-                                                                        <td>
-                                                                            <%= rule.subcat || 'Tất cả' %>
-                                                                        </td>
-                                                                        <td>
-                                                                            <%= new
-                                                                                Intl.NumberFormat('vi-VN').format(rule.discount_value)
-                                                                                %> VNĐ
-                                                                        </td>
-                                                                        <td>
-                                                                            <%= rule.condition_description
-                                                                                || 'Không có điều kiện' %>
-                                                                        </td>
-                                                                    </tr>
-                                                                    <% }); %>
-                                                            </table>
-                                                            <% } %>
-
-                                                                <div class="promo-actions" style="margin-top: 20px;">
-                                                                    <a href="javascript:history.back()"
-                                                                        class="btn btn-info">← Quay lại</a>
-                                                                    <% if (user && user.role==='manager' ) { %>
-                                                                        <button class="btn btn-warning"
-                                                                            onclick="location.href='/edit-promotion/<%= promotion.id %>'">✏️
-                                                                            Sửa CTKM</button>
-                                                                        <button class="btn btn-danger"
-                                                                            onclick="deletePromo('<%= promotion.id %>')">🗑️ Xóa
-                                                                            CTKM</button>
-                                                                        <script>
-                                                                            async function deletePromo(id) {
-                                                                                if (!confirm('Bạn có chắc muốn xóa CTKM này?')) return;
-                                                                                const res = await fetch(`/api/promotions/${id}`, { method: 'DELETE' });
-                                                                                const result = await res.json();
-                                                                                if (result.success) {
-                                                                                    alert('✅ Đã xóa CTKM');
-                                                                                    location.href = '/promo-management';
-                                                                                } else {
-                                                                                    alert('❌ ' + (result.error || 'Lỗi không xác định'));
-                                                                                }
-                                                                            }
-                                                                        </script>
-                                                                        <% } %>
-                                                                </div>
-                                                                <% } else { %>
-                                                                    <div class="error-message">
-                                                                        Không tìm thấy thông tin CTKM
-                                                                    </div>
-                                                                    <a href="/promo-management" class="btn btn-info">←
-                                                                        Quay lại</a>
-                                                                    <% } %>
+            <div class="section-card">
+  <h3 class="section-title">Quan hệ với CTKM khác</h3>
+  <table class="detail-grid">
+    <colgroup><col /><col /></colgroup>
+    <tbody>
+      <tr>
+        <th>Áp dụng cùng CTKM</th>
+        <td>
+  <% if ((compatAllowNames || []).length) { %>
+    <div class="pill-wrap">
+      <% compatAllowNames.forEach(function(n){ %>
+        <span class="pill"><span class="dot"></span><%= n %></span>
+      <% }) %>
     </div>
+  <% } else { %>
+    <span class="muted">Không</span>
+  <% } %>
+</td>
 
-    <%- include('partials/footer') %>
+<td>
+  <% if ((compatExcludeNames || []).length) { %>
+    <div class="pill-wrap">
+      <% compatExcludeNames.forEach(function(n){ %>
+        <span class="pill" style="background:#fff1f2;color:#be123c;border-color:#ffe4e6;">
+          <span class="dot" style="background:#be123c;"></span><%= n %>
+        </span>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <span class="muted">Không</span>
+  <% } %>
+</td>
+
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+
+            <% var _revs = (typeof revisions === 'undefined' || !Array.isArray(revisions)) ? [] : revisions; %>
+            <!-- Lịch sử cập nhật -->
+<div class="section-card">
+  <h3 class="section-title">Lịch sử cập nhật</h3>
+
+  <% if (!_revs || _revs.length === 0) { %>
+    <div class="empty">Chưa có lịch sử.</div>
+  <% } else { %>
+    <table class="detail-grid">
+      <colgroup>
+        <col style="width:220px">
+        <col style="width:120px">
+        <col>
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Thời gian</th>
+          <th>Hành động</th>
+          <th>Thay đổi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% _revs.forEach(function(rv){ %>
+          <tr>
+            <td><%= new Date(rv.created_at).toLocaleString('vi-VN') %></td>
+            <td><%= rv.action === 'create' ? 'Tạo' : 'Cập nhật' %></td>
+            <td>
+              <% var d = rv.diff || {}; var keys = Object.keys(d); %>
+              <% if (keys.length === 0) { %>
+                <span class="empty">Không có thay đổi</span>
+              <% } else { %>
+                <ul class="change-list">
+                  <% keys.forEach(function(k){ %>
+                    <li>
+                      <strong><%= k %></strong>:
+                      <span class="muted">từ</span>
+                      <code><%- JSON.stringify(d[k].from) %></code>
+                      <span class="muted">→</span>
+                      <code><%- JSON.stringify(d[k].to) %></code>
+                    </li>
+                  <% }) %>
+                </ul>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<style>
+  .change-list{ margin:0; padding-left:18px; }
+  .change-list li{ margin:4px 0; }
+  .muted{ color:#64748b; }
+  code{ background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px; padding:1px 4px; }
+</style>
+
+            <% } else { %>
+              <div class="empty">Không tìm thấy CTKM.</div>
+              <% } %>
+
+  </div>
+
+  <%- include('partials/footer') %>

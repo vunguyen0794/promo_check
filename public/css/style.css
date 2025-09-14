@@ -846,8 +846,8 @@ label {
 }
 
 .promo-actions .btn {
-    padding: 6px 12px;
-    font-size: 0.8rem;
+  display:inline-flex; align-items:center; justify-content:center;
+  gap:6px; line-height:1; min-height:38px; padding:8px 14px;
 }
 
 .no-data {
@@ -1418,4 +1418,45 @@ label {
 .autocomplete-item.add-new:hover { background:#fff9c4; }
 .competitor-table .stock-option { margin-right: 16px; white-space: nowrap; }
 
+.tag {
+  display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700; margin-top:6px;
+}
+.tag-coupon    { background:#FFF3E0; color:#E65100; }
+.tag-voucher   { background:#E3F2FD; color:#0D47A1; }
+.tag-payment   { background:#E8F5E9; color:#1B5E20; }   /* Ưu đãi thanh toán */
+.tag-install   { background:#F3E5F5; color:#4A148C; }   /* Ưu đãi trả góp */
 
+/* Hàng search + filter cạnh nhau (desktop), xếp dọc (mobile) */
+.filters-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0 14px;
+  flex-wrap: wrap;
+}
+.filters-row__search { flex: 1 1 320px; }   /* ô search lấy rộng */
+.filters-row__form   { display:flex; gap:10px; align-items:center; flex: 0 0 auto; }
+
+@media (max-width: 992px){
+  .filters-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .filters-row__form { flex-wrap: wrap; }
+  .filters-row__form select,
+  .filters-row__form .btn { flex: 1 1 48%; }
+}
+.group-badges { margin:6px 0 2px; display:flex; gap:6px; flex-wrap:wrap; }
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;line-height:1}
+.badge-group{background:#e0f2fe;color:#0369a1}
+.badge-subgroup{background:#f1f5f9;color:#475569}
+.multi-select{ width:100%; min-height:120px; border:1px solid #e5e7eb; border-radius:10px; padding:8px; }
+.hint{ font-size:12px; color:#64748b; margin-top:4px; }
+.pill-wrap{display:flex;flex-wrap:wrap;gap:8px}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  background:#eef3ff;color:#1d4ed8; /* xanh dương nhạt + chữ xanh */
+  border:1px solid #dbe4ff;border-radius:999px;
+  padding:4px 10px;font-size:13px;font-weight:600;
+  line-height:1;
+}
+.pill .dot{width:6px;height:6px;border-radius:999px;background:#1d4ed8;}
+.muted{color:#64748b}
+.is-hidden{display:none!important;}

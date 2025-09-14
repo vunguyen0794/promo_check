@@ -293,17 +293,17 @@
             </div>
             <% } %>
                 <div class="page-search">
-                <div class="search-section">
-                    <h1>CTKM theo SKU</h1>
-                    <form action="/search-promotion" method="POST" class="search-form">
-                        <div class="form-group">
-                            <label for="sku">Nhập SKU hoặc CTKM</label>
-                            <input type="text" id="sku" name="sku" placeholder="Ví dụ: 244994124" required
-                                value="<%= typeof product !== 'undefined' && product ? product.sku : '' %>">
-                        </div>
-                        <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
-                    </form>
-                </div>
+                    <div class="search-section">
+                        <h1>CTKM theo SKU</h1>
+                        <form action="/search-promotion" method="POST" class="search-form">
+                            <div class="form-group">
+                                <label for="sku">Nhập SKU hoặc CTKM</label>
+                                <input type="text" id="sku" name="sku" placeholder="Ví dụ: 244994124" required
+                                    value="<%= typeof product !== 'undefined' && product ? product.sku : '' %>">
+                            </div>
+                            <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
+                        </form>
+                    </div>
                 </div>
 
                 <% if (typeof product !=='undefined' && product) { %>
@@ -360,6 +360,8 @@
                                     <tr>
                                         <th>CTKM</th>
                                         <th>Chi tiết</th>
+                                        <th>Áp dụng cùng</th>
+                                        <th>Loại trừ</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -412,6 +414,19 @@
                                                                     </div>
                                                                     <% } %>
                                             </td>
+                                            <td>
+                                                <% if (promo.compat_allow_names && promo.compat_allow_names.length) { %>
+                                                    <%= promo.compat_allow_names.join(', ') %>
+  <% } else { %><span class="muted">Không</span><% } %>
+</td>
+<td>
+  <% if (promo.compat_exclude_names && promo.compat_exclude_names.length) { %>
+    <%= promo.compat_exclude_names.join(' , ') %>
+  <% } else { %><span class="muted">Không</span><% } %>
+</td>
+
+
+                                            
 
                                             <td data-label="Action">
                                                 <a href="/promotion-detail/<%= promo.id %>" class="btn-detail">👁️ Xem
@@ -427,25 +442,25 @@
                                 <span>Tổng có thể giảm:</span>
                                 <strong>
                                     <%= new Intl.NumberFormat('vi-VN').format(totalDiscount || 0) %> VNĐ
-                                </strong>
-                            </div>
-                            <div class="summary-item final-price">
-                                <span>Giá khuyến mãi cuối:</span>
-                                <strong>
-                                    <%= new Intl.NumberFormat('vi-VN').format(finalPrice || 0) %> VNĐ
-                                </strong>
-                            </div>
-
-
-                            <% } else { %>
-                                <div class="no-data">
-                                    <i>📭</i>
-                                    <p>Không có CTKM nào áp dụng cho sản phẩm này</p>
-                                    <p>Vui lòng kiểm tra lại SKU hoặc thử SKU khác</p>
-                                </div>
-                                <% } %>
+                                                        </strong>
                     </div>
-                    <% } %>
-    </div>
+                    <div class="summary-item final-price">
+                        <span>Giá khuyến mãi cuối:</span>
+                        <strong>
+                            <%= new Intl.NumberFormat('vi-VN').format(finalPrice || 0) %> VNĐ
+                        </strong>
+                    </div>
 
-    <%- include('partials/footer') %>
+
+                    <% } else { %>
+                        <div class="no-data">
+                            <i>📭</i>
+                            <p>Không có CTKM nào áp dụng cho sản phẩm này</p>
+                            <p>Vui lòng kiểm tra lại SKU hoặc thử SKU khác</p>
+                        </div>
+                        <% } %>
+    </div>
+    <% } %>
+        </div>
+
+        <%- include('partials/footer') %>
