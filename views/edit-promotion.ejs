@@ -224,7 +224,7 @@
                                         >Offline</option>
                                 </select>
                             </div>
-
+                                
                             <div class="form-group">
                                 <label>🎁 Loại CTKM *</label>
                                 <select name="promo_type" required>
@@ -243,10 +243,65 @@
                         </div>
 
                         <div class="form-group">
-                            <label>🔑 Mã coupon (nếu có)</label>
+                            <label>🔑 Mã giảm giá (nếu có)</label>
                             <input type="text" name="coupon_code" value="<%= promotion.coupon_code || '' %>">
                         </div>
+
+                    <div class="form-group">
+  <label>Giá trị giảm</label>
+  <div class="grid-2">
+    <div>
+      <select name="discount_value_type" id="discount_value_type" onchange="toggleDiscountInputs()">
+        <option value="">-- Chọn kiểu --</option>
+        <option value="amount">Giảm tiền (₫)</option>
+        <option value="percent">Giảm theo %</option>
+      </select>
+    </div>
+    <div id="amountBox" style="display:none;">
+      <input type="number" name="discount_amount" placeholder="Số tiền giảm (₫)" min="0" step="1000">
+    </div>
+    <div id="percentBox" style="display:none;">
+      <input type="number" name="discount_percent" placeholder="% giảm (0–100)" min="0" max="100" step="0.1">
+    </div>
+    <div id="capBox" style="display:none;">
+      <input type="number" name="max_discount_amount" placeholder="Giảm tối đa (₫)" min="0" step="1000">
+    </div>
+    <div>
+      <input type="number" name="min_order_value" placeholder="Đơn tối thiểu (₫, để trống = 0)" min="0" step="1000">
+    </div>
+  </div>
+  <small class="hint">Chọn “Giảm tiền” → nhập “Số tiền giảm”. Chọn “%” → nhập “% giảm” + “Giảm tối đa”.</small>
+</div>
+
+<script>
+  function toggleDiscountInputs(){
+    const t = document.getElementById('discount_value_type').value;
+    document.getElementById('amountBox').style.display  = (t==='amount') ? 'block' : 'none';
+    document.getElementById('percentBox').style.display = (t==='percent') ? 'block' : 'none';
+    document.getElementById('capBox').style.display     = (t==='percent') ? 'block' : 'none';
+  }
+  document.addEventListener('DOMContentLoaded', toggleDiscountInputs);
+</script>
+
+<style>
+  .grid-2{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+  .hint{ color:#64748b; font-size:12px; }
+</style>
+
+
+
+                    <h3>🧩 Nhóm hiển thị</h3>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Nhóm CTKM (ví dụ: ĐỔI ĐIỂM THI)</label>
+                            <input name="group_name" placeholder="Nhập nhóm (theo hàng đầu của file Excel)">
+                        </div>
+
                     </div>
+
+
+                    </div>
+
                     <h3>📋 Bảng chi tiết (chỉ để hiển thị)</h3>
 
                     <style>
@@ -382,7 +437,9 @@
                                         <td>
                                             <!-- trường hiển thị -->
                                             <div class="rte-field" contenteditable="true"
-                                                data-name="detail[<%= label %>]" data-index="<%= idx %>"></div>
+                                            data-name="detail[<%= label %>]" data-index="<%= idx %>">
+                                            <%- (promotion.detail_fields && promotion.detail_fields[label]) ? promotion.detail_fields[label] : '' %>
+                                            </div>
                                             <!-- textarea ẩn để submit -->
                                             <textarea name="detail[<%= label %>]" hidden></textarea>
                                         </td>
@@ -472,39 +529,94 @@
                                         });
                                     </script>
 
+<div class="form-section">
+  <h3 class="section-title">Quan hệ với CTKM khác</h3>
 
-                                    <div class="form-section">
-                                        <h3 class="section-title">Quan hệ với CTKM khác</h3>
+  <% // Group theo group_name
+     const grouped = {};
+     (allPromosForCompat || []).forEach(p=>{
+       const g = p.group_name || 'Khác';
+       (grouped[g] = grouped[g] || []).push(p);
+     });
+     const groupNames = Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'vi'));
+  %>
 
-                                        <div class="form-group">
-                                            <label>Áp dụng cùng CTKM</label>
-                                            <select name="apply_with[]" multiple class="multi-select">
-                                                <% (allPromosForCompat || []).forEach(function(p){ var
-                                                    label=p.group_name ? (p.group_name + ' — ' + (p.subgroup_name ||
-                                                    p.name)) : p.name; %>
-                                                    <option value="<%= p.id %>" <%=(compatAllowIds ||
-                                                        []).includes(String(p.id)) ? 'selected' : '' %>>
-                                                        <%= label %>
-                                                    </option>
-                                                    <% }) %>
-                                            </select>
-                                            <div class="hint">Giữ Ctrl/Command để chọn nhiều CTKM.</div>
-                                        </div>
+  <div class="form-group">
+    <label>Áp dụng cùng CTKM</label>
 
-                                        <div class="form-group">
-                                            <label>Không áp dụng cùng CTKM</label>
-                                            <select name="exclude_with" multiple class="multi-select">
-                                                <% (allPromosForCompat || []).forEach(function(p){ var
-                                                    label=p.group_name ? (p.group_name + ' — ' + (p.subgroup_name ||
-                                                    p.name)) : p.name; %>
-                                                    <option value="<%= p.id %>" <%=(compatExclIds ||
-                                                        []).includes(String(p.id)) ? 'selected' : '' %>>
-                                                        <%= label %>
-                                                    </option>
-                                                    <% }) %>
-                                            </select>
-                                        </div>
-                                    </div>
+    <!-- Bộ chọn nhóm + nút chọn nhanh -->
+    <div class="inline-actions" style="display:flex; gap:8px; margin-bottom:6px;">
+      <select id="applyWithGroupPicker" style="padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px;">
+        <% groupNames.forEach(g => { %>
+          <option value="<%= g %>"><%= g %></option>
+        <% }) %>
+      </select>
+      <button type="button" class="btn" id="btnSelectGroupAW">Chọn nhóm</button>
+      <button type="button" class="btn btn-secondary" id="btnUnselectGroupAW">Bỏ chọn</button>
+    </div>
+
+    <select name="apply_with[]" multiple class="multi-select" id="applyWithSelect" style="min-height: 180px;">
+      <% groupNames.forEach(g => { %>
+        <optgroup label="<%= g %>">
+          <% grouped[g].forEach(function(p){
+               var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name; %>
+            <option data-group="<%= g %>" value="<%= p.id %>" <%= (compatAllowIds||[]).includes(String(p.id)) ? 'selected' : '' %>><%= label %></option>
+          <% }) %>
+        </optgroup>
+      <% }) %>
+    </select>
+    <div class="hint">Giữ Ctrl/Command để chọn thêm CTKM; hoặc dùng “Chọn nhóm”.</div>
+  </div>
+
+  <div class="form-group">
+    <label>Không áp dụng cùng CTKM</label>
+
+    <div class="inline-actions" style="display:flex; gap:8px; margin-bottom:6px;">
+      <select id="excludeWithGroupPicker" style="padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px;">
+        <% groupNames.forEach(g => { %>
+          <option value="<%= g %>"><%= g %></option>
+        <% }) %>
+      </select>
+      <button type="button" class="btn" id="btnSelectGroupEX">Chọn nhóm</button>
+      <button type="button" class="btn btn-secondary" id="btnUnselectGroupEX">Bỏ chọn</button>
+    </div>
+
+    <!-- LƯU Ý: đổi name thành exclude_with[] để submit nhiều giá trị -->
+    <select name="exclude_with[]" multiple class="multi-select" id="excludeWithSelect" style="min-height: 180px;">
+      <% groupNames.forEach(g => { %>
+        <optgroup label="<%= g %>">
+          <% grouped[g].forEach(function(p){
+               var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name; %>
+            <option data-group="<%= g %>" value="<%= p.id %>" <%= (compatExclIds||[]).includes(String(p.id)) ? 'selected' : '' %>><%= label %></option>
+          <% }) %>
+        </optgroup>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+<script>
+  // Helpers chọn/bỏ theo nhóm cho 2 select
+  function selectByGroup(selectEl, group, on=true){
+    [...selectEl.options].forEach(o=>{
+      if(o.dataset.group === group){ o.selected = !!on; }
+    });
+  }
+  document.getElementById('btnSelectGroupAW').onclick = () =>
+    selectByGroup(document.getElementById('applyWithSelect'),
+                  document.getElementById('applyWithGroupPicker').value, true);
+  document.getElementById('btnUnselectGroupAW').onclick = () =>
+    selectByGroup(document.getElementById('applyWithSelect'),
+                  document.getElementById('applyWithGroupPicker').value, false);
+
+  document.getElementById('btnSelectGroupEX').onclick = () =>
+    selectByGroup(document.getElementById('excludeWithSelect'),
+                  document.getElementById('excludeWithGroupPicker').value, true);
+  document.getElementById('btnUnselectGroupEX').onclick = () =>
+    selectByGroup(document.getElementById('excludeWithSelect'),
+                  document.getElementById('excludeWithGroupPicker').value, false);
+</script>
+
                                     <script>
                                         document.addEventListener('DOMContentLoaded', function () {
                                             const sel = document.querySelector('select[name="apply_to"]');
@@ -518,30 +630,61 @@
 
                                     <script>
                                         // Toolbar: B / I / U / Link
-                                        const cmd = (c) => document.execCommand(c, false, null);
-                                        document.getElementById('rteBold').onclick = () => cmd('bold');
-                                        document.getElementById('rteItalic').onclick = () => cmd('italic');
-                                        document.getElementById('rteUnderline').onclick = () => cmd('underline');
-                                        document.getElementById('rteLink').onclick = () => {
-                                            const el = document.activeElement;
-                                            if (!el || el.getAttribute('contenteditable') !== 'true') return;
-                                            const url = prompt('Nhập URL:', 'https://');
-                                            if (!url) return;
-                                            const text = document.getSelection()?.toString() || url;
-                                            const html = `<a href="${url.replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-                                            document.execCommand('insertHTML', false, html);
-                                        };
 
-                                        // Khi submit form: copy innerHTML từ div.rte-field sang textarea hidden
-                                        (function () {
-                                            const form = document.currentScript.closest('form');
-                                            form.addEventListener('submit', () => {
-                                                document.querySelectorAll('.rte-field').forEach(div => {
-                                                    const ta = div.parentElement.querySelector('textarea[name="' + div.dataset.name + '"]');
-                                                    if (ta) ta.value = div.innerHTML.trim();
-                                                });
-                                            });
-                                        })();
+                                        
+  (function () {
+    const toolbar = document.getElementById('rteToolbar');
+    const color = document.getElementById('rteColor');
+    const emoji = document.getElementById('rteEmoji');
+    const linkBtn = document.getElementById('rteLink');
+
+    function exec(cmd, val = null) {
+      document.execCommand(cmd, false, val);
+    }
+
+    // B/I/U dùng data-cmd
+    toolbar.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-cmd]');
+      if (!btn) return;
+      const cmd = btn.getAttribute('data-cmd');
+      exec(cmd);
+    });
+
+    // Màu chữ
+    color.addEventListener('input', (e) => exec('foreColor', e.target.value));
+
+    // Emoji
+    emoji.addEventListener('click', () => exec('insertText', '😊'));
+
+    // Link
+    linkBtn.addEventListener('click', () => {
+      const el = document.activeElement;
+      if (!el || el.getAttribute('contenteditable') !== 'true') return;
+      const url = prompt('Nhập URL:', 'https://');
+      if (!url) return;
+      const sel = window.getSelection ? String(window.getSelection()) : '';
+      const text = sel && sel.trim() ? sel : url;
+      const safe = url.replace(/"/g, '&quot;');
+      document.execCommand(
+        'insertHTML',
+        false,
+        `<a href="${safe}" target="_blank" rel="noopener noreferrer">${text}</a>`
+      );
+    });
+
+    // Khi submit: copy nội dung các div.rte-field vào textarea ẩn
+    const form = document.currentScript.closest('form');
+    if (form) {
+      form.addEventListener('submit', function () {
+        form.querySelectorAll('.rte-field').forEach((div) => {
+          const name = div.getAttribute('data-name');
+          const ta = form.querySelector(`textarea[name="${name}"]`);
+          if (ta) ta.value = div.innerHTML.trim();
+        });
+      });
+    }
+  })();
+
                                     </script>
 
 

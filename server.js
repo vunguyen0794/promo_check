@@ -49,6 +49,7 @@ app.use(cookieSession({
   maxAge: 24 * 60 * 60 * 1000,
 }));
 
+
 // share user/time ra view
 app.use((req, res, next) => {
   res.locals.user = req.session?.user || null;
@@ -132,6 +133,69 @@ function toIdArray(val) {
   if (val == null || val === '') return [];
   return [...new Set(String(val).split(',').map(s => Number(s.trim())).filter(Boolean))];
 }
+
+
+// ==== PROMO HELPERS ====
+// Kiểm tra ngày hiệu lực
+function inDateRange(now, start, end) {
+  const s = start ? new Date(start) : null;
+  const e = end ? new Date(end) : null;
+  return (!s || now >= s) && (!e || now <= e);
+}
+
+// Tính số tiền giảm theo form setup:
+//  - discount_value_type: 'amount' | 'percent'
+//  - discount_amount     (₫)
+//  - discount_percent    (%)
+//  - max_discount_amount (₫, optional)
+function calcDiscountAmt(promo, price) {
+  const type = (promo.discount_value_type || '').toLowerCase(); // 'amount' | 'percent'
+  const val = Number(promo.discount_value || 0);
+  if (type === 'amount') {
+    return Math.max(0, Math.round(val));
+  }
+  if (type === 'percent') {
+    const cap = promo.max_discount_amount == null ? Infinity : Number(promo.max_discount_amount);
+    const raw = Math.round(price * val / 100);
+    return Math.max(0, Math.min(raw, isFinite(cap) ? cap : raw));
+  }
+  return 0;
+}
+
+
+// Hai CTKM có cộng chung được không?
+function canStack(a, b) {
+  const aId = a.id, bId = b.id;
+  const aEx = new Set(a.exclude_with || []);
+  const bEx = new Set(b.exclude_with || []);
+  if (aEx.has(bId) || bEx.has(aId)) return false;
+
+  // Nếu có danh sách "áp dụng cùng", phải nằm trong list đó
+  const aAp = a.apply_with || [];
+  const bAp = b.apply_with || [];
+  if (aAp.length && !aAp.includes(bId)) return false;
+  if (bAp.length && !bAp.includes(aId)) return false;
+
+  return true;
+}
+
+// Chọn tập CTKM cộng được (greedy: ưu tiên giảm nhiều nhất)
+function pickStackable(promosSortedDesc) {
+  const chosen = [];
+  promosSortedDesc.forEach(p => { if (chosen.every(c => canStack(c, p))) chosen.push(p); });
+  return chosen;
+}
+
+// Chuẩn hoá list SKU từ chuỗi trong form (phân cách bằng dấu phẩy/xuống dòng/space)
+function parseSkuList(s) {
+  return String(s || '')
+    .split(/[\s,]+/).map(x => x.trim()).filter(Boolean);
+}
+
+
+
+
+
 
 
 
@@ -222,6 +286,8 @@ async function uploadBufferToDriveGlobal(buffer, filename, mimeType, parentId) {
   return `https://drive.google.com/uc?export=view&id=${created.id}`;
 }
 
+
+
 // ------------------------- ROUTES OAUTH (DRIVE CHUNG) -------------------------
 app.get('/google/drive/connect', requireAuth, (req, res) => {
   // Có thể chỉ cho manager thấy route này (tránh user thường bấm)
@@ -266,6 +332,12 @@ app.use((req, res, next) => {
   res.locals.user = req.session.user;
   next();
 });
+
+// tăng limit để nhận form/json lớn (Bảng chi tiết + 2000 SKU)
+app.use(express.json({ limit: '8mb' }));
+app.use(express.urlencoded({ extended: true, limit: '8mb' }));
+
+
 
 
 // ------------------------- Health / debug -------------------------
@@ -372,14 +444,296 @@ app.post('/register', async (req, res) => {
 app.post('/logout', (req, res) => { req.session = null; return res.redirect('/login'); });
 
 
-// ------------------------- Trang chính -------------------------
-app.get('/', requireAuth, (req, res) => {
-  res.render('index', {
-    title: 'Trang chủ',
+
+// ---------------------  Trang chính  ---------------------
+app.get('/', requireAuth, async (req, res) => {
+  try {
+    // ==== CTKM nổi bật ====
+    const { data: promos, error: promosErr } = await supabase
+      .from('promotions')
+      .select('id, name, status,compatible_with_other_promos, stack_rule, discount_value_type, discount_value, max_discount_amount, min_order_value, start_date, end_date')
+      .limit(500);
+
+    if (promosErr) console.error('promotions:', promosErr);
+
+    // ---- Quan hệ áp dụng cùng từ bảng promotion_compat_allows ----
+    const promoIds = (promos || []).map(p => p.id);
+    const compatSetByPromo = new Map(); // promo_id -> Set(with_promotion_id)
+
+    if (promoIds.length) {
+      const { data: compatRows, error: compatErr } = await supabase
+        .from('promotion_compat_allows')
+        .select('promotion_id, with_promotion_id')
+        .in('promotion_id', promoIds);
+
+      if (!compatErr) {
+        (compatRows || []).forEach(r => {
+          if (!compatSetByPromo.has(r.promotion_id)) {
+            compatSetByPromo.set(r.promotion_id, new Set());
+          }
+          compatSetByPromo.get(r.promotion_id).add(r.with_promotion_id);
+        });
+      } else {
+        console.error('promotion_compat_allows:', compatErr);
+      }
+    }
+
+
+    // Chuẩn hoá chuỗi ngày (chấp nhận "YYYY-MM-DD", "DD/MM/YYYY", "DD-MMM-YYYY"...)
+    function parseDateLoose(v) {
+      if (!v) return null;
+      const s = String(v).trim();
+      // ISO
+      const iso = Date.parse(s);
+      if (!Number.isNaN(iso)) return new Date(iso);
+      // DD/MM/YYYY
+      const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+      if (m) {
+        const [_, d, mo, y] = m.map(Number);
+        return new Date(y, mo - 1, d);
+      }
+      return null;
+    }
+
+    const today = new Date();
+    const windowStart = new Date(today); windowStart.setDate(today.getDate() - 7);   // -7 ngày
+    const windowEnd = new Date(today); windowEnd.setDate(today.getDate() + 60);   // +60 ngày
+
+    function potentialSaving(p) {
+      const type = String(p?.discount_value_type || '').toLowerCase();
+      const val = Number(p?.discount_value || 0);
+      if (type === 'amount') return Math.max(val, 0);
+      if (type === 'percent') {
+        const cap = Number(p?.max_discount_amount || 0);
+        const BASE = 10_000_000; // giả định đơn cơ sở để so sánh
+        const score = (val / 100) * BASE;
+        return cap > 0 ? Math.min(cap, score) : score;
+      }
+      return 0;
+    }
+    // chọn CTKM "active" (nếu có ngày) hoặc status='active'; nếu không có ngày thì vẫn giữ
+    const normalized = (promos || []).map(p => {
+      const start = parseDateLoose(p.start_date);
+      const end = parseDateLoose(p.end_date);
+      const inWindow = (start && end)
+        ? (start <= windowEnd && end >= windowStart) // giao nhau với cửa sổ -7..+60 ngày
+        : true; // không có ngày thì cho qua
+      const active = inWindow && (String(p.status || '').toLowerCase() !== 'inactive');
+      const hasCompatList = (compatSetByPromo.get(p.id)?.size || 0) > 0;
+      const stackable = hasCompatList || !!p.compatible_with_other_promos;
+      return { ...p, __active: active, __stackable: stackable, __saving: potentialSaving(p) };
+    });
+
+
+
+
+    // ưu tiên CTKM “cộng dồn” rồi đến mức giảm; lấy top 8
+    const featuredPromos = normalized
+      .filter(p => p.__active && p.__saving > 0)
+      .sort((a, b) => {
+        const stackA = a.stack_rule === 'stack' ? 0 : 1;
+        const stackB = b.stack_rule === 'stack' ? 0 : 1;
+        return (Number(!a.__stackable) - Number(!b.__stackable)) || (b.__saving - a.__saving);
+      })
+      .slice(0, 8);
+
+
+
+    // ---- Top SKU có nhiều lượt so sánh giá + matrix theo đối thủ ----
+    const { data: pc } = await supabase
+      .from('price_comparisons')               // đúng với bảng của bạn
+      .select('sku, product_name, brand, competitor_name, created_at')
+      .order('created_at', { ascending: false });
+
+    const bySku = {};       // { sku: { product_name, brand, counts:{competitorName: n} } }
+    const totalBySku = {};  // { sku: tổng lượt }
+
+    (pc || []).forEach(r => {
+      const sku = String(r.sku || '').trim();
+      if (!sku) return;
+      const comp = String(r.competitor_name || '').trim() || 'Khác';
+      if (!bySku[sku]) bySku[sku] = { product_name: r.product_name || '', brand: r.brand || '', counts: {} };
+      bySku[sku].counts[comp] = (bySku[sku].counts[comp] || 0) + 1;
+      totalBySku[sku] = (totalBySku[sku] || 0) + 1;
+    });
+
+    // Lấy 10 SKU nhiều lượt nhất
+    const topSkus = Object.keys(totalBySku)
+      .sort((a, b) => totalBySku[b] - totalBySku[a])
+      .slice(0, 10);
+
+    // Chọn các cột đối thủ (top 6 đối thủ theo tổng lượt trong 10 SKU đó)
+    const compSet = {};
+    topSkus.forEach(s => {
+      const counts = bySku[s]?.counts || {};
+      Object.keys(counts).forEach(c => { compSet[c] = (compSet[c] || 0) + counts[c]; });
+    });
+    const competitorCols = Object.keys(compSet).sort((a, b) => compSet[b] - compSet[a]).slice(0, 6);
+
+    // Dòng dữ liệu cho matrix + đối thủ nổi bật nhất từng SKU
+    const matrixRows = topSkus.map(sku => {
+      const row = bySku[sku] || { product_name: '', brand: '', counts: {} };
+      let topComp = '-', topCompCount = 0;
+      Object.entries(row.counts).forEach(([c, n]) => { if (n > topCompCount) { topComp = c; topCompCount = n; } });
+
+      return {
+        sku,
+        product_name: row.product_name,
+        brand: row.brand,
+        total: totalBySku[sku],
+        top_competitor: topComp,
+        cells: competitorCols.map(c => row.counts[c] || 0)
+      };
+    });
+
+    // (tuỳ chọn) bảng tóm tắt cũ
+    const topBattleSkus = matrixRows.map(r => ({
+      sku: r.sku, product_name: r.product_name, brand: r.brand, count: r.total, top_competitor: r.top_competitor
+    }));
+
+
+    const { data: skusSeed } = await supabase
+      .from('skus')
+      .select('sku, product_name, brand, list_price')
+      .limit(200); // lấy ~200 bản ghi rồi random phía server
+
+    const randomSkus = (skusSeed || [])
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 8); // 5-10 tuỳ bạn, mình lấy 8
+
+    return res.render('index', {
+      title: 'Trang chủ',
+      currentPage: 'home',
+      query: '',
+      featuredPromos,
+      topBattleSkus,
+      competitorCols,
+      matrixRows,
+      randomSkus,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    });
+  } catch (e) {
+    console.error(e);
+    // Render trang chủ tối thiểu nếu có lỗi truy vấn
+    return res.render('index', {
+      title: 'Trang chủ',
+      currentPage: 'home',
+      query: '',
+      featuredPromos: [],
+      topBattleSkus: [],
+      competitorCols: [],
+      matrixRows: [],
+      randomSkus: [],
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    });
+  }
+});
+
+
+// ---- Trang tất cả sản phẩm ----
+app.get('/products', requireAuth, async (req, res) => {
+  const q = (req.query.q || '').trim();
+  const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+  const pageSize = 24;
+
+  let query = supabase
+    .from('skus')
+    .select('sku, product_name, brand, list_price', { count: 'exact' });
+
+  if (q) {
+    // tìm theo sku / tên / brand
+    query = query.or(
+      `sku.ilike.%${q}%,product_name.ilike.%${q}%,brand.ilike.%${q}%`
+    );
+  }
+
+  const { data: items, count } = await query
+    .range((page - 1) * pageSize, page * pageSize - 1);
+
+  res.render('products', {
+    title: 'Tất cả sản phẩm',
     currentPage: 'home',
-    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    q, items: items || [],
+    page, total: count || 0, pageSize
   });
 });
+
+// POST /api/skus/upsert  { sku, product_name, list_price, brand?, category?, subcat? }
+app.post('/api/skus/upsert', requireAuth, async (req, res) => {
+  try {
+    const sku = String(req.body.sku || '').trim();
+    if (!sku) return res.status(400).json({ ok:false, error:'Thiếu SKU' });
+
+    const row = {
+      sku,
+      product_name: (req.body.product_name || sku).trim(),
+      brand: req.body.brand || null,
+      category: req.body.category || null,
+      subcat: req.body.subcat || null,
+      list_price: req.body.list_price != null ? Number(req.body.list_price) : null,
+    };
+
+    const { data, error } = await supabase
+      .from('skus')
+      .upsert([row], { onConflict: 'sku' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return res.json({ ok:true, sku: data });
+  } catch (e) {
+    return res.status(500).json({ ok:false, error: e.message });
+  }
+});
+
+
+
+
+// POST cập nhật giá (ghi lịch sử)
+app.post('/api/sku/:sku/price', requireAuth, async (req, res) => {
+  try{
+    const sku = req.params.sku;
+    const newPrice = Number(req.body.new_price);
+    if (!Number.isFinite(newPrice) || newPrice<0) return res.status(400).json({ ok:false, error:'Giá không hợp lệ' });
+
+    const { data: curr } = await supabase.from('skus').select('list_price').eq('sku', sku).single();
+    const old = Number(curr?.list_price || 0);
+
+    // update giá
+    const { error: upErr } = await supabase.from('skus').update({ list_price: newPrice }).eq('sku', sku);
+    if (upErr) throw upErr;
+
+    // ghi lịch sử
+    await supabase.from('sku_price_history').insert([{
+      sku, old_price: old, new_price: newPrice, changed_by: req.session.user.id
+    }]);
+
+    res.json({ ok:true, old_price: old, new_price: newPrice });
+  }catch(e){ res.status(500).json({ ok:false, error:e.message }); }
+});
+
+
+// GET lịch sử giá
+app.get('/api/sku/:sku/price-history', requireAuth, async (req, res) => {
+  try{
+    const sku = req.params.sku;
+    const { data, error } = await supabase
+      .from('sku_price_history')
+      .select(`*, users:changed_by(full_name, email)`)
+      .eq('sku', sku)
+      .order('changed_at', { ascending:false })
+      .limit(50);
+    if (error) throw error;
+    const rows = (data||[]).map(r=>({
+      changed_at: r.changed_at,
+      old_price: r.old_price,
+      new_price: r.new_price,
+      user: r.users ? (r.users.full_name || r.users.email) : 'Unknown'
+    }));
+    res.json({ ok:true, history: rows });
+  }catch(e){ res.status(500).json({ ok:false, error:e.message }); }
+});
+
 
 // ------------------------- API SKUs -------------------------
 app.get('/api/skus', async (req, res) => {
@@ -580,12 +934,115 @@ app.get('/api/skus-with-comparisons', async (req, res) => {
   }
 });
 
-app.post('/search-promotion', requireAuth, async (req, res) => {
+
+async function getEligiblePromosForSku(skuCode) {
+  // 1) Lấy giá SKU
+  const { data: skuRow } = await supabase.from('skus')
+    .select('sku, list_price, brand, category, subcat')
+    .eq('sku', skuCode).maybeSingle();
+  if (!skuRow) return { sku: null, price: 0, groups: new Map(), picked: [] };
+  ///picked.forEach(p => { p.discount_amount_calc = calcDiscountAmt(p, price); });
+
+  const price = Number(skuRow.list_price || 0);
+
+  // 2) Lấy tất cả CTKM còn hiệu lực thời gian
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: promos } = await supabase
+    .from('promotions')
+    .select('id, name, group_name, subgroup_name, discount_value_type, discount_value, max_discount_amount, min_order_value, start_date, end_date, apply_to_all_skus')
+    .lte('start_date', today)
+    .gte('end_date', today);
+
+  const promoById = new Map((promos || []).map(p => [p.id, p]));
+
+  const promoIds = Array.from(promoById.keys());
+
+  // 3) Mapping include/exclude
+  const { data: includeRows } = await supabase
+    .from('promotion_skus')
+    .select('promotion_id, sku')
+    .in('promotion_id', promoIds);
+  const { data: excludeRows } = await supabase
+    .from('promotion_excluded_skus')
+    .select('promotion_id, sku')
+    .in('promotion_id', promoIds);
+
+  const includeByPromo = new Map();
+  (includeRows || []).forEach(r => {
+    (includeByPromo.get(r.promotion_id) || includeByPromo.set(r.promotion_id, new Set()).get(r.promotion_id))
+      .add(r.sku);
+  });
+
+  const excludeByPromo = new Map();
+  (excludeRows || []).forEach(r => {
+    (excludeByPromo.get(r.promotion_id) || excludeByPromo.set(r.promotion_id, new Set()).get(r.promotion_id))
+      .add(r.sku);
+  });
+
+  // 4) Lọc “CTKM áp dụng cho SKU”
+  const applicable = [];
+  (promos || []).forEach(p => {
+    const excl = excludeByPromo.get(p.id);
+    if (excl && excl.has(skuCode)) return;
+
+    if (p.apply_to_all_skus) {
+      applicable.push(p);
+    } else {
+      const inc = includeByPromo.get(p.id);
+      if (inc && inc.has(skuCode)) applicable.push(p);
+    }
+  });
+
+  // 5) Group theo group_name → pick 1 biến thể theo tier min_order_value
+  const groups = new Map();
+  applicable.forEach(p => {
+    const g = p.group_name || 'Khác';
+    (groups.get(g) || groups.set(g, []).get(g)).push(p);
+  });
+
+  const picked = [];
+  groups.forEach(list => {
+    // chỉ giữ các p có min_order_value <= price, rồi lấy min_order_value lớn nhất
+    const tiers = list.filter(p => Number(p.min_order_value || 0) <= price);
+    if (tiers.length) {
+      tiers.sort((a, b) => Number(b.min_order_value || 0) - Number(a.min_order_value || 0));
+      picked.push(tiers[0]);
+    }
+  });
+
+  return { sku: skuRow, price, groups, picked };
+}
+
+app.get('/api/search-promotion', requireAuth, async (req, res) => {
   try {
-    const skuInput = (req.body.sku || '').trim();
+    const sku = String(req.query.sku || '').trim();
+    if (!sku) return res.json({ success: true, sku: null, items: [] });
+
+    const result = await getEligiblePromosForSku(sku);
+    // Trả thêm các CTKM “nhỏ lẻ” không thuộc group (nếu muốn), còn core là result.picked
+    return res.json({ success: true, sku: result.sku, price: result.price, items: result.picked });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+
+
+
+app.all('/search-promotion', requireAuth, async (req, res) => {
+  try {
+    const skuInput = (
+      req.method === 'POST'
+        ? (req.body?.sku || req.body?.query)
+        : (req.query?.query || req.query?.sku)
+        || ''
+    ).toString().trim();
+
     if (!skuInput) {
       return res.render('promotion', {
         title: 'CTKM theo SKU', currentPage: 'promotion',
+        query: skuInput,
         product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
         error: 'Vui lòng nhập SKU.',
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
@@ -597,6 +1054,7 @@ app.post('/search-promotion', requireAuth, async (req, res) => {
     if (!product) {
       return res.render('promotion', {
         title: 'CTKM theo SKU', currentPage: 'promotion',
+        query: skuInput,
         product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
         error: 'Không tìm thấy thông tin cho SKU: ' + skuInput,
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
@@ -630,35 +1088,146 @@ app.post('/search-promotion', requireAuth, async (req, res) => {
     // 4) Map tên CTKM “áp dụng cùng/loại trừ”
     if (promotions.length) {
       const ids = promotions.map(p => p.id);
-
+      
       const { data: allows } = await supabase
-        .from('promotion_compat_allows')
-        .select('promotion_id, with_promotion_id')
-        .in('promotion_id', ids);
+  .from('promotion_compat_allows')
+  .select('promotion_id, with_promotion_id')
+  .in('promotion_id', ids);
 
-      const { data: excludes } = await supabase
-        .from('promotion_compat_excludes')
-        .select('promotion_id, with_promotion_id')
-        .in('promotion_id', ids);
+const { data: excludes } = await supabase
+  .from('promotion_compat_excludes')
+  .select('promotion_id, with_promotion_id')
+  .in('promotion_id', ids);
 
-      const { data: allPromosLite } = await supabase
-        .from('promotions')
-        .select('id, name, group_name, subgroup_name');
+const { data: allPromosLite } = await supabase
+  .from('promotions')
+  .select('id, name, group_name, subgroup_name');
 
-      const byId = Object.fromEntries((allPromosLite || []).map(p => [p.id, p]));
-      const fmt = (t) => t ? (t.group_name ? `${t.group_name} — ${(t.subgroup_name || t.name)}` : t.name) : '';
+const byId = Object.fromEntries((allPromosLite || []).map(p => [p.id, p]));
 
-      promotions.forEach(p => {
-        const allowIds = (allows || []).filter(r => r.promotion_id === p.id).map(r => r.with_promotion_id);
-        const exclIds = (excludes || []).filter(r => r.promotion_id === p.id).map(r => r.with_promotion_id);
-        p.compat_allow_names = allowIds.map(id => fmt(byId[id])).filter(Boolean);
-        p.compat_exclude_names = exclIds.map(id => fmt(byId[id])).filter(Boolean);
-      });
+// tiện ích
+const uniq = (arr) => {
+  const s = new Set(); const out = [];
+  for (const x of arr) if (x && !s.has(x)) { s.add(x); out.push(x); }
+  return out;
+};
+
+promotions.forEach(p => {
+  const allowIds = (allows || [])
+    .filter(r => r.promotion_id === p.id)
+    .map(r => r.with_promotion_id);
+
+  const exclIds = (excludes || [])
+    .filter(r => r.promotion_id === p.id)
+    .map(r => r.with_promotion_id);
+
+  // === A. TÊN GROUP cho cột "Áp dụng cùng" / "Loại trừ" ===
+  const allowGroupNames = uniq(
+    allowIds.map(id => byId[id]?.group_name).filter(Boolean)
+  );
+  const exclGroupNames  = uniq(
+    exclIds.map(id => byId[id]?.group_name).filter(Boolean)
+  );
+
+  // === B. CTKM lẻ (không thuộc group) — làm fallback khi group trống ===
+  const allowSingles = uniq(
+    allowIds
+      .map(id => {
+        const t = byId[id];
+        return t ? (t.group_name ? null : (t.subgroup_name || t.name)) : null;
+      })
+      .filter(Boolean)
+  );
+  const exclSingles = uniq(
+    exclIds
+      .map(id => {
+        const t = byId[id];
+        return t ? (t.group_name ? null : (t.subgroup_name || t.name)) : null;
+      })
+      .filter(Boolean)
+  );
+
+  // Gán vào object trả cho view
+  p.compat_allow_group_names    = allowGroupNames;   // <-- dùng cho cột "Áp dụng cùng"
+  p.compat_exclude_group_names  = exclGroupNames;    // <-- dùng cho cột "Loại trừ"
+  p.compat_allow_single_names   = allowSingles;      // fallback nếu không có group
+  p.compat_exclude_single_names = exclSingles;
+
+  // Giữ field cũ (đang dùng nơi khác) cho an toàn:
+  p.compat_allow_names   = allowGroupNames.length ? allowGroupNames : allowSingles;
+  p.compat_exclude_names = exclGroupNames.length ? exclGroupNames : exclSingles;
+});
+
     }
 
     // 5) Tính toán (placeholder)
-    const totalDiscount = 0;
-    const finalPrice = Math.max(0, (product.list_price || 0) - totalDiscount);
+    // ---- Lọc CTKM khả dụng cho SKU + đạt min_order_value, còn hiệu lực ----
+const price = Number(product.list_price || 0);
+const todayStr = new Date().toISOString().slice(0,10);
+
+let availablePromos = (promotions || [])
+  .filter(p =>
+    String(p.status || '').toLowerCase() === 'active' &&
+    p.start_date <= todayStr && p.end_date >= todayStr &&
+    Number(p.min_order_value || 0) <= price
+  )
+  .map(p => ({
+    ...p,
+    discount_amount_calc: calcDiscountAmt(p, price) // dùng helper đã sửa
+  }))
+  .filter(p => p.discount_amount_calc > 0);
+
+// --- GỘP THEO GROUP: mỗi group chỉ giữ 1 CTKM giảm mạnh nhất ---
+function _groupKey(p) {
+  // Đổi lại tên field group cho khớp DB của bạn:
+  // ưu tiên group_id, rồi đến group_name/promo_group nếu có.
+  return String(
+    p.group_name  ?? 'default'
+  );
+}
+const bestByGroup = Object.create(null);
+for (const p of availablePromos) {
+  const k = _groupKey(p);
+  if (!bestByGroup[k] || Number(p.discount_amount_calc) > Number(bestByGroup[k].discount_amount_calc)) {
+    bestByGroup[k] = p;                 // chọn CTKM giảm lớn nhất trong group
+  }
+}
+let promosAfterGroupPick = Object.values(bestByGroup);
+// ---- Gắn quan hệ áp dụng cùng / loại trừ CHO danh sách đã gộp ----
+if (promosAfterGroupPick.length) {
+  const ids = promosAfterGroupPick.map(p => p.id);
+
+  const { data: allows } = await supabase
+    .from('promotion_compat_allows')
+    .select('promotion_id, with_promotion_id')
+    .in('promotion_id', ids);
+
+  const { data: excludes } = await supabase
+    .from('promotion_compat_excludes')
+    .select('promotion_id, with_promotion_id')
+    .in('promotion_id', ids);
+
+  const allowMap = {};
+  (allows || []).forEach(r => (allowMap[r.promotion_id] ||= []).push(r.with_promotion_id));
+
+  const exclMap = {};
+  (excludes || []).forEach(r => (exclMap[r.promotion_id] ||= []).push(r.with_promotion_id));
+
+  // gán thuộc tính vào chính danh sách đã gộp
+  promosAfterGroupPick = promosAfterGroupPick.map(p => ({
+    ...p,
+    apply_with:  allowMap[p.id] || [],
+    exclude_with: exclMap[p.id] || [],
+  }));
+}
+
+// ---- Chọn tập CTKM cộng được (tham lam theo giảm nhiều) ----
+const chosenPromos = pickStackable(
+  [...promosAfterGroupPick].sort((a,b) => b.discount_amount_calc - a.discount_amount_calc)
+);
+
+const totalDiscount = chosenPromos.reduce((s,p)=> s + Number(p.discount_amount_calc||0), 0);
+const finalPrice    = Math.max(0, Number(product.list_price||0) - totalDiscount);
 
     // 6) Số lần chiến giá
     let comparisonCount = 0;
@@ -671,13 +1240,15 @@ app.post('/search-promotion', requireAuth, async (req, res) => {
 
     return res.render('promotion', {
       title: 'CTKM theo SKU', currentPage: 'promotion',
-      product, promotions, totalDiscount, finalPrice, comparisonCount, error: null,
+      query: skuInput,
+      product, promotions: promosAfterGroupPick,chosenPromos, totalDiscount, finalPrice, comparisonCount, error: null,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
   } catch (error) {
     console.error('SEARCH PROMO ERROR:', error);
     return res.render('promotion', {
       title: 'CTKM theo SKU', currentPage: 'promotion',
+      query: skuInput,
       product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
       error: 'Lỗi hệ thống: ' + (error?.message || String(error)),
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
@@ -691,6 +1262,8 @@ app.post('/search-promotion', requireAuth, async (req, res) => {
 
 app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
   try {
+    const currentUser = req.session?.user;
+    const isManager = ['manager','admin'].includes(currentUser?.role);
     const promoId = req.params.id;
     // Lấy quan hệ áp dụng cùng / loại trừ
     const { data: allowRows } = await supabase
@@ -703,12 +1276,13 @@ app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
       .select('with_promotion_id')
       .eq('promotion_id', promoId);
 
-    // Lấy tên/nhóm để hiển thị
+    // Lấy tên/nhóm để hiển thị + đưa đúng format mà view đang cần
     const allIds = [
       ...(allowRows || []).map(r => r.with_promotion_id),
       ...(exclRows || []).map(r => r.with_promotion_id),
     ];
-    let compatAllowNames = [], compatExcludeNames = [];
+    let compatAllows = [], compatExcludes = [];
+
     if (allIds.length) {
       const { data: refPromos } = await supabase
         .from('promotions')
@@ -716,16 +1290,19 @@ app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
         .in('id', allIds);
 
       const byId = Object.fromEntries((refPromos || []).map(p => [p.id, p]));
-      const fmt = (t) => t
-        ? (t.group_name ? `${t.group_name} — ${(t.subgroup_name || t.name)}` : t.name)
-        : '';
+      const toObj = (p) => p ? ({
+        id: p.id,
+        name: p.name,
+        group_name: p.group_name || 'Khác',
+        subgroup_name: p.subgroup_name || null
+      }) : null;
 
-      compatAllowNames = (allowRows || [])
-        .map(r => fmt(byId[r.with_promotion_id]))
+      compatAllows = (allowRows || [])
+        .map(r => toObj(byId[r.with_promotion_id]))
         .filter(Boolean);
 
-      compatExcludeNames = (exclRows || [])
-        .map(r => fmt(byId[r.with_promotion_id]))
+      compatExcludes = (exclRows || [])
+        .map(r => toObj(byId[r.with_promotion_id]))
         .filter(Boolean);
     }
 
@@ -735,29 +1312,72 @@ app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
       .eq('id', promoId)
       .single();
     if (error) throw error;
-    const { data: revisions } = await supabase
-      .from('promotion_revisions')
-      .select('id, action, user_id, diff, created_at')
-      .eq('promotion_id', req.params.id)
-      .order('created_at', { ascending: false })
-      .limit(50);
 
-    res.render('promotion-detail', {
-      title: 'Chi tiết CTKM',
-      currentPage: 'promotion-detail',
-      promotion,
-      revisions: revisions || [],
-      compatAllowNames,
-      compatExcludeNames,
-      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    });
-  } catch (error) {
-    res.status(404).render('error', {
-      title: 'Không tìm thấy',
-      message: 'Không tìm thấy thông tin CTKM',
-      error: error.message,
-    });
+    const includedCodes = (promotion.promotion_skus || []).map(x => x.sku).filter(Boolean);
+    const excludedCodes = (promotion.promotion_excluded_skus || []).map(x => x.sku).filter(Boolean);
+    const allCodes = Array.from(new Set([...includedCodes, ...excludedCodes]));
+
+    let skuMetaByCode = {};
+    if (allCodes.length) {
+      const { data: skuMeta } = await supabase
+        .from('skus')
+        .select('sku, product_name, brand, list_price')
+        .in('sku', allCodes);
+
+      skuMetaByCode = Object.fromEntries((skuMeta || []).map(s => [
+        s.sku,
+        {
+          sku: s.sku,
+          product_name: s.product_name || '',
+          brand: s.brand || '',
+          list_price: (typeof s.list_price === 'number') ? s.list_price : null,
+        }
+      ]));
+    }
+    
+    const includedSkuDetails = includedCodes.map(code => ({
+      sku: code,
+      product_name: skuMetaByCode[code]?.product_name || '',
+      brand: skuMetaByCode[code]?.brand || '',
+      list_price: skuMetaByCode[code]?.list_price ?? null,
+    }));
+    const excludedSkuDetails = excludedCodes.map(code => ({
+      sku: code,
+      product_name: skuMetaByCode[code]?.product_name || '',
+      brand: skuMetaByCode[code]?.brand || '',
+      list_price: skuMetaByCode[code]?.list_price ?? null,
+    }));
+
+    promotion.compat_allows = compatAllows;
+    promotion.compat_excludes = compatExcludes;
+
+  let revisions = [];
+  if (isManager) {
+    // chỉ load khi là manager
+    const { data, error } = await supabase
+      .from('promotion_revisions')
+      .select('*')
+      .eq('promotion_id', req.params.id)
+      .order('created_at', { ascending: false });
+    if (!error) revisions = data || [];
   }
+
+  return res.render('promotion-detail', {
+    title: 'Chi tiết CTKM',
+    currentPage: 'promotion-detail',
+    promotion,
+    includedSkuDetails,
+    excludedSkuDetails,
+    revisions,                 // non-manager sẽ là []
+    currentUser,               // truyền cho view biết vai trò
+    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+  });
+
+  } catch (error) {
+    console.error(error);
+    res.status(404).send('Không tìm thấy thông tin CTKM.');
+  }
+
 });
 // Trang quản lý CTKM (đã loại bỏ cat/brand)
 app.get('/promo-management', async (req, res) => {
@@ -834,6 +1454,22 @@ app.post('/create-promotion', requireAuth, async (req, res) => {
       compatible_with_other,
       group_name,          // NEW
     } = req.body;
+    // ==== MAP "giá trị giảm" từ form về 4 cột DB ====
+    const discount_value_type = (req.body.discount_value_type || '').toLowerCase() || null;
+    // amount => lấy ô discount_amount; percent => lấy ô discount_percent
+    const discount_value =
+      discount_value_type === 'amount'
+        ? Number(req.body.discount_amount || 0)
+        : (discount_value_type === 'percent'
+          ? Number(req.body.discount_percent || 0)
+          : null);
+
+    const max_discount_amount =
+      discount_value_type === 'percent'
+        ? (req.body.max_discount_amount ? Number(req.body.max_discount_amount) : null)
+        : null;
+
+    const min_order_value = req.body.min_order_value ? Number(req.body.min_order_value) : 0;
 
     // Gom các ô chi tiết dạng “detail[<label>]”
     const detailFields = {};
@@ -852,13 +1488,18 @@ app.post('/create-promotion', requireAuth, async (req, res) => {
         channel: channel || 'All',
         promo_type,
         coupon_code: coupon_code || null,
+        discount_value_type,
+        discount_value,
+        max_discount_amount,
+        min_order_value,
         apply_to_all_skus: apply_to === 'all',
         compatible_with_other: !!compatible_with_other,
         status: 'active',
         created_by: req.session.user?.id || null,
         group_name,
         subgroup_name: name,
-        detail_fields: detailFields || null
+        detail_fields: detailFields || null,
+        apply_to_all_skus: apply_to === 'all',
       }])
       .select()
       .single();
@@ -873,8 +1514,10 @@ app.post('/create-promotion', requireAuth, async (req, res) => {
       }]);
     }
 
-    const allowIds = toIdArray(req.body['apply_with']);
-    const exclIds = toIdArray(req.body['exclude_with']);
+    // hỗ trợ cả name="apply_with[]" / "exclude_with[]"
+    const allowIds = toIdArray(req.body['apply_with'] || req.body['apply_with[]']);
+    const exclIds = toIdArray(req.body['exclude_with'] || req.body['exclude_with[]']);
+
 
     if (allowIds.length) {
       await supabase.from('promotion_compat_allows').insert(
@@ -894,7 +1537,7 @@ app.post('/create-promotion', requireAuth, async (req, res) => {
     const includeSkus = parseSkus(req.body.skus);    // Từ <textarea name="skus">
     const excludeSkus = parseSkus(req.body.excluded_skus); // Từ <textarea name="excluded_skus">
 
-    // Cập nhật cờ apply_to_all_skus (phòng khi phần insert phía trên chưa set)
+  // Cập nhật cờ apply_to_all_skus (phòng khi phần insert phía trên chưa set)
     await supabase
       .from('promotions')
       .update({ apply_to_all_skus: applyTo === 'all' })
@@ -941,6 +1584,44 @@ app.get('/edit-promotion/:id', requireAuth, async (req, res) => {
       .select('*, promotion_skus(*), promotion_excluded_skus(*)')
       .eq('id', id).single();
     if (error) throw error;
+
+    // --- Ghép thông tin SKU từ bảng 'skus' ---
+    const includedCodes = (promotion.promotion_skus || []).map(x => x.sku).filter(Boolean);
+    const excludedCodes = (promotion.promotion_excluded_skus || []).map(x => x.sku).filter(Boolean);
+    const allCodes = Array.from(new Set([...includedCodes, ...excludedCodes]));
+
+    let skuMetaByCode = {};
+    if (allCodes.length) {
+      const { data: skuMeta } = await supabase
+        .from('skus')
+        .select('sku, product_name, brand, list_price')
+        .in('sku', allCodes);
+
+      skuMetaByCode = Object.fromEntries((skuMeta || []).map(s => [
+        s.sku,
+        {
+          sku: s.sku,
+          product_name: s.product_name || '',
+          brand: s.brand || '',
+          list_price: typeof s.list_price === 'number' ? s.list_price : null,
+        }
+      ]));
+    }
+
+    const includedSkuDetails = includedCodes.map(code => ({
+      sku: code,
+      product_name: skuMetaByCode[code]?.product_name || '',
+      brand: skuMetaByCode[code]?.brand || '',
+      list_price: skuMetaByCode[code]?.list_price ?? null,
+    }));
+
+    const excludedSkuDetails = excludedCodes.map(code => ({
+      sku: code,
+      product_name: skuMetaByCode[code]?.product_name || '',
+      brand: skuMetaByCode[code]?.brand || '',
+      list_price: skuMetaByCode[code]?.list_price ?? null,
+    }));
+
 
     const { data: allPromos } = await supabase
       .from('promotions')
@@ -995,25 +1676,57 @@ app.post('/edit-promotion/:id', requireAuth, async (req, res) => {
       apply_to, skus, excluded_skus, compatible_with_other, group_name
     } = req.body;
 
-    const detailFields = {};
-    for (const [k, v] of Object.entries(req.body)) {
-      const m = /^detail\[(.+)\]$/.exec(k);
-      if (m) detailFields[m[1]] = v;
-    }
+    // ==== MAP "giá trị giảm" từ form về 4 cột DB ====
+    const discount_value_type = (req.body.discount_value_type || '').toLowerCase() || null;
 
+    const discount_value =
+      discount_value_type === 'amount'
+        ? Number(req.body.discount_amount || 0)
+        : (discount_value_type === 'percent'
+          ? Number(req.body.discount_percent || 0)
+          : null);
+
+    const max_discount_amount =
+      discount_value_type === 'percent'
+        ? (req.body.max_discount_amount ? Number(req.body.max_discount_amount) : null)
+        : null;
+
+    const min_order_value = req.body.min_order_value ? Number(req.body.min_order_value) : 0;
+
+
+
+    const detailFields = {};
+    if (req.body.detail && typeof req.body.detail === 'object') {
+      for (const [k, v] of Object.entries(req.body.detail)) {
+        detailFields[k] = v;
+      }
+    } else {
+      // 2) Fallback: key dạng "detail[...]" (trường hợp gửi JSON)
+      for (const [k, v] of Object.entries(req.body)) {
+        const m = /^detail\[(.+)\]$/.exec(k);
+        if (m) detailFields[m[1]] = v;
+      }
+    }
     const { error: upErr } = await supabase
       .from('promotions')
       .update({
         name, description, start_date, end_date,
         channel: channel || 'All',
         promo_type, coupon_code: coupon_code || null,
+        discount_value_type,
+        discount_value,
+        max_discount_amount,
+        min_order_value,
         apply_to_all_skus: apply_to === 'all',
         compatible_with_other: !!compatible_with_other,
-        group_name, subgroup_name: name, detail_fields: detailFields
+        group_name, subgroup_name: name, detail_fields: detailFields,
+        apply_to_all_skus: apply_to === 'all',
       }).eq('id', id);
     if (upErr) throw upErr;
 
     // Cập nhật quan hệ áp dụng cùng / loại trừ
+    const toArray = v => Array.isArray(v) ? v
+      : (v == null ? [] : [v]);
     const allowIds = toIdArray(req.body['apply_with'] || req.body['apply_with[]']);
     const exclIds = toIdArray(req.body['exclude_with'] || req.body['exclude_with[]']);
 
@@ -1084,16 +1797,14 @@ app.post('/edit-promotion/:id', requireAuth, async (req, res) => {
       return res.json({ success: true, redirect: `/promotion-detail/${id}` });
     }
 
+
     // redirect chuẩn cho form submit
     return res.redirect(303, `/promotion-detail/${id}`);
 
   } catch (e) {
     res.status(500).json({ success: false, error: e.message || 'Lỗi lưu CTKM' });
   }
-  
-  // Redirect / JSON như bạn đã làm
-  if (wantsJSON(req)) return res.json({ success: true, redirect: `/promotion-detail/${id}` });
-  return res.redirect(303, `/promotion-detail/${id}`);
+
 
 });
 

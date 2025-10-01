@@ -284,6 +284,10 @@
             background: #2980b9;
             transform: translateY(-1px);
         }
+
+        
+
+
     </style>
 
     <div class="promotion-container">
@@ -292,18 +296,30 @@
                 ⚠️ <%= error %>
             </div>
             <% } %>
-                <div class="page-search">
+                
+            
+            
+            <div class="page-search">
                     <div class="search-section">
                         <h1>CTKM theo SKU</h1>
-                        <form action="/search-promotion" method="POST" class="search-form">
-                            <div class="form-group">
-                                <label for="sku">Nhập SKU hoặc CTKM</label>
-                                <input type="text" id="sku" name="sku" placeholder="Ví dụ: 244994124" required
-                                    value="<%= typeof product !== 'undefined' && product ? product.sku : '' %>">
-                            </div>
-                            <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
-                        </form>
+                       <form action="/search-promotion" method="POST" class="search-form" id="searchForm">
+  <div class="form-group">
+    <label for="skuSearch">Nhập SKU hoặc CTKM</label>
+    <div class="autocomplete-container">
+      <!-- đổi id="sku" -> id="skuSearch" -->
+      <input type="text" id="skuSearch" name="sku" autocomplete="off"
+             placeholder="Ví dụ: 244994124"
+             value="<%= typeof product !== 'undefined' && product ? product.sku : '' %>">
+      <!-- đổi id="skuAutocomplete" -> id="autocompleteResults" -->
+      <div class="autocomplete-results" id="autocompleteResults"></div>
+    </div>
+                   
+  </div>
+  <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
+</form>
+
                     </div>
+
                 </div>
 
                 <% if (typeof product !=='undefined' && product) { %>
@@ -335,12 +351,20 @@
                                 </td>
                             </tr>
                             <tr>
-                                <th>Prices</th>
-                                <td><strong>
-                                        <%= product.list_price ? new
-                                            Intl.NumberFormat('vi-VN').format(product.list_price) + ' VNĐ' : 'N/A' %>
-                                    </strong></td>
-                            </tr>
+  <th>Giá niêm yết</th>
+  <td>
+    <span id="priceView"><strong><%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' VNĐ' : 'N/A' %></strong></span>
+    <button id="btnEditPrice" type="button" title="Sửa giá" style="margin-left:8px;">✏️</button>
+    <button id="btnHistoryPrice" type="button" title="Lịch sử giá">🕘</button>
+
+    <span id="priceEdit" style="display:none;margin-left:8px;">
+      <input id="priceInput" type="number" min="0" step="1000" value="<%= product.list_price || 0 %>" style="width:140px;">
+      <button id="btnSavePrice" type="button">Lưu</button>
+      <button id="btnCancelPrice" type="button">Huỷ</button>
+    </span>
+  </td>
+</tr>
+
                         </table>
                     </div>
                     <p style="margin-top:12px">
@@ -391,10 +415,19 @@
                                                     </div>
                                                     <% } %>
                                                         <% if (promo.coupon_code) { %>
-                                                            <div class="promo-detail"><strong>🔑:</strong>
-                                                                <%= promo.coupon_code %>
+                                                            <div class="promo-detail">
+                                                                <button type="button" class="code-badge"
+                                                                    data-code="<%= promo.coupon_code %>"
+                                                                    onclick="copyCode(this)">
+                                                                    🔑 <span>
+                                                                        <class="code-text">
+                                                                        <%= promo.coupon_code %>
+                                                                    </span>
+                                                                    <small>(Bấm để copy)</small>
+                                                                </button>
                                                             </div>
                                                             <% } %>
+
 
                                                                 <% if (promo.special_promotion_rules &&
                                                                     promo.special_promotion_rules.length> 0) { %>
@@ -416,19 +449,15 @@
                                             </td>
                                             <td>
                                                 <% if (promo.compat_allow_names && promo.compat_allow_names.length) { %>
-                                                    <%= promo.compat_allow_names.join(', ') %>
-  <% } else { %><span class="muted">Không</span><% } %>
+  <%= promo.compat_allow_names.join(', ') %>
+<% } else { %><span class="muted">Không</span><% } %>
 </td>
 <td>
   <% if (promo.compat_exclude_names && promo.compat_exclude_names.length) { %>
     <%= promo.compat_exclude_names.join(' , ') %>
   <% } else { %><span class="muted">Không</span><% } %>
 </td>
-
-
-                                            
-
-                                            <td data-label="Action">
+                                                <td data-label="Action">
                                                 <a href="/promotion-detail/<%= promo.id %>" class="btn-detail">👁️ Xem
                                                     chi tiết</a>
                                             </td>
@@ -463,4 +492,226 @@
     <% } %>
         </div>
 
+
+  <!-- ... các script khác của trang ... -->
+ 
+
+</body>
+</html>
+
+<script>
+(function(){
+  const sku = "<%= product ? product.sku : '' %>";
+  const btnEdit  = document.getElementById('btnEditPrice');
+  const btnSave  = document.getElementById('btnSavePrice');
+  const btnCancel= document.getElementById('btnCancelPrice');
+  const view     = document.getElementById('priceView');
+  const editWrap = document.getElementById('priceEdit');
+  const input    = document.getElementById('priceInput');
+
+  function fmtVND(n){ return new Intl.NumberFormat('vi-VN').format(Number(n||0)) + ' VNĐ'; }
+
+  if (btnEdit){
+    btnEdit.onclick = ()=>{ view.style.display='none'; editWrap.style.display='inline-block'; input.focus(); };
+  }
+  if (btnCancel){
+    btnCancel.onclick = ()=>{ editWrap.style.display='none'; view.style.display='inline'; };
+  }
+  if (btnSave){
+    btnSave.onclick = async ()=>{
+      try{
+        const newPrice = Number(input.value);
+        if (!Number.isFinite(newPrice) || newPrice < 0) { alert('Giá không hợp lệ'); return; }
+        const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ new_price: newPrice })
+        });
+        const js = await res.json();
+        if (!js.ok) throw new Error(js.error || 'Cập nhật giá thất bại');
+
+        // cập nhật UI
+        view.innerHTML = `<strong>${fmtVND(js.new_price)}</strong>`;
+        editWrap.style.display='none'; view.style.display='inline';
+        
+
+         // ✅ QUAN TRỌNG: gửi lại form để server tính lại finalPrice/totalDiscount
+      const f = document.getElementById('searchForm');
+      if (f) f.submit();
+        
+      // gợi ý: mở luôn lịch sử để thấy dòng mới
+        //const btnHist = document.getElementById('btnHistoryPrice');
+        ///if (btnHist) btnHist.click();
+      }catch(e){
+        alert(e.message);
+      }
+    };
+  }
+})();
+</script>
+
+
+<div id="toast" class="toast">Đã copy mã!</div>
+<script>
+  async function copyCode(el) {
+    const code = el.dataset.code || el.textContent.trim();
+    try {
+      await navigator.clipboard.writeText(code);
+      const t = document.getElementById('toast');
+      if (t) { t.style.display = 'block'; setTimeout(()=> t.style.display='none', 1200); }
+    } catch (e) {
+      const r = document.createRange(); r.selectNodeContents(el);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      document.execCommand('copy'); sel.removeAllRanges();
+      alert('Đã copy mã!');
+    }
+  }
+</script>
+
+
+<!-- PRICE HISTORY MODAL -->
+
+<div id="priceHistoryModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <span id="phClose" class="close">&times;</span>
+    <h3>Lịch sử sửa giá</h3>
+    <table class="detail-table" id="phTable">
+      <thead>
+        <tr><th>Thời gian</th><th>Giá cũ</th><th>Giá mới</th><th>Người sửa</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+
+<style>
+  .modal-backdrop{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.45); z-index: 2000; padding:16px;
+  }
+  .modal-panel{
+    max-width: 720px; width:100%; background:#fff; border-radius:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.2); padding:16px;
+  }
+  .modal-close{
+    position:absolute; right:12px; top:8px; border:none; background:transparent;
+    font-size:22px; cursor:pointer;
+  }
+</style>
+
+<script>
+(function(){
+  const sku = "<%= product ? product.sku : '' %>";
+  const btn = document.getElementById('btnHistoryPrice');  // nút đồng hồ
+  const modal = document.getElementById('priceHistoryModal');
+  const closeBtn = document.getElementById('phClose');
+  const tbody = document.querySelector('#phTable tbody');
+
+  function nf(n){ return new Intl.NumberFormat('vi-VN').format(n||0) + ' VNĐ'; }
+
+  if (btn && sku){
+    btn.addEventListener('click', async () => {
+      try{
+        const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price-history`);
+        const js = await res.json();
+        if (!js.ok) throw new Error(js.error||'Load history failed');
+
+        const rows = (js.history||[]).map(r=>`
+          <tr>
+            <td>${new Date(r.changed_at).toLocaleString('vi-VN')}</td>
+            <td>${nf(r.old_price)}</td>
+            <td>${nf(r.new_price)}</td>
+            <td>${r.user||'-'}</td>
+          </tr>`).join('');
+
+        tbody.innerHTML = rows || `<tr><td colspan="4">Chưa có lịch sử</td></tr>`;
+        modal.style.display = 'flex'; // => giữa màn hình
+      }catch(e){ alert('Không tải được lịch sử giá: ' + e.message); }
+    });
+  }
+  if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
+  window.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+})();
+</script>
+<script>
+(()=> {
+  // HTML bắt buộc phải có:
+  // <form class="search-form" action="/search-promotion" ...>
+  //   <div class="autocomplete-container">
+  //     <input id="sku" ...>
+  //     <div id="skuAutocomplete" class="autocomplete-results"></div>
+  //   </div>
+  // </form>
+  const box  = document.getElementById('sku');
+  const dd   = document.getElementById('skuAutocomplete');
+  const form = document.querySelector('form.search-form') || document.querySelector('form[action="/search-promotion"]');
+  if (!box || !dd || !form) { console.warn('Thiếu #sku / #skuAutocomplete / form'); return; }
+
+  let tId;
+  const fmtVND = n => new Intl.NumberFormat('vi-VN').format(Number(n||0)) + ' VNĐ';
+
+  box.addEventListener('input', () => {
+    clearTimeout(tId);
+    const v = box.value.trim();
+    if (!v){ dd.style.display='none'; return; }
+
+    tId = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/skus?q=${encodeURIComponent(v)}`);
+        const data = await res.json();       // mảng [{sku, product_name, list_price,...}]
+        dd.innerHTML = '';
+        let exact = false;
+
+        (data || []).forEach(it => {
+          const el = document.createElement('div');
+          el.className = 'autocomplete-item';
+          el.innerHTML = `
+            <div><strong>${it.sku}</strong> — ${it.product_name||''}</div>
+            <div style="font-size:12px;color:#666">${it.brand||''} | ${it.category||''} | ${it.subcat||''}</div>
+            <div style="font-size:12px;color:#e53935;font-weight:bold">${it.list_price!=null?fmtVND(it.list_price):'N/A'}</div>`;
+          el.onclick = () => { box.value = it.sku; dd.style.display='none'; form.submit(); };
+          dd.appendChild(el);
+          if (String(it.sku) === v) exact = true;
+        });
+
+        // ➕ Thêm SKU mới nếu không khớp exact
+        if (!exact && v) {
+          const add = document.createElement('div');
+          add.className = 'autocomplete-item add-new';
+          add.textContent = `➕ Thêm SKU mới: ${v}`;
+          add.onclick = async () => {
+            dd.style.display='none';
+            const name = prompt('Tên sản phẩm cho SKU '+v+':','');
+            if (name === null) return;
+            const priceRaw = prompt('Giá niêm yết (VNĐ):','');
+            if (priceRaw === null) return;
+            const price = Number(String(priceRaw).replace(/\D/g,'')) || 0;
+
+            const r = await fetch('/api/skus/upsert', {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ sku:v, product_name:name||v, list_price:price })
+            });
+            const js = await r.json();
+            if (!js.ok){ alert('Lỗi thêm SKU: '+(js.error||'unknown')); return; }
+            form.submit(); // tìm ngay SKU vừa thêm
+          };
+          dd.appendChild(add);
+        }
+
+        dd.style.display = dd.children.length ? 'block' : 'none';
+      } catch (err) {
+        console.error('Autocomplete error:', err);
+        dd.style.display = 'none';
+      }
+    }, 250);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.autocomplete-container')) dd.style.display = 'none';
+  });
+})();
+</script>
+
+
+        
         <%- include('partials/footer') %>

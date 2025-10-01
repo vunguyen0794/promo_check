@@ -1,3 +1,21 @@
+/* Font mặc định toàn site (ưu tiên Be Vietnam Pro) */
+html, body {
+  font-family:
+    "Be Vietnam Pro",
+    Inter,
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", "Liberation Sans", "DejaVu Sans",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Bảo đảm các tiêu đề/label dùng weight có sẵn của font */
+.dash-title, .promo-name, .product-name, th, strong, b { font-weight: 800; }
+
+
+
 * {
     margin: 0;
     padding: 0;
@@ -1460,3 +1478,246 @@ label {
 .pill .dot{width:6px;height:6px;border-radius:999px;background:#1d4ed8;}
 .muted{color:#64748b}
 .is-hidden{display:none!important;}
+.code-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fff3cd;              /* vàng nhạt */
+  border: 1px dashed #f59e0b;        /* cam */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-weight: 700;
+  letter-spacing: .5px;
+  cursor: pointer;
+  user-select: all;
+}
+.code-badge small { font-weight: 600; opacity: .8; }
+.toast {
+  position: fixed; left: 50%; top: 16px; transform: translateX(-50%);
+  background: #10b981; color: #fff; padding: 8px 12px; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.1); z-index: 9999; font-size: 14px;
+  display: none;
+}
+/* ==== Dashboard cards & titles (đồng bộ với "Chiến giá") ==== */
+.dash-card{
+  background:#fff; border:1px solid #e5e7eb; border-radius:16px;
+  box-shadow:0 6px 20px rgba(2,6,23,.06);
+  padding:16px 18px; margin:12px 0;
+  
+}
+.dash-title{
+  position:relative; padding-bottom:10px; margin-bottom:12px;
+  font-weight:800; color:#0f172a; font-size:18px; line-height:1.2;
+  display:flex; align-items:center; gap:10px;
+}
+.dash-title::after{
+  content:""; position:absolute; left:0; bottom:-2px; height:2px; width:100%;;
+  background:#2563eb; border-radius:999px;
+}
+.dash-muted{ color:#64748b; }
+
+/* ==== Featured CTKM (grid đẹp) ==== */
+.promo-list{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+.promo-item{
+  display:block; padding:12px; border:1px solid #e5e7eb; border-radius:12px;
+  text-decoration:none; color:#0f172a; background:#fff;
+  transition:box-shadow .15s ease, border-color .15s ease, transform .06s ease;
+}
+.promo-item:hover{ border-color:#cbd5e1; box-shadow:0 10px 30px rgba(2,6,23,.10); transform:translateY(-1px); }
+.promo-name{ font-weight:800; margin-bottom:6px; }
+.promo-meta{ font-size:13px; color:#334155; }
+.promo-meta strong{ font-weight:800; }
+.promo-tag{ display:inline-block; padding:2px 8px; border-radius:999px; background:#ecfdf5; color:#047857; font-weight:700; font-size:12px; }
+
+/* ==== Bảng matrix/sku-table (căn giống block chuẩn) ==== */
+.dash-table{ width:100%; border-collapse:separate; border-spacing:0; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+.dash-table thead th{
+  background:#f8fafc; text-align:left; padding:10px; border-bottom:1px solid #e5e7eb; white-space:nowrap;
+  font-weight:800; color:#0f172a;
+}
+.dash-table tbody td{ padding:10px; border-bottom:1px solid #f1f5f9; font-size:14px; color:#0f172a; }
+.dash-table tbody tr:last-child td{ border-bottom:none; }
+.pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:800; font-size:12px; }
+.table-scroll{ overflow:auto; }
+
+/* Khoảng cách đồng nhất giữa các card */
+.section-stack > .dash-card + .dash-card{ margin-top:16px; }
+/* ---- Product cards on Home ---- */
+.product-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+.product-card{
+  display:block; padding:12px; border:1px solid #e5e7eb; border-radius:12px; background:#fff;
+  text-decoration:none; color:#0f172a; transition:box-shadow .15s, border-color .15s, transform .06s;
+}
+.product-card:hover{ border-color:#cbd5e1; box-shadow:0 10px 30px rgba(2,6,23,.10); transform:translateY(-1px); }
+.product-sku{ font-size:12px; color:#475569; margin-bottom:4px; }
+.product-name{ font-weight:800; margin-bottom:6px; min-height:40px; }
+.product-meta{ display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#334155; }
+.product-meta .price{ font-weight:800; }
+html, body {
+  font-family: "Be Vietnam Pro", Inter, system-ui, -apple-system, "Segoe UI",
+               Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans",
+               "DejaVu Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+/* Căn trái cho block Danh sách sản phẩm */
+.product-grid {                 /* container lưới */
+  justify-items: start;         /* item bám mép trái của ô lưới */
+  align-items: start;
+}
+
+.product-card {                 /* mỗi thẻ sản phẩm */
+  text-align: left;             /* nội dung trong card căn trái */
+}
+
+.product-card .product-name,
+.product-card .product-sku,
+.product-card .product-meta {
+  text-align: left;
+}
+/* Font mặc định toàn site (có Vietnamese) */
+html, body {
+  font-family: "Be Vietnam Pro", Inter, system-ui, -apple-system, "Segoe UI",
+               Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans",
+               "DejaVu Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tiêu đề/nhãn hay dùng đậm – dùng đúng weight có sẵn của font */
+h1, h2, h3, h4, h5, h6,
+.section-title, .dash-title, .promo-name,
+th, strong, b {
+  font-weight: 800;
+}
+/* Grid & card cho "Danh sách sản phẩm" */
+.product-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap:12px;
+  align-items:stretch;         /* mọi ô cao bằng nhau */
+  justify-items:start;         /* bám lề trái */
+}
+.product-card{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  text-align:left;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:12px;
+  background:#fff;
+}
+.product-sku{ font-size:12px; color:#475569; margin-bottom:6px; }
+.product-name{
+  font-weight:800;
+  line-height:1.25;
+  min-height: 66px;            /* 3 dòng xấp xỉ */
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.product-meta{
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:13px; color:#334155; margin-top:8px;
+}
+.btn-view-more{
+  display:inline-block; padding:8px 12px; border:1px solid #2563eb;
+  color:#2563eb; border-radius:10px; font-weight:600; text-decoration:none;
+}
+.btn-view-more:hover{ background:#2563eb; color:#fff; }
+
+.card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:14px; margin-top:10px; }
+.card-title { font-weight:600; margin-bottom:8px; border-bottom:2px solid #e5e7eb; padding-bottom:6px; }
+
+.card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:14px; margin-top:10px; }
+.card-title { font-weight:600; margin-bottom:8px; border-bottom:2px solid #e5e7eb; padding-bottom:6px; }
+
+.group-box { border-left:4px solid #2563eb; padding:10px 12px; border-radius:10px; background:#f8fafc; margin:10px 0; }
+.group-box.warn { border-left-color:#dc2626; background:#fff7f7; }
+.group-title { font-weight:700; display:inline-flex; align-items:center; gap:6px; padding:4px 10px; background:#e8f1ff; border-radius:999px; }
+.group-box.warn .group-title { background:#ffe8e8; }
+
+.dot { width:8px; height:8px; border-radius:999px; background:#2563eb; display:inline-block; }
+.group-box.warn .dot { background:#dc2626; }
+
+.subgroup-box { margin-top:8px; margin-left:8px; }
+.subgroup-title { font-weight:600; opacity:.8; margin-bottom:6px; padding-left:2px; }
+
+.group-items { display:flex; flex-wrap:wrap; gap:8px; padding-left:4px; }
+.pill { padding:6px 10px; border-radius:999px; border:1px solid #e5e7eb; background:#ffffff; box-shadow:0 1px 0 rgba(0,0,0,.02); }
+.pill-warn { border-color:#fecaca; background:#fff; }
+.empty { font-style:italic; color:#9ca3af; padding:6px 2px; }
+
+#btnEditPrice, #btnHistoryPrice{
+  padding: 6px 10px;  /* <<< nới rộng ở đây */
+  margin-left: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Nút sửa & lịch sử (để đồng bộ luôn) */
+#btnEditPrice,
+#btnHistoryPrice {
+  padding: 6px 12px;
+  margin-left: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  line-height: 1;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+#btnEditPrice:hover,
+#btnHistoryPrice:hover { background:#f8fafc }
+
+/* Cụm nút Lưu / Huỷ khi chỉnh giá */
+#priceEdit { display:inline-flex; gap:8px; align-items:center; margin-left: 8px; }
+
+#btnSavePrice, #btnCancelPrice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;                 /* cao ngang input */
+  padding: 0 14px;              /* nới vùng bấm */
+  border-radius: 10px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+/* Lưu = màu nổi bật */
+#btnSavePrice {
+  background: #10b981;          /* xanh ngọc */
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(0,0,0,.04);
+}
+#btnSavePrice:hover { background:#0ea371 }
+#btnSavePrice:active { transform: translateY(1px) }
+#btnSavePrice:focus-visible { outline: 3px solid rgba(16,185,129,.35) }
+
+/* Huỷ = trung tính */
+#btnCancelPrice {
+  background: #fff;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+#btnCancelPrice:hover { background:#f9fafb }
+#btnCancelPrice:active { transform: translateY(1px) }
+#btnCancelPrice:focus-visible { outline: 3px solid rgba(59,130,246,.25) }
+
+/* Input giá cho cân đối */
+#priceInput {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}

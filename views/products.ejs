@@ -1,0 +1,41 @@
+<%- include('partials/header', { title, currentPage }) %>
+
+<div class="container">
+  <div class="dash-card">
+    <div class="dash-title">Tất cả sản phẩm</div>
+    <form method="get" action="/products" style="margin-bottom:12px; display:flex; gap:8px;">
+      <input type="text" name="q" value="<%= q %>" placeholder="Tìm theo SKU/Tên/Brand"
+             class="search-input" style="flex:1; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px;">
+      <button class="btn" type="submit" style="padding:8px 12px;">Tìm kiếm</button>
+    </form>
+
+    <div class="product-grid">
+      <% (items||[]).forEach(function(s){ %>
+        <a class="product-card" href="/search-promotion?query=<%= s.sku %>">
+          <div class="product-sku">SKU: <strong><%= s.sku %></strong></div>
+          <div class="product-name"><%= s.product_name || '-' %></div>
+          <div class="product-meta">
+            <span><%= s.brand || '-' %></span>
+            <span><%= new Intl.NumberFormat('vi-VN', { style:'currency', currency:'VND', maximumFractionDigits:0 })
+                        .format(s.list_price || 0) %></span>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+
+    <% const totalPages = Math.max(1, Math.ceil((total||0)/pageSize)); %>
+    <% if (totalPages > 1) { %>
+      <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+        <% if (page > 1) { %>
+          <a class="btn-view-more" href="/products?q=<%= encodeURIComponent(q) %>&page=<%= page-1 %>">← Trước</a>
+        <% } %>
+        <span style="color:#475569;">Trang <strong><%= page %></strong>/<%= totalPages %></span>
+        <% if (page < totalPages) { %>
+          <a class="btn-view-more" href="/products?q=<%= encodeURIComponent(q) %>&page=<%= page+1 %>">Sau →</a>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

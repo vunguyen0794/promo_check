@@ -1,0 +1,84 @@
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('skuSearch');
+  const resultsContainer = document.getElementById('autocompleteResults');
+  const searchForm = document.getElementById('searchForm');
+  let timeoutId;
+
+  function fmtVND(n){ return new Intl.NumberFormat('vi-VN').format(Number(n||0)) + ' VNĐ'; }
+
+  searchInput.addEventListener('input', function(e) {
+    clearTimeout(timeoutId);
+    const value = e.target.value.trim();
+
+    if (!value) { resultsContainer.style.display = 'none'; return; }
+
+    timeoutId = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/skus?q=${encodeURIComponent(value)}`);
+        const data = await response.json();   // kỳ vọng mảng [{sku, product_name, list_price, ...}]
+        resultsContainer.innerHTML = '';
+        let exact = false;
+
+        (data || []).forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'autocomplete-item';
+          div.innerHTML = `
+            <div><strong>${item.sku}</strong> - ${item.product_name||''}</div>
+            <div style="font-size:12px;color:#666">${item.brand||''} | ${item.category||''} | ${item.subcat||''}</div>
+            <div style="font-size:12px;color:#e53935;font-weight:bold">${item.list_price!=null?fmtVND(item.list_price):'N/A'}</div>
+          `;
+          div.addEventListener('click', function() {
+            searchInput.value = item.sku;
+            resultsContainer.style.display = 'none';
+            searchForm.submit();
+          });
+          resultsContainer.appendChild(div);
+          if (String(item.sku) === value) exact = true;
+        });
+
+        // ➕ Thêm SKU mới khi không khớp exact
+        if (!exact && value) {
+          const add = document.createElement('div');
+          add.className = 'autocomplete-item';
+          add.style.color = '#0d9488';
+          add.style.fontWeight = '600';
+          add.textContent = `➕ Thêm SKU mới: ${value}`;
+          add.addEventListener('click', async () => {
+            resultsContainer.style.display = 'none';
+            const name = prompt('Tên sản phẩm cho SKU ' + value + ':', '');
+            if (name === null) return;
+            const priceRaw = prompt('Giá niêm yết (VNĐ):', '');
+            if (priceRaw === null) return;
+            const price = Number(String(priceRaw).replace(/\D/g,'')) || 0;
+
+            const res = await fetch('/api/skus/upsert', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ sku:value, product_name:name||value, list_price:price })
+            });
+            const js = await res.json();
+            if (!js.ok) { alert('Lỗi thêm SKU: ' + (js.error||'unknown')); return; }
+            // chuyển thẳng sang màn hình search kết quả
+            window.location.href = `/search-promotion?sku=${encodeURIComponent(value)}`;
+          });
+          resultsContainer.appendChild(add);
+        }
+
+        resultsContainer.style.display = resultsContainer.children.length ? 'block' : 'none';
+      } catch (err) {
+        console.error('Autocomplete error:', err);
+        resultsContainer.style.display = 'none';
+      }
+    }, 300);
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.autocomplete-container')) resultsContainer.style.display = 'none';
+  });
+
+  searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); searchForm.submit(); }
+  });
+});
+</script>

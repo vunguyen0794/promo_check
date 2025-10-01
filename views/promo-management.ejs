@@ -1,13 +1,12 @@
 <%- include('partials/header', {title: 'Quản lý CTKM' , currentPage: 'promo-management' , time: time}) %>
-<%
-  // Bảo vệ biến allPromosForCompat khi server quên truyền
-  var listCompat = [];
+<% var listCompat = [];
   try {
     if (typeof allPromosForCompat !== 'undefined' && Array.isArray(allPromosForCompat)) {
       listCompat = allPromosForCompat;
     }
   } catch (e) { listCompat = []; }
 %>
+
 
         <style>
             .filterbar {
@@ -339,10 +338,53 @@
                             </div>
                         </div>
                         <div class="form-group" id="couponField" style="display: none;">
-                            <label>🔑 Mã coupon</label>
+                            <label>🔑 Mã giảm giá</label>
                             <input type="text" name="coupon_code" placeholder="Nhập mã coupon">
                         </div>
                     </div>
+
+                    <div class="form-group">
+  <label>Giá trị giảm</label>
+  <div class="grid-2">
+    <div>
+      <select name="discount_value_type" id="discount_value_type" onchange="toggleDiscountInputs()">
+        <option value="">-- Chọn kiểu --</option>
+        <option value="amount">Giảm tiền (₫)</option>
+        <option value="percent">Giảm theo %</option>
+      </select>
+    </div>
+    <div id="amountBox" style="display:none;">
+      <input type="number" name="discount_amount" placeholder="Số tiền giảm (₫)" min="0" step="1000">
+    </div>
+    <div id="percentBox" style="display:none;">
+      <input type="number" name="discount_percent" placeholder="% giảm (0–100)" min="0" max="100" step="0.1">
+    </div>
+    <div id="capBox" style="display:none;">
+      <input type="number" name="max_discount_amount" placeholder="Giảm tối đa (₫)" min="0" step="1000">
+    </div>
+    <div>
+      <input type="number" name="min_order_value" placeholder="Đơn tối thiểu (₫, để trống = 0)" min="0" step="1000">
+    </div>
+  </div>
+  <small class="hint">Chọn “Giảm tiền” → nhập “Số tiền giảm”. Chọn “%” → nhập “% giảm” + “Giảm tối đa”.</small>
+</div>
+
+<script>
+  function toggleDiscountInputs(){
+    const t = document.getElementById('discount_value_type').value;
+    document.getElementById('amountBox').style.display  = (t==='amount') ? 'block' : 'none';
+    document.getElementById('percentBox').style.display = (t==='percent') ? 'block' : 'none';
+    document.getElementById('capBox').style.display     = (t==='percent') ? 'block' : 'none';
+  }
+  document.addEventListener('DOMContentLoaded', toggleDiscountInputs);
+</script>
+
+<style>
+  .grid-2{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+  .hint{ color:#64748b; font-size:12px; }
+</style>
+
+
 
                     <h3>🧩 Nhóm hiển thị</h3>
                     <div class="grid-2">
@@ -578,36 +620,93 @@
                             <textarea name="excluded_skus" placeholder="VD: SKU0101, SKU0102"></textarea>
                         </div>
 
-                        <div class="form-section">
-                            <h3 class="section-title">Quan hệ với CTKM khác</h3>
+                       <div class="form-section">
+  <h3 class="section-title">Quan hệ với CTKM khác</h3>
 
-                            <div class="form-group">
-                                <label>Áp dụng cùng CTKM</label>
-                                <select name="apply_with[]" multiple class="multi-select">
-                                    <% (allPromosForCompat || []).forEach(function(p){ var label=p.group_name ?
-                                        (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name; %>
-                                        <option value="<%= p.id %>" <%=(compatAllowIds || []).includes(String(p.id))
-                                            ? 'selected' : '' %>>
-                                            <%= label %>
-                                        </option>
-                                        <% }) %>
-                                </select>
-                                <div class="hint">Giữ Ctrl/Command để chọn nhiều CTKM.</div>
-                            </div>
+  <% // Group theo group_name
+     const grouped = {};
+     (allPromosForCompat || []).forEach(p=>{
+       const g = p.group_name || 'Khác';
+       (grouped[g] = grouped[g] || []).push(p);
+     });
+     const groupNames = Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'vi'));
+  %>
 
-                            <div class="form-group">
-                                <label>Không áp dụng cùng CTKM</label>
-                                <select name="exclude_with" multiple class="multi-select">
-                                    <% (allPromosForCompat || []).forEach(function(p){ var label=p.group_name ?
-                                        (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name; %>
-                                        <option value="<%= p.id %>" <%=(compatExclIds || []).includes(String(p.id))
-                                            ? 'selected' : '' %>>
-                                            <%= label %>
-                                        </option>
-                                        <% }) %>
-                                </select>
-                            </div>
-                        </div>
+  <div class="form-group">
+    <label>Áp dụng cùng CTKM</label>
+
+    <!-- Bộ chọn nhóm + nút chọn nhanh -->
+    <div class="inline-actions" style="display:flex; gap:8px; margin-bottom:6px;">
+      <select id="applyWithGroupPicker" style="padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px;">
+        <% groupNames.forEach(g => { %>
+          <option value="<%= g %>"><%= g %></option>
+        <% }) %>
+      </select>
+      <button type="button" class="btn" id="btnSelectGroupAW">Chọn nhóm</button>
+      <button type="button" class="btn btn-secondary" id="btnUnselectGroupAW">Bỏ chọn</button>
+    </div>
+
+    <select name="apply_with[]" multiple class="multi-select" id="applyWithSelect" style="min-height: 180px;">
+      <% groupNames.forEach(g => { %>
+        <optgroup label="<%= g %>">
+          <% grouped[g].forEach(function(p){
+               var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name; %>
+            <option data-group="<%= g %>" value="<%= p.id %>" <%= (compatAllowIds||[]).includes(String(p.id)) ? 'selected' : '' %>><%= label %></option>
+          <% }) %>
+        </optgroup>
+      <% }) %>
+    </select>
+    <div class="hint">Giữ Ctrl/Command để chọn thêm CTKM; hoặc dùng “Chọn nhóm”.</div>
+  </div>
+
+  <div class="form-group">
+    <label>Không áp dụng cùng CTKM</label>
+
+    <div class="inline-actions" style="display:flex; gap:8px; margin-bottom:6px;">
+      <select id="excludeWithGroupPicker" style="padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px;">
+        <% groupNames.forEach(g => { %>
+          <option value="<%= g %>"><%= g %></option>
+        <% }) %>
+      </select>
+      <button type="button" class="btn" id="btnSelectGroupEX">Chọn nhóm</button>
+      <button type="button" class="btn btn-secondary" id="btnUnselectGroupEX">Bỏ chọn</button>
+    </div>
+
+    <!-- LƯU Ý: đổi name thành exclude_with[] để submit nhiều giá trị -->
+    <select name="exclude_with[]" multiple class="multi-select" id="excludeWithSelect" style="min-height: 180px;">
+      <% groupNames.forEach(g => { %>
+        <optgroup label="<%= g %>">
+          <% grouped[g].forEach(function(p){
+               var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name; %>
+            <option data-group="<%= g %>" value="<%= p.id %>" <%= (compatExclIds||[]).includes(String(p.id)) ? 'selected' : '' %>><%= label %></option>
+          <% }) %>
+        </optgroup>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+<script>
+  // Helpers chọn/bỏ theo nhóm cho 2 select
+  function selectByGroup(selectEl, group, on=true){
+    [...selectEl.options].forEach(o=>{
+      if(o.dataset.group === group){ o.selected = !!on; }
+    });
+  }
+  document.getElementById('btnSelectGroupAW').onclick = () =>
+    selectByGroup(document.getElementById('applyWithSelect'),
+                  document.getElementById('applyWithGroupPicker').value, true);
+  document.getElementById('btnUnselectGroupAW').onclick = () =>
+    selectByGroup(document.getElementById('applyWithSelect'),
+                  document.getElementById('applyWithGroupPicker').value, false);
+
+  document.getElementById('btnSelectGroupEX').onclick = () =>
+    selectByGroup(document.getElementById('excludeWithSelect'),
+                  document.getElementById('excludeWithGroupPicker').value, true);
+  document.getElementById('btnUnselectGroupEX').onclick = () =>
+    selectByGroup(document.getElementById('excludeWithSelect'),
+                  document.getElementById('excludeWithGroupPicker').value, false);
+</script>
 
 
                         <script>
@@ -646,10 +745,15 @@
                 document.getElementById('createPromoModal').style.display = 'none';
             }
 
-            function togglePromoFields() {
-                const promoType = document.querySelector('select[name="promo_type"]').value;
-                document.getElementById('couponField').style.display = promoType === 'Coupon' ? 'block' : 'none';
-            }
+function togglePromoFields() {
+  const promoType = document.querySelector('select[name="promo_type"]').value;
+  const typesWithCode = new Set(['Coupon','Voucher','Ưu đãi thanh toán','Gift']);
+  document.getElementById('couponField').style.display = typesWithCode.has(promoType) ? 'block' : 'none';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const typeEl = document.querySelector('select[name="promo_type"]');
+  if (typeEl) { togglePromoFields(); typeEl.addEventListener('change', togglePromoFields); }
+});
             function toggleApplyTo() {
                 const applyTo = document.querySelector('select[name="apply_to"]').value;
                 document.getElementById('skuIncludeField').style.display = applyTo === 'sku' ? 'block' : 'none';
@@ -716,10 +820,26 @@
                         }
                     }
                     // BẮT BUỘC: ép 2 select multiple thành mảng id
-                    const applyWithSel = form.querySelector('select[name="apply_with"]');
-                    const excludeWithSel = form.querySelector('select[name="exclude_with"]');
+                    const applyWithSel = form.querySelector('#applyWithSelect');
+                    const excludeWithSel = form.querySelector('#excludeWithSelect');
                     data.apply_with = applyWithSel ? Array.from(applyWithSel.selectedOptions).map(o => o.value) : [];
                     data.exclude_with = excludeWithSel ? Array.from(excludeWithSel.selectedOptions).map(o => o.value) : [];
+
+                    // loại trùng, loại self nếu có
+                    const idSelf = data.id || null;
+                    const setAllow = new Set(data.apply_with);
+                    const setDeny = new Set(data.exclude_with);
+
+                    if (idSelf) { setAllow.delete(String(idSelf)); setDeny.delete(String(idSelf)); }
+
+                    // nếu 1 id nằm ở cả 2 list → ưu tiên "không áp dụng cùng"
+                    for (const id of setAllow) { if (setDeny.has(id)) setAllow.delete(id); }
+
+                    data.apply_with = Array.from(setAllow);
+                    data.exclude_with = Array.from(setDeny);
+
+
+
 
                     const res = await fetch('/create-promotion', {
                         method: 'POST',
@@ -959,5 +1079,21 @@
             })();
         </script>
 
+        <div id="toast" class="toast">Đã copy mã!</div>
+<script>
+  async function copyCode(el) {
+    const code = el.dataset.code || el.textContent.trim();
+    try {
+      await navigator.clipboard.writeText(code);
+      const t = document.getElementById('toast');
+      if (t) { t.style.display = 'block'; setTimeout(()=> t.style.display='none', 1200); }
+    } catch (e) {
+      const r = document.createRange(); r.selectNodeContents(el);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      document.execCommand('copy'); sel.removeAllRanges();
+      alert('Đã copy mã!');
+    }
+  }
+</script>
 
         <%- include('partials/footer') %>

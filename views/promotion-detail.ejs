@@ -262,11 +262,52 @@
                   </td>
                 </tr>
                 <tr>
-                  <th>Coupon/Voucher</th>
+                  <th>Mã giảm giá</th>
                   <td>
-                    <%= promotion.coupon_code || '...' %>
+                    <% if (promotion.coupon_code) { %>
+                      <button type="button" class="code-badge" data-code="<%= promotion.coupon_code %>"
+                        onclick="copyCode(this)">
+                        <span>
+                          <class="code-text">
+                            <%= promotion.coupon_code %>
+                        </span>
+                        <small>(Bấm để copy)</small>
+                      </button>
+                      <% } else { %>
+                        <span class="muted">Không có</span>
+                        <% } %>
                   </td>
                 </tr>
+
+                <tr>
+                  <th>Giá trị giảm</th>
+                  <td>
+                    <% if ((promotion.discount_value_type || '' ).toLowerCase()==='amount' ) { %>
+                      Giảm <strong>
+                        <%= (promotion.discount_value || 0).toLocaleString('vi-VN') %> ₫
+                      </strong>
+                      <% if (promotion.min_order_value) { %>
+                        (đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫)
+                          <% } %>
+                            <% } else if ((promotion.discount_value_type || '' ).toLowerCase()==='percent' ) { %>
+                              Giảm <strong>
+                                <%= promotion.discount_value %>%
+                              </strong>
+                              <% if (promotion.max_discount_amount) { %>
+                                (tối đa <%= (promotion.max_discount_amount || 0).toLocaleString('vi-VN') %> ₫)
+                                  <% } %>
+                                    <% if (promotion.min_order_value) { %>
+                                      ; đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫
+                                        <% } %>
+                                          <% } else { %>
+                                            -
+                                            <% } %>
+                  </td>
+                </tr>
+
+
+
+
                 <% if (promotion.group_name) { %>
                   <tr>
                     <th>Nhóm</th>
@@ -324,6 +365,7 @@
             %>
             <div class="section-card">
               <h3 class="section-title">Phạm vi áp dụng</h3>
+
               <table class="detail-grid">
                 <colgroup>
                   <col />
@@ -340,136 +382,518 @@
                           <% } %>
                     </td>
                   </tr>
+                </tbody>
+              </table>
 
-                  <% if (!promotion.apply_to_all_skus) { %>
-                    <tr>
-                      <th>SKU áp dụng</th>
-                      <td>
-                        <% if (included.length) { %>
-                          <%- pillList(included) %>
-                            <% } else { %>
-                              <span class="empty">Chưa khai báo</span>
-                              <% } %>
-                      </td>
-                    </tr>
-                    <% } %>
+              <% if (!promotion.apply_to_all_skus) { %>
+                <!-- ====== SKU ÁP DỤNG ====== -->
+                <div class="sku-table-block" id="includedSkuBlock" data-initial="10">
+                  <div class="sku-table-header">
+                    <div class="sku-table-title">SKU áp dụng</div>
+                    <input type="search" class="sku-search" placeholder="Tìm theo SKU/Tên/Brand/Giá"
+                      oninput="filterSkuTable('includedSkuBlock')">
+                  </div>
+                  <% if ((includedSkuDetails||[]).length) { %>
+                    <table class="sku-table">
+                      <thead>
+                        <tr>
+                          <th>Tên SKU</th>
+                          <th>Tên SP</th>
+                          <th>Brand</th>
+                          <th>Giá</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% includedSkuDetails.forEach(function(r, idx){ %>
+                          <tr class="sku-row">
+                            <td>
+                              <%= r.sku %>
+                            </td>
+                            <td>
+                              <%= r.product_name || '-' %>
+                            </td>
+                            <td>
+                              <%= r.brand || '-' %>
+                            </td>
+                            <td>
+                              <%= (r.list_price!=null) ? r.list_price.toLocaleString('vi-VN') : '-' %>
+                            </td>
+                          </tr>
+                          <% }) %>
+                      </tbody>
+                    </table>
+                    <div class="notfound empty" style="display:none;">Không tìm thấy kết quả phù hợp</div>
 
-                      <tr>
-                        <th>SKU loại trừ</th>
-                        <td>
-                          <% if (excluded.length) { %>
-                            <%- pillList(excluded) %>
-                              <% } else { %>
-                                <span class="empty">Không có</span>
-                                <% } %>
-                        </td>
-                      </tr>
+                    <% if (includedSkuDetails.length> 10) { %>
+                      <button type="button" class="btn-more" onclick="toggleMore('includedSkuBlock')">Xem thêm…</button>
+                      <% } %>
+                        <% } else { %>
+                          <div class="empty">Chưa khai báo</div>
+                          <% } %>
+                </div>
+
+                <!-- ====== SKU LOẠI TRỪ ====== -->
+                <div class="sku-table-block" id="excludedSkuBlock" data-initial="10">
+                  <div class="sku-table-header">
+                    <div class="sku-table-title">SKU loại trừ</div>
+                    <input type="search" class="sku-search" placeholder="Tìm theo SKU/Tên/Brand/Giá"
+                      oninput="filterSkuTable('excludedSkuBlock')">
+                  </div>
+                  <% if ((excludedSkuDetails||[]).length) { %>
+                    <table class="sku-table">
+                      <thead>
+                        <tr>
+                          <th>Tên SKU</th>
+                          <th>Tên SP</th>
+                          <th>Brand</th>
+                          <th>Giá</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% excludedSkuDetails.forEach(function(r, idx){ %>
+                          <tr class="sku-row">
+                            <td>
+                              <%= r.sku %>
+                            </td>
+                            <td>
+                              <%= r.product_name || '-' %>
+                            </td>
+                            <td>
+                              <%= r.brand || '-' %>
+                            </td>
+                            <td>
+                              <%= (r.list_price!=null) ? r.list_price.toLocaleString('vi-VN') : '-' %>
+                            </td>
+                          </tr>
+                          <% }) %>
+                      </tbody>
+                    </table>
+                    <div class="notfound empty" style="display:none;">Không tìm thấy kết quả phù hợp</div>
+
+                    <% if (excludedSkuDetails.length> 10) { %>
+                      <button type="button" class="btn-more" onclick="toggleMore('excludedSkuBlock')">Xem thêm…</button>
+                      <% } %>
+                        <% } else { %>
+                          <div class="empty">Không có</div>
+                          <% } %>
+                </div>
+                <% } %>
+            </div>
+
+
+            <!-- Quan hệ với CTKM khác -->
+<div class="section-card">
+  <h3 class="section-title">Quan hệ với CTKM khác</h3>
+
+<%
+const norm = s => (s || '').trim().toLowerCase();
+const SG_NONE = '__none__';
+
+// subgroup hợp lệ: khác rỗng, khác tên CTKM, khác tên group
+function getSubgroupKey(p) {
+  const s = (p.subgroup_name || '').trim();
+  if (!s) return SG_NONE;
+  if (norm(s) === norm(p.name)) return SG_NONE;
+  if (norm(s) === norm(p.group_name)) return SG_NONE;
+  return s;
+}
+
+function buildHierarchy(items) {
+  const groups = {};
+  (items || []).forEach(p => {
+    const g = p.group_name || 'Khác';
+    const sg = getSubgroupKey(p);
+    groups[g] ||= {};
+    groups[g][sg] ||= [];
+    // dedupe theo id
+    if (!groups[g][sg].some(x => x.id === p.id)) groups[g][sg].push(p);
+  });
+  return groups;
+}
+%>
+
+<div class="card">
+  <div class="card-title">Áp dụng cùng (theo nhóm)</div>
+
+  <%
+    const allows = promotion.compat_allows || [];
+    if (!allows.length) {
+  %>
+    <div class="empty">Không có.</div>
+  <% } else { 
+      const grouped = buildHierarchy(allows);
+      const groupNames = Object.keys(grouped).sort();
+  %>
+    <% groupNames.forEach(g => { 
+         const submap = grouped[g];
+         const subNames = Object.keys(submap);
+         const onlyOne = (subNames.length === 1);
+         const onlyKey = onlyOne ? subNames[0] : null;
+         const onlyList = onlyOne ? submap[onlyKey] : null;
+    %>
+      <div class="group-box">
+        <div class="group-title"><span class="dot"></span><%= g %></div>
+
+        <% // Nếu chỉ có 1 “bucket” và (bucket đó là NONE hoặc chỉ có 1 item) => flatten, không in tiêu đề subgroup %>
+        <% if (onlyOne && (onlyKey === SG_NONE || (onlyList && onlyList.length === 1))) { %>
+          <div class="group-items">
+            <% (onlyList || []).forEach(item => { if (item.id !== promotion.id) { %>
+              <span class="pill"><%= item.name %></span>
+            <% } }) %>
+          </div>
+        <% } else { %>
+          <% // In từng subgroup; bucket NONE in như 1 nhóm không tiêu đề %>
+          <% subNames.sort().forEach(sg => { 
+               const items = submap[sg] || []; 
+               const showTitle = (sg !== SG_NONE);
+          %>
+            <div class="subgroup-box">
+              <% if (showTitle) { %>
+                <div class="subgroup-title">• <%= sg %></div>
+              <% } %>
+              <div class="group-items">
+                <% items.forEach(item => { if (item.id !== promotion.id) { %>
+                  <span class="pill"><%= item.name %></span>
+                <% } }) %>
+              </div>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    <% }) %>
+  <% } %>
+</div>
+
+<div class="card">
+  <div class="card-title">Không áp dụng cùng (theo nhóm)</div>
+
+  <%
+    const excludes = promotion.compat_excludes || [];
+    if (!excludes.length) {
+  %>
+    <div class="empty">Không có.</div>
+  <% } else { 
+      const groupedX = buildHierarchy(excludes);
+      const groupNamesX = Object.keys(groupedX).sort();
+  %>
+    <% groupNamesX.forEach(g => { 
+         const submap = groupedX[g];
+         const subNames = Object.keys(submap);
+         const onlyOne = (subNames.length === 1);
+         const onlyKey = onlyOne ? subNames[0] : null;
+         const onlyList = onlyOne ? submap[onlyKey] : null;
+    %>
+      <div class="group-box warn">
+        <div class="group-title"><span class="dot"></span><%= g %></div>
+
+        <% if (onlyOne && (onlyKey === SG_NONE || (onlyList && onlyList.length === 1))) { %>
+          <div class="group-items">
+            <% (onlyList || []).forEach(item => { if (item.id !== promotion.id) { %>
+              <span class="pill pill-warn"><%= item.name %></span>
+            <% } }) %>
+          </div>
+        <% } else { %>
+          <% subNames.sort().forEach(sg => { 
+               const items = submap[sg] || []; 
+               const showTitle = (sg !== SG_NONE);
+          %>
+            <div class="subgroup-box">
+              <% if (showTitle) { %>
+                <div class="subgroup-title">• <%= sg %></div>
+              <% } %>
+              <div class="group-items">
+                <% items.forEach(item => { if (item.id !== promotion.id) { %>
+                  <span class="pill pill-warn"><%= item.name %></span>
+                <% } }) %>
+              </div>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    <% }) %>
+  <% } %>
+</div>
+
+
+
                 </tbody>
               </table>
             </div>
 
-            <div class="section-card">
-  <h3 class="section-title">Quan hệ với CTKM khác</h3>
-  <table class="detail-grid">
-    <colgroup><col /><col /></colgroup>
-    <tbody>
-      <tr>
-        <th>Áp dụng cùng CTKM</th>
-        <td>
-  <% if ((compatAllowNames || []).length) { %>
-    <div class="pill-wrap">
-      <% compatAllowNames.forEach(function(n){ %>
-        <span class="pill"><span class="dot"></span><%= n %></span>
-      <% }) %>
-    </div>
-  <% } else { %>
-    <span class="muted">Không</span>
-  <% } %>
-</td>
-
-<td>
-  <% if ((compatExcludeNames || []).length) { %>
-    <div class="pill-wrap">
-      <% compatExcludeNames.forEach(function(n){ %>
-        <span class="pill" style="background:#fff1f2;color:#be123c;border-color:#ffe4e6;">
-          <span class="dot" style="background:#be123c;"></span><%= n %>
-        </span>
-      <% }) %>
-    </div>
-  <% } else { %>
-    <span class="muted">Không</span>
-  <% } %>
-</td>
-
-      </tr>
-    </tbody>
-  </table>
-</div>
 
 
+            <% var _revs=(typeof revisions==='undefined' || !Array.isArray(revisions)) ? [] : revisions; %>
+              <!-- Lịch sử cập nhật -->
+              <div class="section-card">
+                <h3 class="section-title">Lịch sử cập nhật</h3>
 
-            <% var _revs = (typeof revisions === 'undefined' || !Array.isArray(revisions)) ? [] : revisions; %>
-            <!-- Lịch sử cập nhật -->
-<div class="section-card">
-  <h3 class="section-title">Lịch sử cập nhật</h3>
+                <% if (!_revs || _revs.length===0) { %>
+                  <div class="empty">Chưa có lịch sử.</div>
+                  <% } else { %>
+                    <table class="detail-grid">
+                      <colgroup>
+                        <col style="width:220px">
+                        <col style="width:120px">
+                        <col>
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th>Thời gian</th>
+                          <th>Hành động</th>
+                          <th>Thay đổi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% _revs.forEach(function(rv){ %>
+                          <tr>
+                            <td>
+                              <%= new Date(rv.created_at).toLocaleString('vi-VN') %>
+                            </td>
+                            <td>
+                              <%= rv.action==='create' ? 'Tạo' : 'Cập nhật' %>
+                            </td>
+                            <td>
+                              <% var d=rv.diff || {}; var keys=Object.keys(d); %>
+                                <% if (keys.length===0) { %>
+                                  <span class="empty">Không có thay đổi</span>
+                                  <% } else { %>
+                                    <ul class="change-list">
+                                      <% keys.forEach(function(k){ %>
+                                        <li>
+                                          <strong>
+                                            <%= k %>
+                                          </strong>:
+                                          <span class="muted">từ</span>
+                                          <code><%- JSON.stringify(d[k].from) %></code>
+                                          <span class="muted">→</span>
+                                          <code><%- JSON.stringify(d[k].to) %></code>
+                                        </li>
+                                        <% }) %>
+                                    </ul>
+                                    <% } %>
+                            </td>
+                          </tr>
+                          <% }) %>
+                      </tbody>
+                    </table>
+                    <% } %>
+              </div>
 
-  <% if (!_revs || _revs.length === 0) { %>
-    <div class="empty">Chưa có lịch sử.</div>
-  <% } else { %>
-    <table class="detail-grid">
-      <colgroup>
-        <col style="width:220px">
-        <col style="width:120px">
-        <col>
-      </colgroup>
-      <thead>
-        <tr>
-          <th>Thời gian</th>
-          <th>Hành động</th>
-          <th>Thay đổi</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% _revs.forEach(function(rv){ %>
-          <tr>
-            <td><%= new Date(rv.created_at).toLocaleString('vi-VN') %></td>
-            <td><%= rv.action === 'create' ? 'Tạo' : 'Cập nhật' %></td>
-            <td>
-              <% var d = rv.diff || {}; var keys = Object.keys(d); %>
-              <% if (keys.length === 0) { %>
-                <span class="empty">Không có thay đổi</span>
+              <style>
+                .change-list {
+                  margin: 0;
+                  padding-left: 18px;
+                }
+
+                .change-list li {
+                  margin: 4px 0;
+                }
+
+                .muted {
+                  color: #64748b;
+                }
+
+                code {
+                  background: #f8fafc;
+                  border: 1px solid #e5e7eb;
+                  border-radius: 6px;
+                  padding: 1px 4px;
+                }
+              </style>
+
               <% } else { %>
-                <ul class="change-list">
-                  <% keys.forEach(function(k){ %>
-                    <li>
-                      <strong><%= k %></strong>:
-                      <span class="muted">từ</span>
-                      <code><%- JSON.stringify(d[k].from) %></code>
-                      <span class="muted">→</span>
-                      <code><%- JSON.stringify(d[k].to) %></code>
-                    </li>
-                  <% }) %>
-                </ul>
-              <% } %>
-            </td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  <% } %>
-</div>
-
-<style>
-  .change-list{ margin:0; padding-left:18px; }
-  .change-list li{ margin:4px 0; }
-  .muted{ color:#64748b; }
-  code{ background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px; padding:1px 4px; }
-</style>
-
-            <% } else { %>
-              <div class="empty">Không tìm thấy CTKM.</div>
-              <% } %>
+                <div class="empty">Không tìm thấy CTKM.</div>
+                <% } %>
 
   </div>
+  <div id="toast" class="toast">Đã copy mã!</div>
+  <script>
+    async function copyCode(el) {
+      const code = el.dataset.code || el.textContent.trim();
+      try {
+        await navigator.clipboard.writeText(code);
+        const t = document.getElementById('toast');
+        if (t) { t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 1200); }
+      } catch (e) {
+        const r = document.createRange(); r.selectNodeContents(el);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        document.execCommand('copy'); sel.removeAllRanges();
+        alert('Đã copy mã!');
+      }
+    }
+  </script>
+
+  <style>
+    .sku-table-block {
+      margin-top: 14px;
+    }
+
+    .sku-table-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin: 8px 0 6px;
+    }
+
+    .sku-table-title {
+      font-weight: 700;
+    }
+
+    .sku-search {
+      flex: 1;
+      max-width: 360px;
+      padding: 8px 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+
+    .sku-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .sku-table thead th {
+      background: #f8fafc;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .sku-table tbody td {
+      padding: 10px;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 13px;
+    }
+
+    .sku-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .is-hidden {
+      display: none;
+    }
+
+    .btn-more {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  </style>
+
+  <script>
+    // Bỏ dấu tiếng Việt + lowercase để so khớp ổn định
+    function _norm(s) {
+      return (s || '')
+        .toString()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove diacritics
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+    }
+
+    // Debounce cho input (tránh lọc quá dày)
+    function _debounce(fn, wait = 120) {
+      let t; return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
+    }
+
+    function filterSkuTable(blockId) {
+      const block = document.getElementById(blockId);
+      if (!block) return;
+
+      const qRaw = block.querySelector('.sku-search')?.value || '';
+      const q = _norm(qRaw);
+      const terms = q ? q.split(' ') : [];
+      const rows = Array.from(block.querySelectorAll('tbody .sku-row'));
+      const moreBtn = block.querySelector('.btn-more');
+      const notfound = block.querySelector('.notfound');
+      const N = Number(block.dataset.initial || 10);
+
+      let matched = 0;
+
+      rows.forEach((tr, idx) => {
+        // text nguồn để so khớp (SKU + tên + brand + giá)
+        const txt = _norm(tr.innerText);
+        const ok = !q || terms.every(t => txt.includes(t));
+
+        // Khi có query: hiện đúng dòng match, ẩn dòng không match
+        // Khi rỗng: tạm ẩn các dòng > N (giới hạn ban đầu)
+        if (q) {
+          tr.style.display = ok ? '' : 'none';
+        } else {
+          tr.style.display = (idx < N) ? '' : 'none';
+        }
+
+        if (ok) matched++;
+      });
+
+      // Xử lý nút "Xem thêm"
+      if (moreBtn) {
+        if (q) {
+          // Khi đang tìm kiếm: bỏ nút Xem thêm
+          moreBtn.style.display = 'none';
+          moreBtn.dataset.expanded = '1';
+          moreBtn.textContent = 'Thu gọn';
+        } else {
+          // Khôi phục trạng thái ban đầu
+          const total = rows.length;
+          moreBtn.style.display = (total > N) ? 'inline-block' : 'none';
+          moreBtn.dataset.expanded = '0';
+          moreBtn.textContent = 'Xem thêm…';
+        }
+      }
+
+      // Hiện/ẩn thông báo không tìm thấy
+      if (notfound) {
+        notfound.style.display = (q && matched === 0) ? 'block' : 'none';
+      }
+    }
+
+    const filterSkuTableDebounced = _debounce(filterSkuTable, 120);
+
+    function toggleMore(blockId) {
+      const block = document.getElementById(blockId);
+      const rows = Array.from(block.querySelectorAll('tbody .sku-row'));
+      const btn = block.querySelector('.btn-more');
+      const expanded = btn.dataset.expanded === '1';
+      const N = Number(block.dataset.initial || 10);
+
+      if (!expanded) {
+        rows.forEach(tr => tr.style.display = ''); // show all
+        btn.dataset.expanded = '1';
+        btn.textContent = 'Thu gọn';
+      } else {
+        rows.forEach((tr, idx) => tr.style.display = (idx < N) ? '' : 'none');
+        btn.dataset.expanded = '0';
+        btn.textContent = 'Xem thêm…';
+      }
+    }
+
+    // Gán handler khi trang load (để gõ là lọc ngay)
+    document.addEventListener('DOMContentLoaded', () => {
+      ['includedSkuBlock', 'excludedSkuBlock'].forEach(id => {
+        const block = document.getElementById(id);
+        if (!block) return;
+        const input = block.querySelector('.sku-search');
+        if (input) {
+          input.addEventListener('input', () => filterSkuTableDebounced(id));
+          // Khởi tạo trạng thái ban đầu (giới hạn N dòng)
+          filterSkuTable(id);
+        }
+      });
+    });
+  </script>
+
+
+
 
   <%- include('partials/footer') %>
