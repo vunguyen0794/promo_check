@@ -1,0 +1,42 @@
+<div id="pv-toast" class="toast" aria-live="polite" aria-atomic="true"></div>
+<script>
+  // Toast (global)
+  window.showToast = function (msg, type) {
+    var el = document.getElementById('pv-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'pv-toast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.className = 'toast' + (type ? ' toast--' + type : '');
+    el.textContent = msg || 'Đã copy mã!';
+    requestAnimationFrame(function(){ el.classList.add('is-show'); });
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function(){ el.classList.remove('is-show'); }, 1600);
+  };
+
+  // Copy (có fallback → desktop luôn thấy toast)
+  window.copyCode = async function(btn){
+    var code = btn?.dataset?.code || btn?.textContent?.trim() || '';
+    if (!code) { showToast('Không có mã để copy','warn'); return; }
+
+    try {
+      if (navigator.clipboard && window.isSecureContext !== false) {
+        await navigator.clipboard.writeText(code);
+        showToast('Đã copy mã!');
+        return;
+      }
+    } catch(e){ /* fallback bên dưới */ }
+
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = code; ta.setAttribute('readonly','');
+      ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      showToast('Đã copy mã!');
+    } catch(e2){
+      showToast('Copy không thành công','error');
+    }
+  };
+</script>

@@ -1493,12 +1493,6 @@ label {
   user-select: all;
 }
 .code-badge small { font-weight: 600; opacity: .8; }
-.toast {
-  position: fixed; left: 50%; top: 16px; transform: translateX(-50%);
-  background: #10b981; color: #fff; padding: 8px 12px; border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0,0,0,.1); z-index: 9999; font-size: 14px;
-  display: none;
-}
 /* ==== Dashboard cards & titles (đồng bộ với "Chiến giá") ==== */
 .dash-card{
   background:#fff; border:1px solid #e5e7eb; border-radius:16px;
@@ -1829,3 +1823,180 @@ th, strong, b {
     /* Nội dung bên trong sẽ bắt sự kiện click như bình thường */
     pointer-events: auto;
 }
+
+
+/* ===== khung trang / container ===== */
+.promotion-container {
+  max-width: 1000px; margin: 0 auto; padding: 20px;
+  background: #f8f9fa; min-height: 100vh;
+}
+
+/* ===== card tìm kiếm / khối thông tin / danh sách CTKM ===== */
+.search-section, .product-info, .promotions-section {
+  background: #fff; padding: 25px; border-radius: 12px; margin-bottom: 25px;
+  border: 1px solid #e9ecef; box-shadow: 0 2px 10px rgba(0,0,0,.1);
+}
+
+/* tiêu đề khối */
+.search-section h1 { color:#2c3e50; margin-bottom:20px; font-size:28px; font-weight:700; text-align:center; }
+.product-info h2, .promotions-section h2 {
+  color:#2c3e50; margin-bottom:25px; font-size:22px; font-weight:700; padding-bottom:15px;
+}
+.product-info h2 { border-bottom:3px solid #e74c3c; }
+.promotions-section h2 { border-bottom:3px solid #27ae60; }
+
+/* ===== table info chung ===== */
+.info-table, .product-table, .promotion-table, .detail-table, .promo-table {
+  width:100%; border-collapse: collapse; margin-top: 15px;
+}
+.info-table th, .product-table th, .promotion-table th, .detail-table th, .promo-table th {
+  background: #f8f9fa; padding:15px; text-align:left; font-weight:600; color:#495057; border:1px solid #dee2e6;
+}
+.info-table td, .product-table td, .promotion-table td, .detail-table td, .promo-table td {
+  padding:15px; border:1px solid #dee2e6; font-weight:500; color:#2c3e50; background:#fff;
+}
+.info-table tr:nth-child(even) td, .product-table tr:nth-child(even) td, .promotion-table tr:nth-child(even) td,
+.detail-table tr:nth-child(even) td, .promo-table tr:nth-child(even) td { background:#f8f9fa; }
+
+/* bảng danh sách CTKM */
+.promotion-table th, .promo-table th {
+  background:#27ae60 !important; color:#fff; border:1px solid #229954;
+}
+.promo-name { font-weight:600; color:#2c3e50; font-size:16px; }
+.promo-detail { color:#6c757d; margin-bottom:5px; font-size:14px; }
+.promo-detail strong { color:#495057; }
+
+/* grid hiển thị rule đặc biệt */
+.discount-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-top:10px; }
+.discount-item { background:#e8f5e8; padding:10px; border-radius:6px; border-left:4px solid #27ae60; }
+.discount-item strong { color:#27ae60; }
+
+/* tóm tắt giá */
+.price-summary { background:#fff3cd; padding:20px; border-radius:8px; margin-top:25px; border:2px solid #ffc107; }
+.summary-item { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #ffeaa7; }
+.summary-item:last-child { border-bottom:none; }
+.summary-item strong { color:#856404; }
+.final-price { font-size:20px; font-weight:700; color:#e74c3c; }
+
+/* button xem chi tiết */
+.btn-detail {
+  background:#3498db; color:#fff; padding:8px 16px; border:none; border-radius:6px;
+  text-decoration:none; font-size:14px; font-weight:500; transition:.3s; display:inline-block; margin-top:10px;
+}
+.btn-detail:hover { background:#2980b9; transform: translateY(-1px); }
+
+/* badge code/coupon */
+.code-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  border:1px dashed #eab308; background:#fff7ed; color:#a16207;
+  padding:6px 10px; border-radius:999px; cursor:pointer;
+}
+
+
+/* ===== coupon modal – responsive giống search ===== */
+#couponListModal.modal { position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:12px; }
+#couponListModal .modal-content { width:min(920px,94vw); max-height:86vh; overflow:auto; background:#fff; border-radius:12px; padding:16px; box-shadow:0 10px 24px rgba(2,6,23,.18); }
+#couponListModal .modal-content h2 { font-size:18px; font-weight:800; margin:0 0 8px 0; }
+#couponListModal .close { float:right; font-size:22px; cursor:pointer; }
+#couponListModal .table-scroll-wrapper{ overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #f1f5f9; border-radius:12px; }
+#couponListModal .info-table{ min-width:640px; }
+
+/* ===== lỗi / empty ===== */
+.error-message { background:#f8d7da; color:#721c24; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #f5c6cb; text-align:center; }
+.no-data { text-align:center; padding:50px 20px; color:#6c757d; }
+.no-data i { font-size:64px; margin-bottom:20px; display:block; color:#adb5bd; }
+.no-data p { font-size:18px; margin-bottom:10px; }
+
+/* Mobile fine-tune */
+@media (max-width:768px){
+  #couponListModal .modal-content{ width:96vw; max-height:88vh; padding:12px; }
+  #couponListModal .info-table th, #couponListModal .info-table td{ padding:8px 10px; }
+}
+
+/* === Unified toast (copy) === */
+.toast.is-show { display:block !important; }
+.toast {
+  position: fixed;
+  /* xuất hiện ở giữa top màn hình, cách 16px */
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  z-index: 10000;
+
+  display: none;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #10b981;   /* success green */
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  white-space: nowrap;    /* không bị xuống dòng */
+  box-shadow: 0 6px 20px rgba(0,0,0,.12);
+  pointer-events: none;   /* không chặn click */
+  opacity: 0;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.toast.is-show {
+  display: block;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.toast--error { background: #ef4444; }
+.toast--warn  { background: #f59e0b; }
+
+/* Modal coupon tối ưu mobile */
+#couponListModal.modal        { display:none; align-items:center; justify-content:center; padding:12px; }
+#couponListModal .modal-content{
+  width: min(920px, 94vw);
+  max-height: 86vh; overflow:auto;
+  border-radius: 12px; padding: 16px;
+  box-shadow: 0 10px 24px rgba(2,6,23,.18);
+}
+#couponListModal .table-scroll-wrapper{ overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #f1f5f9; border-radius:12px; }
+#couponListModal .info-table{ min-width:640px; }
+@media (max-width: 768px){
+  #couponListModal .modal-content{ width:96vw; max-height:88vh; padding:12px; }
+  #couponListModal .info-table th, #couponListModal .info-table td{ padding:8px 10px; }
+}
+/* Cột tiền trong modal/bảng CTKM */
+.info-table td:nth-child(3),
+.promo-table td.money,
+.detail-table td.money {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+       padding:10px 16px;border-radius:999px;background:#16a34a;color:#fff;
+       font-weight:600;box-shadow:0 8px 24px rgba(2,6,23,.18);
+       display:none;z-index:2147483647}
+
+.toast{
+  position:fixed; top:16px; left:50%; transform:translateX(-50%) translateY(-10px);
+  z-index:2147483647; display:none; padding:8px 12px; border-radius:999px;
+  background:#10b981; color:#fff; font-size:14px; font-weight:700; white-space:nowrap;
+  box-shadow:0 6px 20px rgba(0,0,0,.12); pointer-events:none; opacity:0;
+  transition:opacity .18s ease, transform .18s ease;
+}
+.toast.is-show{ display:block !important; opacity:1; transform:translateX(-50%) translateY(0); }
+.toast--error{ background:#ef4444; } .toast--warn{ background:#f59e0b; }
+
+.toast{
+  position:fixed; top:16px; left:50%;
+  transform:translateX(-50%) translateY(-10px);
+  z-index:2147483647;
+  display:none; opacity:0;
+  padding:8px 12px; border-radius:999px;
+  background:#10b981; color:#fff;
+  font-size:14px; font-weight:700; white-space:nowrap;
+  box-shadow:0 6px 20px rgba(0,0,0,.12);
+  pointer-events:none;
+  transition:opacity .18s ease, transform .18s ease;
+}
+.toast.is-show{ display:block !important; opacity:1; transform:translateX(-50%) translateY(0); }
+.toast--error{ background:#ef4444; } .toast--warn{ background:#f59e0b; }
+
+
+
+<%= new Intl.NumberFormat('vi-VN').format(value) %>

@@ -328,30 +328,31 @@
                 </tr>
 
                 <tr>
-                  <th>Giá trị giảm</th>
-                  <td>
-                    <% if ((promotion.discount_value_type || '' ).toLowerCase()==='amount' ) { %>
-                      Giảm <strong>
-                        <%= (promotion.discount_value || 0).toLocaleString('vi-VN') %> ₫
-                      </strong>
-                      <% if (promotion.min_order_value) { %>
-                        (đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫)
-                          <% } %>
-                            <% } else if ((promotion.discount_value_type || '' ).toLowerCase()==='percent' ) { %>
-                              Giảm <strong>
-                                <%= promotion.discount_value %>%
-                              </strong>
-                              <% if (promotion.max_discount_amount) { %>
-                                (tối đa <%= (promotion.max_discount_amount || 0).toLocaleString('vi-VN') %> ₫)
-                                  <% } %>
-                                    <% if (promotion.min_order_value) { %>
-                                      ; đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫
-                                        <% } %>
-                                          <% } else { %>
-                                            -
-                                            <% } %>
-                  </td>
-                </tr>
+  <th>Giá trị giảm</th>
+  <td>
+    <% if (promotion.max_coupon_discount) { %>
+      Giảm tối đa <strong><%= new Intl.NumberFormat('vi-VN').format(promotion.max_coupon_discount) %> ₫</strong>
+    
+    <% } else if ((promotion.discount_value_type || '').toLowerCase() === 'amount') { %>
+      Giảm tối đa <strong><%= (promotion.discount_value || 0).toLocaleString('vi-VN') %> ₫</strong>
+      <% if (promotion.min_order_value) { %>
+        (đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫)
+      <% } %>
+    
+    <% } else if ((promotion.discount_value_type || '').toLowerCase() === 'percent') { %>
+      Giảm tối đa <strong><%= promotion.discount_value %>%</strong>
+      <% if (promotion.max_discount_amount) { %>
+        (tối đa <%= (promotion.max_discount_amount || 0).toLocaleString('vi-VN') %> ₫)
+      <% } %>
+      <% if (promotion.min_order_value) { %>
+        ; đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫
+      <% } %>
+      
+    <% } else { %>
+      -
+    <% } %>
+  </td>
+</tr>
 
 
 
@@ -692,18 +693,36 @@ function buildHierarchy(items) {
                                   <span class="empty">Không có thay đổi</span>
                                   <% } else { %>
                                     <ul class="change-list">
-                                      <% keys.forEach(function(k){ %>
-                                        <li>
-                                          <strong>
-                                            <%= k %>
-                                          </strong>:
-                                          <span class="muted">từ</span>
-                                          <code><%- JSON.stringify(d[k].from) %></code>
-                                          <span class="muted">→</span>
-                                          <code><%- JSON.stringify(d[k].to) %></code>
-                                        </li>
-                                        <% }) %>
-                                    </ul>
+  <% keys.forEach(function(k){ %>
+    <li>
+      <strong><%= k %></strong>:
+      <% if (k === 'detail_fields') { %>
+        <div style="padding-left: 15px;">
+          <% const detailFrom = d[k].from || {}; %>
+          <% const detailTo = d[k].to || {}; %>
+          <% const allDetailKeys = [...new Set([...Object.keys(detailFrom), ...Object.keys(detailTo)])]; %>
+          
+          <% allDetailKeys.forEach(dk => { %>
+            <% const fromValue = detailFrom[dk] || ''; %>
+            <% const toValue = detailTo[dk] || ''; %>
+            <% if (fromValue !== toValue) { %>
+              <div style="margin-top: 5px;">
+                <em style="color: #64748b;"><%= dk %>:</em>
+                <div><span class="muted">từ</span> <code><%- fromValue || '(trống)' %></code></div>
+                <div><span class="muted">→</span> <code><%- toValue || '(trống)' %></code></div>
+              </div>
+            <% } %>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <span class="muted">từ</span>
+        <code><%- JSON.stringify(d[k].from) %></code>
+        <span class="muted">→</span>
+        <code><%- JSON.stringify(d[k].to) %></code>
+      <% } %>
+    </li>
+  <% }) %>
+</ul>
                                     <% } %>
                             </td>
                           </tr>
@@ -740,22 +759,6 @@ function buildHierarchy(items) {
                 <% } %>
 
   </div>
-  <div id="toast" class="toast">Đã copy mã!</div>
-  <script>
-    async function copyCode(el) {
-      const code = el.dataset.code || el.textContent.trim();
-      try {
-        await navigator.clipboard.writeText(code);
-        const t = document.getElementById('toast');
-        if (t) { t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 1200); }
-      } catch (e) {
-        const r = document.createRange(); r.selectNodeContents(el);
-        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
-        document.execCommand('copy'); sel.removeAllRanges();
-        alert('Đã copy mã!');
-      }
-    }
-  </script>
 
   <style>
     .sku-table-block {
@@ -937,48 +940,70 @@ function buildHierarchy(items) {
 </div>
 
 <script>
-// === SCRIPT ĐIỀU KHIỂN MODAL ===
-function showCouponListModal(button) {
-    const promoName = button.dataset.promoName;
-    const coupons = JSON.parse(button.dataset.coupons);
-    
-    const modal = document.getElementById('couponListModal');
-    const titleEl = document.getElementById('couponModalTitle');
-    const container = document.getElementById('couponModalTableContainer');
 
-    titleEl.textContent = `Danh sách coupon cho: ${promoName}`;
+window.showCouponListModal = function (button) {
+  var modal     = document.getElementById('couponListModal');
+  var titleEl   = document.getElementById('couponModalTitle');
+  var container = document.getElementById('couponModalTableContainer');
+  if (!modal || !titleEl || !container) return;
 
-    // Tạo bảng từ dữ liệu
-    let tableHTML = `<div class="table-scroll-wrapper"><table class="detail-grid" style="margin-top: 15px;">
-        <thead>
-            <tr>
-                <th>Tên/Nhóm SP</th>
-                <th>Mã Voucher</th>
-                <th>Mức giảm</th>
-                <th>Điều kiện</th>
-            </tr>
-        </thead>
-        <tbody>`;
-    
-    coupons.forEach(c => {
-        tableHTML += `
-            <tr>
-                <td>${c.name || '-'}</td>
-                <td>
-                    <button class="code-badge" onclick="copyCode(this)" data-code="${c.code}">
-                        <span>${c.code}</span> <small>(copy)</small>
-                    </button>
-                </td>
-                <td>${c.discount || '-'}</td>
-                <td>${c.note || '-'}</td>
-            </tr>
-        `;
-    });
+  var promoName = (button && button.dataset && button.dataset.promoName) ? button.dataset.promoName : '—';
 
-    tableHTML += `</tbody></table></div>`;
-    container.innerHTML = tableHTML;
-    modal.style.display = 'block';
-}
+  // Parse JSON an toàn
+  var coupons = [];
+  try {
+    coupons = JSON.parse((button && button.dataset && button.dataset.coupons) ? button.dataset.coupons : '[]');
+  } catch (e) {
+    console.warn('data-coupons không phải JSON hợp lệ:', e);
+    coupons = [];
+  }
+
+  function toNumber(v) {
+    if (typeof v === 'number') return v;
+    if (v == null || v === '') return 0;
+    return parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0;
+  }
+  function fmt(n) {
+    return new Intl.NumberFormat('vi-VN').format(toNumber(n));
+  }
+  function esc(s) { return (s == null ? '' : String(s)); }
+
+  // Sắp xếp GIẢM DẦN theo discount
+  var sorted = coupons.slice().sort(function(a, b) {
+    return toNumber(b && b.discount) - toNumber(a && a.discount);
+  });
+
+  // Render bảng (không dùng backtick)
+  var rows = '';
+  sorted.forEach(function(c) {
+    rows += '<tr>'
+      + '<td>' + (esc(c && c.name) || '-') + '</td>'
+      + '<td><button class="code-badge" onclick="copyCode(this)" data-code="' + (esc(c && c.code) || '') + '">'
+      + '<span>' + (esc(c && c.code) || '') + '</span> <small>(copy)</small>'
+      + '</button></td>'
+      + '<td>' + (toNumber(c && c.discount) ? fmt(c.discount) : '-') + '</td>'
+      + '<td>' + (esc(c && c.note) || '-') + '</td>'
+      + '</tr>';
+  });
+
+  titleEl.textContent = 'Danh sách coupon cho: ' + promoName;
+  container.innerHTML =
+      '<div class="table-scroll-wrapper">'
+    +   '<table class="info-table" style="margin-top:15px">'
+    +     '<thead>'
+    +       '<tr>'
+    +         '<th>Tên/Nhóm SP</th>'
+    +         '<th>Mã Voucher</th>'
+    +         '<th>Mức giảm</th>'
+    +         '<th>Điều kiện</th>'
+    +       '</tr>'
+    +     '</thead>'
+    +     '<tbody>' + rows + '</tbody>'
+    +   '</table>'
+    + '</div>';
+
+  modal.style.display = 'block';
+};
 </script>
-
-  <%- include('partials/footer') %>
+<%- include('partials/toast') %>
+<%- include('partials/footer') %>

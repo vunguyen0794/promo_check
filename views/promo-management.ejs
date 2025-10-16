@@ -805,10 +805,35 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeEl) { togglePromoFields(); typeEl.addEventListener('change', togglePromoFields); }
 });
             function toggleApplyTo() {
-                const applyTo = document.querySelector('select[name="apply_to"]').value;
-                document.getElementById('skuIncludeField').style.display = applyTo === 'sku' ? 'block' : 'none';
-                document.getElementById('skuExcludeField').style.display = applyTo === 'all' ? 'block' : 'none';
-            }
+  // Nhận select theo id/name mới, fallback qua name cũ nếu có
+  const sel =
+    document.getElementById('createApplyToTypeSelect') ||
+    document.querySelector('select[name="apply_to_type"]') ||
+    document.querySelector('select[name="apply_to"]');
+
+  const applyTo = sel ? sel.value : 'all';
+
+  // Ẩn tất cả các vùng có thể xuất hiện
+  ['createSkuField','createBrandField','createCategoryField','createSubcatField',
+   'skuIncludeField','skuExcludeField'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Hiện vùng phù hợp cho UI mới (create*Field) — nếu không có, fallback về id cũ
+  const map = {
+    sku: ['createSkuField','skuIncludeField'],
+    brand: ['createBrandField'],
+    category: ['createCategoryField'],
+    subcat: ['createSubcatField'],
+    all: ['skuExcludeField'] // nếu bạn muốn hiện vùng loại trừ khi chọn "Tất cả"
+  };
+
+  (map[applyTo] || []).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'block';
+  });
+}
 
             function toggleSpecialRules() {
                 const isSpecial = document.querySelector('input[name="is_special"]').checked;
@@ -856,6 +881,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const originalText = submitBtn.textContent;
                 submitBtn.disabled = true; submitBtn.textContent = '🔄 Đang tạo...';
 
+                const couponBuilder = document.getElementById('createCouponListBuilder');
+let disabledCouponInputs = [];
+if (couponBuilder && getComputedStyle(couponBuilder).display === 'none') {
+  disabledCouponInputs = Array.from(couponBuilder.querySelectorAll('input, select, textarea'));
+  disabledCouponInputs.forEach(el => { el.disabled = true; el.required = false; });
+}
+
                 try {
                     const form = this;
                     const fd = new FormData(form);
@@ -869,6 +901,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             data[k] = v;
                         }
                     }
+
+                     const detailObj = {};
+        for (const key of Object.keys(data)) {
+            const m = key.match(/^detail\[(.+)\]$/);
+            if (m) {
+                detailObj[m[1]] = data[key];   // ví dụ: detail['Chính sách'] -> detailObj['Chính sách']
+                delete data[key];              // bỏ key lẻ để body gọn gàng
+            }
+        }
+        data.detail = detailObj;
+
+
                     // BẮT BUỘC: ép 2 select multiple thành mảng id
                     const applyWithSel = form.querySelector('#applyWithSelect');
                     const excludeWithSel = form.querySelector('#excludeWithSelect');
@@ -888,7 +932,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     data.apply_with = Array.from(setAllow);
                     data.exclude_with = Array.from(setDeny);
 
-
+                    console.log("Dữ liệu gửi đi từ TRÌNH DUYỆT:", data)
 
 
                     const res = await fetch('/create-promotion', {
@@ -911,14 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Đảm bảo modal hiển thị đúng
-            function showCreateModal() {
-                document.getElementById('createPromoModal').style.display = 'block';
-                const form = document.getElementById('promoForm');
-                form.reset();
-                toggleApplyTo();
-            }
-
+        
             // Debug: Kiểm tra xem hàm có được gọi không
             document.querySelector('.btn.btn-primary').addEventListener('click', function () {
                 console.log('Create button clicked');
