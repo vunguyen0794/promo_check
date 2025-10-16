@@ -391,7 +391,7 @@
                                 </thead>
                                 <tbody>
                                     <% promotions.forEach(promo=> { %>
-                                        <tr>
+                                        <tr class="<%= (product.list_price || 0) < (promo.min_order_value || 0) ? 'promo-inactive' : '' %>">
                                             <td data-label="CTKM">
                                                 <div class="promo-name">
                                                     <%= promo.name %>
@@ -414,20 +414,19 @@
                                                         <%= promo.description %>
                                                     </div>
                                                     <% } %>
-                                                        <% if (promo.coupon_code) { %>
-                                                            <div class="promo-detail">
-                                                                <button type="button" class="code-badge"
-                                                                    data-code="<%= promo.coupon_code %>"
-                                                                    onclick="copyCode(this)">
-                                                                    🔑 <span>
-                                                                        <class="code-text">
-                                                                        <%= promo.coupon_code %>
-                                                                    </span>
-                                                                    <small>(Bấm để copy)</small>
-                                                                </button>
-                                                            </div>
-                                                            <% } %>
+                                                        <% if (promo.coupon_list && Array.isArray(promo.coupon_list) && promo.coupon_list.length > 0) { %>
+    <button type="button" class="code-badge" 
+            onclick="showCouponListModal(this)"
+            data-promo-name="<%= promo.name %>"
+            data-coupons='<%- JSON.stringify(promo.coupon_list) %>'>
+        📜 Danh sách coupon (Bấm để xem)
+    </button>
 
+<% } else if (promo.coupon_code) { %>
+    <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promo.coupon_code %>">
+        🔑 <span><%= promo.coupon_code %></span> <small>(Bấm để copy)</small>
+    </button>
+<% } %>
 
                                                                 <% if (promo.special_promotion_rules &&
                                                                     promo.special_promotion_rules.length> 0) { %>
@@ -552,24 +551,6 @@
 
 
 <div id="toast" class="toast">Đã copy mã!</div>
-<script>
-  async function copyCode(el) {
-    const code = el.dataset.code || el.textContent.trim();
-    try {
-      await navigator.clipboard.writeText(code);
-      const t = document.getElementById('toast');
-      if (t) { t.style.display = 'block'; setTimeout(()=> t.style.display='none', 1200); }
-    } catch (e) {
-      const r = document.createRange(); r.selectNodeContents(el);
-      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
-      document.execCommand('copy'); sel.removeAllRanges();
-      alert('Đã copy mã!');
-    }
-  }
-</script>
-
-
-<!-- PRICE HISTORY MODAL -->
 
 <div id="priceHistoryModal" class="modal" style="display:none">
   <div class="modal-content">
@@ -582,136 +563,98 @@
       <tbody></tbody>
     </table>
   </div>
+</div>
 
-
-<style>
-  .modal-backdrop{
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.45); z-index: 2000; padding:16px;
-  }
-  .modal-panel{
-    max-width: 720px; width:100%; background:#fff; border-radius:12px;
-    box-shadow:0 10px 30px rgba(0,0,0,.2); padding:16px;
-  }
-  .modal-close{
-    position:absolute; right:12px; top:8px; border:none; background:transparent;
-    font-size:22px; cursor:pointer;
-  }
-</style>
+<div id="couponListModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="this.parentElement.parentElement.style.display='none'">&times;</span>
+        <h2 id="couponModalTitle"></h2>
+        <div id="couponModalTableContainer"></div>
+    </div>
+</div>
 
 <script>
-(function(){
-  const sku = "<%= product ? product.sku : '' %>";
-  const btn = document.getElementById('btnHistoryPrice');  // nút đồng hồ
-  const modal = document.getElementById('priceHistoryModal');
-  const closeBtn = document.getElementById('phClose');
-  const tbody = document.querySelector('#phTable tbody');
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- Hàm copy to clipboard ---
+    window.copyCode = async function(el) {
+        const code = el.dataset.code || el.textContent.trim();
+        try {
+            await navigator.clipboard.writeText(code);
+            const t = document.getElementById('toast');
+            if (t) { t.style.display = 'block'; setTimeout(()=> t.style.display='none', 1200); }
+        } catch (e) {
+            alert('Đã copy mã: ' + code);
+        }
+    }
 
-  function nf(n){ return new Intl.NumberFormat('vi-VN').format(n||0) + ' VNĐ'; }
+    // --- Hàm điều khiển popup danh sách coupon ---
+    window.showCouponListModal = function(button) {
+        const modal = document.getElementById('couponListModal');
+        const titleEl = document.getElementById('couponModalTitle');
+        const container = document.getElementById('couponModalTableContainer');
+        const promoName = button.dataset.promoName;
+        const coupons = JSON.parse(button.dataset.coupons);
 
-  if (btn && sku){
-    btn.addEventListener('click', async () => {
-      try{
-        const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price-history`);
-        const js = await res.json();
-        if (!js.ok) throw new Error(js.error||'Load history failed');
+        titleEl.textContent = `Danh sách coupon cho: ${promoName}`;
+        let tableHTML = `<div class="table-scroll-wrapper"><table class="info-table" style="margin-top: 15px;"><thead><tr><th>Tên/Nhóm SP</th><th>Mã Voucher</th><th>Mức giảm</th><th>Điều kiện</th></tr></thead><tbody>`;
+        coupons.forEach(c => {
+            tableHTML += `<tr><td>${c.name || '-'}</td><td><button class="code-badge" onclick="copyCode(this)" data-code="${c.code || ''}"><span>${c.code || ''}</span> <small>(copy)</small></button></td><td>${c.discount || '-'}</td><td>${c.note || '-'}</td></tr>`;
+        });
+        tableHTML += `</tbody></table></div>`;
+        container.innerHTML = tableHTML;
+        modal.style.display = 'block';
+    }
 
-        const rows = (js.history||[]).map(r=>`
-          <tr>
-            <td>${new Date(r.changed_at).toLocaleString('vi-VN')}</td>
-            <td>${nf(r.old_price)}</td>
-            <td>${nf(r.new_price)}</td>
-            <td>${r.user||'-'}</td>
-          </tr>`).join('');
+    // --- Logic cho việc sửa giá và xem lịch sử ---
+    const sku = "<%= (typeof product !== 'undefined' && product) ? product.sku : '' %>";
+    if (sku) {
+        const btnEdit  = document.getElementById('btnEditPrice');
+        const btnSave  = document.getElementById('btnSavePrice');
+        const btnCancel= document.getElementById('btnCancelPrice');
+        const view     = document.getElementById('priceView');
+        const editWrap = document.getElementById('priceEdit');
+        const input    = document.getElementById('priceInput');
+        const btnHistory = document.getElementById('btnHistoryPrice');
+        const historyModal = document.getElementById('priceHistoryModal');
+        const historyClose = document.getElementById('phClose');
+        const historyTbody = document.querySelector('#phTable tbody');
 
-        tbody.innerHTML = rows || `<tr><td colspan="4">Chưa có lịch sử</td></tr>`;
-        modal.style.display = 'flex'; // => giữa màn hình
-      }catch(e){ alert('Không tải được lịch sử giá: ' + e.message); }
-    });
-  }
-  if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
-  window.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
-})();
-</script>
-<script>
-(()=> {
-  // HTML bắt buộc phải có:
-  // <form class="search-form" action="/search-promotion" ...>
-  //   <div class="autocomplete-container">
-  //     <input id="sku" ...>
-  //     <div id="skuAutocomplete" class="autocomplete-results"></div>
-  //   </div>
-  // </form>
-  const box  = document.getElementById('sku');
-  const dd   = document.getElementById('skuAutocomplete');
-  const form = document.querySelector('form.search-form') || document.querySelector('form[action="/search-promotion"]');
-  if (!box || !dd || !form) { console.warn('Thiếu #sku / #skuAutocomplete / form'); return; }
+        if(btnEdit) btnEdit.onclick = () => { view.style.display='none'; editWrap.style.display='inline-block'; input.focus(); };
+        if(btnCancel) btnCancel.onclick = () => { editWrap.style.display='none'; view.style.display='inline'; };
 
-  let tId;
-  const fmtVND = n => new Intl.NumberFormat('vi-VN').format(Number(n||0)) + ' VNĐ';
+        if(btnSave) btnSave.onclick = async () => {
+            try {
+                const newPrice = Number(input.value);
+                if (!Number.isFinite(newPrice) || newPrice < 0) { alert('Giá không hợp lệ'); return; }
+                const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ new_price: newPrice }) });
+                const js = await res.json();
+                if (!js.ok) throw new Error(js.error || 'Cập nhật giá thất bại');
+                document.getElementById('searchForm').submit();
+            } catch(e) {
+                alert(e.message);
+            }
+        };
 
-  box.addEventListener('input', () => {
-    clearTimeout(tId);
-    const v = box.value.trim();
-    if (!v){ dd.style.display='none'; return; }
-
-    tId = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/skus?q=${encodeURIComponent(v)}`);
-        const data = await res.json();       // mảng [{sku, product_name, list_price,...}]
-        dd.innerHTML = '';
-        let exact = false;
-
-        (data || []).forEach(it => {
-          const el = document.createElement('div');
-          el.className = 'autocomplete-item';
-          el.innerHTML = `
-            <div><strong>${it.sku}</strong> — ${it.product_name||''}</div>
-            <div style="font-size:12px;color:#666">${it.brand||''} | ${it.category||''} | ${it.subcat||''}</div>
-            <div style="font-size:12px;color:#e53935;font-weight:bold">${it.list_price!=null?fmtVND(it.list_price):'N/A'}</div>`;
-          el.onclick = () => { box.value = it.sku; dd.style.display='none'; form.submit(); };
-          dd.appendChild(el);
-          if (String(it.sku) === v) exact = true;
+        if(btnHistory) btnHistory.addEventListener('click', async () => {
+            try{
+                const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price-history`);
+                const js = await res.json();
+                if (!js.ok) throw new Error(js.error||'Load history failed');
+                const rows = (js.history||[]).map(r=>`<tr><td>${new Date(r.changed_at).toLocaleString('vi-VN')}</td><td>${new Intl.NumberFormat('vi-VN').format(r.old_price||0)} VNĐ</td><td>${new Intl.NumberFormat('vi-VN').format(r.new_price||0)} VNĐ</td><td>${r.user||'-'}</td></tr>`).join('');
+                historyTbody.innerHTML = rows || `<tr><td colspan="4">Chưa có lịch sử</td></tr>`;
+                historyModal.style.display = 'block'; // 'flex' có thể làm vỡ layout cũ
+            } catch(e) { alert('Không tải được lịch sử giá: ' + e.message); }
         });
 
-        // ➕ Thêm SKU mới nếu không khớp exact
-        if (!exact && v) {
-          const add = document.createElement('div');
-          add.className = 'autocomplete-item add-new';
-          add.textContent = `➕ Thêm SKU mới: ${v}`;
-          add.onclick = async () => {
-            dd.style.display='none';
-            const name = prompt('Tên sản phẩm cho SKU '+v+':','');
-            if (name === null) return;
-            const priceRaw = prompt('Giá niêm yết (VNĐ):','');
-            if (priceRaw === null) return;
-            const price = Number(String(priceRaw).replace(/\D/g,'')) || 0;
-
-            const r = await fetch('/api/skus/upsert', {
-              method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ sku:v, product_name:name||v, list_price:price })
-            });
-            const js = await r.json();
-            if (!js.ok){ alert('Lỗi thêm SKU: '+(js.error||'unknown')); return; }
-            form.submit(); // tìm ngay SKU vừa thêm
-          };
-          dd.appendChild(add);
-        }
-
-        dd.style.display = dd.children.length ? 'block' : 'none';
-      } catch (err) {
-        console.error('Autocomplete error:', err);
-        dd.style.display = 'none';
-      }
-    }, 250);
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.autocomplete-container')) dd.style.display = 'none';
-  });
-})();
+        if (historyClose) historyClose.onclick = () => historyModal.style.display = 'none';
+        window.addEventListener('click', e => { 
+            if (e.target === historyModal) historyModal.style.display = 'none';
+            if (e.target === document.getElementById('couponListModal')) document.getElementById('couponListModal').style.display = 'none';
+        });
+    }
+});
 </script>
 
-
-        
-        <%- include('partials/footer') %>
+<%- include('partials/search-autocomplete') %>
+<%- include('partials/footer') %>

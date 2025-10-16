@@ -1,138 +1,126 @@
 <%- include('partials/header', {title: 'Trang chủ', currentPage: 'home', time: time}) %>
 
 <div class="search-box">
-<form id="searchForm" action="/search-promotion" method="GET" class="search-form">
-  <div class="autocomplete-container">
-    <input id="skuSearch" name="query" class="search-input" placeholder="Nhập SKU hoặc tên SP" autocomplete="off">
-    <div id="autocompleteResults" class="autocomplete-results"></div>
-  </div>
-  <button class="search-btn" type="submit">Tìm kiếm</button>
-</form>
-
+  <form id="searchForm" action="/search-promotion" method="GET" class="search-form">
+    <div class="autocomplete-container">
+      <input id="skuSearch" name="query" class="search-input" placeholder="Nhập SKU hoặc tên SP" autocomplete="off">
+      <div id="autocompleteResults" class="autocomplete-results"></div>
+    </div>
+    <button class="search-btn" type="submit">Tìm kiếm</button>
+  </form>
 </div>
 
-<div class="no-orders">
 <div class="dash-card">
   <div class="dash-title">Danh sách sản phẩm</div>
-
   <% if ((randomSkus||[]).length) { %>
-    <div class="product-grid">
+    <div class="c-product-grid">
       <% randomSkus.forEach(function(s){ %>
         <a class="product-card" href="/search-promotion?query=<%= s.sku %>">
           <div class="product-sku">SKU: <strong><%= s.sku %></strong></div>
           <div class="product-name"><%= s.product_name || '-' %></div>
           <div class="product-meta">
             <span class="brand"><%= s.brand || '-' %></span>
-            <span class="price"><%= (typeof s.list_price==='number')
-              ? new Intl.NumberFormat('vi-VN').format(s.list_price) + ' ₫'
-              : '-' %></span>
+            <span class="price"><%= (typeof s.list_price==='number') ? new Intl.NumberFormat('vi-VN').format(s.list_price) + ' ₫' : '-' %></span>
           </div>
         </a>
       <% }) %>
     </div>
+    <div style="margin-top:10px"><a class="btn-view-more" href="/products">Xem thêm</a></div>
   <% } else { %>
     <div class="dash-muted">Chưa có dữ liệu sản phẩm.</div>
   <% } %>
-
-<div style="margin-top:10px">
-  <a class="btn-view-more" href="/products">Xem thêm</a>
-</div>
-</div>
 </div>
 
+<div class="dash-card" id="featured-promos-container">
+    <div class="dash-title">CTKM nổi bật</div>
+    <div class="promo-filter-tabs">
+        <a href="/" data-ajax="true" class="<%= selectedGroup === '' ? 'active' : '' %>">Tất cả</a>
+        <% (allGroups || []).forEach(function(group) { %>
+            <a href="/?group=<%= encodeURIComponent(group) %>" data-ajax="true" class="<%= selectedGroup === group ? 'active' : '' %>"><%= group %></a>
+        <% }) %>
+    </div>
+    
+    <div id="promo-list-content">
+        <%- include('partials/_featured-promos', { featuredPromos, page, totalPages, selectedGroup }) %>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('featured-promos-container');
+    const contentTarget = document.getElementById('promo-list-content');
+    
+    container.addEventListener('click', async function(e) {
+        const link = e.target.closest('a[data-ajax="true"]');
+        if (!link) return;
+        
+        e.preventDefault(); // Ngăn hành vi mặc định (tải lại trang)
+        
+        const url = link.getAttribute('href');
+        const isPagination = link.textContent.includes('Xem thêm');
+        
+        try {
+            // Thay đổi URL trên thanh địa chỉ
+            history.pushState(null, '', url);
+            
+            // Hiển thị trạng thái đang tải (tùy chọn)
+            contentTarget.style.opacity = '0.5';
+            
+            // Gọi API để lấy HTML mới
+            const response = await fetch('/api/featured-promos' + url);
+            const html = await response.text();
+            
+            // Cập nhật nội dung
+            if (isPagination) {
+                // Nếu là nút "Xem thêm", xóa nút đó và nối thêm nội dung mới
+                link.parentElement.remove();
+                contentTarget.insertAdjacentHTML('beforeend', html);
+            } else {
+                // Nếu là tab lọc, thay thế toàn bộ nội dung
+                contentTarget.innerHTML = html;
+            }
+
+        } catch (error) {
+            console.error('Lỗi khi tải CTKM:', error);
+            // Nếu lỗi, điều hướng đến link như bình thường
+            window.location.href = url;
+        } finally {
+            contentTarget.style.opacity = '1';
+        }
+    });
+});
+</script>
+
+<div class="dash-card">
+    <div class="dash-title">Sản phẩm có nhiều lượt so sánh giá</div>
+    <% if (matrixRows && matrixRows.length) { %>
+        <div class="table-scroll">
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>SKU</th><th>Tên SP</th><th>Brand</th>
+                        <% (competitorCols || []).forEach(function(c){ %><th><%= c %></th><% }); %>
+                        <th>Tổng</th><th>Đối thủ nổi bật</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% matrixRows.forEach(function(r){ %>
+                        <tr>
+                            <td><a href="/search-promotion?query=<%= r.sku %>"><strong><%= r.sku %></strong></a></td>
+                            <td><%= r.product_name || '-' %></td>
+                            <td><%= r.brand || '-' %></td>
+                            <% (r.cells || []).forEach(function(n){ %><td><%= n %></td><% }); %>
+                            <td><strong><%= r.total %></strong></td>
+                            <td><span class="pill"><%= r.top_competitor %></span></td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+    <% } else { %>
+        <div class="dash-muted">Chưa có dữ liệu so sánh giá.</div>
+    <% } %>
+</div>
 
 <%- include('partials/search-autocomplete') %>
-<div class="card" style="margin-top:16px;">
-    <!-- 2) CTKM NỔI BẬT -->
-  <div class="dash-card">
-    <div class="dash-title">CTKM nổi bật</div>
-
-    <% if (typeof featuredPromos !== 'undefined' && featuredPromos && featuredPromos.length) { %>
-      <div class="promo-list">
-        <% featuredPromos.forEach(function(p){ %>
-          <a class="promo-item" href="/promotion-detail/<%= p.id %>">
-            <div class="promo-name"><%= p.name %></div>
-            <div class="promo-meta">
-              <% if (String(p.discount_value_type||'').toLowerCase()==='amount') { %>
-                Giảm: <strong><%= new Intl.NumberFormat('vi-VN').format(p.discount_value||0) %>₫</strong>
-                <% if (p.min_order_value){ %> · Đơn tối thiểu <%= new Intl.NumberFormat('vi-VN').format(p.min_order_value) %>₫ <% } %>
-              <% } else if (String(p.discount_value_type||'').toLowerCase()==='percent') { %>
-                Giảm: <strong><%= p.discount_value||0 %>%</strong>
-                <% if (p.max_discount_amount){ %> · Tối đa <%= new Intl.NumberFormat('vi-VN').format(p.max_discount_amount) %>₫ <% } %>
-                <% if (p.min_order_value){ %> · Đơn tối thiểu <%= new Intl.NumberFormat('vi-VN').format(p.min_order_value) %>₫ <% } %>
-              <% } else { %>
-                <span>Không có dữ liệu giảm</span>
-              <% } %>
-                <% if (p.__stackable) { %>
-                  <span class="promo-tag">Có thể cộng dồn</span>
-                  <% } %>
-
-              </div>
-          </a>
-        <% }) %>
-      </div>
-    <% } else { %>
-      <div class="dash-muted">Chưa có CTKM nổi bật.</div>
-    <% } %>
-  </div>
-
-  <!-- 3) SẢN PHẨM CÓ NHIỀU LƯỢT SO SÁNH GIÁ (matrix) -->
-  <div class="dash-card">
-    <div class="dash-title">Sản phẩm có nhiều lượt so sánh giá</div>
-
-    <% if (typeof matrixRows !== 'undefined' && matrixRows && matrixRows.length) { %>
-      <div class="table-scroll">
-        <table class="dash-table">
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>Tên SP</th>
-              <th>Brand</th>
-              <% (typeof competitorCols !== 'undefined' && competitorCols ? competitorCols : []).forEach(function(c){ %>
-                <th><%= c %></th>
-              <% }); %>
-              <th>Tổng</th>
-              <th>Đối thủ nổi bật</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% matrixRows.forEach(function(r){ %>
-              <tr>
-                <td><a href="/search-promotion?query=<%= r.sku %>"><strong><%= r.sku %></strong></a></td>
-                <td><%= r.product_name || '-' %></td>
-                <td><%= r.brand || '-' %></td>
-                <% (r.cells || []).forEach(function(n){ %>
-                  <td><%= n %></td>
-                <% }); %>
-                <td><strong><%= r.total %></strong></td>
-                <td><span class="pill"><%= r.top_competitor %></span></td>
-              </tr>
-            <% }); %>
-          </tbody>
-        </table>
-      </div>
-    <% } else { %>
-      <div class="dash-muted">Chưa có dữ liệu so sánh giá.</div>
-    <% } %>
-  </div>
-
-</div>
-
-<style>
-  .pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700; font-size:12px; }
-</style>
-
-
-
-<style>
-  .pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700; font-size:12px; }
-</style>
-<style>
-  .card .sku-table{ width:100%; border-collapse:separate; border-spacing:0; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
-  .card .sku-table thead th{ background:#f8fafc; text-align:left; padding:10px; border-bottom:1px solid #e5e7eb; }
-  .card .sku-table tbody td{ padding:10px; border-bottom:1px solid #f1f5f9; }
-  .card .sku-table tbody tr:last-child td{ border-bottom:none; }
-</style>
-
-
 <%- include('partials/footer') %>

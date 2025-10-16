@@ -275,6 +275,8 @@
                                                 Sửa</button>
                                             <button class="btn btn-danger" onclick="deletePromo(<%= promo.id %>)">🗑️
                                                 Xóa</button>
+
+                                            <button class="btn btn-secondary" onclick="copyPromo(<%= promo.id %>)">📑 Sao chép</button>
                                             <% } %>
                                     </div>
                         </div>
@@ -341,7 +343,22 @@
                             <label>🔑 Mã giảm giá</label>
                             <input type="text" name="coupon_code" placeholder="Nhập mã coupon">
                         </div>
+                        <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
+            <input type="checkbox" name="has_coupon_list" id="createHasCouponListCheckbox" style="width: auto; margin-right: 8px;">
+            Hiển thị dưới dạng danh sách coupon/voucher (nếu có nhiều mã)
+        </label>
+    </div>
+
+    <div class="form-section" id="createCouponListBuilder" style="display: none;">
+        <h4>📝 Danh sách Coupon</h4>
+        <div id="createCouponListContainer">
+            </div>
+        <button type="button" class="btn btn-secondary" id="createAddCouponRowBtn" style="margin-top: 10px;">+ Thêm dòng</button>
+    </div>
                     </div>
+
+                    
 
                     <div class="form-group">
   <label>Giá trị giảm</label>
@@ -596,32 +613,45 @@
                         </script>
 
 
+<h3>🎯 Phạm vi áp dụng</h3>
+
+<div class="form-group">
+    <label>Áp dụng cho</label>
+    <select name="apply_to_type" id="createApplyToTypeSelect">
+        <option value="all" selected>Tất cả sản phẩm</option>
+        <option value="sku">Theo danh sách SKU</option>
+        <option value="brand">Theo Brand</option>
+        <option value="category">Theo Category</option>
+        <option value="subcat">Theo Subcat</option>
+    </select>
+</div>
+
+<div class="form-group" id="createSkuField" style="display: none;">
+    <label>SKU áp dụng (cách nhau bởi dấu phẩy hoặc xuống dòng)</label>
+    <textarea name="skus" rows="4" placeholder="VD: SKU0001, SKU0002, SKU0003"></textarea>
+</div>
+<div class="form-group" id="createBrandField" style="display: none;">
+    <label>Brand áp dụng (cách nhau bởi dấu phẩy)</label>
+    <input type="text" name="apply_brands" placeholder="VD: Apple, Samsung, Dell">
+</div>
+<div class="form-group" id="createCategoryField" style="display: none;">
+    <label>Category áp dụng (cách nhau bởi dấu phẩy)</label>
+    <input type="text" name="apply_categories" placeholder="VD: NH01, NH02">
+</div>
+<div class="form-group" id="createSubcatField" style="display: none;">
+    <label>Subcat áp dụng (cách nhau bởi dấu phẩy)</label>
+    <input type="text" name="apply_subcats" placeholder="VD: NH01-01-98-05">
+</div>
+
+<div class="form-group">
+    <label>SKU loại trừ (tùy chọn)</label>
+    <textarea name="excluded_skus" rows="3" placeholder="Các SKU trong danh sách này sẽ không được áp dụng CTKM"></textarea>
+</div>
 
 
-                        <h3>🎯 Phạm vi áp dụng</h3>
-
-                        <div class="form-group">
-                            <label>Áp dụng cho</label>
-                            <select name="apply_to" onchange="toggleApplyTo()">
-                                <option value="all">Tất cả sản phẩm</option>
-                                <option value="sku">Theo danh sách SKU chỉ định</option>
-                            </select>
-                        </div>
-
-                        <!-- INCLUDE: chỉ hiện khi chọn Theo list SKU -->
-                        <div class="form-group" id="skuIncludeField" style="display:none;">
-                            <label>SKU áp dụng (phân cách bằng dấu phẩy, xuống dòng đều được)</label>
-                            <textarea name="skus" placeholder="VD: SKU0001, SKU0002, SKU0003"></textarea>
-                        </div>
-
-                        <!-- EXCLUDE: dùng cho cả 2 chế độ (All hoặc Theo list SKU) -->
-                        <div class="form-group">
-                            <label>SKU loại trừ (tùy chọn)</label>
-                            <textarea name="excluded_skus" placeholder="VD: SKU0101, SKU0102"></textarea>
-                        </div>
-
-                       <div class="form-section">
-  <h3 class="section-title">Quan hệ với CTKM khác</h3>
+                        
+<div class="form-section">
+<h3 class="section-title">Quan hệ với CTKM khác</h3>
 
   <% // Group theo group_name
      const grouped = {};
@@ -708,23 +738,43 @@
                   document.getElementById('excludeWithGroupPicker').value, false);
 </script>
 
+<script>
+    const createModal = document.getElementById('createPromoModal');
+    const typeSelect = document.getElementById('createApplyToTypeSelect');
 
-                        <script>
-                            function toggleApplyTo() {
-                                const v = document.querySelector('select[name="apply_to"]').value;
-                                document.getElementById('skuIncludeField').style.display = (v === 'sku') ? 'block' : 'none';
-                            }
-                            // khi mở modal
-                            function showCreateModal() {
-                                document.getElementById('createPromoModal').style.display = 'block';
-                                document.getElementById('promoForm').reset();
-                                toggleApplyTo();
-                            }
-                            function closeModal() {
-                                document.getElementById('createPromoModal').style.display = 'none';
-                                document.body.classList.remove('modal-open');
-                            }
-                        </script>
+    function toggleCreateScopeFields() {
+        if (!typeSelect) return;
+        const selectedType = typeSelect.value;
+        
+        // Ẩn tất cả các trường tùy chọn trước
+        document.getElementById('createSkuField').style.display = 'none';
+        document.getElementById('createBrandField').style.display = 'none';
+        document.getElementById('createCategoryField').style.display = 'none';
+        document.getElementById('createSubcatField').style.display = 'none';
+
+        // Hiện trường tương ứng
+        const fieldToShow = document.getElementById(`create${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}Field`);
+        if (fieldToShow) {
+            fieldToShow.style.display = 'block';
+        }
+    }
+
+    if (typeSelect) {
+        typeSelect.addEventListener('change', toggleCreateScopeFields);
+    }
+    
+    // Cập nhật lại hàm show/close modal để gọi đúng hàm toggle
+    function showCreateModal() {
+        createModal.style.display = 'block';
+        document.body.classList.add('modal-open');
+        document.getElementById('promoForm').reset();
+        toggleCreateScopeFields(); // Gọi hàm toggle mới
+    }
+    function closeModal() {
+        createModal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+</script>
 
 
                         <div class="form-actions">
@@ -1077,23 +1127,74 @@ document.addEventListener('DOMContentLoaded', () => {
                     sync();
                 }
             })();
+
+// --- DÁN THÊM ĐOẠN SCRIPT NÀY VÀO TRONG THẺ <script> HIỆN CÓ ---
+
+// === Logic cho Coupon List Builder ===
+const createHasCouponListCheckbox = document.getElementById('createHasCouponListCheckbox');
+const createCouponListBuilder = document.getElementById('createCouponListBuilder');
+const createCouponListContainer = document.getElementById('createCouponListContainer');
+const createAddCouponRowBtn = document.getElementById('createAddCouponRowBtn');
+let createCouponIndex = 0;
+
+function createNewCouponRow() {
+    const index = createCouponIndex++;
+    const row = document.createElement('div');
+    row.className = 'form-row';
+    row.style.marginBottom = '10px';
+    row.style.alignItems = 'center';
+    row.innerHTML = `
+        <input type="text" name="coupons[${index}][name]" placeholder="Tên/Nhóm SP" required>
+        <input type="text" name="coupons[${index}][code]" placeholder="Mã coupon" required>
+        <input type="text" name="coupons[${index}][discount]" placeholder="Mức giảm">
+        <input type="text" name="coupons[${index}][note]" placeholder="Ghi chú điều kiện">
+        <button type="button" class="btn btn-danger" onclick="this.parentElement.remove()" style="padding: 8px 12px;">Xóa</button>
+    `;
+    createCouponListContainer.appendChild(row);
+}
+
+// Ẩn/hiện khối nhập liệu
+createHasCouponListCheckbox.addEventListener('change', function() {
+    createCouponListBuilder.style.display = this.checked ? 'block' : 'none';
+    if (this.checked && createCouponListContainer.children.length === 0) {
+        createNewCouponRow(); // Tự động thêm dòng đầu tiên khi check
+    }
+});
+
+// Nút thêm dòng
+createAddCouponRowBtn.addEventListener('click', createNewCouponRow);
+
+// Cập nhật lại hàm showCreateModal để reset form
+function showCreateModal() {
+    document.getElementById('createPromoModal').style.display = 'block';
+    document.body.classList.add('modal-open');
+    document.getElementById('promoForm').reset();
+    createCouponListContainer.innerHTML = ''; // Xóa các dòng coupon cũ
+    createCouponListBuilder.style.display = 'none'; // Ẩn builder
+    toggleApplyTo(); // Gọi lại hàm toggle cũ của bạn
+}
+
+
         </script>
 
         <div id="toast" class="toast">Đã copy mã!</div>
+
+
 <script>
-  async function copyCode(el) {
-    const code = el.dataset.code || el.textContent.trim();
-    try {
-      await navigator.clipboard.writeText(code);
-      const t = document.getElementById('toast');
-      if (t) { t.style.display = 'block'; setTimeout(()=> t.style.display='none', 1200); }
-    } catch (e) {
-      const r = document.createRange(); r.selectNodeContents(el);
-      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
-      document.execCommand('copy'); sel.removeAllRanges();
-      alert('Đã copy mã!');
-    }
+async function copyPromo(id) {
+  if (!confirm("Bạn có chắc muốn sao chép CTKM #" + id + " ?")) return;
+  try {
+    const res = await fetch(`/api/promotions/${id}/clone`, { method: 'POST' });
+    const js = await res.json();
+    if (!res.ok || !js.ok) throw new Error(js.error || "Sao chép thất bại");
+    
+    // Chuyển sang trang edit CTKM mới (ĐÃ SỬA ĐÚNG ĐƯỜNG DẪN)
+    window.location.href = `/edit-promotion/${js.new_id}`;
+    
+  } catch (err) {
+    alert("Lỗi: " + (err.message || "Có lỗi khi sao chép"));
   }
+}
 </script>
 
         <%- include('partials/footer') %>

@@ -196,6 +196,44 @@
     .section-card .detail-grid {
       margin-top: 6px;
     }
+
+    .detail-grid td {
+    height: auto !important; /* Cho phép chiều cao tự động co giãn */
+    overflow: visible !important; /* Hiển thị toàn bộ nội dung, không ẩn đi */
+    display: table-cell !important; /* Trả về hiển thị mặc định của ô trong bảng */
+    -webkit-line-clamp: unset !important; /* Tắt giới hạn số dòng (nếu có) */
+    line-clamp: unset !important;
+    white-space: normal !important; /* Cho phép chữ tự xuống dòng */
+    word-break: break-word; /* Bẻ chữ nếu cần để không vỡ layout */
+}
+
+.table-scroll-wrapper {
+    overflow-x: auto; /* Tự động thêm thanh trượt ngang khi cần */
+    -webkit-overflow-scrolling: touch; /* Cuộn mượt trên iOS */
+    border: 1px solid #f1f5f9; /* Di chuyển border từ table ra div bọc ngoài */
+    border-radius: 12px; /* Di chuyển bo góc ra div bọc ngoài */
+}
+
+.table-scroll-wrapper .detail-grid {
+    width: auto; /* Cho phép bảng có chiều rộng tự nhiên của nó */
+    min-width: 100%; /* Đảm bảo bảng luôn rộng ít nhất bằng div bọc ngoài */
+    border: none; /* Xóa border của table vì đã có ở div bọc ngoài */
+    border-radius: 0;
+    table-layout: auto; /* Để chiều rộng cột tự điều chỉnh theo nội dung */
+}
+
+.table-scroll-wrapper .detail-grid {
+    width: auto; /* Cho phép bảng có chiều rộng tự nhiên của nó */
+    min-width: 100%; /* Đảm bảo bảng luôn rộng ít nhất bằng div bọc ngoài */
+    border: none; /* Xóa border của table vì đã có ở div bọc ngoài */
+    border-radius: 0;
+    table-layout: auto; /* Để chiều rộng cột tự điều chỉnh theo nội dung */
+}
+
+.section-card {
+    overflow: visible !important; /* Buộc hiển thị nội dung bị tràn */
+    height: auto !important; /* Buộc chiều cao phải tự động co giãn */
+}
   </style>
 
 
@@ -216,6 +254,7 @@
           <!-- ========== 1) Thông tin cơ bản (bảng) ========== -->
           <div class="section-card">
             <h3 class="section-title">Thông tin cơ bản</h3>
+            <div class="table-scroll-wrapper">
             <table class="detail-grid">
               <colgroup>
                 <col />
@@ -264,19 +303,28 @@
                 <tr>
                   <th>Mã giảm giá</th>
                   <td>
-                    <% if (promotion.coupon_code) { %>
-                      <button type="button" class="code-badge" data-code="<%= promotion.coupon_code %>"
-                        onclick="copyCode(this)">
-                        <span>
-                          <class="code-text">
-                            <%= promotion.coupon_code %>
-                        </span>
-                        <small>(Bấm để copy)</small>
-                      </button>
-                      <% } else { %>
-                        <span class="muted">Không có</span>
-                        <% } %>
-                  </td>
+    <% if (promotion.coupon_list && promotion.coupon_list.length > 1) { %>
+        <button type="button" class="code-badge" 
+                onclick="showCouponListModal(this)"
+                data-promo-name="<%= promotion.name %>"
+                data-coupons='<%- JSON.stringify(promotion.coupon_list) %>'>
+            📜 Danh sách coupon (Bấm để xem)
+        </button>
+
+    <% } else if (promotion.coupon_list && promotion.coupon_list.length === 1) { %>
+        <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promotion.coupon_list[0].code %>">
+            🔑 <span><%= promotion.coupon_list[0].code %></span> <small>(Bấm để copy)</small>
+        </button>
+
+    <% } else if (promotion.coupon_code) { %>
+        <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promotion.coupon_code %>">
+            🔑 <span><%= promotion.coupon_code %></span> <small>(Bấm để copy)</small>
+        </button>
+
+    <% } else { %>
+        <span class="muted">Không có</span>
+    <% } %>
+</td>
                 </tr>
 
                 <tr>
@@ -330,157 +378,143 @@
                     </tr>
               </tbody>
             </table>
+            </div>
           </div>
 
           <!-- ========== 2) Bảng chi tiết (hiển thị) ========== -->
           <div class="section-card">
-            <h3 class="section-title">Bảng chi tiết (hiển thị)</h3>
-            <% if (promotion.detail_fields && Object.keys(promotion.detail_fields).length) { %>
-              <table class="detail-grid">
-                <colgroup>
-                  <col />
-                  <col />
-                </colgroup>
-                <tbody>
-                  <% Object.keys(promotion.detail_fields).forEach(function(k){ const v=(promotion.detail_fields ||
-                    {})[k]; if (!v) return; %>
-                    <tr>
-                      <th>
-                        <%= k %>
-                      </th>
-                      <td><%- String(v).replace(/\n/g,'<br>') %></td>
-                    </tr>
-                    <% }) %>
-                </tbody>
-              </table>
-              <% } else { %>
-                <div class="empty">Chưa có trường chi tiết nào.</div>
-                <% } %>
-          </div>
+  <h3 class="section-title">Bảng chi tiết (hiển thị)</h3>
+  <% if (promotion.detail_fields && Object.keys(promotion.detail_fields).length) { %>
+    <div class="table-scroll-wrapper">
+    <table class="detail-grid">
+      <colgroup>
+        <col />
+        <col />
+      </colgroup>
+      <tbody>
+        <% Object.keys(promotion.detail_fields).forEach(function(k){ 
+             const v = (promotion.detail_fields || {})[k]; 
+             if (!v || String(v).trim() === '') return; // Bỏ qua nếu giá trị rỗng
+        %>
+          <tr>
+            <th><%= k %></th>
+            
+            <td><%- v %></td>
 
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  <% } else { %>
+    <div class="empty">Chưa có trường chi tiết nào.</div>
+  <% } %>
+</div>
           <!-- ========== 3) Phạm vi áp dụng (bảng) ========== -->
           <% const included=(promotion.promotion_skus || []).map(x=> x.sku);
             const excluded = (promotion.promotion_excluded_skus || []).map(x => x.sku);
             function pillList(list){ return (list||[]).map(s=>`<span class="pill">${s}</span>`).join(''); }
             %>
             <div class="section-card">
-              <h3 class="section-title">Phạm vi áp dụng</h3>
-
-              <table class="detail-grid">
-                <colgroup>
-                  <col />
-                  <col />
-                </colgroup>
-                <tbody>
-                  <tr>
-                    <th>Áp dụng cho</th>
-                    <td>
-                      <% if (promotion.apply_to_all_skus) { %>
+    <h3 class="section-title">Phạm vi áp dụng</h3>
+    <table class="detail-grid">
+        <tbody>
+            <tr>
+                <th>Áp dụng cho</th>
+                <td>
+                    <% if (promotion.apply_to_all_skus) { %>
                         <strong>Tất cả sản phẩm</strong>
-                        <% } else { %>
-                          <strong>Theo danh sách SKU chỉ định</strong>
-                          <% } %>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
 
-              <% if (!promotion.apply_to_all_skus) { %>
-                <!-- ====== SKU ÁP DỤNG ====== -->
-                <div class="sku-table-block" id="includedSkuBlock" data-initial="10">
-                  <div class="sku-table-header">
-                    <div class="sku-table-title">SKU áp dụng</div>
-                    <input type="search" class="sku-search" placeholder="Tìm theo SKU/Tên/Brand/Giá"
-                      oninput="filterSkuTable('includedSkuBlock')">
-                  </div>
-                  <% if ((includedSkuDetails||[]).length) { %>
-                    <table class="sku-table">
-                      <thead>
-                        <tr>
-                          <th>Tên SKU</th>
-                          <th>Tên SP</th>
-                          <th>Brand</th>
-                          <th>Giá</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <% includedSkuDetails.forEach(function(r, idx){ %>
-                          <tr class="sku-row">
-                            <td>
-                              <%= r.sku %>
-                            </td>
-                            <td>
-                              <%= r.product_name || '-' %>
-                            </td>
-                            <td>
-                              <%= r.brand || '-' %>
-                            </td>
-                            <td>
-                              <%= (r.list_price!=null) ? r.list_price.toLocaleString('vi-VN') : '-' %>
-                            </td>
-                          </tr>
-                          <% }) %>
-                      </tbody>
-                    </table>
-                    <div class="notfound empty" style="display:none;">Không tìm thấy kết quả phù hợp</div>
+                    <% } else if (promotion.apply_to_brands && promotion.apply_to_brands.length > 0) { %>
+                        <strong>Theo Brand:</strong>
+                        <div class="pill-wrap" style="margin-top: 8px;">
+                            <% promotion.apply_to_brands.forEach(function(b) { %>
+                                <span class="pill"><%= b %></span>
+                            <% }) %>
+                        </div>
 
-                    <% if (includedSkuDetails.length> 10) { %>
-                      <button type="button" class="btn-more" onclick="toggleMore('includedSkuBlock')">Xem thêm…</button>
-                      <% } %>
-                        <% } else { %>
-                          <div class="empty">Chưa khai báo</div>
-                          <% } %>
-                </div>
+                    <% } else if (promotion.apply_to_categories && promotion.apply_to_categories.length > 0) { %>
+                        <strong>Theo Category:</strong>
+                        <div class="pill-wrap" style="margin-top: 8px;">
+                            <% promotion.apply_to_categories.forEach(function(c) { %>
+                                <span class="pill"><%= c %></span>
+                            <% }) %>
+                        </div>
 
-                <!-- ====== SKU LOẠI TRỪ ====== -->
-                <div class="sku-table-block" id="excludedSkuBlock" data-initial="10">
-                  <div class="sku-table-header">
-                    <div class="sku-table-title">SKU loại trừ</div>
-                    <input type="search" class="sku-search" placeholder="Tìm theo SKU/Tên/Brand/Giá"
-                      oninput="filterSkuTable('excludedSkuBlock')">
-                  </div>
-                  <% if ((excludedSkuDetails||[]).length) { %>
-                    <table class="sku-table">
-                      <thead>
-                        <tr>
-                          <th>Tên SKU</th>
-                          <th>Tên SP</th>
-                          <th>Brand</th>
-                          <th>Giá</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <% excludedSkuDetails.forEach(function(r, idx){ %>
-                          <tr class="sku-row">
-                            <td>
-                              <%= r.sku %>
-                            </td>
-                            <td>
-                              <%= r.product_name || '-' %>
-                            </td>
-                            <td>
-                              <%= r.brand || '-' %>
-                            </td>
-                            <td>
-                              <%= (r.list_price!=null) ? r.list_price.toLocaleString('vi-VN') : '-' %>
-                            </td>
-                          </tr>
-                          <% }) %>
-                      </tbody>
-                    </table>
-                    <div class="notfound empty" style="display:none;">Không tìm thấy kết quả phù hợp</div>
+                    <% } else if (promotion.apply_to_subcats && promotion.apply_to_subcats.length > 0) { %>
+                        <strong>Theo Subcat:</strong>
+                        <div class="pill-wrap" style="margin-top: 8px;">
+                            <% promotion.apply_to_subcats.forEach(function(s) { %>
+                                <span class="pill"><%= s %></span>
+                            <% }) %>
+                        </div>
 
-                    <% if (excludedSkuDetails.length> 10) { %>
-                      <button type="button" class="btn-more" onclick="toggleMore('excludedSkuBlock')">Xem thêm…</button>
-                      <% } %>
-                        <% } else { %>
-                          <div class="empty">Không có</div>
-                          <% } %>
-                </div>
-                <% } %>
+                    <% } else if (promotion.promotion_skus && promotion.promotion_skus.length > 0) { %>
+                        <strong>Theo danh sách SKU chỉ định</strong>
+                    
+                    <% } else { %>
+                        <span class="muted">Chưa xác định</span>
+                    <% } %>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <%# Logic để quyết định có hiển thị bảng SKU áp dụng hay không %>
+    <% const isBySkuList = !promotion.apply_to_all_skus && (!promotion.apply_to_brands || promotion.apply_to_brands.length === 0) && (!promotion.apply_to_categories || promotion.apply_to_categories.length === 0) && (!promotion.apply_to_subcats || promotion.apply_to_subcats.length === 0); %>
+    
+    <% if (isBySkuList && includedSkuDetails && includedSkuDetails.length > 0) { %>
+        <div class="sku-table-block" id="includedSkuBlock" data-initial="10">
+            <div class="sku-table-header">
+                <div class="sku-table-title">SKU áp dụng</div>
+                <input type="search" class="sku-search" placeholder="Tìm trong danh sách..." oninput="filterSkuTable('includedSkuBlock')">
             </div>
+            <table class="sku-table">
+                <thead><tr><th>SKU</th><th>Tên SP</th><th>Brand</th><th>Giá</th></tr></thead>
+                <tbody>
+                    <% includedSkuDetails.forEach(function(r){ %>
+                        <tr class="sku-row">
+                            <td><%= r.sku %></td>
+                            <td><%= r.product_name || '-' %></td>
+                            <td><%= r.brand || '-' %></td>
+                            <td><%= (r.list_price != null) ? r.list_price.toLocaleString('vi-VN') : '-' %></td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+            <div class="notfound empty" style="display:none;">Không tìm thấy kết quả phù hợp</div>
+            <% if (includedSkuDetails.length > 10) { %>
+                <button type="button" class="btn-more" onclick="toggleMore('includedSkuBlock')">Xem thêm…</button>
+            <% } %>
+        </div>
+    <% } %>
 
-
+    <% if (excludedSkuDetails && excludedSkuDetails.length > 0) { %>
+        <div class="sku-table-block" id="excludedSkuBlock" data-initial="10">
+            <div class="sku-table-header">
+                <div class="sku-table-title">SKU loại trừ</div>
+                <input type="search" class="sku-search" placeholder="Tìm trong danh sách..." oninput="filterSkuTable('excludedSkuBlock')">
+            </div>
+            <table class="sku-table">
+                <thead><tr><th>SKU</th><th>Tên SP</th><th>Brand</th><th>Giá</th></tr></thead>
+                <tbody>
+                    <% excludedSkuDetails.forEach(function(r){ %>
+                        <tr class="sku-row">
+                            <td><%= r.sku %></td>
+                            <td><%= r.product_name || '-' %></td>
+                            <td><%= r.brand || '-' %></td>
+                            <td><%= (r.list_price != null) ? r.list_price.toLocaleString('vi-VN') : '-' %></td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+             <div class="notfound empty" style="display:none;">Không tìm thấy kết quả phù hợp</div>
+            <% if (excludedSkuDetails.length > 10) { %>
+                <button type="button" class="btn-more" onclick="toggleMore('excludedSkuBlock')">Xem thêm…</button>
+            <% } %>
+        </div>
+    <% } %>
+</div>
             <!-- Quan hệ với CTKM khác -->
 <div class="section-card">
   <h3 class="section-title">Quan hệ với CTKM khác</h3>
@@ -894,6 +928,57 @@ function buildHierarchy(items) {
   </script>
 
 
+<div id="couponListModal" class="modal" style="display:none; z-index: 1001;">
+    <div class="modal-content">
+        <span class="close" onclick="this.parentElement.parentElement.style.display='none'">&times;</span>
+        <h2 id="couponModalTitle" style="margin-top: 0;"></h2>
+        <div id="couponModalTableContainer" style="overflow-x: auto;"></div>
+    </div>
+</div>
 
+<script>
+// === SCRIPT ĐIỀU KHIỂN MODAL ===
+function showCouponListModal(button) {
+    const promoName = button.dataset.promoName;
+    const coupons = JSON.parse(button.dataset.coupons);
+    
+    const modal = document.getElementById('couponListModal');
+    const titleEl = document.getElementById('couponModalTitle');
+    const container = document.getElementById('couponModalTableContainer');
+
+    titleEl.textContent = `Danh sách coupon cho: ${promoName}`;
+
+    // Tạo bảng từ dữ liệu
+    let tableHTML = `<div class="table-scroll-wrapper"><table class="detail-grid" style="margin-top: 15px;">
+        <thead>
+            <tr>
+                <th>Tên/Nhóm SP</th>
+                <th>Mã Voucher</th>
+                <th>Mức giảm</th>
+                <th>Điều kiện</th>
+            </tr>
+        </thead>
+        <tbody>`;
+    
+    coupons.forEach(c => {
+        tableHTML += `
+            <tr>
+                <td>${c.name || '-'}</td>
+                <td>
+                    <button class="code-badge" onclick="copyCode(this)" data-code="${c.code}">
+                        <span>${c.code}</span> <small>(copy)</small>
+                    </button>
+                </td>
+                <td>${c.discount || '-'}</td>
+                <td>${c.note || '-'}</td>
+            </tr>
+        `;
+    });
+
+    tableHTML += `</tbody></table></div>`;
+    container.innerHTML = tableHTML;
+    modal.style.display = 'block';
+}
+</script>
 
   <%- include('partials/footer') %>

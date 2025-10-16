@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Tiện ích</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#fff;color:#111;margin:0}
+    .container{max-width:1100px;margin:24px auto;padding:0 16px}
+    .card{border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:16px}
+    .title{font-weight:700;margin-bottom:8px}
+    .btn{padding:8px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#111;color:#fff;cursor:pointer}
+    input,textarea{border:1px solid #e5e7eb;border-radius:10px;padding:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid #e5e7eb;padding:8px;text-align:left}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Tiện ích</h1>
+
+    <!-- === Tiện ích 1: Tra cứu BOM === -->
+    <div class="card">
+      <div class="title">Tiện ích 1: Tra cứu BOM</div>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <label><input type="radio" name="mode" value="final" checked> Thành phẩm → Linh kiện</label>
+        <label><input type="radio" name="mode" value="component"> Linh kiện → Thành phẩm</label>
+        <input id="skuInput" placeholder="Nhập SKU..." style="min-width:220px;padding:6px 8px;">
+        <button class="btn" onclick="doSearch()">Tìm</button>
+      </div>
+      <div id="result" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- === Import CSV === -->
+    <div class="card">
+      <div class="title">Import dữ liệu</div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:24px;">
+        <form id="invForm" onsubmit="return importInv(event)" enctype="multipart/form-data">
+          <b>Import tồn kho (CSV)</b><br>
+          <input type="file" name="file" accept=".csv" required>
+          <button class="btn" type="submit">Import tồn kho</button><br>
+          <small>Header: STT, Mã sản phẩm, Tên sản phẩm, Thương hiệu, Mã ngành hàng, Tên ngành hàng, Mã nhóm sản phẩm, Tên nhóm sản phẩm, Mã chi nhánh, Tên chi nhánh, Khu vực (Zone), ĐVT, Số lượng tồn</small>
+        </form>
+
+        <form id="bomForm" onsubmit="return importBOM(event)" enctype="multipart/form-data">
+          <b>Import BOM (CSV)</b><br>
+          <input type="file" name="file" accept=".csv" required>
+          <button class="btn" type="submit">Import BOM</button><br>
+          <small>Header: FinalSKU, FinalName, ComponentSKU, ComponentName, QtyPer</small>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  async function doSearch(){
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const sku = document.getElementById('skuInput').value.trim();
+    if(!sku){ alert('Nhập SKU trước'); return; }
+
+    const url = mode === 'final'
+      ? `/api/utils/bom/by-final?sku=${encodeURIComponent(sku)}`
+      : `/api/utils/bom/by-component?sku=${encodeURIComponent(sku)}`;
+
+    const res = await fetch(url);
+    const js = await res.json();
+    if(!js.ok){ alert('Lỗi: '+js.error); return; }
+    renderResult(mode, js);
+  }
+
+  function renderResult(mode, js){
+    const box = document.getElementById('result');
+    if(mode==='final'){
+      const compRows = (js.components||[]).map(r =>
+        `<tr><td>${r.compSKU}</td><td>${r.compName||''}</td><td style="text-align:right">${r.qtyPer||1}</td></tr>`
+      ).join('');
+      const brRows = (js.branches||[]).map(b =>
+        `<tr><td>${b.branch}</td><td>${b.branch_name||''}</td><td style="text-align:right">${b.buildable}</td></tr>`
+      ).join('');
+
+      box.innerHTML = `
+        <h3>Thành phẩm: ${js.final?.sku||''} - ${js.final?.name||''}</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div><table border="1" width="100%" cellpadding="4"><thead><tr><th>SKU Linh kiện</th><th>Tên</th><th>QtyPer</th></tr></thead><tbody>${compRows||'<tr><td colspan="3"><i>Không có linh kiện</i></td></tr>'}</tbody></table></div>
+          <div><table border="1" width="100%" cellpadding="4"><thead><tr><th>Chi nhánh</th><th>Tên</th><th>Có thể ráp</th></tr></thead><tbody>${brRows||'<tr><td colspan="3"><i>Không có tồn kho</i></td></tr>'}</tbody></table></div>
+        </div>`;
+    } else {
+      const blocks = (js.results||[]).map(it => {
+        const rows = it.branches.map(b =>
+          `<tr><td>${b.branch}</td><td>${b.branch_name||''}</td><td style="text-align:right">${b.buildable}</td></tr>`
+        ).join('');
+        return `<div><h3>Thành phẩm: ${it.final.sku} - ${it.final.name||''}</h3>
+        <table border="1" width="100%" cellpadding="4"><thead><tr><th>Chi nhánh</th><th>Tên</th><th>Có thể ráp</th></tr></thead><tbody>${rows||'<tr><td colspan="3"><i>Không có tồn kho</i></td></tr>'}</tbody></table></div>`;
+      }).join('');
+      box.innerHTML = blocks || '<i>Không thấy BOM nào chứa linh kiện này.</i>';
+    }
+  }
+
+  async function importInv(e){
+    e.preventDefault();
+    const fd = new FormData(document.getElementById('invForm'));
+    const res = await fetch('/api/inventories/import-csv', { method:'POST', body: fd });
+    const js = await res.json();
+    if(!js.ok){ alert('Import tồn kho lỗi: '+js.error); return; }
+    alert(`Upserted: ${js.upserted}, failed: ${js.failed||0}`);
+  }
+
+  async function importBOM(e){
+    e.preventDefault();
+    const fd = new FormData(document.getElementById('bomForm'));
+    const res = await fetch('/api/utils/bom/import', { method:'POST', body: fd });
+    const js = await res.json();
+    if(!js.ok){ alert('Import BOM lỗi: '+js.error); return; }
+    alert(`Inserted: ${js.inserted}, failed: ${js.failed||0}`);
+  }
+  </script>
+</body>
+
+ 
+</html>

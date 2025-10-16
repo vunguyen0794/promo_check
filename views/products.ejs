@@ -9,7 +9,20 @@
       <button class="btn" type="submit" style="padding:8px 12px;">Tìm kiếm</button>
     </form>
 
-    <div class="product-grid">
+    <div class="category-tabs">
+      <a href="/products?q=<%= encodeURIComponent(q) %>" 
+         class="<%= selectedCategory === '' ? 'active' : '' %>">
+        Tất cả
+      </a>
+      <% (categories || []).forEach(function(cat){ %>
+        <a href="/products?q=<%= encodeURIComponent(q) %>&category=<%= encodeURIComponent(cat) %>" 
+           class="<%= selectedCategory === cat ? 'active' : '' %>">
+          <%= cat %>
+        </a>
+      <% }) %>
+    </div>
+
+    <div class="c-product-grid">
       <% (items||[]).forEach(function(s){ %>
         <a class="product-card" href="/search-promotion?query=<%= s.sku %>">
           <div class="product-sku">SKU: <strong><%= s.sku %></strong></div>

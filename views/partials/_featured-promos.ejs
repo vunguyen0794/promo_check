@@ -1,0 +1,33 @@
+<div class="promo-list">
+    <% featuredPromos.forEach(function(p){ %>
+        <a class="promo-item" href="/promotion-detail/<%= p.id %>">
+            <div class="promo-name"><%= p.name %></div>
+           <div class="promo-meta">
+    <% if (p.__display_discount) { %>
+        <%= p.__display_prefix %>: 
+        <strong>
+            <% if (String(p.__display_discount).includes('%')) { %>
+                <%= p.__display_discount %>
+            <% } else { %>
+                <%= new Intl.NumberFormat('vi-VN').format(p.__display_discount) %>₫
+            <% } %>
+        </strong>
+    <% } else { %>
+        <span class="dash-muted">Quà tặng/Khác</span>
+    <% } %>
+
+    <% if (p.__stackable) { %>
+        <span class="promo-tag">Có thể cộng dồn</span>
+    <% } %>
+</div>
+        </a>
+    <% }) %>
+</div>
+
+<% if (totalPages > 1) { %>
+    <div style="margin-top: 20px; display:flex; justify-content: center; gap: 8px;">
+        <% if (page < totalPages) { %>
+            <a class="btn-view-more" href="/?group=<%= encodeURIComponent(selectedGroup) %>&page=<%= page + 1 %>" data-ajax="true">Xem thêm →</a>
+        <% } %>
+    </div>
+<% } %>

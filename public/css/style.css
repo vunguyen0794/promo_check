@@ -1593,38 +1593,7 @@ h1, h2, h3, h4, h5, h6,
 th, strong, b {
   font-weight: 800;
 }
-/* Grid & card cho "Danh sách sản phẩm" */
-.product-grid{
-  display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap:12px;
-  align-items:stretch;         /* mọi ô cao bằng nhau */
-  justify-items:start;         /* bám lề trái */
-}
-.product-card{
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-  text-align:left;
-  border:1px solid #e5e7eb;
-  border-radius:12px;
-  padding:12px;
-  background:#fff;
-}
-.product-sku{ font-size:12px; color:#475569; margin-bottom:6px; }
-.product-name{
-  font-weight:800;
-  line-height:1.25;
-  min-height: 66px;            /* 3 dòng xấp xỉ */
-  display:-webkit-box;
-  -webkit-line-clamp:3;
-  -webkit-box-orient:vertical;
-  overflow:hidden;
-}
-.product-meta{
-  display:flex; justify-content:space-between; align-items:center;
-  font-size:13px; color:#334155; margin-top:8px;
-}
+
 .btn-view-more{
   display:inline-block; padding:8px 12px; border:1px solid #2563eb;
   color:#2563eb; border-radius:10px; font-weight:600; text-decoration:none;
@@ -1720,4 +1689,143 @@ th, strong, b {
   padding: 0 10px;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
+}
+/* Style cho Category Tabs */
+.category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.category-tabs a {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background-color: #f1f5f9;
+  color: #475569;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.category-tabs a:hover {
+  background-color: #e2e8f0;
+}
+
+.category-tabs a.active {
+  background-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+
+  .promo-inactive {
+    opacity: 0.5;
+    background-color: #f8f9fa;
+  }
+
+  /* ================================================================ */
+/* == CSS CUỐI CÙNG CHO LƯỚI SẢN PHẨM (ÁP DỤNG CHO TẤT CẢ CÁC TRANG) == */
+/* ================================================================ */
+
+.c-product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  /* Quan trọng: Đảm bảo các item trong lưới luôn co giãn theo chiều cao */
+  align-items: stretch;
+}
+
+.c-product-grid .product-card {
+  /* Bật Flexbox để kiểm soát nội dung bên trong thẻ */
+  display: flex;
+  flex-direction: column;
+  
+  height: 100%; /* Quan trọng: Giúp thẻ lấp đầy ô lưới */
+  text-align: left;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.c-product-grid .product-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.c-product-grid .product-sku {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.c-product-grid .product-name {
+  font-weight: 800;
+  line-height: 1.3;
+  margin-bottom: 12px;
+  /* Quan trọng: Cho phép tên sản phẩm co giãn, đẩy phần giá xuống dưới cùng */
+  flex-grow: 1; 
+  color: #111827;
+}
+
+.c-product-grid .product-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #334155;
+  /* Quan trọng: Đảm bảo phần này luôn nằm ở cuối thẻ */
+  margin-top: auto; 
+}
+
+.promo-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.promo-filter-tabs a {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background-color: #f1f5f9;
+  color: #475569;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.promo-filter-tabs a:hover {
+  background-color: #e2e8f0;
+}
+
+.promo-filter-tabs a.active {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.table-scroll-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Sửa lỗi không click được vào nội dung popup */
+#couponListModal {
+    /* Lớp nền sẽ không bắt sự kiện click */
+    pointer-events: none;
+}
+
+#couponListModal .modal-content {
+    /* Nội dung bên trong sẽ bắt sự kiện click như bình thường */
+    pointer-events: auto;
 }
