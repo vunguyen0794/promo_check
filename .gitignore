@@ -12,3 +12,6 @@ bigquery-key.json
 node_modules/
 dist/
 .DS_Store
+*.pem
+*.key
+*.txt

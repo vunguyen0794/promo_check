@@ -174,6 +174,9 @@ display: none;">
 <div id="resultsContainer">
     </div>
 
+<div id="paginationContainer" style="margin-top: 15px; text-align: center;">
+    </div>
+
 <div id="historyModal" class="modal" onclick="if(event.target.id === 'historyModal') hideHistoryModal()">
     <div class="modal-content" style="max-width: 600px;">
         <span class="close" onclick="hideHistoryModal()">&times;</span>
@@ -201,26 +204,40 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
     const resultsContainer = document.getElementById('resultsContainer');
     const historyModal = document.getElementById('historyModal');
     const rankInfoCard = document.getElementById('rankInfoCard');
+    
+    // === SỬA LỖI: Khai báo paginationContainer ===
+    const paginationContainer = document.getElementById('paginationContainer');
+    // ===========================================
+
     let allSerials = []; 
     const isAdminBranch = '<%= isGlobalAdmin ? "true" : "false" %>';
 
+    let currentPage = 1;
+    const pageSize = 50;
+    
+    // Biến tạm để lưu tổng count (tránh gọi lại khi lật trang)
+    let currentTotalBranchCount = 0;
+    let countError = false;
 
     function formatCurrency(n) {
-        return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Number(n || 0)) + '₫';
+        return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Number(n ||
+ 0)) + '₫';
     }
    
  
     function getHeatmapColor(days) {
-        if (days > 90) return '#fecaca'; 
+        if (days > 90) return '#fecaca';
         if (days > 60) return '#fee2e2'; 
-        if (days > 30) return '#ffedd5'; 
-        if (days > 7) return '#fef3c7';  
+        if (days > 45) return '#ffedd5'; 
+        if (days > 30) return '#fef3c7';  
         return 'transparent';
     }
 
     // HÀM CHÍNH: Tải dữ liệu (Gửi tất cả bộ lọc lên server)
-    async function loadSerials(masterQuery = '') {
+    // === SỬA LỖI: Chấp nhận tham số 'targetPage' ===
+    async function loadSerials(masterQuery = '', targetPage = 1) {
         
+        currentPage = targetPage;
         const includeGifts = document.getElementById('filterGift')?.checked ?? false;
         const hideCheckedOut = document.getElementById('filterCheckedOut')?.checked ?? false;
         const subcategory = document.getElementById('filterSubcategory').value;
@@ -232,78 +249,106 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
         params.append('q', masterQuery);
         params.append('giftFilter', includeGifts ? 'all' : 'no'); 
         params.append('hideCheckedOut', hideCheckedOut ? 'true' : 'false');
+        
+        // === SỬA LỖI: Gửi 'page' lên API ===
+        params.append('page', targetPage);
+        // ===================================
+
         if (subcategory) params.append('subcategory', subcategory);
         if (brand) params.append('brand', brand);
         if (location) params.append('location', location);
         if (binZone) params.append('bin_zone', binZone);
 
         const url = `/api/fifo/serials?${params.toString()}`;
-
-        if (resultsContainer) resultsContainer.innerHTML = '<div class="dash-muted" style="text-align:center;padding:20px;">Đang tải...</div>';
+        
+        // Cập nhật UI trước khi fetch
+        resultsContainer.innerHTML = '<div class="dash-muted" style="text-align:center;padding:20px;">Đang tải...</div>';
+        paginationContainer.innerHTML = '';
         if (rankInfoCard) rankInfoCard.style.display = 'none';
-        countError = false;
+        
+        // Reset biến đếm lỗi (nếu đây là lần search mới, không phải lật trang)
+        if (targetPage === 1) {
+            countError = false;
+            currentTotalBranchCount = 0;
+        }
+
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Lỗi mạng: ${response.status}`);
             const data = await response.json();
-
             if (!data.ok) throw new Error(data.error || 'Lỗi tải dữ liệu.');
+            
             allSerials = data.serials;
-            currentTotalBranchCount = data.totalBranchCount;
+            const totalItems = data.total; // Tổng số item khớp bộ lọc (từ BigQuery)
             const rankInfo = data.rankInfo;
+            
+            // Cập nhật tổng count (chỉ khi không bị lỗi)
+            if (data.totalBranchCount !== -1) {
+                currentTotalBranchCount = data.totalBranchCount;
+            } else {
+                countError = true;
+                currentTotalBranchCount = 0;
+            }
 
-            if (currentTotalBranchCount === -1) { countError = true;
-            currentTotalBranchCount = 0; }
-            if (masterQuery && allSerials.length === 0 && typeof showToast === 'function') { /* ... showToast ... */ }
+            if (masterQuery && allSerials.length === 0 && typeof showToast === 'function') {
+                showToast('Không tìm thấy serial nào khớp.', 'info');
+            }
 
             // Hiển thị thông tin rank nếu có
             if (rankInfo && rankInfoCard) {
-                 rankInfoCard.innerHTML = `⭐ Serial <strong>${rankInfo.serial}</strong> (SKU: ${rankInfo.sku}) là hàng tồn kho cũ thứ <strong>${rankInfo.rank}</strong> trong tổng số <strong>${rankInfo.total}</strong> serial cùng loại (chưa xuất) tại ${isAdminBranch === 'true' ? 'tất cả chi nhánh' : 'chi nhánh này'}.`;
-                 rankInfoCard.style.display = 'block'; 
+                 rankInfoCard.innerHTML = `⭐ Serial <strong>${rankInfo.serial}</strong> (SKU: ${rankInfo.sku}) là hàng tồn kho cũ thứ <strong>${rankInfo.rank}</strong> trong tổng số <strong>${rankInfo.total}</strong> serial 
+ cùng loại (chưa xuất) tại ${isAdminBranch === 'true' ? 'tất cả chi nhánh' : 'chi nhánh này'}.`;
+                 rankInfoCard.style.display = 'block';
             }
 
-            updateFilters(allSerials);
-            renderSerials(allSerials); 
-
+            // Chỉ cập nhật dropdown nếu là trang đầu tiên (tránh query lại khi lật trang)
+            if (targetPage === 1) {
+                updateFilters(allSerials);
+            }
+            
+            renderSerials(allSerials, totalItems); // Truyền totalItems vào
+            renderPagination(currentPage, totalItems, pageSize); // Render pagination
         } catch (error) {
             console.error("Error in loadSerials:", error);
-            countError = false; currentTotalBranchCount = 0;
+            countError = true; 
+            currentTotalBranchCount = 0;
             if (resultsContainer) resultsContainer.innerHTML = `<div class="error-message">Lỗi: ${error.message}</div>`;
             if (rankInfoCard) rankInfoCard.style.display = 'none';
-
         }
     }
 
     function updateFilters(serials) {
         const getUnique = (key) => [...new Set(serials.map(i => i[key]).filter(Boolean))].sort();
-
         const updateSelectIfNeeded = (id, options, defaultText) => {
             const select = document.getElementById(id);
             const currentVal = select.value; // Giữ giá trị đang chọn
+            
+            // Chỉ thêm option nếu select đang trống (trừ option default)
             if (select.options.length <= 1) { 
                 options.forEach(opt => {
-                    select.innerHTML += `<option value="${opt}">${opt}</option>`;
+                    const safeOpt = opt.replace(/"/g, '&quot;'); // Xử lý nếu tên có dấu "
+                    select.innerHTML += `<option value="${safeOpt}">${opt}</option>`;
                 });
             }
             select.value = currentVal; // Đảm bảo giá trị không bị reset
         };
-
+        
         updateSelectIfNeeded('filterSubcategory', getUnique('subcategory_name'), '-- SubCategory --');
         updateSelectIfNeeded('filterBrand', getUnique('brand'), '-- Brand --');
         updateSelectIfNeeded('filterLocation', getUnique('location'), '-- Location --');
-updateSelectIfNeeded('filterBinZone', getUnique('bin_zone'), '-- Bin Zone --');
+        updateSelectIfNeeded('filterBinZone', getUnique('bin_zone'), '-- Bin Zone --');
     }
 
     // Hàm lọc theo SKU
     function filterBySku(sku) {
         document.getElementById('masterInput').value = sku;
-        loadSerials(sku);
+        loadSerials(sku, 1); // Luôn về trang 1
     }
     
     // Hàm lọc theo Serial
     function filterBySerial(serial) {
         document.getElementById('masterInput').value = serial;
-        loadSerials(serial);
+        loadSerials(serial, 1); // Luôn về trang 1
     }
 
     // [Req 2] Hàm xử lý Toggle Wrap Text
@@ -320,43 +365,59 @@ updateSelectIfNeeded('filterBinZone', getUnique('bin_zone'), '-- Bin Zone --');
     }
 
 
-   function renderSerials(serials) {
+    function renderSerials(serials, totalItems) { // Nhận totalItems
         if (!serials || serials.length === 0) {
-            resultsContainer.innerHTML = `<div class="dash-muted" style="text-align:center;padding:20px;">Không tìm thấy Serial tồn kho nào theo bộ lọc.</div>`;
+             if (totalItems > 0) {
+                 resultsContainer.innerHTML = `<div class="dash-muted" style="text-align:center;padding:20px;">Không có serial nào trên trang này.
+ Tổng cộng: ${totalItems}.</div>`;
+             } else {
+                 resultsContainer.innerHTML = `<div class="dash-muted" style="text-align:center;padding:20px;">Không tìm thấy Serial tồn kho nào theo bộ lọc.</div>`;
+             }
             return;
         }
-        const total = serials.length;
+
+        // const total = serials.length; // Đây chỉ là total của trang này
         const isWrapEnabled = document.getElementById('toggleWrap').checked;
-        const tableWrapClass = isWrapEnabled ? '' : 'no-wrap'; 
+        const tableWrapClass = isWrapEnabled ? '' : 'no-wrap';
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + serials.length;
 
         let html = `
-            <div style="margin-bottom: 12px; font-weight: 600;">Tổng Serial đang tồn (hiển thị ${total} / giới hạn 1000):</div>
+            <div style="margin-bottom: 12px; font-weight: 600;">
+                Hiển thị ${startIndex + 1} - ${endIndex} trên tổng số ${totalItems} serial:
+            </div>
             <div class="table-scroll-wrapper">
                 <table class="dash-table ${tableWrapClass}" style="min-width: 1200px;"> <thead>
-                        <tr>
+  
+                       <tr>
                             <th style="width: 50px;">STT</th>
                             <th style="width: 160px; min-width: 160px;">Serial</th> <th style="width: 100px;">Ngày nhập kho</th>
-                            <th style="width: 80px;">Số ngày tồn</th>
+           
+                  <th style="width: 80px;">Số ngày tồn</th>
                             <th style="width: 80px;">Đã xuất</th>
                             <th style="width: 100px;">Location</th>
-                            <th style="width: 100px;">Bin Zone</th>
+                  
+           <th style="width: 100px;">Bin Zone</th>
                             <th style="width: 120px;">SKU</th>
                             <th>Tên SP</th>
-                            <th style="width: 80px;">Brand</th>
+                            
+ <th style="width: 80px;">Brand</th>
                             <th style="width: 120px;">Subcat</th>
                             <th style="width: 80px;">Branch</th> 
                             <th style="width: 60px;">L.Sử</th> 
-                        </tr>
+      
+                   </tr>
                     </thead>
                     <tbody>
         `;
-        serials.forEach((item, index) => {
+        
+ serials.forEach((item, index) => {
             
             let dateIn = '-';
             if (item.date_in) {
                 const parts = item.date_in.split('-'); 
                 if (parts.length === 3) {
-                    dateIn = `${parts[2]}/${parts[1]}/${parts[0]}`; 
+     dateIn = `${parts[2]}/${parts[1]}/${parts[0]}`; 
                 }
             }
             
@@ -364,63 +425,114 @@ updateSelectIfNeeded('filterBinZone', getUnique('bin_zone'), '-- Bin Zone --');
             const isChecked = item.is_checked_out;
             const heatmapColor = getHeatmapColor(daysOld);
  
-            html += `
+    
+         html += `
                 <tr>
-                    <td>${index + 1}</td>
-                    
-                    <td>
-                        <button type="button" class="serial-cell-btn" 
+                    <td>${startIndex + index + 1}</td> <td>
+            
+             <button type="button" class="serial-cell-btn" 
                                 onclick="filterBySerial('${item.serial}')" 
                                 title="Lọc theo Serial này">
-                            ${item.serial}
+                 
+            ${item.serial}
                         </button>
                     </td>
 
                     <td>${dateIn}</td>
-                    <td style="font-weight:700; background-color:${heatmapColor};">${daysOld > 0 ? daysOld : '-'}</td>
+                    <td style="font-weight:700;
+ background-color:${heatmapColor};">${daysOld > 0 ? daysOld : '-'}</td>
                     
                     <td>
                         <input type="checkbox" id="check-${item.serial}" 
-                               data-serial="${item.serial}" 
+                           
+     data-serial="${item.serial}" 
                                data-sku="${item.sku}"
                                data-branch="${item.branch_id}"
                                onchange="toggleCheck(this)"
-                               ${isChecked ? 'checked' : ''}>
+  
+                              ${isChecked ? 'checked' : ''}>
                         <label for="check-${item.serial}">${isChecked ? 'Đã xuất' : 'Còn tồn'}</label>
                     </td>
               
-                    <td>${item.location || '-'}</td>
+  
+                   <td>${item.location || '-'}</td>
                     <td>${item.bin_zone || '-'}</td>
 
                     <td>
                         <button type="button" class="sku-cell-btn" 
-                                onclick="filterBySku('${item.sku}')" title="Lọc theo SKU này">
+           
+                      onclick="filterBySku('${item.sku}')" title="Lọc theo SKU này">
                             ${item.sku}
                         </button>
                     </td>
+   
+                  
+                    <td>${item.sku_name ||
+ '-'}</td>
+                    <td>${item.brand ||
+ '-'}</td>
+                    <td>${item.subcategory_name ||
+ '-'}</td>
                     
-                    <td>${item.sku_name || '-'}</td>
-                    <td>${item.brand || '-'}</td>
-                    <td>${item.subcategory_name || '-'}</td>
-                    
-                    <td>${item.branch_id || '-'}</td> 
+                    <td>${item.branch_id ||
+ '-'}</td> 
                     
                     <td>
-                        <button type="button" class="btn btn-info" style="padding:3px 8px; font-size:12px; line-height: 1.2;" 
-                                onclick="showHistoryModal('${item.serial}')" title="Lịch sử Serial">
+                        <button type="button" class="btn btn-info" style="padding:3px 8px; font-size:12px; line-height: 1.2;"
+ onclick="showHistoryModal('${item.serial}')" title="Lịch sử Serial">
                             🕘
                         </button>
                     </td>
                 </tr>
-            `;
+         
+    `;
         });
         html += `</tbody></table></div>`;
         resultsContainer.innerHTML = html;
     }
 
+    function renderPagination(page, totalItems, size) {
+         const totalPages = Math.ceil(totalItems / size);
+         paginationContainer.innerHTML = ''; 
+         if (totalPages <= 1) return; 
+
+         let paginationHTML = `
+             <div class="pagination-controls">
+                 <button class="btn btn-secondary" id="prevPage" ${page === 1 ?
+ 'disabled' : ''}>&lt; Trước</button>
+                 <span class="page-info">Trang ${page} / ${totalPages}</span>
+                 <button class="btn btn-secondary" id="nextPage" ${page === totalPages ?
+ 'disabled' : ''}>Sau &gt;</button>
+             </div>
+         `;
+ paginationContainer.innerHTML = paginationHTML;
+
+         const prevButton = document.getElementById('prevPage');
+         const nextButton = document.getElementById('nextPage');
+         const masterQueryValue = document.getElementById('masterInput').value.trim();
+// Lấy query hiện tại
+
+         if (prevButton) {
+             prevButton.addEventListener('click', () => {
+                 if (currentPage > 1) {
+                     loadSerials(masterQueryValue, currentPage - 1);
+                 }
+       
+       });
+         }
+         if (nextButton) {
+             nextButton.addEventListener('click', () => {
+                 if (currentPage < totalPages) {
+                     loadSerials(masterQueryValue, currentPage + 1);
+                 }
+    
+          });
+ }
+    }
+
     async function toggleCheck(checkbox) {
         const serial = checkbox.dataset.serial;
-  const sku = checkbox.dataset.sku;
+        const sku = checkbox.dataset.sku;
         const branch = checkbox.dataset.branch;
         const is_checked_out = checkbox.checked;
         const label = checkbox.nextElementSibling;
@@ -428,16 +540,17 @@ updateSelectIfNeeded('filterBinZone', getUnique('bin_zone'), '-- Bin Zone --');
         try {
             const response = await fetch('/api/fifo/log', {
                 method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     serial, sku, branch_code: branch,
-                    check_date: checkDate, is_checked_out
+     
+                check_date: checkDate, is_checked_out
                 })
- });
+                });
             const data = await response.json();
-            if (!data.ok) throw new Error(data.error ||
-'Lỗi lưu log.');
-            label.textContent = is_checked_out ? 'Đã xuất' : 'Còn tồn';
+            if (!data.ok) throw new Error(data.error || 'Lỗi lưu log.');
+            label.textContent = is_checked_out ?
+ 'Đã xuất' : 'Còn tồn';
             showToast('Lưu trạng thái thành công!', 'success');
 
             const item = allSerials.find(s => s.serial === serial);
@@ -445,60 +558,64 @@ updateSelectIfNeeded('filterBinZone', getUnique('bin_zone'), '-- Bin Zone --');
             
             if (document.getElementById('filterCheckedOut').checked) {
                 // Tải lại toàn bộ nếu đang bật "Ẩn đã xuất"
-                triggerLoad();
-            }
+                triggerLoad(currentPage); // Tải lại trang hiện tại
+ }
 
-} catch (error) {
+            } catch (error) {
             checkbox.checked = !is_checked_out;
-label.textContent = is_checked_out ? 'Còn tồn' : 'Đã xuất';
+            label.textContent = is_checked_out ? 'Còn tồn' : 'Đã xuất';
             showToast('Lỗi: ' + error.message, 'error');
-} finally {
+        } finally {
             checkbox.disabled = false;
-}
+        }
+    }
+    
+    function triggerLoad(targetPage = 1) { // Mặc định là trang 1
+        const masterQuery = document.getElementById('masterInput').value.trim();
+ loadSerials(masterQuery, targetPage); 
     }
 
     async function showHistoryModal(serial) {
         document.getElementById('historySerial').textContent = serial;
-document.getElementById('historyBody').innerHTML = 'Đang tải...';
+        document.getElementById('historyBody').innerHTML = 'Đang tải...';
         historyModal.style.display = 'flex';
         try {
             const response = await fetch(`/api/fifo/history/${serial}`);
-const data = await response.json();
+            const data = await response.json();
             if (!data.ok) throw new Error(data.error || 'Lỗi tải lịch sử.');
-if (!data.history.length) {
+            if (!data.history.length) {
                 document.getElementById('historyBody').innerHTML = '<div class="dash-muted" style="text-align:center;padding:20px;">Chưa có lịch sử xuất kho.</div>';
-return;
+                return;
             }
             let html = '<ul style="list-style:none;padding:0;">';
-data.history.forEach(log => {
+            data.history.forEach(log => {
                 const date = new Date(log.checked_at).toLocaleDateString('vi-VN');
                 const time = new Date(log.checked_at).toLocaleTimeString('vi-VN');
                 html += `
                     <li style="padding:8px 0; border-bottom:1px solid #eee; font-size:14px;">
-          <strong>${date} ${time}</strong>: Đã xuất tại Branch <strong>${log.branch_code}</strong> bởi 
+              
+           <strong>${date} ${time}</strong>: Đã xuất tại Branch <strong>${log.branch_code}</strong> bởi 
                         <span class="pill">${log.checked_by_name}</span> (Tồn kho ngày: ${log.check_date})
                     </li>
                 `;
             });
-html += '</ul>';
+ html += '</ul>';
             document.getElementById('historyBody').innerHTML = html;
         } catch (error) {
             document.getElementById('historyBody').innerHTML = `<div class="error-message">Lỗi: ${error.message}</div>`;
-}
+        }
     }
     function hideHistoryModal() {
         historyModal.style.display = 'none';
-}
+    }
 
 
     // GÁN SỰ KIỆN CHO CÁC NÚT BẤM (CẬP NHẬT)
     
-    function triggerLoad() {
-        const masterQuery = document.getElementById('masterInput').value.trim();
-        loadSerials(masterQuery);
-    }
+    // (Hàm triggerLoad đã được định nghĩa ở trên)
     
-    document.getElementById('btnSearchSku').addEventListener('click', triggerLoad);
+    document.getElementById('btnSearchSku').addEventListener('click', () => triggerLoad(1));
+// Luôn về trang 1 khi search
 
     // Nút "Tải lại tồn" (Reset)
     document.getElementById('btnReset').addEventListener('click', function() {
@@ -509,7 +626,8 @@ html += '</ul>';
         document.getElementById('filterBinZone').value = '';
         document.getElementById('filterGift').checked = true; // Mặc định true
         document.getElementById('filterCheckedOut').checked = false;
-        document.getElementById('toggleWrap').checked = true; // Mặc định wrap
+     
+    document.getElementById('toggleWrap').checked = true; // Mặc định wrap
         
         document.getElementById('filterSubcategory').innerHTML = '<option value="">-- SubCategory --</option>';
         document.getElementById('filterBrand').innerHTML = '<option value="">-- Brand --</option>';
@@ -517,16 +635,14 @@ html += '</ul>';
         document.getElementById('filterBinZone').innerHTML = '<option value="">-- Bin Zone --</option>';
 
         // Trigger wrap toggle để áp dụng lại class
-        handleWrapToggle(); 
-        
-        loadSerials('');
+        handleWrapToggle();
+        loadSerials('', 1); // Tải lại trang 1
     });
 
 
     // Xử lý Nút "Quét" và Modal
     const scanModal = document.getElementById('scanModal');
     let html5QrcodeScanner;
-
     document.getElementById('btnScan').addEventListener('click', function() {
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
             showToast('Chức năng quét chỉ hoạt động trên HTTPS!', 'error');
@@ -536,26 +652,30 @@ html += '</ul>';
         scanModal.style.display = 'flex';
         
         if (!html5QrcodeScanner) {
-            html5QrcodeScanner = new Html5QrcodeScanner(
+            html5QrcodeScanner = 
+ new Html5QrcodeScanner(
                 "qr-reader", 
                 { 
                     fps: 10, 
                     qrbox: { width: 250, height: 250 },
-                    rememberLastUsedCamera: true,
+                 
+    rememberLastUsedCamera: true,
                     supportedScanTypes: [
                         html5Qrcode.Html5QrcodeScanType.SCAN_TYPE_CAMERA
                     ]
                 }
             );
-        }
+   
+      }
         html5QrcodeScanner.render(onScanSuccess, onScanFailure);
     });
-
-    function onScanSuccess(decodedText, decodedResult) {
+    
+ function onScanSuccess(decodedText, decodedResult) {
         console.log(`Scan result: ${decodedText}`, decodedResult);
         hideScanModal();
         document.getElementById('masterInput').value = decodedText;
-        triggerLoad(); // Tự động tra cứu
+        triggerLoad(1);
+// Tự động tra cứu
     }
 
     function onScanFailure(error) {
@@ -575,25 +695,25 @@ html += '</ul>';
     }
 
 
-// Xử lý Enter
+    // Xử lý Enter
     document.getElementById('masterInput').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') { 
             e.preventDefault(); 
-            triggerLoad(); 
+            triggerLoad(1); 
         }
     });
     
     // Gán sự kiện cho Lọc (Dropdowns và Checkboxes)
-    document.getElementById('filterGift').addEventListener('change', triggerLoad);
-    document.getElementById('filterCheckedOut').addEventListener('change', triggerLoad);
-    document.getElementById('filterSubcategory').addEventListener('change', triggerLoad);
-    document.getElementById('filterBrand').addEventListener('change', triggerLoad);
-    document.getElementById('filterLocation').addEventListener('change', triggerLoad);
-    document.getElementById('filterBinZone').addEventListener('change', triggerLoad);
-
+    document.getElementById('filterGift').addEventListener('change', () => triggerLoad(1));
+    document.getElementById('filterCheckedOut').addEventListener('change',() => triggerLoad(1));
+    document.getElementById('filterSubcategory').addEventListener('change', () => triggerLoad(1));
+    document.getElementById('filterBrand').addEventListener('change', () => triggerLoad(1));
+    document.getElementById('filterLocation').addEventListener('change', () => triggerLoad(1));
+    document.getElementById('filterBinZone').addEventListener('change', () => triggerLoad(1));
+    
     // [Req 2] Gán sự kiện cho Toggle Wrap Text
     document.getElementById('toggleWrap').addEventListener('change', handleWrapToggle);
-
-// Tải dữ liệu ban đầu khi vào trang
-    loadSerials(); 
+    
+    // Tải dữ liệu ban đầu khi vào trang
+    loadSerials("", 1);
 </script>

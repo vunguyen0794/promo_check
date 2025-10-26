@@ -1,0 +1,16 @@
+{
+  "projectId": "prj_NwkRjkUMfJzIkkULMwIh1wI0PXSS",
+  "orgId": "team_97avn97gjpd5Kp3gwLGPPgfe",
+  "projectName": "promo-check",
+  "settings": {
+    "createdAt": 1757241552986,
+    "framework": "express",
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "22.x"
+  }
+}
