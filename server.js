@@ -2498,6 +2498,90 @@ app.get('/fifo-checking', requireAuth, async (req, res) => {
     });
 });
 
+
+// DÁN ĐOẠN CODE MỚI NÀY VÀO server.js (trước route /api/fifo/serials)
+
+async function fetchFilterOptions(branchCode, giftFilter, isAdminBranch) {
+    if (!bigquery) {
+        console.warn("BQ chưa cấu hình, trả về filter giả lập.");
+        return {
+            subcategories: ['Mock Subcat', 'Máy in', 'Máy tính bộ Văn phòng'],
+            brands: ['MockBrand', 'HP', 'Brother'],
+            locations: ['A1', 'TL-A-01-A', 'CD.03-VK5.01-a'],
+            bin_zones: ['Zone A', 'Lưu kho thanh lý', 'Trung bày chính'],
+        };
+    }
+
+    const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
+    const params = { branchCode: branchCode };
+
+    let filterConditions = '';
+    // Lọc chi nhánh
+    if (!isAdminBranch) {
+        filterConditions += ' AND Branch_ID = @branchCode';
+    }
+    // Lọc quà tặng
+    if (giftFilter === 'no') { 
+        filterConditions += " AND (SubCategory_name NOT LIKE 'Quà tặng%' OR SubCategory_name IS NULL)"; 
+    }
+
+    const queryOptions = (field) => ({
+        query: `
+            SELECT DISTINCT ${field}
+            FROM ${BIGQUERY_TABLE}
+            WHERE ${field} IS NOT NULL AND ${field} != ''
+            ${filterConditions}
+            ORDER BY ${field} ASC
+            LIMIT 1000
+        `,
+        location: 'asia-southeast1',
+        params: params,
+    });
+
+    try {
+        // Chạy song song 4 query
+        const [
+            [subcategories],
+            [brands],
+            [locations],
+            [bin_zones]
+        ] = await Promise.all([
+            bigquery.query(queryOptions('SubCategory_name')),
+            bigquery.query(queryOptions('Brand')),
+            bigquery.query(queryOptions('Location')),
+            bigquery.query(queryOptions('BIN_zone')),
+        ]);
+
+        return {
+            subcategories: subcategories.map(r => r.SubCategory_name),
+            brands: brands.map(r => r.Brand),
+            locations: locations.map(r => r.Location),
+            bin_zones: bin_zones.map(r => r.BIN_zone),
+        };
+
+    } catch (e) {
+        console.error("BIGQUERY FILTER QUERY ERROR:", e.message);
+        throw new Error("BigQuery Filter Query Error: " + e.message);
+    }
+}
+
+app.get('/api/fifo/filters', requireAuth, async (req, res) => {
+    try {
+        const giftFilter = req.query.giftFilter || 'no';
+        const userBranch = req.session.user?.branch_code || 'CP01';
+        const isGlobalAdmin = req.session.user?.role === 'admin' || userBranch === 'HCM.BD';
+
+        const filters = await fetchFilterOptions(userBranch, giftFilter, isGlobalAdmin);
+        
+        res.json({ ok: true, filters: filters });
+
+    } catch (e) {
+        console.error('API FIFO Filters error:', e);
+        res.status(500).json({ ok: false, error: 'Lỗi hệ thống: ' + e.message });
+    }
+});
+
+
 // server.js (THAY THẾ HÀM app.get('/api/fifo/serials', ...))
 app.get('/api/fifo/serials', requireAuth, async (req, res) => {
     let totalBranchCount = 0;
