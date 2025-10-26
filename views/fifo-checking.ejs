@@ -1,0 +1,599 @@
+<%- include('partials/header', { title, currentPage }) %>
+
+<div class="container">
+    <div class="dash-card" style="max-width: 1100px; margin: 0 auto 20px;">
+        <div class="dash-title">FIFO Checking (Branch: <%= userBranch %>)</div>
+
+        <div style="font-size:14px; color:#64748b; margin-bottom:12px;">
+    Dữ liệu tồn kho T-1 được cập nhật vào ngày: <strong><%= todayDate %></strong>.
+Vui lòng tick vào "Đã xuất" để ghi nhận Serial đã bán trong ngày.
+</div>
+
+<style>
+    #filterSerial {
+        display: none;
+    }
+    .fifo-filters {
+        display: flex;
+        flex-wrap: wrap; 
+        gap: 10px;
+        align-items: center;
+    }
+    .fifo-filters .master-input {
+        flex: 1 1 250px;
+    }
+    .fifo-filters .btn, .fifo-filters .info-select {
+        flex: 1 1 auto;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    .filter-group {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .filter-group .info-select, .filter-group .search-input {
+        flex: 1 1 150px;
+    }
+    .gift-filter-label { /* Dùng chung cho các checkbox label */
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 14px;
+        color: #334155;
+        flex-shrink: 0;
+        padding: 5px;
+        cursor: pointer; /* Thêm con trỏ */
+    }
+
+    /* Giới hạn chiều cao và cuộn bảng */
+    .table-scroll-wrapper {
+        overflow: auto; /* Cuộn cả ngang và dọc */
+        max-height: 65vh; /* Giới hạn chiều cao */
+        position: relative; /* Cần cho header sticky */
+        border: 1px solid #e5e7eb; /* Thêm viền */
+        border-radius: 12px; /* Bo góc */
+    }
+    .dash-table thead th {
+        /* Header cố định khi cuộn dọc */
+        position: sticky;
+        top: 0; 
+        z-index: 10;
+        background-color: #f8fafc;
+        border-bottom: 1px solid #e5e7eb; /* Thêm border dưới */
+    }
+    /* Cố định cột STT (cột đầu tiên) khi cuộn ngang */
+    .dash-table th:first-child,
+    .dash-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 9;
+        background-color: #ffffff; /* Nền trắng cho TD */
+        border-right: 1px solid #f1f5f9; 
+    }
+    .dash-table th:first-child {
+        z-index: 11; /* Nổi lên trên header khác */
+        background-color: #f8fafc; /* Nền giống header */
+    }
+    
+    /* CSS cho Wrap Text Toggle */
+    .dash-table.no-wrap td {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px; /* Giới hạn chiều rộng khi không wrap */
+    }
+    /* Ưu tiên wrap cho nút Serial/SKU ngay cả khi no-wrap */
+    .dash-table.no-wrap td button.serial-cell-btn,
+    .dash-table.no-wrap td button.sku-cell-btn {
+         white-space: nowrap; 
+         overflow: hidden;
+         text-overflow: ellipsis;
+         display: block; /* Để ellipsis hoạt động */
+         width: 100%; /* Chiếm hết ô */
+    }
+    /* ⭐ MỚI: Đặt min-width cho cột Serial (thứ 2) */
+    .dash-table th:nth-child(2), 
+    .dash-table td:nth-child(2) {
+        min-width: 100px; /* Tăng chiều rộng tối thiểu */
+    }
+    .dash-table td button.serial-cell-btn { /* Nút serial */
+        white-space: normal;
+        word-break: break-all; 
+        /* Reset style nút */
+        display: inline-block; text-align: left; padding: 4px 6px;
+        font-weight: 700; line-height: 1.4; background: none; border: none;
+        color: #0f172a; cursor: pointer; min-height: 0;
+        /* Đảm bảo nút chiếm đủ chiều rộng */
+        width: 100%; 
+    }
+     .dash-table td button.sku-cell-btn { /* Style cho nút SKU */
+        padding: 4px 10px; font-size: 13px; font-weight: 600;
+        /* Kế thừa từ .btn-primary */
+        background-color: #1a73e8; color: white; border: none; border-radius: 4px; cursor: pointer;
+    }
+    .serial-cell-btn:hover { background: #eef2ff; color: #3730a3; }
+    .sku-cell-btn:hover { background-color: #1557b0; }
+
+
+    /* CSS cho Modal Quét */
+    #scanModal { display: none; align-items: center; justify-content: center; }
+    #qr-reader { width: 90%; max-width: 400px; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    #qr-reader > div:first-child { display: none; }
+</style>
+
+<div class="fifo-filters" style="border-bottom:1px solid #e5e7eb; padding-bottom:15px; margin-bottom:15px;">
+    
+    <input type="text" id="masterInput" name="master_query" placeholder="Nhập SKU, Serial, Tên SP, Brand, BIN (Location)"
+           class="search-input master-input">
+    
+    <button class="btn btn-info" id="btnScan" type="button">
+        📷 Quét
+    </button>
+    
+    <button class="btn btn-primary" id="btnSearchSku" type="button">
+        Tra cứu
+    </button>
+    
+ 
+   <button class="btn btn-secondary" type="button" id="btnReset">
+        Tải lại tồn
+    </button>
+    
+    <label for="filterGift" class="gift-filter-label">
+        <input type="checkbox" id="filterGift" style="width:16px; height:16px;" checked>
+        Bao gồm quà tặng
+    </label>
+
+    <label for="filterCheckedOut" class="gift-filter-label">
+        <input type="checkbox" id="filterCheckedOut" style="width:16px; height:16px;">
+        Ẩn Serial đã xuất
+    </label>
+    
+    <label for="toggleWrap" class="gift-filter-label">
+        <input type="checkbox" id="toggleWrap" style="width:16px; height:16px;" checked>
+        Wrap Text
+    </label>
+</div>
+
+<div class="fifo-filters filter-group">
+    <input type="text" id="filterSerial" class="search-input" placeholder="Lọc theo Serial">
+    <select id="filterSubcategory" class="info-select"><option value="">-- SubCategory --</option></select>
+    <select id="filterBrand" class="info-select"><option value="">-- Brand --</option></select>
+    <select id="filterLocation" class="info-select"><option value="">-- Location --</option></select>
+   
+ <select id="filterBinZone" class="info-select"><option value="">-- Bin Zone --</option></select>
+</div>
+
+<div id="rankInfoCard" class="dash-card" style="margin-top: 15px; background-color: #e0f2fe; border-color: #7dd3fc;
+display: none;">
+    {/* Nội dung rank sẽ được JS cập nhật vào đây */}
+</div>
+
+<div id="resultsContainer">
+    </div>
+
+<div id="historyModal" class="modal" onclick="if(event.target.id === 'historyModal') hideHistoryModal()">
+    <div class="modal-content" style="max-width: 600px;">
+        <span class="close" onclick="hideHistoryModal()">&times;</span>
+        <h3 class="section-title" style="border-bottom:none;
+margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
+        <div id="historyBody">Đang tải...</div>
+    </div>
+</div>
+
+<div id="scanModal" class="modal" onclick="if(event.target.id === 'scanModal') hideScanModal()">
+    <div id="qr-reader"></div>
+</div>
+
+
+<%- include('partials/toast') %>
+
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+<%- include('partials/footer') %>
+
+
+<script>
+    const userBranch = '<%= userBranch %>';
+    const checkDate = '<%= todayDate %>';
+    const resultsContainer = document.getElementById('resultsContainer');
+    const historyModal = document.getElementById('historyModal');
+    const rankInfoCard = document.getElementById('rankInfoCard');
+    let allSerials = []; 
+    const isAdminBranch = '<%= isGlobalAdmin ? "true" : "false" %>';
+
+
+    function formatCurrency(n) {
+        return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Number(n || 0)) + '₫';
+    }
+   
+ 
+    function getHeatmapColor(days) {
+        if (days > 90) return '#fecaca'; 
+        if (days > 60) return '#fee2e2'; 
+        if (days > 30) return '#ffedd5'; 
+        if (days > 7) return '#fef3c7';  
+        return 'transparent';
+    }
+
+    // HÀM CHÍNH: Tải dữ liệu (Gửi tất cả bộ lọc lên server)
+    async function loadSerials(masterQuery = '') {
+        
+        const includeGifts = document.getElementById('filterGift')?.checked ?? false;
+        const hideCheckedOut = document.getElementById('filterCheckedOut')?.checked ?? false;
+        const subcategory = document.getElementById('filterSubcategory').value;
+        const brand = document.getElementById('filterBrand').value;
+        const location = document.getElementById('filterLocation').value;
+        const binZone = document.getElementById('filterBinZone').value;
+
+        const params = new URLSearchParams();
+        params.append('q', masterQuery);
+        params.append('giftFilter', includeGifts ? 'all' : 'no'); 
+        params.append('hideCheckedOut', hideCheckedOut ? 'true' : 'false');
+        if (subcategory) params.append('subcategory', subcategory);
+        if (brand) params.append('brand', brand);
+        if (location) params.append('location', location);
+        if (binZone) params.append('bin_zone', binZone);
+
+        const url = `/api/fifo/serials?${params.toString()}`;
+
+        if (resultsContainer) resultsContainer.innerHTML = '<div class="dash-muted" style="text-align:center;padding:20px;">Đang tải...</div>';
+        if (rankInfoCard) rankInfoCard.style.display = 'none';
+        countError = false;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Lỗi mạng: ${response.status}`);
+            const data = await response.json();
+
+            if (!data.ok) throw new Error(data.error || 'Lỗi tải dữ liệu.');
+            allSerials = data.serials;
+            currentTotalBranchCount = data.totalBranchCount;
+            const rankInfo = data.rankInfo;
+
+            if (currentTotalBranchCount === -1) { countError = true;
+            currentTotalBranchCount = 0; }
+            if (masterQuery && allSerials.length === 0 && typeof showToast === 'function') { /* ... showToast ... */ }
+
+            // Hiển thị thông tin rank nếu có
+            if (rankInfo && rankInfoCard) {
+                 rankInfoCard.innerHTML = `⭐ Serial <strong>${rankInfo.serial}</strong> (SKU: ${rankInfo.sku}) là hàng tồn kho cũ thứ <strong>${rankInfo.rank}</strong> trong tổng số <strong>${rankInfo.total}</strong> serial cùng loại (chưa xuất) tại ${isAdminBranch === 'true' ? 'tất cả chi nhánh' : 'chi nhánh này'}.`;
+                 rankInfoCard.style.display = 'block'; 
+            }
+
+            updateFilters(allSerials);
+            renderSerials(allSerials); 
+
+        } catch (error) {
+            console.error("Error in loadSerials:", error);
+            countError = false; currentTotalBranchCount = 0;
+            if (resultsContainer) resultsContainer.innerHTML = `<div class="error-message">Lỗi: ${error.message}</div>`;
+            if (rankInfoCard) rankInfoCard.style.display = 'none';
+
+        }
+    }
+
+    function updateFilters(serials) {
+        const getUnique = (key) => [...new Set(serials.map(i => i[key]).filter(Boolean))].sort();
+
+        const updateSelectIfNeeded = (id, options, defaultText) => {
+            const select = document.getElementById(id);
+            const currentVal = select.value; // Giữ giá trị đang chọn
+            if (select.options.length <= 1) { 
+                options.forEach(opt => {
+                    select.innerHTML += `<option value="${opt}">${opt}</option>`;
+                });
+            }
+            select.value = currentVal; // Đảm bảo giá trị không bị reset
+        };
+
+        updateSelectIfNeeded('filterSubcategory', getUnique('subcategory_name'), '-- SubCategory --');
+        updateSelectIfNeeded('filterBrand', getUnique('brand'), '-- Brand --');
+        updateSelectIfNeeded('filterLocation', getUnique('location'), '-- Location --');
+updateSelectIfNeeded('filterBinZone', getUnique('bin_zone'), '-- Bin Zone --');
+    }
+
+    // Hàm lọc theo SKU
+    function filterBySku(sku) {
+        document.getElementById('masterInput').value = sku;
+        loadSerials(sku);
+    }
+    
+    // Hàm lọc theo Serial
+    function filterBySerial(serial) {
+        document.getElementById('masterInput').value = serial;
+        loadSerials(serial);
+    }
+
+    // [Req 2] Hàm xử lý Toggle Wrap Text
+    function handleWrapToggle() {
+        const isWrapEnabled = document.getElementById('toggleWrap').checked;
+        const table = resultsContainer.querySelector('.dash-table');
+        if (table) {
+            if (isWrapEnabled) {
+                table.classList.remove('no-wrap');
+            } else {
+                table.classList.add('no-wrap');
+            }
+        }
+    }
+
+
+   function renderSerials(serials) {
+        if (!serials || serials.length === 0) {
+            resultsContainer.innerHTML = `<div class="dash-muted" style="text-align:center;padding:20px;">Không tìm thấy Serial tồn kho nào theo bộ lọc.</div>`;
+            return;
+        }
+        const total = serials.length;
+        const isWrapEnabled = document.getElementById('toggleWrap').checked;
+        const tableWrapClass = isWrapEnabled ? '' : 'no-wrap'; 
+
+        let html = `
+            <div style="margin-bottom: 12px; font-weight: 600;">Tổng Serial đang tồn (hiển thị ${total} / giới hạn 1000):</div>
+            <div class="table-scroll-wrapper">
+                <table class="dash-table ${tableWrapClass}" style="min-width: 1200px;"> <thead>
+                        <tr>
+                            <th style="width: 50px;">STT</th>
+                            <th style="width: 160px; min-width: 160px;">Serial</th> <th style="width: 100px;">Ngày nhập kho</th>
+                            <th style="width: 80px;">Số ngày tồn</th>
+                            <th style="width: 80px;">Đã xuất</th>
+                            <th style="width: 100px;">Location</th>
+                            <th style="width: 100px;">Bin Zone</th>
+                            <th style="width: 120px;">SKU</th>
+                            <th>Tên SP</th>
+                            <th style="width: 80px;">Brand</th>
+                            <th style="width: 120px;">Subcat</th>
+                            <th style="width: 80px;">Branch</th> 
+                            <th style="width: 60px;">L.Sử</th> 
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        serials.forEach((item, index) => {
+            
+            let dateIn = '-';
+            if (item.date_in) {
+                const parts = item.date_in.split('-'); 
+                if (parts.length === 3) {
+                    dateIn = `${parts[2]}/${parts[1]}/${parts[0]}`; 
+                }
+            }
+            
+            const daysOld = item.days_old || 0; 
+            const isChecked = item.is_checked_out;
+            const heatmapColor = getHeatmapColor(daysOld);
+ 
+            html += `
+                <tr>
+                    <td>${index + 1}</td>
+                    
+                    <td>
+                        <button type="button" class="serial-cell-btn" 
+                                onclick="filterBySerial('${item.serial}')" 
+                                title="Lọc theo Serial này">
+                            ${item.serial}
+                        </button>
+                    </td>
+
+                    <td>${dateIn}</td>
+                    <td style="font-weight:700; background-color:${heatmapColor};">${daysOld > 0 ? daysOld : '-'}</td>
+                    
+                    <td>
+                        <input type="checkbox" id="check-${item.serial}" 
+                               data-serial="${item.serial}" 
+                               data-sku="${item.sku}"
+                               data-branch="${item.branch_id}"
+                               onchange="toggleCheck(this)"
+                               ${isChecked ? 'checked' : ''}>
+                        <label for="check-${item.serial}">${isChecked ? 'Đã xuất' : 'Còn tồn'}</label>
+                    </td>
+              
+                    <td>${item.location || '-'}</td>
+                    <td>${item.bin_zone || '-'}</td>
+
+                    <td>
+                        <button type="button" class="sku-cell-btn" 
+                                onclick="filterBySku('${item.sku}')" title="Lọc theo SKU này">
+                            ${item.sku}
+                        </button>
+                    </td>
+                    
+                    <td>${item.sku_name || '-'}</td>
+                    <td>${item.brand || '-'}</td>
+                    <td>${item.subcategory_name || '-'}</td>
+                    
+                    <td>${item.branch_id || '-'}</td> 
+                    
+                    <td>
+                        <button type="button" class="btn btn-info" style="padding:3px 8px; font-size:12px; line-height: 1.2;" 
+                                onclick="showHistoryModal('${item.serial}')" title="Lịch sử Serial">
+                            🕘
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table></div>`;
+        resultsContainer.innerHTML = html;
+    }
+
+    async function toggleCheck(checkbox) {
+        const serial = checkbox.dataset.serial;
+  const sku = checkbox.dataset.sku;
+        const branch = checkbox.dataset.branch;
+        const is_checked_out = checkbox.checked;
+        const label = checkbox.nextElementSibling;
+        checkbox.disabled = true;
+        try {
+            const response = await fetch('/api/fifo/log', {
+                method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    serial, sku, branch_code: branch,
+                    check_date: checkDate, is_checked_out
+                })
+ });
+            const data = await response.json();
+            if (!data.ok) throw new Error(data.error ||
+'Lỗi lưu log.');
+            label.textContent = is_checked_out ? 'Đã xuất' : 'Còn tồn';
+            showToast('Lưu trạng thái thành công!', 'success');
+
+            const item = allSerials.find(s => s.serial === serial);
+            if(item) item.is_checked_out = is_checked_out;
+            
+            if (document.getElementById('filterCheckedOut').checked) {
+                // Tải lại toàn bộ nếu đang bật "Ẩn đã xuất"
+                triggerLoad();
+            }
+
+} catch (error) {
+            checkbox.checked = !is_checked_out;
+label.textContent = is_checked_out ? 'Còn tồn' : 'Đã xuất';
+            showToast('Lỗi: ' + error.message, 'error');
+} finally {
+            checkbox.disabled = false;
+}
+    }
+
+    async function showHistoryModal(serial) {
+        document.getElementById('historySerial').textContent = serial;
+document.getElementById('historyBody').innerHTML = 'Đang tải...';
+        historyModal.style.display = 'flex';
+        try {
+            const response = await fetch(`/api/fifo/history/${serial}`);
+const data = await response.json();
+            if (!data.ok) throw new Error(data.error || 'Lỗi tải lịch sử.');
+if (!data.history.length) {
+                document.getElementById('historyBody').innerHTML = '<div class="dash-muted" style="text-align:center;padding:20px;">Chưa có lịch sử xuất kho.</div>';
+return;
+            }
+            let html = '<ul style="list-style:none;padding:0;">';
+data.history.forEach(log => {
+                const date = new Date(log.checked_at).toLocaleDateString('vi-VN');
+                const time = new Date(log.checked_at).toLocaleTimeString('vi-VN');
+                html += `
+                    <li style="padding:8px 0; border-bottom:1px solid #eee; font-size:14px;">
+          <strong>${date} ${time}</strong>: Đã xuất tại Branch <strong>${log.branch_code}</strong> bởi 
+                        <span class="pill">${log.checked_by_name}</span> (Tồn kho ngày: ${log.check_date})
+                    </li>
+                `;
+            });
+html += '</ul>';
+            document.getElementById('historyBody').innerHTML = html;
+        } catch (error) {
+            document.getElementById('historyBody').innerHTML = `<div class="error-message">Lỗi: ${error.message}</div>`;
+}
+    }
+    function hideHistoryModal() {
+        historyModal.style.display = 'none';
+}
+
+
+    // GÁN SỰ KIỆN CHO CÁC NÚT BẤM (CẬP NHẬT)
+    
+    function triggerLoad() {
+        const masterQuery = document.getElementById('masterInput').value.trim();
+        loadSerials(masterQuery);
+    }
+    
+    document.getElementById('btnSearchSku').addEventListener('click', triggerLoad);
+
+    // Nút "Tải lại tồn" (Reset)
+    document.getElementById('btnReset').addEventListener('click', function() {
+        document.getElementById('masterInput').value = '';
+        document.getElementById('filterSubcategory').value = '';
+        document.getElementById('filterBrand').value = '';
+        document.getElementById('filterLocation').value = '';
+        document.getElementById('filterBinZone').value = '';
+        document.getElementById('filterGift').checked = true; // Mặc định true
+        document.getElementById('filterCheckedOut').checked = false;
+        document.getElementById('toggleWrap').checked = true; // Mặc định wrap
+        
+        document.getElementById('filterSubcategory').innerHTML = '<option value="">-- SubCategory --</option>';
+        document.getElementById('filterBrand').innerHTML = '<option value="">-- Brand --</option>';
+        document.getElementById('filterLocation').innerHTML = '<option value="">-- Location --</option>';
+        document.getElementById('filterBinZone').innerHTML = '<option value="">-- Bin Zone --</option>';
+
+        // Trigger wrap toggle để áp dụng lại class
+        handleWrapToggle(); 
+        
+        loadSerials('');
+    });
+
+
+    // Xử lý Nút "Quét" và Modal
+    const scanModal = document.getElementById('scanModal');
+    let html5QrcodeScanner;
+
+    document.getElementById('btnScan').addEventListener('click', function() {
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            showToast('Chức năng quét chỉ hoạt động trên HTTPS!', 'error');
+            return;
+        }
+
+        scanModal.style.display = 'flex';
+        
+        if (!html5QrcodeScanner) {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "qr-reader", 
+                { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 250 },
+                    rememberLastUsedCamera: true,
+                    supportedScanTypes: [
+                        html5Qrcode.Html5QrcodeScanType.SCAN_TYPE_CAMERA
+                    ]
+                }
+            );
+        }
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    });
+
+    function onScanSuccess(decodedText, decodedResult) {
+        console.log(`Scan result: ${decodedText}`, decodedResult);
+        hideScanModal();
+        document.getElementById('masterInput').value = decodedText;
+        triggerLoad(); // Tự động tra cứu
+    }
+
+    function onScanFailure(error) {
+        // Bỏ qua
+    }
+
+    function hideScanModal() {
+        if (html5QrcodeScanner) {
+            try {
+                // Tạm dừng camera
+                html5QrcodeScanner.pause(true);
+            } catch(e) {
+                console.error("Lỗi pause scanner:", e);
+            }
+        }
+        scanModal.style.display = 'none';
+    }
+
+
+// Xử lý Enter
+    document.getElementById('masterInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') { 
+            e.preventDefault(); 
+            triggerLoad(); 
+        }
+    });
+    
+    // Gán sự kiện cho Lọc (Dropdowns và Checkboxes)
+    document.getElementById('filterGift').addEventListener('change', triggerLoad);
+    document.getElementById('filterCheckedOut').addEventListener('change', triggerLoad);
+    document.getElementById('filterSubcategory').addEventListener('change', triggerLoad);
+    document.getElementById('filterBrand').addEventListener('change', triggerLoad);
+    document.getElementById('filterLocation').addEventListener('change', triggerLoad);
+    document.getElementById('filterBinZone').addEventListener('change', triggerLoad);
+
+    // [Req 2] Gán sự kiện cho Toggle Wrap Text
+    document.getElementById('toggleWrap').addEventListener('change', handleWrapToggle);
+
+// Tải dữ liệu ban đầu khi vào trang
+    loadSerials(); 
+</script>

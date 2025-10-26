@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "nimble-volt-459313-b8",
+  "private_key_id": "e0379947792c51eba479092d66ad57c3c1c77b2a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC8bZqtfh2PJmpu\n6bMEZ7bqfNKWk/3Cv5FHSFIVsKsXl9+7Jq9U+qTWDYdNX99IrCZntAEF2Mk3orLs\nQHTLXPS+MNLH2OTDh62zLjSYKI/VMDk9AR2hbuYhUesMET2RkgeOJguHAPnLtb6A\nteZ9lLxgZK1SPCT6GFYx2xzetpnnxpCgDyxIxoAbS9tmktFkTF1opULaXsvkFhyp\nYDBXGjNKFmR+zOjNCJhZKmOASyl2O9NkfevzHC6w2hz+WkK9JK0NjQSTzTpZexC4\nBtL0cWixgJaP7+gVFBG/cruX9ZUrpc0t2J8AtmL9l1dg6wFJw9IgTufa7pybZe+n\nhc6De/AdAgMBAAECggEAFFa4VXXBdwwsfOBY5GbVhaYHjR1YTMckxU73HUQ+k4Nf\nMPJSBpgvZrN7IUzx6wQ5+QOjAKCPx6OWMI4cjT7xY/4dIlk1CC4C/85C+xGVxOs5\nom4WZrBzwrD28AyEWswqaJuOrvnZ/LUXZQk9YdzGIJl9Y9z+GMi7tRHzoc6P+kZy\n3wVwVVqqK47G2szc4BK1RekGdlm133FgS/8nzudXRN/YXytTMSEcrvgHunNXWkVT\nrhH9L2xppinlXSk4yUrQ1WrCKN+iWW5ML5Y5gphLgybVUMGXXHWwV95Z5h6iOXUY\nnPAOcQlIIj9g4UbHdL689ODaGWMS9V5PnJ0dO9XwOQKBgQD33wYIlUFx+Zd0cDsu\n0Nf+xc0aBhep7QTr0g2U1NMQRVCr6EdPA8RJlJGDAP6YGRlR38J0xzxo4tkFpe73\nD8JJRJfn67pVAVQ60+6hLzOmt0Tl9MO6E+5CXBob9OiLJ8AEq1+reEw0nse5X6SU\nk+w+weXAvGnQMLns/MQng5bDRwKBgQDCm4hnIOsyh5QI0G03IjLRsb5Oogqd6Aot\n9/wfhhKDDlu3CAVoHl89LV/RbOBeySuOD8golycGomCAi1oSVeTh28paHliyNQZs\nlelmEeVz+WysNLmshNZPcLX/z1Oq1dFMPGL4j0z4d0rV7ePkXi+Gf9svSgw0aE9U\n2sn7Nn97ewKBgQDr6nErqiNn/06PnGI35L4v1sOniTTsnpKYgIw8o3NfgRmPBL0a\nD1O7VJRKQ6AN05Wtv3KtAxQUIBS+s3gF3hHk+kw6iLoIPgOVGjF9aBeZDcWduKCx\nclbLAi43fZn3GBZCW3nrEcw2KQme/dD/OOsZsCKklq9/X2EWll173lqX8QKBgCto\n/F1c13o3CguJSsOAqmtiRbxOoyWkLBki9yelBZ4cZtMGRAZ8t+vyoiwaKFacc03G\nMXT0eq0dLX+fFiF+7YaAO7wshsaB04QHUMAG//MF0Xr8a+qS2ydvUfnVKqmx9nUW\nB1HAzX+jRJtB7JL1e456GM+MqfpKxl98So/yES/fAoGBAOnU0sAsr7Ytm3DZfCX8\nxby5jxNX1CMbgzgH2QWsIdk2u4vRYlmgZldpuRcstJim8kAnMPY/KwfQQQe7/Bdf\np5GsaLzkjJNKqhKuriE2vGGqhq0A0emmKI3wLKhosMFatZOFdao7Qt2+HKBv5L0J\n+Cl9CZY+ok4RgPPuqUx6REVH\n-----END PRIVATE KEY-----\n",
+  "client_email": "promo-check-bigquery@nimble-volt-459313-b8.iam.gserviceaccount.com",
+  "client_id": "105124655506087506403",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/promo-check-bigquery%40nimble-volt-459313-b8.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

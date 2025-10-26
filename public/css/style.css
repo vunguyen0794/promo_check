@@ -29,6 +29,7 @@ body {
     color: #333;
     line-height: 1.6;
     font-size: 16px;
+    min-height: 100%;
 }
 
 .container {
@@ -94,6 +95,8 @@ body {
 .main-content {
     padding: 15px 0;
     min-height: calc(100vh - 140px);
+    overflow-y: auto; /* Allow this specific container to scroll vertically if needed */
+    overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 .search-box {
@@ -1549,12 +1552,18 @@ label {
 .product-meta{ display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#334155; }
 .product-meta .price{ font-weight:800; }
 html, body {
-  font-family: "Be Vietnam Pro", Inter, system-ui, -apple-system, "Segoe UI",
-               Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans",
-               "DejaVu Sans", sans-serif;
+  font-family:
+    "Be Vietnam Pro",
+    /* ... other fonts ... */
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+
+  /* THÊM/SỬA CÁC DÒNG SAU */
+  height: 100%; /* Đảm bảo đủ chiều cao */
+  overflow-x: hidden; /* Tránh scroll ngang */
+  /* Đảm bảo KHÔNG có overflow: hidden; hoặc overflow-y: hidden; ở đây */
 }
 /* Căn trái cho block Danh sách sản phẩm */
 .product-grid {                 /* container lưới */

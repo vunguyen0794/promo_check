@@ -19,6 +19,8 @@ const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 const { google } = require('googleapis');
 const { Readable } = require('stream');
+const fs = require('fs');
+const { BigQuery } = require('@google-cloud/bigquery');
 
 const isVercel = !!process.env.VERCEL;
 
@@ -30,6 +32,34 @@ const supabaseKey =
   process.env.SUPABASE_ANON_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+
+// ------------------------- BigQuery Client -------------------------
+let bigquery;
+try {
+    const keyFile = process.env.BIGQUERY_KEY_FILE;
+    
+    // 1. Dùng file key local (ví dụ: bigquery-key.json)
+    if (keyFile && fs.existsSync(keyFile)) {
+        console.log(`[INIT] Khởi tạo BigQuery bằng file key: ${keyFile}`);
+        bigquery = new BigQuery({ keyFilename: keyFile });
+    } 
+    // 2. Dùng JSON dán trực tiếp (cho Vercel)
+    else if (process.env.BIGQUERY_KEY_JSON) {
+        console.log("[INIT] Khởi tạo BigQuery bằng biến môi trường JSON.");
+        const credentials = JSON.parse(process.env.BIGQUERY_KEY_JSON);
+        bigquery = new BigQuery({ credentials });
+    } 
+    // 3. Không có key
+    else {
+        console.warn("⚠️ CẢNH BÁO: Không tìm thấy BigQuery key. Sẽ sử dụng hàm giả lập.");
+    }
+} catch (e) {
+    console.error("LỖI KHỞI TẠO BIGQUERY:", e.message);
+}
+// -------------------------------------------------------------------
+
+
 
 // ------------------------- App & core middlewares -------------------------
 const app = express();
@@ -424,7 +454,7 @@ app.post('/login', async (req, res) => {
     }
 
     req.session = req.session || {};
-    req.session.user = { id: user.id, email: user.email, full_name: user.full_name, role: user.role };
+    req.session.user = { id: user.id, email: user.email, full_name: user.full_name, role: user.role, branch_code: user.branch_code };
     const redirectTo = req.session.returnTo || '/';
     delete req.session.returnTo;
     return res.redirect(redirectTo);
@@ -440,12 +470,12 @@ app.post('/login', async (req, res) => {
 
 app.post('/register', async (req, res) => {
   try {
-    const { email, password, full_name } = req.body;
+    const { email, password, full_name, branch_code } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { data: user, error } = await supabase
       .from('users')
-      .insert([{ email, password_hash: hashedPassword, full_name, role: 'staff' }])
+      .insert([{ email, password_hash: hashedPassword, full_name, role: 'staff', branch_code: (branch_code || 'DEFAULT').toUpperCase() }])
       .select()
       .single();
 
@@ -2292,6 +2322,327 @@ app.get('/api/utils/bom/by-component', async (req, res) => {
 
 app.get('/tien-ich', requireAuth, (req, res) => {
   res.render('tien-ich', { user: req.user || null });
+});
+
+
+
+// ========================= FIFO CHECKING ROUTES =========================
+async function fetchInventoryFromBigQuery(branchCode, masterQuery, giftFilter, isAdminBranch, filters) {
+    if (!bigquery) {
+        // Fallback về dữ liệu giả lập nếu client BigQuery chưa được khởi tạo
+        console.warn("Sử dụng dữ liệu giả lập vì BigQuery chưa cấu hình.");
+        const mockData = [
+            { sku: '220902468', sku_name: 'HP AiO ProOne 400 G4', brand: 'HP', serial: '8CG8404MWW', location: 'TL-A-01-A', bin_zone: 'Lưu kho thanh lý', branch_id: 'CP01', subcategory_name: 'Máy tính bộ Văn phòng', date_in: '2025-10-24', days_old: 1 },
+            { sku: '250804341', sku_name: 'Brother DCP-L2520D', brand: 'Brother', serial: 'E7380GTN330059', location: 'CD.03-VK5.01-a', bin_zone: 'Trung bày chính', branch_id: 'CP01', subcategory_name: 'Máy in', date_in: '2025-10-22', days_old: 3 },
+            { sku: '1200237', sku_name: 'Quà tặng: Ba lô Acer', brand: 'Acer', serial: 'NOT_A_SERIAL', location: 'TL-A-01-A', bin_zone: 'Lưu kho thanh lý', branch_id: 'CP01', subcategory_name: 'Quà tặng', date_in: '2025-10-20', days_old: 5 },
+        ];
+        
+        // Lọc giả lập
+        let filteredData = mockData.filter(item => item.branch_id === branchCode);
+        if (giftFilter === 'yes') {
+            filteredData = filteredData.filter(item => (item.subcategory_name || '').startsWith('Quà tặng'));
+        } else if (giftFilter === 'no') {
+            filteredData = filteredData.filter(item => !(item.subcategory_name || '').startsWith('Quà tặng'));
+        }
+        if (masterQuery) {
+            const mq = masterQuery.toLowerCase();
+            filteredData = filteredData.filter(item => 
+                (String(item.sku).toLowerCase().includes(mq)) || 
+                (String(item.sku_name).toLowerCase().includes(mq)) || 
+                (String(item.serial).toLowerCase().includes(mq)) || 
+                (String(item.location).toLowerCase().includes(mq)) || // BIN = Location
+                (String(item.brand).toLowerCase().includes(mq))
+            );
+        }
+        return { data: filteredData, searchedItem: (masterQuery ? filteredData.find(i => i.serial === masterQuery) : null) };
+    }
+
+    const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`'; 
+
+    // --- Xử lý bộ lọc ---
+    const params = { 
+        branchCode: branchCode, 
+        masterQuery: masterQuery, 
+        likeQuery: `%${masterQuery}%` 
+    };
+    
+    let filterConditions = '';
+    
+    // 1. Lọc quà tặng
+    if (giftFilter === 'no') { 
+        filterConditions += " AND (SubCategory_name NOT LIKE 'Quà tặng%' OR SubCategory_name IS NULL)"; 
+    }
+    
+    // 3. Lọc từ dropdowns (filters)
+    if (filters.subcategory) {
+        filterConditions += ` AND SubCategory_name = @subcategory`;
+        params.subcategory = filters.subcategory;
+    }
+    if (filters.brand) {
+        filterConditions += ` AND Brand = @brand`;
+        params.brand = filters.brand;
+    }
+    if (filters.location) {
+        filterConditions += ` AND Location = @location`;
+        params.location = filters.location;
+    }
+    if (filters.bin_zone) {
+        filterConditions += ` AND BIN_zone = @bin_zone`;
+        params.bin_zone = filters.bin_zone;
+    }
+    // (Lọc 'Đã xuất' sẽ được xử lý ở client + Supabase)
+    // --- Kết thúc xử lý bộ lọc ---
+    const isLikelySerialSearch = masterQuery.length >= 8 && !/^\d+$/.test(masterQuery);
+
+    const query = `
+        SELECT
+            CAST(SKU AS STRING) AS sku, SKU_name AS sku_name, Brand AS brand, Serial AS serial,
+            Location AS location, BIN_zone AS bin_zone, Branch_ID AS branch_id,
+            SubCategory_name AS subcategory_name,
+            FORMAT_DATE('%Y-%m-%d', Date_import_company) AS date_in,
+            Aging_company AS days_old
+        FROM ${BIGQUERY_TABLE}
+        WHERE 1=1
+            ${!isAdminBranch ? 'AND Branch_ID = @branchCode' : ''}
+            /* [Req 3] Điều kiện tìm kiếm chính (ô input) */
+            AND ( @masterQuery = '' OR CAST(SKU AS STRING) LIKE @likeQuery OR SKU_name LIKE @likeQuery
+                  OR Serial LIKE @likeQuery OR Location LIKE @likeQuery OR Brand LIKE @likeQuery )
+            
+            /* [Req 3] Áp dụng các bộ lọc dropdown */
+            ${filterConditions} 
+        ORDER BY Date_import_company ASC
+        LIMIT 1000
+    `;
+
+    const options = {
+        query: query, 
+        location: 'asia-southeast1',
+        params: params, // Truyền tất cả params
+    };
+
+    try {
+        const [rows] = await bigquery.query(options);
+        const mappedRows = rows.map(r => ({ ...r, branch_id: String(r.branch_id), date_in: r.date_in || null, days_old: r.days_old || 0 }));
+
+        let searchedItem = null;
+        if (isLikelySerialSearch && masterQuery) {
+            searchedItem = mappedRows.find(item => item.serial === masterQuery);
+        }
+
+        return { data: mappedRows, searchedItem: searchedItem };
+
+    } catch (e) {
+        console.error("BIGQUERY QUERY ERROR:", e.message);
+        throw new Error("BigQuery Query Error: " + e.message);
+    }
+}
+// [1] Route hiển thị trang (THAY THẾ TOÀN BỘ HÀM NÀY)
+app.get('/fifo-checking', requireAuth, async (req, res) => {
+    // ⚠️ Lấy Branch Code của User
+    const userBranch = req.session.user?.branch_code || 'CP01'; // Default cho dev
+    
+    // ⭐ SỬA LỖI: Tính toán quyền admin ở phía server
+    const isGlobalAdmin = (req.session.user?.role === 'admin' || req.session.user?.branch_code === 'HCM.BD');
+
+    res.render('fifo-checking', {
+        title: 'FIFO Checking',
+        currentPage: 'fifo-checking',
+        userBranch,
+        isGlobalAdmin: isGlobalAdmin, // ⭐ TRUYỀN BIẾN NÀY RA VIEW
+        error: null,
+        todayDate: new Date().toISOString().slice(0, 10),
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    });
+});
+
+// server.js (THAY THẾ HÀM app.get('/api/fifo/serials', ...))
+app.get('/api/fifo/serials', requireAuth, async (req, res) => {
+    let totalBranchCount = 0;
+    let rankInfo = null;
+
+    try {
+        // Lấy bộ lọc chính
+        const masterQuery = req.query.q || '';
+        const giftFilter = req.query.giftFilter || 'no';
+        const userBranch = req.session.user?.branch_code || 'CP01';
+        const isGlobalAdmin = req.session.user?.role === 'admin' || userBranch === 'HCM.BD';
+        const todayDate = new Date().toISOString().slice(0, 10);
+
+        // [Req 3] Lấy các bộ lọc dropdown mới
+        const filters = {
+            subcategory: req.query.subcategory || null,
+            brand: req.query.brand || null,
+            location: req.query.location || null,
+            bin_zone: req.query.bin_zone || null,
+        };
+        
+        const hideCheckedOut = (req.query.hideCheckedOut === 'true');
+
+        // --- BƯỚC 1: LẤY TRẠNG THÁI SUPABASE ---
+        let checkedSerials = new Map();
+        try {
+            let statusQuery = supabase.from('serial_check_log').select('serial, checked_out').eq('check_date', todayDate);
+            if (!isGlobalAdmin) { statusQuery = statusQuery.eq('branch_code', userBranch); }
+            const { data: logData, error: statusError } = await statusQuery;
+            if (statusError) { console.error("Lỗi lấy trạng thái Supabase:", statusError.message); }
+            else { checkedSerials = new Map((logData || []).map(log => [log.serial, log.checked_out])); }
+        } catch(e) { console.error("Lỗi nghiêm trọng khi lấy trạng thái Supabase:", e.message); }
+
+        // --- BƯỚC 2: ĐẾM TỔNG SERIAL BIGQUERY (Giữ nguyên) ---
+        if (bigquery) { /* ... logic đếm tổng ... */ }
+        else { console.warn("Không thể đếm tổng serial."); }
+        
+        // --- BƯỚC 3: LẤY DỮ LIỆU CHI TIẾT BIGQUERY (Truyền 'filters' vào) ---
+        // ⭐ SỬA LỖI: Truyền 'filters' vào
+        let fetchResult = await fetchInventoryFromBigQuery(userBranch, masterQuery, giftFilter, isGlobalAdmin, filters);
+        let inventoryData = fetchResult.data;
+        const searchedItem = fetchResult.searchedItem; // [Req 2] Lấy item đã tìm thấy
+
+        if (!inventoryData || !inventoryData.length) {
+            return res.json({ ok: true, serials: [], totalBranchCount: totalBranchCount, rankInfo: null });
+        }
+
+        // --- BƯỚC 4: MERGE VỚI TRẠNG THÁI SUPABASE & LỌC ĐÃ XUẤT ---
+        let finalSerials = [];
+        for (const item of inventoryData) {
+            const isChecked = checkedSerials.get(item.serial) || false;
+            
+            if (hideCheckedOut && isChecked) {
+                continue; 
+            }
+            
+            finalSerials.push({
+                ...item,
+                date_in_ms: item.date_in ? new Date(item.date_in).getTime() : 0,
+                is_checked_out: isChecked,
+            });
+        }
+
+        // --- BƯỚC 5: [Req 2] TÍNH RANK ---
+        if (searchedItem && !checkedSerials.get(searchedItem.serial) && bigquery) {
+            const skuToRank = searchedItem.sku;
+            console.log(`[DEBUG] Calculating rank for Serial ${masterQuery} (SKU: ${skuToRank})`);
+
+            // Chỉ lấy các serial CÙNG SKU và CÙNG CHI NHÁNH (nếu ko phải admin)
+            const rankQuery = `
+                SELECT Serial, Date_import_company
+                FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
+                /* ⭐ SỬA LỖI: Ép kiểu @skuToRank thành INT64 */
+                WHERE SKU = CAST(@skuToRank AS INT64) 
+                  ${!isGlobalAdmin ? 'AND Branch_ID = @branchCode' : ''} 
+                ORDER BY Date_import_company ASC
+            `;
+            const rankOptions = {
+                query: rankQuery, location: 'asia-southeast1',
+                params: { skuToRank: String(skuToRank), branchCode: userBranch }
+            };
+
+            try {
+                const [allSkuSerials] = await bigquery.query(rankOptions);
+
+                // Lấy trạng thái xuất của TẤT CẢ serial cùng SKU (để loại trừ)
+                const skuSerialList = allSkuSerials.map(s => s.Serial);
+                const { data: skuLogData } = await supabase
+                    .from('serial_check_log')
+                    .select('serial, checked_out')
+                    .in('serial', skuSerialList)
+                    // Lọc theo branch VÀ ngày
+                    .eq(!isGlobalAdmin ? 'branch_code' : '1', !isGlobalAdmin ? userBranch : '1')
+                    .eq('check_date', todayDate);
+                
+                // Map trạng thái checkout (merge map tổng và map của SKU)
+                const skuCheckedSerialsMap = new Map([...checkedSerials, ...((skuLogData || []).map(log => [log.serial, log.checked_out]))]);
+
+                // Lọc bỏ những serial đã xuất khỏi danh sách xếp hạng
+                const activeSkuSerials = allSkuSerials.filter(s => !skuCheckedSerialsMap.get(s.Serial));
+                
+                // Tìm rank
+                const rank = activeSkuSerials.findIndex(s => s.Serial === masterQuery) + 1; // Rank bắt đầu từ 1
+                const totalActive = activeSkuSerials.length;
+
+                if (rank > 0) {
+                    rankInfo = { serial: masterQuery, rank: rank, total: totalActive, sku: skuToRank };
+                    console.log(`[DEBUG] Rank calculated: ${rank}/${totalActive}`);
+                } else { 
+                    console.log(`[DEBUG] Searched serial ${masterQuery} not found in active list (maybe checked out).`); 
+                }
+            } catch (rankError) { console.error("LỖI TÍNH RANK:", rankError.message); }
+        } else if (searchedItem) {
+            console.log(`[DEBUG] Rank skipped (Item already checked out or BQ disabled)`);
+        }
+
+        // --- BƯỚC 6: SẮP XẾP KẾT QUẢ CUỐI CÙNG (FIFO) ---
+        finalSerials.sort((a, b) => (a.date_in_ms || 0) - (b.date_in_ms || 0));
+
+        // --- BƯỚC 7: TRẢ KẾT QUẢ ---
+        res.json({ ok: true, serials: finalSerials, totalBranchCount: totalBranchCount, rankInfo: rankInfo });
+
+    } catch (e) {
+        console.error('API FIFO Serials error:', e);
+        res.status(500).json({ ok: false, error: 'Lỗi hệ thống: ' + e.message, totalBranchCount: 0, rankInfo: null });
+    }
+});
+
+// [3] API lưu trạng thái check
+app.post('/api/fifo/log', requireAuth, async (req, res) => {
+    try {
+        const { serial, branch_code, check_date, sku, is_checked_out } = req.body;
+        
+        if (!serial || !branch_code || !check_date || !sku) {
+            return res.status(400).json({ ok: false, error: 'Thiếu thông tin bắt buộc.' });
+        }
+        
+        const logPayload = {
+            serial,
+            sku,
+            branch_code,
+            check_date,
+            checked_out: is_checked_out,
+            checked_by: req.session.user.id,
+            checked_at: new Date().toISOString(),
+        };
+
+        // Upsert theo (serial, check_date) để lưu trạng thái mới nhất cho serial đó
+        const { data, error } = await supabase
+            .from('serial_check_log')
+            .upsert(logPayload, { onConflict: 'serial,check_date' })
+            .select()
+            .single();
+
+        if (error) throw error;
+        
+        res.json({ ok: true, updated: data });
+    } catch (e) {
+        console.error('API FIFO Log error:', e);
+        res.status(500).json({ ok: false, error: 'Lỗi khi lưu trạng thái: ' + e.message });
+    }
+});
+
+// [4] API xem lịch sử check log
+app.get('/api/fifo/history/:serial', requireAuth, async (req, res) => {
+    try {
+        const serial = req.params.serial;
+        
+        // Chỉ lấy các log "Đã xuất"
+        const { data: history, error } = await supabase
+            .from('serial_check_log')
+            .select(`*, users:checked_by(full_name, email)`)
+            .eq('serial', serial)
+            .eq('checked_out', true)
+            .order('checked_at', { ascending: false })
+            .limit(50);
+            
+        if (error) throw error;
+
+        res.json({ ok: true, history: history.map(r => ({
+            ...r,
+            checked_by_name: r.users?.full_name || r.users?.email || 'Unknown',
+        })) });
+
+    } catch (e) {
+        console.error('API FIFO History error:', e);
+        res.status(500).json({ ok: false, error: 'Lỗi khi tải lịch sử: ' + e.message });
+    }
 });
 
 // ------------------------- Start server / export -------------------------

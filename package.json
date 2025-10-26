@@ -11,6 +11,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^8.1.1",
     "@supabase/supabase-js": "^2.45.4",
     "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",

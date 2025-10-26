@@ -19,6 +19,8 @@
 
   <link rel="stylesheet" href="/css/style.css">
   <title><%= title %></title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon.png">
 </head>
 <body>
     <header class="header">
@@ -28,9 +30,12 @@
                 <nav class="nav">
                     <a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Trang Chủ</a>
                     <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>">Chiến giá</a>
+                    <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">FIFO Checking</a>                   
                     <% if (user) { %>
                         <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">Quản lý CTKM</a>
                     <% } %>
+
+
                 </nav>
                 <span id="local-time" class="time-display"></span>
                 <% if (user) { %>
