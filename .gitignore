@@ -1,12 +1,14 @@
-node_modules/
+# Google Cloud / Secrets
+bigquery-key.json
+*-key.json
+
+# Common
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-uploads/
+.env.*
+*.pem
+*.p12
+*.pfx
+*.crt
+node_modules/
+dist/
 .DS_Store
-*.log
-.vercel/
-.next/
-.vercel
