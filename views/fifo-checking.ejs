@@ -731,8 +731,7 @@ function handleRescan() {
         // Vì html5QrcodeScanner đã bị set = null, chúng ta phải tạo MỚI
         if (!html5QrcodeScanner) {
             html5QrcodeScanner = 
-            // Dán khối code này thay thế cho khối new Html5QrcodeScanner(...) ở cả 2 nơi
-new Html5QrcodeScanner(
+           new Html5QrcodeScanner(
     "qr-reader", 
     { 
         fps: 25, 
@@ -741,7 +740,7 @@ new Html5QrcodeScanner(
             let size = Math.floor(minEdge * 0.75);
             return { width: size, height: size };
         },
-        rememberLastUsedCamera: false,
+        rememberLastUsedCamera: false, // Vẫn giữ false
         formatsToSupport: [
             Html5QrcodeSupportedFormats.QR_CODE,
             Html5QrcodeSupportedFormats.CODE_128,
@@ -751,11 +750,14 @@ new Html5QrcodeScanner(
             Html5QrcodeSupportedFormats.UPC_E
         ],
 
-        // === BỔ SUNG TỐI ƯU CHO ĐIỆN THOẠI ===
-        facingMode: "environment", // 1. Ưu tiên camera sau
+        // === THAY ĐỔI CÁCH YÊU CẦU CAMERA ===
+        // Xóa dòng 'facingMode: "environment",' ở đây
         videoConstraints: {
+            facingMode: { 
+                ideal: "environment" // 1. Yêu cầu camera "môi trường" (sau)
+            },
             focusMode: {
-                ideal: "continuous" // 2. Yêu cầu tự động lấy nét liên tục
+                ideal: "continuous" // 2. Yêu cầu tự động lấy nét
             }
         }
         // ======================================
