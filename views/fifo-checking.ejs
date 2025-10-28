@@ -640,20 +640,20 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
         if (!html5QrcodeScanner) {
            html5QrcodeScanner = // Dán khối code này thay thế cho khối new Html5QrcodeScanner(...) ở cả 2 nơi
             // Dán khối code này thay thế cho khối new Html5QrcodeScanner(...) ở sự kiện 'btnScan'
-// === KHỐI CẤU HÌNH TỐI ƯU MỚI ===
+            // === KHỐI CẤU HÌNH "HYBRID" (Lấy nét gốc + Thêm format) ===
 new Html5QrcodeScanner(
     "qr-reader", 
     { 
-        fps: 50, // Giảm FPS để quét ổn định hơn
+        fps: 10, // Giảm FPS để quét ổn định hơn
         qrbox: (viewfinderWidth, viewfinderHeight) => {
             let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            // Tăng kích thước khung quét lên 85% cho dễ "bắt" mã
-            let size = Math.floor(minEdge * 0.85); 
+            // Kích thước khung quét 80%
+            let size = Math.floor(minEdge * 0.8); 
             return { width: size, height: size };
         },
-        rememberLastUsedCamera: true, // Cho phép nhớ camera
+        rememberLastUsedCamera: true, // Giữ nguyên
         
-        // TỐI ƯU HÓA: Bổ sung các định dạng mã vạch 1D và 2D
+        // GIỮ NGUYÊN danh sách format MỞ RỘNG
         formatsToSupport: [
             Html5QrcodeSupportedFormats.QR_CODE,
             Html5QrcodeSupportedFormats.CODE_128,
@@ -661,28 +661,27 @@ new Html5QrcodeScanner(
             Html5QrcodeSupportedFormats.EAN_8,
             Html5QrcodeSupportedFormats.UPC_A,
             Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_39, // Thêm cho mã vạch 1D (ảnh 2)
-            Html5QrcodeSupportedFormats.ITF      // Thêm cho mã vạch 1D
+            Html5QrcodeSupportedFormats.CODE_39, // Cần cho mã vạch 1D (ảnh 2)
+            Html5QrcodeSupportedFormats.ITF      // Cần cho mã vạch 1D
         ],
 
-        // TỐI ƯU HÓA: Cấu hình camera "cứng"
+        // QUAY LẠI CẤU HÌNH videoConstraints GỐC TỪ TỆP CỦA BẠN
+        // Đây là yêu cầu "lý tưởng" cho camera di động
         videoConstraints: {
-            facingMode: "environment", // Luôn yêu cầu camera sau
-            advanced: [
-        { focusMode: "continuous" },
-        { autoFocus: "continuous" },
-        { focusMode: "auto" },
-        { autoFocus: true }
-    ]
+            facingMode: { 
+                ideal: "environment" // 1. Ưu tiên camera "môi trường" (sau)
+            },
+            focusMode: {
+                ideal: "continuous" // 2. Yêu cầu tự động lấy nét liên tục
+            }
         },
-        // Bắt buộc trình duyệt tuân thủ cấu hình trên
-        useOnlyVideoConstraints: true, 
-        // Ẩn UI chọn camera của thư viện để quét ngay lập tức
+        
+        // Ẩn UI chọn camera để quét ngay
         showSelectedCameraDevice: false, 
-        showCameraSelection: false,      
+        showCameraSelection: false
     }
 )
-// === KẾT THÚC KHỐI MỚI ===
+// === KẾT THÚC KHỐI "HYBRID" ===
         }
         html5QrcodeScanner.render(onScanSuccess, onScanFailure);
     });
@@ -747,19 +746,20 @@ function handleRescan() {
         if (!html5QrcodeScanner) {
             html5QrcodeScanner = 
            // === KHỐI CẤU HÌNH TỐI ƯU MỚI ===
+            // === KHỐI CẤU HÌNH "HYBRID" (Lấy nét gốc + Thêm format) ===
 new Html5QrcodeScanner(
     "qr-reader", 
     { 
-        fps: 50, // Giảm FPS để quét ổn định hơn
+        fps: 10, // Giảm FPS để quét ổn định hơn
         qrbox: (viewfinderWidth, viewfinderHeight) => {
             let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            // Tăng kích thước khung quét lên 85% cho dễ "bắt" mã
-            let size = Math.floor(minEdge * 0.85); 
+            // Kích thước khung quét 80%
+            let size = Math.floor(minEdge * 0.8); 
             return { width: size, height: size };
         },
-        rememberLastUsedCamera: true, // Cho phép nhớ camera
+        rememberLastUsedCamera: true, // Giữ nguyên
         
-        // TỐI ƯU HÓA: Bổ sung các định dạng mã vạch 1D và 2D
+        // GIỮ NGUYÊN danh sách format MỞ RỘNG
         formatsToSupport: [
             Html5QrcodeSupportedFormats.QR_CODE,
             Html5QrcodeSupportedFormats.CODE_128,
@@ -767,27 +767,27 @@ new Html5QrcodeScanner(
             Html5QrcodeSupportedFormats.EAN_8,
             Html5QrcodeSupportedFormats.UPC_A,
             Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_39, // Thêm cho mã vạch 1D (ảnh 2)
-            Html5QrcodeSupportedFormats.ITF      // Thêm cho mã vạch 1D
+            Html5QrcodeSupportedFormats.CODE_39, // Cần cho mã vạch 1D (ảnh 2)
+            Html5QrcodeSupportedFormats.ITF      // Cần cho mã vạch 1D
         ],
 
-        // TỐI ƯU HÓA: Cấu hình camera "cứng"
+        // QUAY LẠI CẤU HÌNH videoConstraints GỐC TỪ TỆP CỦA BẠN
+        // Đây là yêu cầu "lý tưởng" cho camera di động
         videoConstraints: {
-            facingMode: "environment", // Luôn yêu cầu camera sau
-            advanced: [
-        { focusMode: "continuous" },
-        { autoFocus: "continuous" },
-        { focusMode: "auto" },
-        { autoFocus: true }
-    ]
+            facingMode: { 
+                ideal: "environment" // 1. Ưu tiên camera "môi trường" (sau)
+            },
+            focusMode: {
+                ideal: "continuous" // 2. Yêu cầu tự động lấy nét liên tục
+            }
         },
-        // Bắt buộc trình duyệt tuân thủ cấu hình trên
-        useOnlyVideoConstraints: true, 
-        // Ẩn UI chọn camera của thư viện để quét ngay lập tức
+        
+        // Ẩn UI chọn camera để quét ngay
         showSelectedCameraDevice: false, 
-        showCameraSelection: false,      
+        showCameraSelection: false
     }
 )
+// === KẾT THÚC KHỐI "HYBRID" ===
 
         }
         // Khởi chạy lại
