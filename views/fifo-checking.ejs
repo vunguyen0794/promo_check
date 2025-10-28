@@ -120,7 +120,6 @@ Vui lòng tick vào "Đã xuất" để ghi nhận Serial đã bán trong ngày.
     /* CSS cho Modal Quét */
     #scanModal { display: none; align-items: center; justify-content: center; }
     #qr-reader { width: 90%; max-width: 400px; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    
 </style>
 
 <div class="fifo-filters" style="border-bottom:1px solid #e5e7eb; padding-bottom:15px; margin-bottom:15px;">
@@ -189,15 +188,6 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
 <div id="scanModal" class="modal" onclick="if(event.target.id === 'scanModal') hideScanModal()">
     <div id="scanModalBody">
     <div id="qr-reader" style="width: 90%; max-width: 400px; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-    <div id="scanControls" style="margin-top:8px; display:flex; gap:8px; align-items:center; width:90%; max-width:400px;">
-  <label style="font-size:13px; display:flex; align-items:center; gap:6px;">
-    <input type="checkbox" id="multiScanToggle"> Quét nhiều mã
-  </label>
-  <select id="cameraSelect" class="info-select" style="min-width:180px; flex:1;"></select>
-</div>
-
-<!-- Khu vực hiện danh sách mã bắt được khi bật multi-scan -->
-<div id="multiList" style="display:none; margin:10px 0; width:90%; max-width:400px; display:flex; flex-wrap:wrap; gap:6px;"></div>    
     </div>
 
     <div id="scanResultContainer" style="display: none; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
@@ -640,219 +630,72 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
     // Xử lý Nút "Quét" và Modal
     const scanModal = document.getElementById('scanModal');
     let html5QrcodeScanner;
-    // === Camera & Multi-scan helpers ===
-let activeDeviceId = null;
-let barcodeDetector = null;
-let detectRAF = 0;
-let mediaStream = null;
-const multiToggle = document.getElementById('multiScanToggle');
-const multiList = document.getElementById('multiList');
+    document.getElementById('btnScan').addEventListener('click', function() {
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            showToast('Chức năng quét chỉ hoạt động trên HTTPS!', 'error');
+            return;
+        }
+        scanModal.style.display = 'flex';
+        
+        if (!html5QrcodeScanner) {
+           html5QrcodeScanner = // Dán khối code này thay thế cho khối new Html5QrcodeScanner(...) ở cả 2 nơi
+            // Dán khối code này thay thế cho khối new Html5QrcodeScanner(...) ở sự kiện 'btnScan'
+new Html5QrcodeScanner(
+    "qr-reader", 
+    { 
+        fps: 25, 
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+            let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            let size = Math.floor(minEdge * 0.75);
+            return { width: size, height: size };
+        },
+        rememberLastUsedCamera: false,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E
+        ],
 
-async function pickPreferredCameraId() {
-  const devices = await Html5Qrcode.getCameras();
-  if (!devices || !devices.length) return null;
-
-  const saved = localStorage.getItem('preferredCamId');
-  if (saved && devices.some(d => d.id === saved)) return saved;
-
-  const rear = devices.find(d => /back|rear|environment/i.test(d.label || ''));
-  return (rear && rear.id) || devices[0].id;
-}
-
-async function populateCameraSelect(selectEl, currentId) {
-  const devices = await Html5Qrcode.getCameras();
-  selectEl.innerHTML = '';
-  devices.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d.id;
-    opt.textContent = d.label || `Camera ${d.id.slice(-4)}`;
-    if (d.id === currentId) opt.selected = true;
-    selectEl.appendChild(opt);
-  });
-}
-
-function renderChips(collected) {
-  multiList.innerHTML = '';
-  [...collected].slice(0, 20).forEach(code => {
-    const chip = document.createElement('button');
-    chip.className = 'btn btn-secondary';
-    chip.style.padding = '4px 8px';
-    chip.textContent = code;
-    chip.onclick = () => {
-      document.getElementById('scanResultText').textContent = code;
-      document.getElementById('scanResultContainer').style.display = 'block';
-      document.getElementById('qr-reader').style.display = 'none';
-    };
-    multiList.appendChild(chip);
-  });
-  multiList.style.display = collected.size ? 'flex' : 'none';
-}
-
-    async function startScanner() {
-  // Box quét to 75% cạnh ngắn
-  const qrBox = (vw, vh) => {
-    const size = Math.floor(Math.min(vw, vh) * 0.75);
-    return { width: size, height: size };
-  };
-
-  // Lấy deviceId ưu tiên & bơm vào dropdown
-  activeDeviceId = await pickPreferredCameraId();
-  const camSelect = document.getElementById('cameraSelect');
-  await populateCameraSelect(camSelect, activeDeviceId);
-  camSelect.onchange = async (e) => {
-    localStorage.setItem('preferredCamId', e.target.value);
-    await restartScanner(e.target.value);
-  };
-
-  // Tạo scanner: NHỚ lựa chọn + ép đúng deviceId nếu có
-  html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", {
-    fps: 25,
-    qrbox: qrBox,
-    rememberLastUsedCamera: true,
-    formatsToSupport: [
-      Html5QrcodeSupportedFormats.QR_CODE,
-      Html5QrcodeSupportedFormats.CODE_128,
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,
-      Html5QrcodeSupportedFormats.UPC_E
-    ],
-    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-    videoConstraints: {
-      // Ưu tiên deviceId; nếu không có thì “ideal” camera sau
-      deviceId: activeDeviceId ? { exact: activeDeviceId } : undefined,
-      facingMode: { ideal: "environment" },
-      focusMode: { ideal: "continuous" }
+        // === CẤU HÌNH CAMERA ĐÃ SỬA LẠI ===
+        videoConstraints: {
+            facingMode: { 
+                ideal: "environment" // 1. Ưu tiên camera "môi trường" (sau)
+            },
+            focusMode: {
+                ideal: "continuous" // 2. Yêu cầu tự động lấy nét liên tục
+            }
+        }
+        // ===================================
     }
-  });
-
-  html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-}
-
-async function restartScanner(deviceId) {
-  try {
-    if (html5QrcodeScanner) {
-      await html5QrcodeScanner.clear();
-      html5QrcodeScanner = null;
-    }
-  } catch {}
-  activeDeviceId = deviceId;
-  localStorage.setItem('preferredCamId', deviceId);
-  await startScanner();
-}
-
-document.getElementById('btnScan').addEventListener('click', async function () {
-  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-    showToast('Chức năng quét chỉ hoạt động trên HTTPS!', 'error');
-    return;
-  }
-  scanModal.style.display = 'flex';
-  // Mặc định tắt multi khi mở
-  const multiToggle = document.getElementById('multiScanToggle');
-  if (multiToggle) multiToggle.checked = false;
-  const multiSet = new Set(); renderChips(multiSet);
-
-  await startScanner();
-});
-
+)
+        }
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    });
     
-    const multiSet = new Set();
-
-function onScanSuccess(decodedText, decodedResult) {
-  const multiToggle = document.getElementById('multiScanToggle');
-  if (multiToggle && multiToggle.checked) {
-    // Gom nhiều mã → hiển thị chip, KHÔNG clear scanner
-    multiSet.add(decodedText);
-    renderChips(multiSet);
-    return;
-  }
-  // Single mode: hành vi cũ
-  try {
-    if (html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; }
-  } catch {}
-  document.getElementById('qr-reader').style.display = 'none';
-  document.getElementById('scanResultContainer').style.display = 'block';
-  document.getElementById('scanResultText').textContent = decodedText;
-}
-
-function onScanFailure() { /* bỏ qua lỗi đọc khung */ }
-
-
-async function startBarcodeDetector() {
-  if (!('BarcodeDetector' in window)) return false;
-  const formats = ['qr_code','code_128','ean_13','ean_8','upc_a','upc_e'];
-  try { barcodeDetector = new BarcodeDetector({ formats }); }
-  catch { return false; }
-
-  const constraints = {
-    video: activeDeviceId ? { deviceId: { exact: activeDeviceId } } : { facingMode: { ideal: "environment" } },
-    audio: false
-  };
-  mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-  let videoEl = document.querySelector('#qr-reader video.detector');
-  if (!videoEl) {
-    videoEl = document.createElement('video');
-    videoEl.className = 'detector';
-    videoEl.setAttribute('playsinline', 'true');
-    videoEl.muted = true;
-    videoEl.style.width = '100%';
-    document.getElementById('qr-reader').innerHTML = '';
-    document.getElementById('qr-reader').appendChild(videoEl);
-  }
-  videoEl.srcObject = mediaStream;
-  await videoEl.play();
-
-  multiSet.clear(); renderChips(multiSet);
-
-  const loop = async () => {
-    if (!barcodeDetector) return;
-    try {
-      const results = await barcodeDetector.detect(videoEl);
-      results.forEach(r => { if (r.rawValue) multiSet.add(r.rawValue); });
-      renderChips(multiSet);
-    } catch {}
-    detectRAF = requestAnimationFrame(loop);
-  };
-  detectRAF = requestAnimationFrame(loop);
-  return true;
-}
-
-async function stopBarcodeDetector() {
-  cancelAnimationFrame(detectRAF);
-  if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-  mediaStream = null;
-  barcodeDetector = null;
-}
-
-// Bật/tắt multi
-document.getElementById('multiScanToggle').addEventListener('change', async (e) => {
-  multiSet.clear(); renderChips(multiSet);
-  document.getElementById('scanResultText').textContent = '';
-  if (e.target.checked) {
-    // Ưu tiên BarcodeDetector → nếu chạy được thì không cần Html5QrcodeScanner
-    try { if (html5QrcodeScanner) { await html5QrcodeScanner.clear(); html5QrcodeScanner = null; } } catch {}
-    const ok = await startBarcodeDetector();
-    if (!ok) {
-      // Fallback: quét bằng html5-qrcode (gom dần vào multiSet)
-      await startScanner();
+    function onScanSuccess(decodedText, decodedResult) {
+    console.log(`Scan result: ${decodedText}`, decodedResult);
+    if (html5QrcodeScanner) {
+        try {
+            html5QrcodeScanner.clear(); // 👈 Dùng .stop() để tắt camera
+            html5QrcodeScanner = null;    // 👈 Hủy đối tượng
+        } catch(e) {
+            console.error("Lỗi stop scanner:", e);
+        }
     }
-  } else {
-    await stopBarcodeDetector();
-    await startScanner(); // quay về single-mode
-  }
-});
 
-// Đóng modal → dọn tài nguyên (giữ nguyên hàm hideScanModal nếu bạn đã có)
-function hideScanModal() {
-  try { if (html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; } } catch {}
-  stopBarcodeDetector();
-  scanModal.style.display = 'none';
-  document.getElementById('qr-reader').style.display = 'block';
-  document.getElementById('scanResultContainer').style.display = 'none';
-  document.getElementById('scanResultText').textContent = '';
+    // Hiển thị kết quả
+    document.getElementById('qr-reader').style.display = 'none';
+    document.getElementById('scanResultContainer').style.display = 'block';
+    document.getElementById('scanResultText').textContent = decodedText;
 }
 
+
+    function onScanFailure(error) {
+        // Bỏ qua
+    }
 
     function hideScanModal() {
     if (html5QrcodeScanner) {
