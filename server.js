@@ -1159,6 +1159,14 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       }
 
       if (p.apply_to_all_skus) return true;
+      if (p.apply_brand_subcats && p.apply_brand_subcats.length > 0) {
+        // Kiểm tra xem SKU có khớp với BẤT KỲ cặp brand/subcat nào trong danh sách không
+        const isMatch = p.apply_brand_subcats.some(rule => 
+            rule.brand === product.brand && rule.subcat_id === product.subcat
+        );
+        if (isMatch) return true;
+        // Nếu không khớp, không return false vội, để check các quy tắc khác
+      }
       if (p.apply_to_brands && p.apply_to_brands.includes(product.brand)) return true;
       if (p.apply_to_categories && p.apply_to_categories.includes(product.category)) return true;
       if (p.apply_to_subcats && p.apply_to_subcats.includes(product.subcat)) return true;
@@ -1291,7 +1299,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const { data: promosRaw } = await supabase
       .from('promotions')
-      .select('*, promotion_skus(*), promotion_excluded_skus(*), detail_fields, group_name, subgroup_name')
+      .select('*, promotion_skus(*), promotion_excluded_skus(*), detail_fields, group_name, subgroup_name, apply_brand_subcats')
       .lte('start_date', today)
       .gte('end_date', today)
       .eq('status', 'active');
@@ -1571,8 +1579,8 @@ app.get('/promo-management', async (req, res) => {
 
     let couponListData = null;
     if (has_coupon_list && coupons) {
-  const list = Array.isArray(coupons) ? coupons : Object.values(coupons);
-  couponListData = list
+    const list = Array.isArray(coupons) ? coupons : Object.values(coupons);
+    couponListData = list
     .filter(c => c && c.code && String(c.code).trim() !== '')
     .map(c => {
       // bóc số cho discount nếu người dùng nhập "900,000"
@@ -1597,6 +1605,22 @@ app.get('/promo-management', async (req, res) => {
 
   if (!couponListData.length) couponListData = null;
 }
+
+const parseToArray = (str) => (str || '').split(',').map(s => s.trim()).filter(Boolean);
+    const uniq = arr => Array.from(new Set((arr||[]).filter(v => v !== '' && v != null)));
+
+    // Xử lý Brand + Subcat
+    const apply_brand_subcats_list = (apply_to_type === 'brand_subcat')
+      ? ( () => {
+            const brands = uniq(parseToArray(apply_brands));
+            const subcats = uniq(parseToArray(apply_subcats));
+            const bs = [];
+            brands.forEach(b => subcats.forEach(s => bs.push({brand:String(b), subcat_id:String(s)})));
+            return bs.length ? bs : null;
+          })()
+      : null;
+
+
     const insertPayload = {
       name, description, start_date, end_date, group_name, channel: channel || 'All', promo_type, 
       coupon_code: coupon_code || null, status: 'active',
@@ -1604,6 +1628,7 @@ app.get('/promo-management', async (req, res) => {
       apply_to_brands: apply_to_type === 'brand' ? parseToArray(apply_brands) : null,
       apply_to_categories: apply_to_type === 'category' ? parseToArray(apply_categories) : null,
       apply_to_subcats: apply_to_type === 'subcat' ? parseToArray(apply_subcats) : null,
+      apply_brand_subcats: apply_brand_subcats_list,
       coupon_list: couponListData, 
       created_by: req.session.user?.id,
       detail_fields: detail || {},
@@ -1629,6 +1654,12 @@ app.get('/promo-management', async (req, res) => {
 
     const excludeList = [...new Set(parseSkus(excluded_skus))];
     if (excludeList.length > 0) await supabase.from('promotion_excluded_skus').insert(excludeList.map(sku => ({ promotion_id: newPromoId, sku })));
+
+    if (apply_brand_subcats_list && apply_brand_subcats_list.length > 0) {
+      await supabase.from('promotion_brand_subcats').insert(
+        apply_brand_subcats_list.map(p => ({ promotion_id: newPromoId, brand: p.brand, subcat_id: p.subcat_id }))
+      );
+    }
 
     if (apply_with && Array.isArray(apply_with) && apply_with.length > 0) await supabase.from('promotion_compat_allows').insert(apply_with.map(pid => ({ promotion_id: newPromoId, with_promotion_id: pid })));
     if (exclude_with && Array.isArray(exclude_with) && exclude_with.length > 0) await supabase.from('promotion_compat_excludes').insert(exclude_with.map(pid => ({ promotion_id: newPromoId, with_promotion_id: pid })));

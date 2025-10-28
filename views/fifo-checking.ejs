@@ -120,7 +120,6 @@ Vui lòng tick vào "Đã xuất" để ghi nhận Serial đã bán trong ngày.
     /* CSS cho Modal Quét */
     #scanModal { display: none; align-items: center; justify-content: center; }
     #qr-reader { width: 90%; max-width: 400px; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    #qr-reader > div:first-child { display: none; }
 </style>
 
 <div class="fifo-filters" style="border-bottom:1px solid #e5e7eb; padding-bottom:15px; margin-bottom:15px;">
@@ -187,13 +186,26 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
 </div>
 
 <div id="scanModal" class="modal" onclick="if(event.target.id === 'scanModal') hideScanModal()">
-    <div id="qr-reader"></div>
+    <div id="scanModalBody">
+    <div id="qr-reader" style="width: 90%; max-width: 400px; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+    </div>
+
+    <div id="scanResultContainer" style="display: none; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
+        <h4 style="margin-top: 0; font-size: 16px;">Kết quả quét:</h4>
+        <strong id="scanResultText" style="font-size: 18px; color: #1a73e8; word-break: break-all; margin-bottom: 20px; display: block;"></strong>
+        
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" class="btn btn-secondary" id="btnRescan">Quét lại</button>
+            <button type="button" class="btn btn-primary" id="btnConfirmScan">Dùng mã này</button>
+        </div>
+    </div>
+</div>
 </div>
 
 
 <%- include('partials/toast') %>
 
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" type="text/javascript"></script>
 
 <%- include('partials/footer') %>
 
@@ -632,9 +644,6 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
                     fps: 10, 
                     qrbox: { width: 250, height: 250 },
                     rememberLastUsedCamera: true,
-                    supportedScanTypes: [
-                        html5Qrcode.Html5QrcodeScanType.SCAN_TYPE_CAMERA
-                    ]
                 }
             );
         }
@@ -642,27 +651,76 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
     });
     
     function onScanSuccess(decodedText, decodedResult) {
-        console.log(`Scan result: ${decodedText}`, decodedResult);
-        hideScanModal();
-        document.getElementById('masterInput').value = decodedText;
-        triggerLoad(1); // Tự động tra cứu
+    console.log(`Scan result: ${decodedText}`, decodedResult);
+    
+    // 1. Dừng camera
+    try {
+        html5QrcodeScanner.pause(true);
+    } catch(e) {
+        console.error("Lỗi pause scanner:", e);
     }
+
+    // 2. Hiển thị kết quả và nút bấm
+    document.getElementById('qr-reader').style.display = 'none';
+    document.getElementById('scanResultContainer').style.display = 'block';
+    document.getElementById('scanResultText').textContent = decodedText;
+
+    // 3. Không đóng modal, không tự động tìm kiếm nữa
+    // hideScanModal(); // Xóa dòng này
+    // document.getElementById('masterInput').value = decodedText; // Chuyển logic này
+    // triggerLoad(1); // Xóa dòng này
+}
 
     function onScanFailure(error) {
         // Bỏ qua
     }
-
     function hideScanModal() {
-        if (html5QrcodeScanner) {
-            try {
-                html5QrcodeScanner.pause(true);
-            } catch(e) {
-                console.error("Lỗi pause scanner:", e);
-            }
+    if (html5QrcodeScanner) {
+        try {
+            // Đảm bảo scanner đã dừng
+            html5QrcodeScanner.pause(true);
+        } catch(e) {
+            console.warn("Lỗi pause scanner khi ẩn:", e);
         }
-        scanModal.style.display = 'none';
     }
+    scanModal.style.display = 'none';
 
+    // Reset lại UI modal về trạng thái ban đầu
+    document.getElementById('qr-reader').style.display = 'block';
+    document.getElementById('scanResultContainer').style.display = 'none';
+    document.getElementById('scanResultText').textContent = '';
+}
+
+    // Hàm xử lý khi người dùng xác nhận mã
+function handleScanConfirm() {
+    const decodedText = document.getElementById('scanResultText').textContent;
+    if (decodedText) {
+        document.getElementById('masterInput').value = decodedText;
+        triggerLoad(1); // Kích hoạt tìm kiếm
+        hideScanModal(); // Đóng modal sau khi xác nhận
+    }
+}
+
+// Hàm xử lý khi người dùng muốn quét lại
+function handleRescan() {
+    // Ẩn kết quả, hiện lại camera
+    document.getElementById('qr-reader').style.display = 'block';
+    document.getElementById('scanResultContainer').style.display = 'none';
+    document.getElementById('scanResultText').textContent = '';
+    
+    // Khởi động lại scanner
+    if (html5QrcodeScanner) {
+        try {
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        } catch (e) {
+            console.error("Lỗi render lại scanner:", e);
+        }
+    }
+}
+
+// Gán sự kiện cho 2 nút mới (đặt ở cuối file, gần các `addEventListener` khác)
+document.getElementById('btnConfirmScan').addEventListener('click', handleScanConfirm);
+document.getElementById('btnRescan').addEventListener('click', handleRescan);
 
     // Xử lý Enter
     document.getElementById('masterInput').addEventListener('keypress', function (e) {
