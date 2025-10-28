@@ -644,7 +644,7 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
 new Html5QrcodeScanner(
     "qr-reader", 
     { 
-        fps: 10, // Giảm FPS để quét ổn định hơn
+        fps: 50, // Giảm FPS để quét ổn định hơn
         qrbox: (viewfinderWidth, viewfinderHeight) => {
             let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
             // Tăng kích thước khung quét lên 85% cho dễ "bắt" mã
@@ -668,7 +668,12 @@ new Html5QrcodeScanner(
         // TỐI ƯU HÓA: Cấu hình camera "cứng"
         videoConstraints: {
             facingMode: "environment", // Luôn yêu cầu camera sau
-            focusMode: "continuous"    // Yêu cầu tự động lấy nét liên tục
+            advanced: [
+        { focusMode: "continuous" },
+        { autoFocus: "continuous" },
+        { focusMode: "auto" },
+        { autoFocus: true }
+    ]
         },
         // Bắt buộc trình duyệt tuân thủ cấu hình trên
         useOnlyVideoConstraints: true, 
@@ -745,7 +750,7 @@ function handleRescan() {
 new Html5QrcodeScanner(
     "qr-reader", 
     { 
-        fps: 10, // Giảm FPS để quét ổn định hơn
+        fps: 50, // Giảm FPS để quét ổn định hơn
         qrbox: (viewfinderWidth, viewfinderHeight) => {
             let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
             // Tăng kích thước khung quét lên 85% cho dễ "bắt" mã
@@ -769,7 +774,12 @@ new Html5QrcodeScanner(
         // TỐI ƯU HÓA: Cấu hình camera "cứng"
         videoConstraints: {
             facingMode: "environment", // Luôn yêu cầu camera sau
-            focusMode: "continuous"    // Yêu cầu tự động lấy nét liên tục
+            advanced: [
+        { focusMode: "continuous" },
+        { autoFocus: "continuous" },
+        { focusMode: "auto" },
+        { autoFocus: true }
+    ]
         },
         // Bắt buộc trình duyệt tuân thủ cấu hình trên
         useOnlyVideoConstraints: true, 
