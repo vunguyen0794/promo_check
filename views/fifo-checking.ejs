@@ -638,65 +638,73 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
         scanModal.style.display = 'flex';
         
         if (!html5QrcodeScanner) {
-           html5QrcodeScanner = new Html5QrcodeScanner(
-                "qr-reader", 
-                { 
-                    fps: 10, 
-                    qrbox: { width: 250, height: 250 },
-                    rememberLastUsedCamera: true,
+           html5QrcodeScanner = // Dán khối code này thay thế cho khối new Html5QrcodeScanner(...) ở cả 2 nơi
+new Html5QrcodeScanner(
+    "qr-reader", 
+    { 
+        fps: 25, 
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+            let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            let size = Math.floor(minEdge * 0.75);
+            return { width: size, height: size };
+        },
+        rememberLastUsedCamera: true,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E
+        ],
 
-                    // === BỔ SUNG KHỐI NÀY ĐỂ QUÉT BARCODE ===
-                    formatsToSupport: [
-                        Html5QrcodeSupportedFormats.QR_CODE,
-                        Html5QrcodeSupportedFormats.CODE_128,
-                        Html5QrcodeSupportedFormats.EAN_13,
-                        Html5QrcodeSupportedFormats.EAN_8,
-                        Html5QrcodeSupportedFormats.UPC_A,
-                        Html5QrcodeSupportedFormats.UPC_E
-                        // Thêm các định dạng khác nếu cần
-                    ]
-                    // ======================================
-                }
-            );
+        // === BỔ SUNG TỐI ƯU CHO ĐIỆN THOẠI ===
+        facingMode: "environment", // 1. Ưu tiên camera sau
+        videoConstraints: {
+            focusMode: {
+                ideal: "continuous" // 2. Yêu cầu tự động lấy nét liên tục
+            }
+        }
+        // ======================================
+    }
+)
         }
         html5QrcodeScanner.render(onScanSuccess, onScanFailure);
     });
     
     function onScanSuccess(decodedText, decodedResult) {
     console.log(`Scan result: ${decodedText}`, decodedResult);
-    
-    // 1. Dừng camera
-    try {
-        html5QrcodeScanner.pause(true);
-    } catch(e) {
-        console.error("Lỗi pause scanner:", e);
+    if (html5QrcodeScanner) {
+        try {
+            html5QrcodeScanner.clear(); // 👈 Dùng .stop() để tắt camera
+            html5QrcodeScanner = null;    // 👈 Hủy đối tượng
+        } catch(e) {
+            console.error("Lỗi stop scanner:", e);
+        }
     }
 
-    // 2. Hiển thị kết quả và nút bấm
+    // Hiển thị kết quả
     document.getElementById('qr-reader').style.display = 'none';
     document.getElementById('scanResultContainer').style.display = 'block';
     document.getElementById('scanResultText').textContent = decodedText;
-
-    // 3. Không đóng modal, không tự động tìm kiếm nữa
-    // hideScanModal(); // Xóa dòng này
-    // document.getElementById('masterInput').value = decodedText; // Chuyển logic này
-    // triggerLoad(1); // Xóa dòng này
 }
+
 
     function onScanFailure(error) {
         // Bỏ qua
     }
+
     function hideScanModal() {
     if (html5QrcodeScanner) {
         try {
-            // Đảm bảo scanner đã dừng
-            html5QrcodeScanner.pause(true);
+            html5QrcodeScanner.clear(); // 👈 Dùng .stop() để tắt camera
+            html5QrcodeScanner = null;    // 👈 Hủy đối tượng
         } catch(e) {
-            console.warn("Lỗi pause scanner khi ẩn:", e);
+            console.error("Lỗi stop scanner:", e);
         }
     }
     scanModal.style.display = 'none';
-
+    
     // Reset lại UI modal về trạng thái ban đầu
     document.getElementById('qr-reader').style.display = 'block';
     document.getElementById('scanResultContainer').style.display = 'none';
@@ -713,20 +721,52 @@ function handleScanConfirm() {
     }
 }
 
-// Hàm xử lý khi người dùng muốn quét lại
 function handleRescan() {
     // Ẩn kết quả, hiện lại camera
     document.getElementById('qr-reader').style.display = 'block';
     document.getElementById('scanResultContainer').style.display = 'none';
     document.getElementById('scanResultText').textContent = '';
     
-    // Khởi động lại scanner
-    if (html5QrcodeScanner) {
-        try {
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-        } catch (e) {
-            console.error("Lỗi render lại scanner:", e);
+    try {
+        // Vì html5QrcodeScanner đã bị set = null, chúng ta phải tạo MỚI
+        if (!html5QrcodeScanner) {
+            html5QrcodeScanner = 
+            // Dán khối code này thay thế cho khối new Html5QrcodeScanner(...) ở cả 2 nơi
+new Html5QrcodeScanner(
+    "qr-reader", 
+    { 
+        fps: 25, 
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+            let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            let size = Math.floor(minEdge * 0.75);
+            return { width: size, height: size };
+        },
+        rememberLastUsedCamera: true,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E
+        ],
+
+        // === BỔ SUNG TỐI ƯU CHO ĐIỆN THOẠI ===
+        facingMode: "environment", // 1. Ưu tiên camera sau
+        videoConstraints: {
+            focusMode: {
+                ideal: "continuous" // 2. Yêu cầu tự động lấy nét liên tục
+            }
         }
+        // ======================================
+    }
+)
+        }
+        // Khởi chạy lại
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    } catch (e) {
+        console.error("Lỗi render lại scanner:", e);
+        showToast('Lỗi khởi động lại camera', 'error');
     }
 }
 
