@@ -318,9 +318,28 @@
   <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
 </form>
 
-                    </div>
 
-                </div>
+
+                    </div>
+     <%# === KHỐI THI ĐUA NỘI BỘ MỚI === %>
+        <% if (internalContest) { %>
+          <div class="internal-contest-card">
+            <div class="contest-icon">🏆</div>
+            <div class="contest-content">
+              <div class="contest-title"><%= internalContest.name %></div>
+              <% if (internalContest.description) { %>
+                <p class="contest-desc"><%= internalContest.description %></p>
+              <% } %>
+              <div class="contest-expiry">
+                Hạn: <%= new Date(internalContest.end_date).toLocaleDateString('vi-VN') %>
+              </div>
+            </div>
+            <a href="/promotion-detail/<%= internalContest.id %>" class="contest-link">Xem</a>
+          </div>
+        <% } %>
+
+
+                
 
                 <% if (typeof product !=='undefined' && product) { %>
                     <div class="product-info">

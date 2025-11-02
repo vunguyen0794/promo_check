@@ -1,1 +1,4 @@
 BIGQUERY_KEY_FILE=D:\SecureKeys\bigquery-key.json
+RESEND_API_KEY=re_TGrJEQGr_7nU34qaERCQ5yCTTL3pTh25i
+APP_BASE_URL=http://localhost:3300 
+# (Khi deploy, đổi APP_BASE_URL thành tên miền của bạn)

@@ -44,9 +44,7 @@ body {
     background-color: #1a73e8;
     color: white;
     padding: 12px 0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
@@ -54,7 +52,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* <--- SỬA LỖI */
+    gap: 12px; /* Thêm khoảng cách giữa các khối */
 }
 
 .logo {
@@ -66,7 +65,18 @@ body {
 .nav {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* <--- SỬA LỖI */
+
+    /* Cho phép menu co giãn và cuộn ngang */
+    flex: 1 1 auto; 
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; 
+    
+    /* Ẩn thanh cuộn */
+    scrollbar-width: none; /* Firefox */
+}
+.nav::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
 }
 
 .nav a {
@@ -86,9 +96,10 @@ body {
 .time-display {
     font-size: 0.8rem;
     opacity: 0.8;
-    margin-top: 5px;
-    width: 100%;
+    width: auto; /* <--- SỬA LỖI */
     text-align: right;
+    flex-shrink: 0; /* Ngăn không cho bị co lại */
+    /* Xóa margin-top */
 }
 
 /* Main content */
@@ -1328,18 +1339,7 @@ label {
     margin-left: 5px;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .user-nav {
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 10px;
-    }
-    
-    .history-details {
-        grid-template-columns: 1fr;
-    }
-}
+
 
 /***** ==== MOBILE POLISH – HEADER, TABLES, SUMMARY ==== *****/
 
@@ -2006,6 +2006,722 @@ th, strong, b {
 .toast.is-show{ display:block !important; opacity:1; transform:translateX(-50%) translateY(0); }
 .toast--error{ background:#ef4444; } .toast--warn{ background:#f59e0b; }
 
+/* =========================
+   CSS CHO TRANG BẢNG TIN
+   ========================= */
+
+/* Màu chủ đạo (từ logo của bạn) */
+:root {
+  --news-blue: #0d6efd; /* Xanh đậm (giống header) */
+  --news-blue-light: #e7f1ff; /* Xanh nhạt (màu phụ) */
+  --news-text-dark: #212529;
+  --news-text-light: #6c757d;
+  --news-border: #dee2e6;
+}
+
+/* Container chính của trang */
+.newsfeed-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 16px;
+  max-width: 1200px;  /* Giới hạn chiều rộng */
+  margin: 0 auto;     /* Tự động căn giữa */
+  padding: 16px 15px; /* Thêm đệm 2 bên (giống các trang khác) */
+}
+
+/* --- 1. Block Bộ lọc --- */
+.news-filters {
+  display: flex;
+  flex-wrap: wrap; /* Tự xuống dòng trên mobile */
+  gap: 12px;
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid var(--news-border);
+}
+.news-filters select,
+.news-filters input[type="search"],
+.news-filters button {
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--news-border);
+  font-size: 15px;
+}
+.news-filters input[type="search"] {
+  flex-grow: 1; /* Ô tìm kiếm tự dãn ra */
+  min-width: 200px;
+}
+.news-filters button {
+  background-color: var(--news-blue);
+  color: white;
+  font-weight: 600;
+  border-color: var(--news-blue);
+  cursor: pointer;
+}
+.news-filters button.admin-btn {
+  background-color: #198754; /* Màu xanh lá cho nút admin */
+  border-color: #198754;
+  margin-left: auto; /* Đẩy nút này về bên phải */
+}
+
+/* --- 2. Block Nổi bật --- */
+.featured-block {
+  display: grid;
+  grid-template-columns: 1fr; /* 1 cột trên mobile */
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.07);
+  border: 1px solid var(--news-border);
+  text-decoration: none;
+  color: var(--news-text-dark);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.featured-block:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+.featured-img img {
+  width: 100%;
+  height: 350px; /* Chiều cao cố định cho ảnh nổi bật */
+  object-fit: cover; /* Đảm bảo ảnh lấp đầy, không méo */
+  display: block;
+}
+.featured-content {
+  padding: 24px;
+}
+.featured-content .category-tag {
+  background-color: var(--news-blue-light);
+  color: var(--news-blue);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.featured-content h2 { /* Tiêu đề lớn */
+  font-size: 28px;
+  font-weight: 700;
+  margin: 12px 0 8px 0;
+}
+.featured-content .subtitle { /* Tiêu đề phụ */
+  font-size: 18px;
+  color: var(--news-text-light);
+  margin-bottom: 12px;
+}
+.featured-content .excerpt { /* Nội dung 1 phần */
+  font-size: 16px;
+  line-height: 1.6;
+  /* Cắt nội dung sau 3 dòng */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
+}
+
+/* Layout desktop: 2 cột (ảnh bên, chữ bên) */
+@media (min-width: 768px) {
+  .featured-block {
+    grid-template-columns: 1fr 1fr; /* 2 cột bằng nhau */
+  }
+  .featured-img img {
+    height: 100%; /* Chiều cao tự dãn theo nội dung */
+  }
+}
+
+/* --- 3. Block Tin tức (3 cột) --- */
+.news-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* 1 cột trên mobile */
+  gap: 20px;
+}
+.news-card {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid var(--news-border);
+  text-decoration: none;
+  color: var(--news-text-dark);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.news-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 10px rgba(0,0,0,0.08);
+}
+.news-card-img img {
+  width: 100%;
+  height: 200px; /* Chiều cao cố định */
+  object-fit: cover;
+  display: block;
+}
+.news-card-content {
+  padding: 16px;
+}
+.news-card-content h3 { /* Tiêu đề */
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  /* Cắt tiêu đề sau 2 dòng */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
+}
+.news-card-content .subtitle { /* Tiêu đề phụ */
+  font-size: 15px;
+  color: var(--news-text-light);
+  /* Cắt tiêu đề phụ sau 2 dòng */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
+}
+
+/* Layout desktop: 3 cột */
+@media (min-width: 768px) {
+  .news-grid {
+    /* Yêu cầu scroll ngang, cố định 3 block */
+    display: flex;
+    overflow-x: auto;
+    gap: 20px;
+    padding-bottom: 10px; /* Thêm khoảng trống cho thanh scroll */
+    
+    /* Hiệu ứng scroll-snap (mượt) */
+    scroll-snap-type: x mandatory;
+  }
+  .news-card {
+    /* Mỗi card chiếm 1/3, trừ đi 2 khoảng gap */
+    flex: 0 0 calc(33.333% - 14px);
+    scroll-snap-align: start; /* Dừng lại ở mỗi card */
+  }
+  
+  /* Ẩn thanh scrollbar (nhưng vẫn scroll được) */
+  .news-grid::-webkit-scrollbar {
+    height: 8px;
+  }
+  .news-grid::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  .news-grid::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+  }
+  .news-grid::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+  }
+}
+
+/* Layout mobile (dưới 768px) thì quay về dạng grid 1 cột */
+@media (max-width: 767.98px) {
+  .news-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    overflow-x: hidden; /* Tắt scroll ngang */
+    scroll-snap-type: none;
+  }
+  .news-card {
+    flex: auto; /* Bỏ flex-basis */
+    scroll-snap-align: none;
+  }
+}
+
+/* =========================================
+   CSS MỚI: NÂNG CẤP NỀN CHO RANK LABEL (TOP 1, 2, 3)
+   ========================================= */
+
+/* --- 4. Block Bảng xếp hạng --- */
+.ranking-block {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.ranking-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--news-text-dark);
+  border-bottom: 3px solid var(--news-blue);
+  padding-bottom: 8px;
+  display: inline-block; /* Chỉ gạch chân nội dung chữ */
+}
+
+/* Định nghĩa màu rank */
+:root {
+  /* Vàng (Top 3) */
+  --rank-gold: #D4AF37;      
+  --rank-gold-bg: #fff9ea;
+  --rank-gold-shadow: rgba(212, 175, 55, 0.3);
+
+  /* Bạch Kim (Top 2) - Dùng màu xanh xám để nổi hơn Vàng */
+  --rank-platinum: #a8b8c2;  
+  --rank-platinum-bg: #eef2f5;
+  --rank-platinum-shadow: rgba(168, 184, 194, 0.6); /* Bóng đậm hơn */
+
+  /* Kim Cương (Top 1) */
+  --rank-diamond: #b9f2ff;   
+  --rank-diamond-dark: #3c91a8;
+  --rank-diamond-bg: #f0faff;
+  --rank-diamond-shadow: rgba(185, 242, 255, 0.7);
+}
+
+/* Bật "position: relative" để chứa "cờ" (::after) */
+.rank-top1-card,
+.rank-person-card {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+/* --- Style cho CỜ (BANNER) --- */
+.rank-order-1::after,
+.rank-order-2::after,
+.rank-order-3::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 40px 40px 0;
+  z-index: 10;
+  filter: drop-shadow(-1px 1px 1px rgba(0,0,0,0.2));
+}
+
+/* === TOP 1 (KIM CƯƠNG) === */
+.rank-top1-card.rank-order-1 {
+  background: linear-gradient(135deg, var(--rank-diamond-bg) 0%, #ffffff 100%);
+  color: var(--rank-diamond-dark); /* Chữ màu tối */
+  border: 3px solid var(--rank-diamond);
+  box-shadow: 0 5px 30px var(--rank-diamond-shadow); /* Nổi bật nhất */
+  
+  display: flex;
+  flex-direction: column; 
+  border-radius: 10px;
+
+}
+.rank-top1-card.rank-order-1::after {
+  border-color: transparent var(--rank-diamond) transparent transparent;
+}
+/* Style cho ảnh, tên... */
+.rank-top1-img { width: 100%; height: 250px; object-fit: cover; object-position: center top; }
+.rank-top1-content { padding: 24px; text-align: center; }
+.rank-top1-content .rank-name { font-size: 26px; font-weight: 700; margin: 8px 0; color: #000; }
+.rank-top1-content .rank-info { font-size: 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin-top: 12px; opacity: 1; }
 
 
-<%= new Intl.NumberFormat('vi-VN').format(value) %>
+/* SỬA LỖI CĂN DỌC (TOP 1) - style.css, gần dòng 130 */
+.rank-top1-content .rank-label {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--rank-diamond-dark);
+  background-color: var(--rank-diamond);
+  border: 1px solid var(--rank-diamond-dark);
+  border-radius: 999px;
+
+  /* --- BỘ CĂN CHỈNH MỚI --- */
+  display: inline-flex;       /* Bật Flexbox */
+  align-items: center;       /* Căn giữa theo chiều dọc */
+  justify-content: center;   /* (Căn giữa ngang, tùy chọn) */
+  height: 32px;              /* Đặt chiều cao CỐ ĐỊNH */
+  padding: 0 14px;           /* CHỈ dùng padding ngang */
+  line-height: 1;            /* Reset line-height để tránh xung đột */
+}
+
+/* Layout desktop Top 1 */
+@media (min-width: 768px) {
+  .rank-top1-card.rank-order-1 { flex-direction: row; align-items: center; }
+  .rank-top1-img { width: 300px; height: 300px; }
+  .rank-top1-content { flex: 1; text-align: left; padding: 32px; }
+  .rank-top1-content .rank-info { justify-content: flex-start; }
+}
+
+
+.rank-person-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid var(--news-border);
+  
+  /* BỐ CỤC FLEX MỚI */
+  display: flex;
+  align-items: center; /* Căn dọc ảnh và text */
+  gap: 16px;
+  padding: 16px;
+  text-align: left; /* Căn trái toàn bộ text */
+  
+  /* Xóa bỏ: flex-basis, scroll-snap-align, text-align: center */
+}
+.rank-person-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--news-border);
+  flex-shrink: 0; /* Ngăn avatar bị co lại */
+  
+  /* Xóa bỏ: margin auto */
+}
+.rank-person-card .rank-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--news-text-dark);
+  margin: 4px 0 8px 0; /* Xóa margin-bottom cũ, thêm margin-top/bottom mới */
+}
+.rank-person-card .rank-info {
+  font-size: 15px;
+  color: var(--news-text-light);
+  line-height: 1.5;
+}
+.rank-person-text-content {
+  flex-grow: 1; /* Cho phép khối text lấp đầy không gian còn lại */
+}
+
+/* SỬA LỖI CĂN DỌC (TOP 2+) - style.css, gần dòng 134 */
+.rank-person-card .rank-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--news-text-light);
+  margin-bottom: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--news-border);
+  background-color: #f8f9fa;
+
+  /* --- BỘ CĂN CHỈNH MỚI (CHỈ PADDING) --- */
+  display: inline-block;
+  text-align: center;
+  line-height: 1; /* Reset line-height */
+  
+  /* Ép xuống: 4px đệm trên, 3px đệm dưới */
+  padding: 4px 12px 3px 12px; 
+}
+
+/* === TOP 2 (BẠCH KIM) - NỔI BẬT HƠN === */
+.rank-person-card.rank-order-3 {
+  border-width: 3px;
+  border-color: var(--rank-platinum);
+  background: linear-gradient(180deg, #ffffff 0%, var(--rank-platinum-bg) 100%);
+  box-shadow: 0 4px 20px var(--rank-platinum-shadow); /* Bóng to hơn Vàng */
+}
+.rank-person-card.rank-order-3::after {
+  border-color: transparent var(--rank-platinum) transparent transparent;
+}
+.rank-person-card.rank-order-3 .rank-person-img {
+  border-color: var(--rank-platinum);
+}
+/* Nền cho "TOP 2" */
+.rank-person-card.rank-order-3 .rank-label {
+  background-color: var(--rank-platinum-bg);
+  border-color: var(--rank-platinum);
+  color: #334155;
+}
+
+/* === TOP 3 (VÀNG) === */
+.rank-person-card.rank-order-2 {
+  border-width: 3px;
+  border-color: var(--rank-gold);
+  background: linear-gradient(180deg, #ffffff 0%, var(--rank-gold-bg) 100%);
+  box-shadow: 0 4px 15px var(--rank-gold-shadow); /* Bóng nhỏ hơn Bạc */
+}
+.rank-person-card.rank-order-2::after {
+  border-color: transparent var(--rank-gold) transparent transparent;
+}
+.rank-person-card.rank-order-2 .rank-person-img {
+  border-color: var(--rank-gold);
+}
+/* Nền cho "TOP 3" */
+.rank-person-card.rank-order-2 .rank-label {
+  background-color: var(--rank-gold-bg);
+  border-color: var(--rank-gold);
+  color: #b87333;
+}
+
+
+/* === Layout cuộn ngang cho Top 2,3,4... === */
+@media (min-width: 768px) {
+  .rank-others-grid {
+    display: flex;
+    overflow-x: auto;
+    gap: 20px;
+    padding-bottom: 10px;
+    scroll-snap-type: x mandatory;
+  }
+  .rank-others-grid::-webkit-scrollbar { height: 8px; }
+  .rank-others-grid::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+  .rank-others-grid::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+  .rank-others-grid::-webkit-scrollbar-thumb:hover { background: #aaa; }
+}
+
+.rank-person-card .rank-info {
+  font-size: 15px;
+  color: var(--news-text-light);
+  line-height: 1.5;
+}
+
+/* Layout desktop: 3 cột (ĐÃ SỬA THÀNH CUỘN NGANG) */
+@media (min-width: 768px) {
+  .rank-others-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 cột */
+  gap: 16px;
+  /* Xóa bỏ: overflow-x, scroll-snap-type, padding-bottom */
+}
+  }
+
+  @media (max-width: 767px) {
+  .rank-others-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+  /* Style cho thanh scrollbar (giống khối Tin tức) */
+  .rank-others-grid::-webkit-scrollbar {
+    height: 8px;
+  }
+  .rank-others-grid::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  .rank-others-grid::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+  }
+  .rank-others-grid::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+  }
+
+
+/* =========================
+   CSS CHO NÚT SỬA/XOÁ (ADMIN)
+   ========================= */
+
+/* Container bọc các nút */
+.admin-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: #f8f9fa; /* Màu nền xám nhạt */
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+}
+
+/* Style chung cho 2 nút */
+.admin-actions .btn-edit,
+.admin-actions .btn-delete {
+  padding: 8px 16px;
+  text-decoration: none;
+  font-weight: 600;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Nút Sửa (Màu xanh dương) */
+.admin-actions .btn-edit {
+  background-color: #0d6efd;
+  border: 1px solid #0d6efd;
+}
+.admin-actions .btn-edit:hover {
+  background-color: #0b5ed7;
+}
+
+/* Nút Xoá (Màu đỏ) */
+.admin-actions .btn-delete {
+  background-color: #dc3545;
+  border: 1px solid #dc3545;
+}
+.admin-actions .btn-delete:hover {
+  background-color: #b02a37;
+}
+
+/* =========================
+   CSS CHO DÒNG CHỮ CHẠY (TICKER)
+   ========================= */
+.ticker-container {
+  background-color: #0d6efd; /* Màu xanh chủ đạo */
+  color: white;
+  font-weight: 600;
+  padding: 10px 0;
+  overflow: hidden; /* Ẩn nội dung bị tràn */
+  width: 100%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+}
+
+/* Nội dung chạy (dùng animation) */
+.ticker-content {
+  display: inline-block;
+  white-space: nowrap; /* Giữ nội dung trên 1 hàng */
+  padding-left: 100%; /* Bắt đầu từ ngoài màn hình bên phải */
+  
+  /* Gọi animation */
+  animation: ticker-scroll 25s linear infinite;
+}
+
+/* Định nghĩa animation */
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%); /* Di chuyển sang hết bên trái */
+  }
+}
+
+/* Dừng chạy khi hover chuột */
+.ticker-container:hover .ticker-content {
+  animation-play-state: paused;
+}
+
+/* ===================================
+   BỔ SUNG CSS CHO CÁC NÚT DẠNG LINK <a>
+   =================================== */
+
+/* Style <a> (links) trong bộ lọc để TRÔNG GIỐNG buttons */
+.news-filters a.button {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+  text-decoration: none; /* Bỏ gạch chân */
+  cursor: pointer;
+  line-height: 1.2; /* Căn chỉnh chữ (có thể cần cho icon) */
+  box-sizing: border-box;
+}
+
+/* Nút "+ Soạn bài mới" (màu xanh lá) */
+.news-filters a.admin-btn {
+  background-color: #198754;
+  border: 1px solid #198754;
+  margin-left: auto; /* Đẩy về bên phải */
+}
+.news-filters a.admin-btn:hover {
+  background-color: #157347;
+}
+
+/* Nút "Quản lý BXH" (màu xám) */
+/* (Target tất cả a.button mà KHÔNG CÓ class .admin-btn) */
+.news-filters a.button:not(.admin-btn) {
+  background-color: #6c757d; /* Màu xám */
+  border: 1px solid #6c757d;
+}
+.news-filters a.button:not(.admin-btn):hover {
+  background-color: #5c636a;
+}
+/* === CSS CHO THANH HEADER TỰ ĐỘNG ẨN === */
+
+/* 1. Wrapper mới sẽ là element dính (sticky) */
+.sticky-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1000; /* Luôn nằm trên cùng */
+
+  /* Thêm transition để trượt mượt mà */
+  transition: transform 0.3s ease-in-out;
+  will-change: transform; /* Báo cho trình duyệt để tối ưu */
+}
+
+/* 2. Class này được JS thêm vào để ẩn thanh header */
+.sticky-top-bar.sticky-top-bar--hidden {
+  transform: translateY(-100%);
+}
+/* === CSS CHO BADGE HẠN SỬ DỤNG (TRANG CHỦ) === */
+.promo-expiry-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px; /* Bo tròn */
+  margin-top: 6px;
+  border: 1px solid transparent;
+}
+
+/* Màu Xanh lá ( > 3 ngày) */
+.promo-expiry-badge--safe {
+  background-color: #f0fdf4; /* Nền xanh lá rất nhạt */
+  color: #166534;           /* Chữ xanh lá đậm */
+  border-color: #bbf7d0;     /* Viền xanh lá nhạt */
+}
+
+/* Màu Đỏ ( <= 3 ngày) */
+.promo-expiry-badge--urgent {
+  background-color: #fef2f2; /* Nền đỏ rất nhạt */
+  color: #dc2626;           /* Chữ đỏ đậm */
+  border-color: #fecaca;     /* Viền đỏ nhạt */
+}
+/* === SỬA LỖI CĂN CHỈNH THẺ CTKM (TRANG CHỦ) === */
+
+.promo-item {
+  display: flex !important;         /* Bật Flexbox */
+  flex-direction: column !important; /* Xếp dọc */
+}
+
+/* Khối nội dung (Tên, Giảm) sẽ tự co giãn */
+.promo-item__content {
+  flex-grow: 1; 
+}
+
+/* Huy hiệu ngày hết hạn sẽ bị đẩy xuống dưới */
+.promo-expiry-badge {
+  margin-top: 12px; /* Thêm khoảng cách với nội dung bên trên */
+}
+
+/* === CSS CHO BANNER THI ĐUA NỘI BỘ === */
+.internal-contest-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fff3c4 100%); /* Nền vàng nhạt */
+  border: 1px solid #fde68a; /* Viền vàng */
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 25px; /* Giống các khối .search-section */
+  box-shadow: 0 4px 15px rgba(250, 176, 5, 0.1);
+}
+
+.contest-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.contest-content {
+  flex-grow: 1;
+}
+
+.contest-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #b45309; /* Màu chữ vàng đậm */
+}
+
+.contest-desc {
+  font-size: 14px;
+  color: #ca8a04;
+  margin: 4px 0 8px 0;
+}
+
+.contest-expiry {
+  font-size: 13px;
+  font-weight: 600;
+  color: #b45309;
+}
+
+.contest-link {
+  flex-shrink: 0;
+  background-color: #b45309;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+.contest-link:hover {
+  background-color: #92400e;
+}

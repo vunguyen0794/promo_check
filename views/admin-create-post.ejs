@@ -1,0 +1,233 @@
+<%- include('partials/header', {title: title, currentPage: currentPage, time: time}) %>
+
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+<style>
+  .admin-form {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 24px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .admin-form .form-group {
+    margin-bottom: 20px;
+  }
+  .admin-form .form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+  }
+  .admin-form .form-group input[type="text"],
+  .admin-form .form-group input[type="url"],
+  .admin-form .form-group input[type="datetime-local"],
+  .admin-form .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 15px;
+    box-sizing: border-box; /* Quan trọng */
+  }
+  .admin-form .form-group-inline {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap; /* Xuống dòng trên mobile */
+  }
+  .admin-form .form-group-inline .form-group {
+    flex: 1;
+    min-width: 200px;
+  }
+  .admin-form .form-group-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .admin-form .form-group-checkbox input {
+    width: auto;
+  }
+
+  /* CSS cho trình soạn thảo Quill */
+  #editor-container {
+    height: 350px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+  }
+  /* Tùy chỉnh thanh công cụ Quill */
+  .ql-toolbar.ql-snow {
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom: 0;
+  }
+
+  .admin-form button {
+    padding: 12px 20px;
+    font-size: 16px;
+    font-weight: 600;
+    background-color: #0d6efd; /* Màu xanh */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .admin-form button.btn-draft {
+    background-color: #6c757d; /* Màu xám */
+  }
+  .admin-form .error-message {
+    background-color: #ffebee;
+    color: #c62828;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+</style>
+
+
+<form class="admin-form" id="post-form" method="POST" action="/admin/create-post">
+  <div class="dash-title" style="margin-bottom: 20px;">Soạn bài đăng mới</div>
+
+  <% if (error) { %>
+    <div class="error-message">
+      <strong>Lỗi:</strong> <%= error %>
+    </div>
+  <% } %>
+
+  <input type="hidden" name="content_html" id="content_html">
+
+  <input type="hidden" name="status" id="form_status" value="published">
+
+  <div class="form-group">
+    <label for="title">Tiêu đề lớn (Bắt buộc)</label>
+    <input type="text" id="title" name="title" value="<%= post.title || '' %>" required>
+  </div>
+
+  <div class="form-group">
+    <label for="subtitle">Tiêu đề phụ (Tóm tắt ngắn)</label>
+    <input type="text" id="subtitle" name="subtitle" value="<%= post.subtitle || '' %>">
+  </div>
+
+  <div class="form-group">
+    <label for="cover_image_url">Link Ảnh bìa (Cover Image URL)</label>
+    <input type="url" id="cover_image_url" name="cover_image_url" value="<%= post.cover_image_url || '' %>" placeholder="https://...">
+    <small>Lưu ý: Bạn hãy tải ảnh lên (ví dụ: Google Drive) và dán link vào đây, tương tự như tính năng "Chiến giá".</small>
+  </div>
+
+  <div class="form-group-inline">
+    <div class="form-group">
+      <label for="category">Chủ đề (Bắt buộc)</label>
+      <select id="category" name="category" required>
+        <option value="" <%= !post.category ? 'selected' : '' %>>-- Chọn chủ đề --</option>
+        <option value="Sự kiện" <%= post.category === 'Sự kiện' ? 'selected' : '' %>>Sự kiện</option>
+        <option value="Thông báo" <%= post.category === 'Thông báo' ? 'selected' : '' %>>Thông báo</option>
+        <option value="Sản phẩm" <%= post.category === 'Sản phẩm' ? 'selected' : '' %>>Sản phẩm</option>
+        <option value="Nhân sự" <%= post.category === 'Nhân sự' ? 'selected' : '' %>>Nhân sự</option>
+        <option value="Đào tạo" <%= post.category === 'Đào tạo' ? 'selected' : '' %>>Đào tạo</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="published_at">Ngày đăng (Hẹn giờ)</label>
+      <input type="datetime-local" id="published_at" name="published_at">
+      <small>Bỏ trống sẽ đăng ngay lập tức.</small>
+    </div>
+  </div>
+
+  <div class="form-group form-group-checkbox">
+    <input type="checkbox" id="is_featured" name="is_featured" <%= post.is_featured === 'on' ? 'checked' : '' %>>
+    <label for="is_featured" style="margin-bottom: 0;">Ghim lên đầu trang (Tin nổi bật)?</label>
+  </div>
+
+  <div class="form-group form-group-checkbox">
+    <input type="checkbox" id="send_email" name="send_email" checked>
+    <label for="send_email" style="margin-bottom: 0;">Gửi thông báo email cho mọi người?</label>
+  </div>
+
+  <div class="form-group">
+    <label for="extra_emails">Email bổ sung (Phân cách bằng dấu phẩy)</label>
+    <input type="text" id="extra_emails" name="extra_emails" placeholder="ví dụ: group@congty.com, sep@congty.com">
+  </div>
+
+
+
+  <div class="form-group">
+    <label>Nội dung chính (Bắt buộc)</label>
+    <div id="toolbar-container">
+      <span class="ql-formats">
+        <select class="ql-font"></select>
+        <select class="ql-size"></select>
+      </span>
+      <span class="ql-formats">
+        <button class="ql-bold"></button>
+        <button class="ql-italic"></button>
+        <button class="ql-underline"></button>
+        <button class="ql-strike"></button>
+      </span>
+      <span class="ql-formats">
+        <select class="ql-color"></select>
+        <select class="ql-background"></select>
+      </span>
+      <span class="ql-formats">
+        <button class="ql-list" value="ordered"></button>
+        <button class="ql-list" value="bullet"></button>
+        <select class="ql-align"></select>
+      </span>
+      <span class="ql-formats">
+        <button class="ql-link"></button>
+        <button class="ql-image"></button>
+      </span>
+    </div>
+    <div id="editor-container"><%- post.content_html || '' %></div>
+  </div>
+
+  <div style="display: flex; gap: 12px;">
+    <button type="submit" id="btn-publish">Đăng bài</button>
+    <button type="submit" id="btn-draft" class="btn-draft">Lưu nháp</button>
+  </div>
+</form>
+
+
+<script>
+  // Khởi tạo trình soạn thảo Quill
+  var quill = new Quill('#editor-container', {
+    modules: {
+      toolbar: '#toolbar-container' // Sử dụng thanh công cụ tùy chỉnh ở trên
+    },
+    theme: 'snow',
+    placeholder: 'Nhập nội dung bài viết ở đây...'
+  });
+
+  // Lấy form và input ẩn
+  var form = document.getElementById('post-form');
+  var contentHtmlInput = document.getElementById('content_html');
+
+  // Lấy 2 nút
+  var btnPublish = document.getElementById('btn-publish');
+  var btnDraft = document.getElementById('btn-draft');
+  var statusInput = document.getElementById('form_status');
+
+  // Khi bấm nút "Đăng bài"
+  btnPublish.addEventListener('click', function(e) {
+    // Cập nhật giá trị HTML vào input ẩn
+    contentHtmlInput.value = quill.root.innerHTML;
+    // Đặt trạng thái là "published"
+    statusInput.value = 'published';
+  });
+
+  // Khi bấm nút "Lưu nháp"
+  btnDraft.addEventListener('click', function(e) {
+    e.preventDefault(); // Ngăn submit form mặc định
+
+    // Cập nhật giá trị HTML vào input ẩn
+    contentHtmlInput.value = quill.root.innerHTML;
+    // Đặt trạng thái là "draft"
+    statusInput.value = 'draft';
+
+    // Gửi form đi
+    form.submit();
+  });
+</script>
+
+<%- include('partials/footer') %>

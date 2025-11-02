@@ -1,0 +1,165 @@
+<%- include('partials/header', {title: title, currentPage: currentPage, time: time}) %>
+
+<div class="newsfeed-container">
+
+  <div class="dash-card">
+  <form class="news-filters" action="/newsfeed" method="GET">
+
+    <select name="period" id="filter-period">
+      <option value="">Chọn Chu kỳ BXH</option>
+      <% allPeriods.forEach(function(period) { %>
+        <option value="<%= period %>" <%= selectedPeriod === period ? 'selected' : '' %>>
+          <%= period %>
+        </option>
+      <% }) %>
+    </select>
+
+    <select name="category" id="filter-category">
+      <option value="">Tất cả Chủ đề</option>
+      <% allCategories.forEach(function(cat) { %>
+        <option value="<%= cat %>" <%= selectedCategory === cat ? 'selected' : '' %>>
+          <%= cat %>
+        </option>
+      <% }) %>
+    </select>
+
+    <input type="search" name="q" id="filter-search" placeholder="Tìm theo tiêu đề, phụ đề..." value="<%= searchQuery %>">
+
+    <button type="submit">Lọc / Tìm kiếm</button>
+
+    <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
+      <a href="/admin/create-post" class="news-filters button admin-btn" >+ Soạn bài mới</a>
+      <a href="/admin/ranking" class="news-filters button">
+        🏆 Quản lý BXH
+      </a>
+    <% } %>
+  </form>
+</div>
+  
+  <% if (error) { %>
+    <div class="dash-card" style="background-color: #ffebee; color: #c62828; padding: 16px;">
+      <strong>Lỗi:</strong> <%= error %>
+    </div>
+  <% } %>
+
+  <% if (featuredPost) { %>
+    <a href="/newsfeed/post/<%= featuredPost.id %>" class="featured-block">
+      <div class="featured-img">
+        <img src="<%= featuredPost.cover_image_url || 'https://picsum.photos/800/400' %>" alt="Ảnh nổi bật">
+      </div>
+      <div class="featured-content">
+        <% if (featuredPost.category) { %>
+          <span class="category-tag"><%= featuredPost.category %></span>
+        <% } %>
+        
+        <h2><%= featuredPost.title %></h2>
+        
+        <% if (featuredPost.subtitle) { %>
+          <p class="subtitle"><%= featuredPost.subtitle %></p>
+        <% } %>
+
+        <% /* --- DÒNG MỚI --- */ %>
+<p class="dash-muted" style="font-size: 14px; margin-bottom: 12px;">
+  Đăng ngày: <%= new Date(featuredPost.published_at).toLocaleDateString('vi-VN') %>
+</p>
+<% /* --- HẾT DÒNG MỚI --- */ %>
+        
+        <% if (featuredPost.content) { %>
+          <p class="excerpt">
+            <%= featuredPost.content %>
+          </p>
+        <% } %>
+      </div>
+    </a>
+  <% } else if (!error) { %>
+    <div class="dash-card"><p class="dash-muted">Không có tin nổi bật nào.</p></div>
+  <% } %>
+
+
+  <% if (newsPosts && newsPosts.length > 0) { %>
+    <div class="news-grid">
+      
+      <% newsPosts.forEach(function(post) { %>
+        <a href="/newsfeed/post/<%= post.id %>" class="news-card">
+          <div class="news-card-img">
+            <img src="<%= post.cover_image_url || 'https://picsum.photos/300/300' %>" alt="Ảnh tin tức">
+          </div>
+          <div class="news-card-content">
+            <h3><%= post.title %></h3>
+            <% if (post.subtitle) { %>
+              <p class="subtitle"><%= post.subtitle %></p>
+            <% } %>
+
+            <% /* --- DÒNG MỚI --- */ %>
+<p class="dash-muted" style="font-size: 13px; margin-top: 8px;">
+  <%= new Date(post.published_at).toLocaleDateString('vi-VN') %>
+</p>
+<% /* --- HẾT DÒNG MỚI --- */ %>
+          </div>
+        </a>
+      <% }) %>
+
+    </div>
+  <% } else if (!error) { %>
+    <div class="dash-card"><p class="dash-muted">Không có tin tức nào.</p></div>
+  <% } %>
+
+
+  <% if (rankingTop1 || (rankingOthers && rankingOthers.length > 0)) { %>
+    <div class="ranking-block">
+      <div class="dash-title" style="font-size: 24px; font-weight: 700;">Bảng Xếp Hạng (<%= selectedPeriod %>)</div>
+
+      <% if (rankingTop1) { %>
+        <div class="rank-top1-card rank-order-<%= rankingTop1.rank_order %>">
+          <img src="<%= rankingTop1.avatar_image_url || 'https://picsum.photos/400/400' %>" alt="Avatar Top 1" class="rank-top1-img">
+          <div class="rank-top1-content">
+            <div class="rank-label">🏆 TOP 1</div>
+            <div class="rank-name"><%= rankingTop1.full_name %></div>
+            <div class="rank-info">
+              <% if (rankingTop1.sales_percentage) { %>
+    <span style="color: #c62828; font-weight: 700;">Đạt: <strong><%= rankingTop1.sales_percentage %>%</strong></span>
+  <% } %>
+              <% if (rankingTop1.birth_year) { %>
+                <span>Năm sinh: <strong><%= rankingTop1.birth_year %></strong></span>
+              <% } %>
+              <% if (rankingTop1.store) { %>
+                <span>Cửa hàng: <strong><%= rankingTop1.store %></strong></span>
+              <% } %>
+              <% if (rankingTop1.department) { %>
+                <span>Bộ phận: <strong><%= rankingTop1.department %></strong></span>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+      <% if (rankingOthers && rankingOthers.length > 0) { %>
+        <div class="rank-others-grid">
+          
+          <% rankingOthers.forEach(function(person) { %>
+            <div class="rank-person-card rank-order-<%= person.rank_order %>">
+              <img src="<%= person.avatar_image_url || 'https://picsum.photos/400/400' %>" alt="Avatar <%= person.full_name %>" class="rank-person-img">
+              <div class="rank-person-text-content"></div>
+              <div class="rank-label">TOP <%= person.rank_order %></div>
+              <div class="rank-name"><%= person.full_name %></div>
+              <% if (person.sales_percentage) { %>
+  <div class="rank-info" style="color: #c62828; font-weight: 700; margin-bottom: 4px;">
+    Đạt: <%= person.sales_percentage %>%
+  </div>
+<% } %>
+              <div class="rank-info">
+                <%= person.store || '' %><br>
+                <%= person.department || '' %>
+              </div>
+            </div>
+          <% }) %>
+
+        </div>
+      <% } %>
+
+    </div>
+  <% } else if (!error) { %>
+    <div class="dash-card"><p class="dash-muted">Chưa có dữ liệu Bảng xếp hạng.</p></div>
+  <% } %>
+
+</div> <%- include('partials/footer') %>

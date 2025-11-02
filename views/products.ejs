@@ -1,27 +1,89 @@
 <%- include('partials/header', { title, currentPage }) %>
-
+<style>
+  /* CSS MỚI ĐỂ CĂN CHỈNH KHỐI SẮP XẾP */
+  .sort-block {
+    display: flex;
+    justify-content: flex-end; /* Đẩy sang phải */
+    align-items: center;     /* Căn giữa theo chiều dọc */
+    font-size: 14px;
+    gap: 12px;
+    margin: -8px 0 12px 0; /* Điều chỉnh khoảng cách */
+  }
+  .sort-block a {
+    background: none !important;
+    box-shadow: none !important;
+    padding: 4px 0 !important;
+    border-bottom: 2px solid transparent;
+    border-radius: 0 !important;
+  }
+  .sort-block a:hover {
+    color: #0d6efd;
+  }
+  .sort-block a.active {
+    color: #0d6efd;
+    border-bottom: 2px solid #0d6efd;
+  }
+</style>
 <div class="container">
   <div class="dash-card">
     <div class="dash-title">Tất cả sản phẩm</div>
+
+    <%
+      // Helper để tạo link mà vẫn giữ các bộ lọc
+      const createQueryString = (overrides = {}) => {
+        const params = new URLSearchParams();
+        params.set('q', overrides.q !== undefined ? overrides.q : (q || ''));
+        params.set('category', overrides.category !== undefined ? overrides.category : (selectedCategory || ''));
+        params.set('sort', overrides.sort !== undefined ? overrides.sort : (sort || 'sku_asc'));
+        params.set('page', overrides.page !== undefined ? overrides.page : 1);
+        
+        // Chỉ giữ lại các param có giá trị
+        const finalParams = new URLSearchParams();
+        if (params.get('q')) finalParams.set('q', params.get('q'));
+        if (params.get('category')) finalParams.set('category', params.get('category'));
+        if (params.get('sort') !== 'sku_asc') finalParams.set('sort', params.get('sort'));
+        if (params.get('page') > 1) finalParams.set('page', params.get('page'));
+        
+        return '?' + finalParams.toString();
+      };
+    %>
+
     <form method="get" action="/products" style="margin-bottom:12px; display:flex; gap:8px;">
+      <input type="hidden" name="category" value="<%= selectedCategory %>">
+      <input type="hidden" name="sort" value="<%= sort %>">
       <input type="text" name="q" value="<%= q %>" placeholder="Tìm theo SKU/Tên/Brand"
              class="search-input" style="flex:1; padding:8px 10px; border:1px solid #e5e7eb; border-radius:10px;">
       <button class="btn" type="submit" style="padding:8px 12px;">Tìm kiếm</button>
     </form>
 
     <div class="category-tabs">
-      <a href="/products?q=<%= encodeURIComponent(q) %>" 
+      <a href="<%= createQueryString({ category: '', page: 1 }) %>" 
          class="<%= selectedCategory === '' ? 'active' : '' %>">
         Tất cả
       </a>
       <% (categories || []).forEach(function(cat){ %>
-        <a href="/products?q=<%= encodeURIComponent(q) %>&category=<%= encodeURIComponent(cat) %>" 
+        <a href="<%= createQueryString({ category: cat, page: 1 }) %>" 
            class="<%= selectedCategory === cat ? 'active' : '' %>">
           <%= cat %>
         </a>
       <% }) %>
     </div>
 
+    <div class="sort-block"></div>
+    <span>Sắp xếp theo:</span>
+      <a href="<%= createQueryString({ sort: 'sku_asc' }) %>" 
+         class="<%= sort === 'sku_asc' ? 'active' : '' %>" style="background: none; box-shadow: none;">
+        Mặc định
+      </a>
+      <a href="<%= createQueryString({ sort: 'price_desc' }) %>" 
+         class="<%= sort === 'price_desc' ? 'active' : '' %>" style="background: none; box-shadow: none;">
+        Giá cao nhất
+      </a>
+      <a href="<%= createQueryString({ sort: 'price_asc' }) %>" 
+         class="<%= sort === 'price_asc' ? 'active' : '' %>" style="background: none; box-shadow: none;">
+        Giá thấp nhất
+      </a>
+    </div>
     <div class="c-product-grid">
       <% (items||[]).forEach(function(s){ %>
         <a class="product-card" href="/search-promotion?query=<%= s.sku %>">
@@ -40,11 +102,11 @@
     <% if (totalPages > 1) { %>
       <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
         <% if (page > 1) { %>
-          <a class="btn-view-more" href="/products?q=<%= encodeURIComponent(q) %>&page=<%= page-1 %>">← Trước</a>
+          <a class="btn-view-more" href="<%= createQueryString({ page: page - 1 }) %>">← Trước</a>
         <% } %>
         <span style="color:#475569;">Trang <strong><%= page %></strong>/<%= totalPages %></span>
         <% if (page < totalPages) { %>
-          <a class="btn-view-more" href="/products?q=<%= encodeURIComponent(q) %>&page=<%= page+1 %>">Sau →</a>
+          <a class="btn-view-more" href="<%= createQueryString({ page: page + 1 }) %>">Sau →</a>
         <% } %>
       </div>
     <% } %>

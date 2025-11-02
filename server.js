@@ -21,6 +21,7 @@ const { google } = require('googleapis');
 const { Readable } = require('stream');
 const fs = require('fs');
 const { BigQuery } = require('@google-cloud/bigquery');
+const { sendNewPostEmail } = require('./utils/mailer');
 
 const isVercel = !!process.env.VERCEL;
 
@@ -79,16 +80,46 @@ app.use(cookieSession({
   maxAge: 24 * 60 * 60 * 1000,
 }));
 
-
-// share user/time ra view
-app.use((req, res, next) => {
+// ======================= MIDDLEWARE LẤY CÀI ĐẶT CHUNG =======================
+// Middleware này sẽ chạy TRƯỚC TẤT CẢ các route (app.get, app.post)
+app.use(async (req, res, next) => {
+  // Gắn user (từ code cũ) và thời gian vào res.locals
   res.locals.user = req.session?.user || null;
   res.locals.time = new Date().toLocaleTimeString('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  // Lấy dòng chữ chạy từ Supabase
+  try {
+    const { data } = await supabase
+      .from('site_settings')
+      .select('value')
+      .eq('id', 'ticker_text')
+      .single();
+
+    // Lưu nó vào res.locals để TẤT CẢ file EJS đều dùng được
+    res.locals.globalTickerText = data ? data.value : null;
+
+  } catch (e) {
+    console.error("Lỗi lấy global ticker:", e.message);
+    res.locals.globalTickerText = null;
+  }
+
+  // Cho phép request đi tiếp đến các route (ví dụ: app.get('/'))
   next();
 });
+// ======================= END MIDDLEWARE =======================
+
+// share user/time ra view
+//app.use((req, res, next) => {
+ // res.locals.user = req.session?.user || null;
+ // res.locals.time = new Date().toLocaleTimeString('vi-VN', {
+   // hour: '2-digit',
+   // minute: '2-digit',
+ // });
+ // next();
+//});
 
 // ------------------------- Auth middlewares -------------------------
 const wantsJSON = (req) =>
@@ -588,7 +619,11 @@ app.get('/', requireAuth, async (req, res) => {
     });
 
     // === PHẦN 3: LẤY SẢN PHẨM NGẪU NHIÊN ===
-    const { data: randomSkus } = await supabase.from('skus').select('*').limit(8);
+    const { data: randomSkus } = await supabase
+  .from('skus')
+  .select('*')
+  .order('list_price', { ascending: false, nullsFirst: false }) // Sắp xếp giá giảm dần
+  .limit(8);
 
     res.render('index', {
       title: 'Trang chủ', currentPage: 'home',
@@ -680,6 +715,7 @@ app.get('/products', requireAuth, async (req, res) => {
   const category = (req.query.category || '').trim(); // Tham số category mới
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
   const pageSize = 24;
+  const sort = (req.query.sort || 'sku_asc');
 
   // 1. Lấy danh sách categories cho các tab
   const { data: catData } = await supabase.from('skus').select('category');
@@ -697,8 +733,19 @@ app.get('/products', requireAuth, async (req, res) => {
     query = query.eq('category', category); // Lọc theo category
   }
 
+  let orderOptions = { ascending: true };
+  let orderField = 'sku';
+
+  if (sort === 'price_desc') {
+    orderField = 'list_price';
+    orderOptions = { ascending: false, nullsFirst: false }; // Giá null xuống cuối
+  } else if (sort === 'price_asc') {
+    orderField = 'list_price';
+    orderOptions = { ascending: true, nullsFirst: false }; // Giá null xuống cuối
+  }
+
   const { data: items, count } = await query
-    .order('sku', { ascending: true })
+    .order(orderField, orderOptions) // <-- ĐÃ THAY ĐỔI
     .range((page - 1) * pageSize, page * pageSize - 1);
 
   res.render('products', {
@@ -707,8 +754,11 @@ app.get('/products', requireAuth, async (req, res) => {
     q, items: items || [],
     page, total: count || 0, pageSize,
     categories, // Truyền danh sách categories ra view
-    selectedCategory: category // Truyền category đang chọn ra view
+    selectedCategory: category,
+    sort: sort // Truyền category đang chọn ra view
   });
+
+  
 });
 
 
@@ -1111,6 +1161,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
         title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
         product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
         error: 'Vui lòng nhập SKU.',
+        internalContest: null,
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       });
     }
@@ -1122,6 +1173,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
         title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
         product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
         error: 'Không tìm thấy thông tin cho SKU: ' + skuInput,
+         internalContest: null,
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       });
     }
@@ -1140,44 +1192,63 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
 
     // 3) Lọc theo SKU áp dụng / loại trừ
     let promotions = (promosRaw || []).filter(p => {
-      // Chỉ log cho CTKM đang bị lỗi để dễ theo dõi
-      if (p.name.includes('Đổi điểm thi - Laptop Asus')) {
-        console.log(`\n--- [DEBUG] Đang kiểm tra CTKM: "${p.name}" ---`);
-        console.log(`SKU sản phẩm đang check: ${product.sku}`);
 
-        const excludedSkusList = (p.promotion_excluded_skus || []).map(ex => ex.sku);
-        const isExcluded = excludedSkusList.includes(product.sku);
+            // Chuẩn hóa dữ liệu sản phẩm (viết thường)
+            const pBrand = (product.brand || '').toLowerCase();
+            const pCategory = (product.category || '').toLowerCase();
+            const pSubcat = (product.subcat || '').toLowerCase();
 
-        console.log(`Danh sách SKU loại trừ của CTKM này: [${excludedSkusList.join(', ')}]`);
-        console.log(`SKU "${product.sku}" có trong danh sách loại trừ không? -> ${isExcluded}`);
-      }
+            // 1. Kiểm tra Loại trừ (Luôn ưu tiên)
+            const isExcludedCheck = (p.promotion_excluded_skus || []).some(ex => ex.sku === product.sku);
+            if (isExcludedCheck) {
+                return false;
+            }
 
-      // --- Logic lọc gốc ---
-      const isExcludedCheck = (p.promotion_excluded_skus || []).some(ex => ex.sku === product.sku);
-      if (isExcludedCheck) {
-        return false;
-      }
+            // 2. Áp dụng cho Tất cả SKU
+            if (p.apply_to_all_skus) return true;
 
-      if (p.apply_to_all_skus) return true;
-      if (p.apply_brand_subcats && p.apply_brand_subcats.length > 0) {
-        // Kiểm tra xem SKU có khớp với BẤT KỲ cặp brand/subcat nào trong danh sách không
-        const isMatch = p.apply_brand_subcats.some(rule => 
-            rule.brand === product.brand && rule.subcat_id === product.subcat
-        );
-        if (isMatch) return true;
-        // Nếu không khớp, không return false vội, để check các quy tắc khác
-      }
-      if (p.apply_to_brands && p.apply_to_brands.includes(product.brand)) return true;
-      if (p.apply_to_categories && p.apply_to_categories.includes(product.category)) return true;
-      if (p.apply_to_subcats && p.apply_to_subcats.includes(product.subcat)) return true;
+            // 3. Áp dụng theo Brand + Subcat (viết thường)
+            if (p.apply_brand_subcats && p.apply_brand_subcats.length > 0) {
+                const isMatch = p.apply_brand_subcats.some(rule => 
+                    (rule.brand || '').toLowerCase() === pBrand && 
+                    (rule.subcat_id || '').toLowerCase() === pSubcat
+                );
+                if (isMatch) return true; 
+                // Quan trọng: Không return false vội, để check các rule khác
+            }
 
-      const isIncluded = (p.promotion_skus || []).some(ps => ps.sku === product.sku);
-      if (isIncluded) return true;
+            // 4. Áp dụng theo Brand (viết thường)
+            if (p.apply_to_brands && p.apply_to_brands.length > 0) {
+                const brandsLower = p.apply_to_brands.map(b => (b || '').toLowerCase());
+                if (brandsLower.includes(pBrand)) return true;
+            }
 
-      return false;
-    });
+            // 5. Áp dụng theo Category (viết thường)
+            if (p.apply_to_categories && p.apply_to_categories.length > 0) {
+                const catsLower = p.apply_to_categories.map(c => (c || '').toLowerCase());
+                if (catsLower.includes(pCategory)) return true;
+            }
+
+            // 6. Áp dụng theo Subcat (viết thường)
+            if (p.apply_to_subcats && p.apply_to_subcats.length > 0) {
+                const subcatsLower = p.apply_to_subcats.map(s => (s || '').toLowerCase());
+                if (subcatsLower.includes(pSubcat)) return true;
+            }
+
+            // 7. Áp dụng theo danh sách SKU
+            const isIncluded = (p.promotion_skus || []).some(ps => ps.sku === product.sku);
+            if (isIncluded) return true;
+
+            // Nếu không khớp rule nào
+            return false;
+        });
     console.log(`[DEBUG] Bước 3: Sau khi lọc theo SKU, còn lại ${promotions.length} CTKM.`);
 
+
+    const internalContest = promotions.find(p => p.promo_type === 'Thi đua nội bộ') || null;
+    const regularPromos = promotions.filter(p => p.promo_type !== 'Thi đua nội bộ');
+
+    console.log(`[DEBUG]   => Tách ra: ${internalContest ? 1 : 0} Thi đua, ${regularPromos.length} CTKM thường.`);
     // 4) Map tên CTKM “áp dụng cùng/loại trừ”
     if (promotions.length) {
       const ids = promotions.map(p => p.id);
@@ -1195,7 +1266,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     }
 
     // 5) Lọc cuối cùng và tính toán
-    let availablePromos = (promotions || []).map(p => {
+    let availablePromos = (regularPromos || []).map(p => {
   const ruleDiscount   = calcDiscountAmt(p, price);   // amount/percent
   const couponDiscount = getMaxCouponDiscount(p);     // coupon lớn nhất
   const bestDiscount   = Math.max(ruleDiscount, couponDiscount);
@@ -1244,6 +1315,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     return res.render('promotion', {
       title: 'CTKM theo SKU', currentPage: 'promotion',
       query: skuInput, product, promotions: promosAfterGroupPick,
+      internalContest: internalContest,
       chosenPromos, totalDiscount, finalPrice, comparisonCount, error: null,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
@@ -1254,6 +1326,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
       product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
       error: 'Lỗi hệ thống: ' + (error?.message || String(error)),
+      internalContest: null,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
   }
@@ -1277,7 +1350,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     if (!skuInput) {
       return res.render('promotion', {
         title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
-        product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
+        product: null, promotions: promosAfterGroupPick,internalContest: internalContest, totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
         error: 'Vui lòng nhập SKU.',
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       });
@@ -1288,7 +1361,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       console.log(`[DEBUG] Lỗi: Không tìm thấy sản phẩm với SKU "${skuInput}".`);
       return res.render('promotion', {
         title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
-        product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
+        product: null, promotions: promosAfterGroupPick,internalContest: internalContest, totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
         error: 'Không tìm thấy thông tin cho SKU: ' + skuInput,
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       });
@@ -1349,7 +1422,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       title: 'CTKM theo SKU', currentPage: 'promotion',
       query: skuInput,
       product,
-      promotions: promosAfterGroupPick, // <-- Sử dụng kết quả đã gộp
+      promotions: promosAfterGroupPick,internalContest: internalContest, // <-- Sử dụng kết quả đã gộp
       chosenPromos, totalDiscount, finalPrice, comparisonCount, error: null,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
@@ -1360,6 +1433,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
       product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
       error: 'Lỗi hệ thống: ' + (error?.message || String(error)),
+      internalContest: null,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
   }
@@ -1493,7 +1567,7 @@ app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
 
 });
 // Trang quản lý CTKM (đã loại bỏ cat/brand)
-app.get('/promo-management', async (req, res) => {
+app.get('/promo-management', requireAuth, requireManager, async (req, res) => {
   try {
     const { q, group, subgroup, sku } = req.query;
     let query = supabase
@@ -2810,6 +2884,566 @@ app.get('/api/fifo/history/:serial', requireAuth, async (req, res) => {
         console.error('API FIFO History error:', e);
         res.status(500).json({ ok: false, error: 'Lỗi khi tải lịch sử: ' + e.message });
     }
+});
+
+
+// ========================= NEWSFEED (BẢNG TIN) =========================
+// ========================= NEWSFEED (BẢNG TIN - CÓ LỌC) =========================
+app.get('/newsfeed', requireAuth, async (req, res) => {
+  try {
+    // === BƯỚC 1: LẤY CÁC THAM SỐ LỌC TỪ URL ===
+    const selectedCategory = req.query.category || '';
+    const searchQuery = req.query.q || '';
+    const selectedPeriod = req.query.period || ''; // Sẽ dùng cho BXH
+
+    const today = new Date().toISOString();
+
+    // === BƯỚC 2: LẤY DANH SÁCH TÙY CHỌN CHO BỘ LỌC ===
+    // Lấy tất cả Category (chủ đề) duy nhất từ DB
+    const { data: categoriesData } = await supabase
+      .from('newsfeed_posts')
+      .select('category')
+      .neq('category', null) // Bỏ qua các category rỗng
+      .eq('status', 'published'); // Chỉ lấy category của tin đã đăng
+    const allCategories = [...new Set((categoriesData || []).map(c => c.category))].sort();
+
+    // Lấy tất cả Chu kỳ (period) duy nhất từ Bảng xếp hạng
+    const { data: periodsData } = await supabase
+      .from('newsfeed_ranking')
+      .select('display_period')
+      .neq('display_period', null);
+    const allPeriods = [...new Set((periodsData || []).map(p => p.display_period))].sort((a,b) => b.localeCompare(a)); // Sắp xếp mới nhất
+
+    // Xác định chu kỳ hiện tại để lọc BXH (ưu tiên cái user chọn, nếu không thì lấy cái mới nhất)
+    // === LOGIC MỚI: Ưu tiên default về tháng hiện tại (NẾU CÓ) ===
+    
+    // 1. Tạo chuỗi tháng hiện tại (ví dụ: "Tháng 11.2025")
+    const now = new Date();
+    const currentMonthString = `Tháng ${now.getMonth() + 1}.${now.getFullYear()}`;
+
+    const defaultPeriod = allPeriods.includes(currentMonthString) 
+                          ? currentMonthString   // Nếu có, dùng tháng hiện tại
+                          : (allPeriods.length > 0 ? allPeriods[0] : ''); // Nếu không, dùng chu kỳ mới nhất
+
+
+    const currentPeriod = selectedPeriod || defaultPeriod;
+    // === KẾT THÚC THAY ĐỔI ===
+
+    // === BƯỚC 3: TRUY VẤN BÀI ĐĂNG (ĐÃ LỌC) ===
+
+    // --- Xây dựng truy vấn cơ sở cho Bài Đăng ---
+    const buildPostQuery = (isFeatured) => {
+      let query = supabase
+        .from('newsfeed_posts')
+        .select('*')
+        .eq('status', 'published')
+        .eq('is_featured', isFeatured)
+        .lte('published_at', today);
+
+      // 1. Lọc theo Category (nếu user chọn)
+      if (selectedCategory) {
+        query = query.eq('category', selectedCategory);
+      }
+
+      // 2. Lọc theo Tìm kiếm 'q' (nếu user gõ)
+      if (searchQuery) {
+        // Tìm 'q' trong cả 'title' (tiêu đề) VÀ 'subtitle' (tiêu đề phụ)
+        query = query.or(`title.ilike.%${searchQuery}%,subtitle.ilike.%${searchQuery}%`);
+      }
+
+      return query;
+    };
+
+    // --- Chạy truy vấn cho Tin Nổi Bật (Featured) ---
+    const { data: featuredPostData, error: featuredError } = await buildPostQuery(true)
+      .order('published_at', { ascending: false })
+      .limit(1);
+    if (featuredError) throw new Error(`Lỗi lấy tin nổi bật: ${featuredError.message}`);
+
+    // --- Chạy truy vấn cho Tin Tức (News) ---
+    const { data: newsPostData, error: newsError } = await buildPostQuery(false)
+      .order('published_at', { ascending: false })
+      .limit(5);
+    if (newsError) throw new Error(`Lỗi lấy tin tức: ${newsError.message}`);
+
+
+    // === BƯỚC 4: TRUY VẤN BẢNG XẾP HẠNG (ĐÃ LỌC) ===
+    let rankingTop1 = null;
+    let rankingOthers = [];
+
+    if (currentPeriod) { // Chỉ lấy BXH nếu có chu kỳ
+      const { data: rankingData, error: rankingError } = await supabase
+        .from('newsfeed_ranking')
+        .select('*')
+        .eq('display_period', currentPeriod) // Lọc theo chu kỳ (user chọn hoặc mới nhất)
+        .order('rank_order', { ascending: true })
+        .limit(20);
+
+      if (rankingError) throw new Error(`Lỗi lấy BXH: ${rankingError.message}`);
+
+      rankingTop1 = (rankingData || []).find(r => r.rank_order === 1) || null;
+      rankingOthers = (rankingData || []).filter(r => r.rank_order > 1);
+    }
+
+    // === BƯỚC 5: TRẢ KẾT QUẢ RA VIEW ===
+    res.render('newsfeed', {
+      title: 'Bảng tin',
+      currentPage: 'newsfeed',
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      error: null,
+
+      // Dữ liệu đã lọc
+      featuredPost: (featuredPostData && featuredPostData.length > 0) ? featuredPostData[0] : null,
+      newsPosts: newsPostData || [],
+      rankingTop1: rankingTop1,
+      rankingOthers: rankingOthers,
+
+      // Dữ liệu cho bộ lọc "nhớ"
+      allCategories: allCategories,     // Danh sách category
+      allPeriods: allPeriods,         // Danh sách chu kỳ
+      selectedCategory: selectedCategory, // Category user đã chọn
+      selectedPeriod: currentPeriod,      // Chu kỳ user đã chọn (hoặc mới nhất)
+      searchQuery: searchQuery          // Từ khóa user đã gõ
+    });
+
+  } catch (e) {
+    console.error('Lỗi trang Bảng tin:', e);
+    res.render('newsfeed', {
+      title: 'Bảng tin', currentPage: 'newsfeed', error: e.message,
+      featuredPost: null, newsPosts: [], rankingTop1: null, rankingOthers: [],
+      allCategories: [], allPeriods: [], selectedCategory: '', selectedPeriod: '', searchQuery: ''
+    });
+  }
+});
+// ======================= END NEWSFEED ==========================
+
+// ========================= NEWSFEED ADMIN (SOẠN BÀI) =========================
+
+// Route 1 (GET): Hiển thị trang/form soạn thảo
+// Dùng requireManager để chỉ Manager/Admin mới vào được
+app.get('/admin/create-post', requireManager, (req, res) => {
+  res.render('admin-create-post', {
+    title: 'Soạn bài đăng mới',
+    currentPage: 'newsfeed', // Vẫn tô sáng 'Bảng tin' trên menu
+    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    error: null,
+    post: {} // Gửi một object rỗng
+  });
+});
+
+// Route 2 (POST): Nhận dữ liệu từ form và LƯU vào Supabase
+app.post('/admin/create-post', requireManager, async (req, res) => {
+  try {
+    const {
+      title,
+      subtitle,
+      content_html, // Đây là nội dung HTML từ trình soạn thảo
+      cover_image_url,
+      category,
+      status,
+      published_at,
+      is_featured,
+      send_email, extra_emails,
+    } = req.body;
+
+
+    // --- Validation đơn giản ---
+    if (!title || !content_html || !category) {
+      throw new Error('Tiêu đề, Nội dung, và Chủ đề là bắt buộc.');
+    }
+
+    // --- Chuẩn bị dữ liệu để lưu ---
+    const insertPayload = {
+      title: title,
+      subtitle: subtitle || null,
+      content: content_html, // Lưu nội dung HTML
+      cover_image_url: cover_image_url || null,
+      category: category,
+      status: status || 'published', // Mặc định là 'published'
+
+      // Xử lý ngày hẹn giờ (nếu có)
+      published_at: published_at ? new Date(published_at) : new Date(),
+
+      // Chuyển 'on' (từ checkbox) thành true/false
+      is_featured: is_featured === 'on', 
+
+      // Lấy ID của user đang đăng bài
+      author_id: req.session.user.id
+    };
+
+    // --- Ghi vào Supabase ---
+    const { data, error } = await supabase
+      .from('newsfeed_posts')
+      .insert(insertPayload)
+      .select('id')
+      .single();
+
+    if (error) throw error;
+
+    const newPostId = data.id;
+
+    if (status === 'published') { // 1. Chỉ gửi khi bài đã published
+          
+          // 2. Luôn lấy email bổ sung
+          const extraEmails = (extra_emails || '')
+            .split(',')
+            .map(e => e.trim())
+            .filter(e => e); // Lọc bỏ chuỗi rỗng
+
+          let allEmails = [];
+
+          if (send_email === 'on') {
+            // 3a. User tick "Gửi email" -> Lấy user + email lẻ
+            const { data: users } = await supabase
+              .from('users')
+              .select('email')
+              .eq('is_active', true);
+            
+            const userEmails = (users || []).map(u => u.email);
+            allEmails = [...new Set([...userEmails, ...extraEmails])];
+            
+          } else if (extraEmails.length > 0) {
+            // 3b. User KHÔNG tick, NHƯNG có nhập email lẻ -> Chỉ gửi email lẻ (TEST)
+            allEmails = extraEmails;
+          }
+
+          // 4. Gửi email nếu có danh sách nhận
+          if (allEmails.length > 0) {
+            const postData = { ...insertPayload, id: newPostId };
+            sendNewPostEmail(postData, allEmails);
+          }
+        }
+    // === HẾT LOGIC GỬI EMAIL ===
+
+    // Lưu thành công, chuyển hướng về trang Bảng tin
+    return res.redirect('/newsfeed');
+
+  } catch (e) {
+    // Có lỗi, render lại trang soạn thảo và báo lỗi
+    console.error('Lỗi tạo bài đăng:', e);
+    res.render('admin-create-post', {
+      title: 'Soạn bài đăng mới',
+      currentPage: 'newsfeed',
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      error: e.message,
+      post: req.body // Gửi lại dữ liệu đã nhập để user không phải gõ lại
+    });
+  }
+});
+
+// ======================= END NEWSFEED ADMIN ==========================
+
+// ========================= NEWSFEED (CHI TIẾT BÀI ĐĂNG) =========================
+
+// Route 3 (GET): Hiển thị chi tiết 1 bài đăng
+app.get('/newsfeed/post/:id', requireAuth, async (req, res) => {
+  try {
+    const postId = req.params.id; // Lấy ID từ URL (ví dụ: '6')
+
+    // Lấy thông tin bài đăng từ Supabase
+    const { data: post, error } = await supabase
+      .from('newsfeed_posts')
+      .select(`*, users:author_id (full_name, email)`) // Lấy cả tên người đăng
+      .eq('id', postId)
+      .single(); // Lấy 1 bài duy nhất
+
+    if (error) throw new Error(`Không tìm thấy bài đăng: ${error.message}`);
+
+    if (!post) {
+       return res.status(404).send('Không tìm thấy bài đăng.');
+    }
+
+    res.render('post-detail', {
+      title: post.title, // Tiêu đề trang sẽ là tiêu đề bài viết
+      currentPage: 'newsfeed',
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      error: null,
+      post: post // Gửi toàn bộ thông tin bài đăng ra view
+    });
+
+  } catch (e) {
+    console.error('Lỗi trang chi tiết bài đăng:', e);
+    // Chuyển về trang Bảng tin nếu có lỗi
+    res.redirect('/newsfeed?error=' + encodeURIComponent(e.message));
+  }
+});
+
+// ======================= END NEWSFEED (CHI TIẾT) ==========================
+
+// ========================= NEWSFEED (SỬA / XOÁ BÀI) =========================
+
+// Route 4 (DELETE): Xử lý yêu cầu Xoá bài
+app.delete('/api/post/delete/:id', requireManager, async (req, res) => {
+  try {
+    const postId = req.params.id;
+
+    const { error } = await supabase
+      .from('newsfeed_posts')
+      .delete() // Lệnh xoá
+      .eq('id', postId); // Điều kiện là id = postId
+
+    if (error) throw error;
+
+    res.json({ ok: true, message: 'Xoá thành công' });
+
+  } catch (e) {
+    console.error('Lỗi khi xoá bài đăng:', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
+// Route 5 (GET): Hiển thị trang Sửa bài
+// (Giống hệt trang "Soạn bài mới" nhưng load dữ liệu cũ)
+app.get('/admin/edit-post/:id', requireManager, async (req, res) => {
+  try {
+    const postId = req.params.id;
+
+    // Lấy dữ liệu bài đăng cũ
+    const { data: post, error } = await supabase
+      .from('newsfeed_posts')
+      .select('*')
+      .eq('id', postId)
+      .single();
+
+    if (error) throw new Error(`Không tìm thấy bài đăng: ${error.message}`);
+
+    res.render('admin-edit-post', { // Dùng 1 file view MỚI
+      title: 'Sửa bài đăng',
+      currentPage: 'newsfeed',
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      error: null,
+      post: post // Gửi dữ liệu bài đăng cũ ra view
+    });
+
+  } catch (e) {
+    console.error('Lỗi trang Sửa bài:', e);
+    res.redirect('/newsfeed?error=' + encodeURIComponent(e.message));
+  }
+});
+
+// Route 6 (POST): Nhận dữ liệu CẬP NHẬT từ trang Sửa bài
+app.post('/admin/edit-post/:id', requireManager, async (req, res) => {
+  const postId = req.params.id; // Lấy ID từ URL
+
+  try {
+    const {
+      title,
+      subtitle,
+      content_html, // Đây là nội dung HTML từ trình soạn thảo
+      cover_image_url,
+      category,
+      status,
+      published_at,
+      is_featured,
+      send_email, extra_emails
+    } = req.body;
+
+    if (!title || !content_html || !category) {
+      throw new Error('Tiêu đề, Nội dung, và Chủ đề là bắt buộc.');
+    }
+
+    // --- Chuẩn bị dữ liệu để CẬP NHẬT ---
+    const updatePayload = {
+      title: title,
+      subtitle: subtitle || null,
+      content: content_html,
+      cover_image_url: cover_image_url || null,
+      category: category,
+      status: status || 'published',
+      published_at: published_at ? new Date(published_at) : new Date(),
+      is_featured: is_featured === 'on',
+      // Không cần cập nhật author_id
+    };
+
+    // --- Ghi CẬP NHẬT vào Supabase ---
+    const { data, error } = await supabase
+      .from('newsfeed_posts')
+      .update(updatePayload) // Lệnh cập nhật
+      .eq('id', postId); // Điều kiện là id = postId
+
+    if (error) throw error;
+
+    // === LOGIC GỬI EMAIL MỚI KHI SỬA (ĐÃ SỬA ĐỂ TEST) ===
+        if (status === 'published') {
+          
+          const extraEmails = (extra_emails || '').split(',').map(e => e.trim()).filter(e => e);
+          let allEmails = [];
+
+          if (send_email === 'on') {
+            // Gửi cho tất cả user + email lẻ
+            const { data: users } = await supabase.from('users').select('email').eq('is_active', true);
+            const userEmails = (users || []).map(u => u.email);
+            allEmails = [...new Set([...userEmails, ...extraEmails])];
+          } else if (extraEmails.length > 0) {
+            // Chỉ gửi cho email lẻ (TEST)
+            allEmails = extraEmails;
+          }
+
+          if (allEmails.length > 0) {
+            const postData = { ...updatePayload, id: postId };
+            sendNewPostEmail(postData, allEmails);
+          }
+        }
+        // === HẾT LOGIC GỬI EMAIL ===
+
+    // Cập nhật thành công, chuyển về trang chi tiết bài viết
+    return res.redirect(`/newsfeed/post/${postId}`);
+
+  } catch (e) {
+    // Có lỗi, render lại trang SỬA và báo lỗi
+    console.error(`Lỗi khi cập nhật bài đăng #${postId}:`, e);
+    // Tải lại dữ liệu cũ để hiển thị (vì req.body có thể không đủ)
+    const { data: post } = await supabase.from('newsfeed_posts').select('*').eq('id', postId).single();
+
+    res.render('admin-edit-post', {
+      title: 'Sửa bài đăng',
+      currentPage: 'newsfeed',
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      error: e.message,
+      post: post || req.body // Ưu tiên dữ liệu post gốc
+    });
+  }
+});
+
+// ======================= END NEWSFEED (SỬA / XOÁ) ==========================
+
+
+// ===============================================
+// MODULE QUẢN LÝ BẢNG XẾP HẠNG (CRUD)
+// ===============================================
+
+// Route 1 (GET): Hiển thị trang danh sách (Read)
+app.get('/admin/ranking', requireManager, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('newsfeed_ranking')
+      .select('*')
+      .order('display_period', { ascending: false }) // Sắp xếp theo chu kỳ
+      .order('rank_order', { ascending: true }); // Sắp xếp theo hạng
+
+    if (error) throw error;
+    
+    res.render('admin-ranking-list', {
+      title: 'Quản lý Bảng xếp hạng',
+      currentPage: 'newsfeed',
+      time: res.locals.time,
+      rankings: data || [],
+      error: null
+    });
+  } catch (e) {
+    res.render('admin-ranking-list', {
+      title: 'Quản lý Bảng xếp hạng', currentPage: 'newsfeed', time: res.locals.time,
+      rankings: [], error: e.message
+    });
+  }
+});
+
+// Route 2 (GET): Hiển thị form Thêm Mới (Create)
+app.get('/admin/ranking/new', requireManager, (req, res) => {
+  res.render('admin-ranking-form', {
+    title: 'Thêm mục BXH',
+    currentPage: 'newsfeed',
+    time: res.locals.time,
+    error: null,
+    ranking: {}, // Gửi object rỗng
+    action: '/admin/ranking/new' // Đường dẫn POST
+  });
+});
+
+// Route 3 (GET): Hiển thị form Sửa (Update)
+app.get('/admin/ranking/edit/:id', requireManager, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('newsfeed_ranking')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (error) throw error;
+    
+    res.render('admin-ranking-form', {
+      title: 'Sửa mục BXH',
+      currentPage: 'newsfeed',
+      time: res.locals.time,
+      error: null,
+      ranking: data, // Gửi object có dữ liệu
+      action: `/admin/ranking/edit/${req.params.id}` // Đường dẫn POST
+    });
+  } catch (e) {
+    res.redirect('/admin/ranking?error=' + encodeURIComponent(e.message));
+  }
+});
+
+// Route 4 (POST): Xử lý Thêm Mới (Create) hoặc Cập Nhật (Update)
+app.post('/admin/ranking/:action/:id?', requireManager, async (req, res) => {
+  const { action, id } = req.params;
+  const {
+    full_name,
+    rank_order,
+    display_period,
+    birth_year,
+    store,
+    department,
+    avatar_image_url
+  } = req.body;
+
+  try {
+    if (!full_name || !rank_order || !display_period) {
+      throw new Error('Tên, Hạng, và Chu kỳ là bắt buộc.');
+    }
+    
+    const payload = {
+      full_name,
+      rank_order: parseInt(rank_order) || 0,
+      display_period,
+      birth_year: birth_year ? parseInt(birth_year) : null,
+      store: store || null,
+      department: department || null,
+      avatar_image_url: avatar_image_url || null,
+      sales_percentage: req.body.sales_percentage ? parseInt(req.body.sales_percentage) : null // <-- DÒNG MỚI
+    };
+
+    if (action === 'new') {
+      // Thêm Mới
+      const { error } = await supabase.from('newsfeed_ranking').insert(payload);
+      if (error) throw error;
+    } else if (action === 'edit' && id) {
+      // Cập Nhật
+      const { error } = await supabase.from('newsfeed_ranking').update(payload).eq('id', id);
+      if (error) throw error;
+    }
+
+    res.redirect('/admin/ranking'); // Về trang danh sách
+    
+  } catch (e) {
+    // Gửi lỗi lại form
+    res.render('admin-ranking-form', {
+      title: action === 'new' ? 'Thêm mục BXH' : 'Sửa mục BXH',
+      currentPage: 'newsfeed',
+      time: res.locals.time,
+      error: e.message,
+      ranking: req.body, // Gửi lại dữ liệu đã nhập
+      action: action === 'new' ? '/admin/ranking/new' : `/admin/ranking/edit/${id}`
+    });
+  }
+});
+
+
+// Route 5 (DELETE): Xử lý Xoá (Delete)
+app.delete('/api/ranking/delete/:id', requireManager, async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('newsfeed_ranking')
+      .delete()
+      .eq('id', req.params.id);
+      
+    if (error) throw error;
+    res.json({ ok: true, message: 'Xoá thành công' });
+    
+  } catch (e) {
+    console.error('Lỗi khi xoá BXH:', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 // ------------------------- Start server / export -------------------------

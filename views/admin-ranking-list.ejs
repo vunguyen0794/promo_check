@@ -1,0 +1,88 @@
+<%- include('partials/header', {title: title, currentPage: currentPage, time: time}) %>
+
+<link rel="stylesheet" href="/css/promo-management.css">
+<style>
+  .table-wrapper { margin-top: 20px; }
+  .btn-add-new {
+    background-color: #198754; color: white;
+    padding: 10px 16px; text-decoration: none;
+    border-radius: 6px; font-weight: 600;
+  }
+  .btn-edit { color: #0d6efd; text-decoration: none; font-weight: 600; }
+  .btn-delete { color: #dc3545; text-decoration: none; font-weight: 600; cursor: pointer; }
+</style>
+
+<div class="dash-card">
+  <div class
+="dash-title" style="display: flex; justify-content: space-between; align-items: center;">
+    Quản lý Bảng xếp hạng
+    <a href="/admin/ranking/new" class="btn-add-new">+ Thêm mới</a>
+  </div>
+
+  <% if (error) { %>
+    <p style="color: red;"><%= error %></p>
+  <% } %>
+
+  <div class="table-wrapper">
+    <table class="promo-table">
+      <thead>
+        <tr>
+          <th>Chu kỳ</th>
+          <th>Hạng</th>
+          <th>Họ tên</th>
+          <th>Cửa hàng</th>
+          <th>Bộ phận</th>
+          <th>Năm sinh</th>
+          <th>% Doanh số</th>
+          <th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (rankings.length === 0) { %>
+          <tr><td colspan="7">Chưa có dữ liệu Bảng xếp hạng.</td></tr>
+        <% } %>
+        
+        <% rankings.forEach(function(r) { %>
+          <tr>
+            <td><strong><%= r.display_period %></strong></td>
+            <td><strong>Top <%= r.rank_order %></strong></td>
+            <td><%= r.full_name %></td>
+            <td><%= r.store || '-' %></td>
+            <td><%= r.department || '-' %></td>
+            <td><%= r.birth_year || '-' %></td>
+            <td><strong><%= r.sales_percentage ? r.sales_percentage + '%' : '-' %></strong></td>
+            <td style="display: flex; gap: 16px;">
+              <a href="/admin/ranking/edit/<%= r.id %>" class="btn-edit">Sửa</a>
+              <a href="#" class="btn-delete" data-id="<%= r.id %>">Xoá</a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.btn-delete').forEach(button => {
+  button.addEventListener('click', async function(e) {
+    e.preventDefault();
+    const id = this.getAttribute('data-id');
+    if (!confirm('Bạn có chắc chắn muốn XOÁ mục này không?')) return;
+
+    try {
+      const response = await fetch('/api/ranking/delete/' + id, { method: 'DELETE' });
+      const result = await response.json();
+      if (result.ok) {
+        alert('Xoá thành công!');
+        window.location.reload(); // Tải lại trang
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      alert('Lỗi khi xoá: ' + error.message);
+    }
+  });
+});
+</script>
+
+<%- include('partials/footer') %>

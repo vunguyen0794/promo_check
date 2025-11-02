@@ -426,8 +426,18 @@
                     <% if (promotion.apply_to_all_skus) { %>
                         <strong>Tất cả sản phẩm</strong>
 
-                    <% } else if (promotion.apply_to_brands && promotion.apply_to_brands.length > 0) { %>
-                        <strong>Theo Brand:</strong>
+                        <% } else if (promotion.apply_brand_subcats && promotion.apply_brand_subcats.length > 0) { %>
+                        <strong>Theo Brand + Subcat:</strong>
+                        <div class="pill-wrap" style="margin-top: 8px;">
+                            <% 
+                            /* Tách riêng Brand và Subcat từ dữ liệu */
+                            const brands = [...new Set(promotion.apply_brand_subcats.map(r => r.brand))];
+                            const subcats = [...new Set(promotion.apply_brand_subcats.map(r => r.subcat_id))];
+                            %>
+                            <p style="font-size: 13px; color: #334155; margin: 0 0 8px 0;"><strong>Brand:</strong> <%= brands.join(', ') %></p>
+                            <p style="font-size: 13px; color: #334155; margin: 0;"><strong>Subcat:</strong> <%= subcats.join(', ') %></p>
+                        </div>
+                        <% } else if (promotion.apply_to_brands && promotion.apply_to_brands.length > 0) { %>
                         <div class="pill-wrap" style="margin-top: 8px;">
                             <% promotion.apply_to_brands.forEach(function(b) { %>
                                 <span class="pill"><%= b %></span>

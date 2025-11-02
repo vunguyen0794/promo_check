@@ -179,7 +179,7 @@
         </style>
 
 
-
+        
         <div class="promo-management">
             <h1 class="section-title">Quản lý Chương trình Khuyến mãi</h1>
 
@@ -260,12 +260,17 @@
                                     <p><strong>🔄 Channel:</strong>
                                         <%= promo.channel %>
                                     </p>
+                                    
+
                                     <p><strong>📊 Trạng thái:</strong>
-                                        <span
-                                            class="status-badge <%= new Date(promo.end_date) > new Date() ? 'active' : 'expired' %>">
-                                            <%= new Date(promo.end_date)> new Date() ? '🟢 Đang hoạt động' : '🔴 Đã hết hạn'
-                                                %>
-                                        </span>
+                                        <% 
+  const endDate = new Date(promo.end_date);
+  endDate.setHours(23, 59, 59, 999); // Set về 23:59:59 của ngày hết hạn
+  const isActive = endDate >= new Date(); // So sánh
+%>
+<span class="status-badge <%= isActive ? 'active' : 'expired' %>">
+  <%= isActive ? '🟢 Đang hoạt động' : '🔴 Đã hết hạn' %>
+</span>
                                     </p>
                                     <div class="promo-actions">
                                         <a href="/promotion-detail/<%= promo.id %>" class="btn btn-info">👁️ Xem chi
@@ -336,6 +341,10 @@
                                     <option value="Voucher">Voucher</option>
                                     <option value="Ưu đãi thanh toán">Ưu đãi thanh toán</option>
                                     <option value="Gift">Quà tặng (Gift)</option>
+                                    <option value="Combo">Combo</option>
+                                    <option value="Trả góp 0%">Trả góp 0%</option>
+
+<option value="Thi đua nội bộ">Thi đua nội bộ (Banner)</option>
                                 </select>
                             </div>
                         </div>
@@ -577,39 +586,56 @@
                                     document.execCommand(cmd, false, null);
                                 });
                                 document.getElementById('rteLink').addEventListener('click', () => {
-                                    // field đang focus phải là contenteditable
-                                    const el = document.activeElement;
-                                    if (!el || el.getAttribute('contenteditable') !== 'true') return;
+    // SỬA LỖI: Dùng 'activeField' (đã được theo dõi từ dòng 819)
+    // thay vì 'document.activeElement' (bị sai khi bấm nút)
+    if (!activeField) { 
+         alert('Lỗi: Bạn phải bấm vào một ô nội dung (ví dụ: ô "Nội dung / Link báo cáo...") TRƯỚC KHI bấm nút "Link".');
+         return;
+    }
 
-                                    const url = prompt('Nhập URL (có thể link rút gọn):', 'https://');
-                                    if (!url) return;
+    const url = prompt('Nhập URL (có thể link rút gọn):', 'https://');
+    if (!url) return; // Dừng nếu user bấm "Hủy"
 
-                                    const text = document.getSelection()?.toString() || url;
-                                    // chèn thẻ a, mở tab mới
-                                    const html = `<a href="${url.replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-                                    document.execCommand('insertHTML', false, html);
-                                });
-                                // đổi màu chữ
-                                document.getElementById('rteColor').addEventListener('input', (e) => {
-                                    document.execCommand('foreColor', false, e.target.value);
-                                });
+    const sel = window.getSelection ? String(window.getSelection()) : '';
+    const text = sel && sel.trim() ? sel : url; 
 
-                                // emoji đơn giản
-                                document.getElementById('rteEmoji').addEventListener('click', () => {
-                                    if (!activeField) return;
-                                    const emoji = prompt('Nhập emoji / icon:', '🔥');
-                                    if (emoji) document.execCommand('insertText', false, emoji);
-                                });
+    const html = `<a href="${url.replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer">${text}</a>`;
 
-                                // Trước khi submit: copy innerHTML => textarea ẩn
-                                document.getElementById('promoForm').addEventListener('submit', () => {
-                                    document.querySelectorAll('.rte-field').forEach((div) => {
-                                        const name = div.getAttribute('data-name');
-                                        const ta = div.parentElement.querySelector('textarea[name="' + name + '"]');
-                                        ta.value = div.innerHTML;  // lưu HTML
-                                    });
-                                });
+    // QUAN TRỌNG: Phải chèn vào đúng field đang active
+    activeField.focus(); // Đảm bảo focus
+    document.execCommand('insertHTML', false, html);
+});
+
+// đổi màu chữ
+document.getElementById('rteColor').addEventListener('input', (e) => {
+    if (!activeField) return; // Thêm kiểm tra
+    activeField.focus();
+    document.execCommand('foreColor', false, e.target.value);
+});
+
+// emoji đơn giản
+document.getElementById('rteEmoji').addEventListener('click', () => {
+    if (!activeField) {
+        alert('Lỗi: Bạn phải bấm vào một ô nội dung TRƯỚC KHI bấm nút "Emoji".');
+        return;
+    }
+    const emoji = prompt('Nhập emoji / icon:', '🔥');
+    if (emoji) {
+        activeField.focus();
+        document.execCommand('insertText', false, emoji);
+    }
+});
+
+// Trước khi submit: copy innerHTML => textarea ẩn
+document.getElementById('promoForm').addEventListener('submit', () => {
+    document.querySelectorAll('.rte-field').forEach((div) => {
+        const name = div.getAttribute('data-name');
+        const ta = div.parentElement.querySelector('textarea[name="' + name + '"]');
+        if (ta) ta.value = div.innerHTML;  // lưu HTML
+    });
+});
                             })();
+                            
                         </script>
 
 
@@ -617,12 +643,13 @@
 
 <div class="form-group">
     <label>Áp dụng cho</label>
-    <select name="apply_to_type" id="createApplyToTypeSelect">
+    <select name="apply_to_type" id="createApplyToTypeSelect" onchange="toggleCreateScopeFields()">
         <option value="all" selected>Tất cả sản phẩm</option>
         <option value="sku">Theo danh sách SKU</option>
         <option value="brand">Theo Brand</option>
         <option value="category">Theo Category</option>
         <option value="subcat">Theo Subcat</option>
+        <option value="brand_subcat">Theo Brand + Subcat</option>
     </select>
 </div>
 
@@ -738,43 +765,6 @@
                   document.getElementById('excludeWithGroupPicker').value, false);
 </script>
 
-<script>
-    const createModal = document.getElementById('createPromoModal');
-    const typeSelect = document.getElementById('createApplyToTypeSelect');
-
-    function toggleCreateScopeFields() {
-        if (!typeSelect) return;
-        const selectedType = typeSelect.value;
-        
-        // Ẩn tất cả các trường tùy chọn trước
-        document.getElementById('createSkuField').style.display = 'none';
-        document.getElementById('createBrandField').style.display = 'none';
-        document.getElementById('createCategoryField').style.display = 'none';
-        document.getElementById('createSubcatField').style.display = 'none';
-
-        // Hiện trường tương ứng
-        const fieldToShow = document.getElementById(`create${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}Field`);
-        if (fieldToShow) {
-            fieldToShow.style.display = 'block';
-        }
-    }
-
-    if (typeSelect) {
-        typeSelect.addEventListener('change', toggleCreateScopeFields);
-    }
-    
-    // Cập nhật lại hàm show/close modal để gọi đúng hàm toggle
-    function showCreateModal() {
-        createModal.style.display = 'block';
-        document.body.classList.add('modal-open');
-        document.getElementById('promoForm').reset();
-        toggleCreateScopeFields(); // Gọi hàm toggle mới
-    }
-    function closeModal() {
-        createModal.style.display = 'none';
-        document.body.classList.remove('modal-open');
-    }
-</script>
 
 
                         <div class="form-actions">
@@ -786,15 +776,7 @@
         </div>
 
         <script>
-            // JavaScript để xử lý modal và form
-            function showCreateModal() {
-                document.getElementById('createPromoModal').style.display = 'block';
-            }
-
-            function closeModal() {
-                document.getElementById('createPromoModal').style.display = 'none';
-            }
-
+            
 function togglePromoFields() {
   const promoType = document.querySelector('select[name="promo_type"]').value;
   const typesWithCode = new Set(['Coupon','Voucher','Ưu đãi thanh toán','Gift']);
@@ -804,37 +786,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const typeEl = document.querySelector('select[name="promo_type"]');
   if (typeEl) { togglePromoFields(); typeEl.addEventListener('change', togglePromoFields); }
 });
-            function toggleApplyTo() {
-  // Nhận select theo id/name mới, fallback qua name cũ nếu có
-  const sel =
-    document.getElementById('createApplyToTypeSelect') ||
-    document.querySelector('select[name="apply_to_type"]') ||
-    document.querySelector('select[name="apply_to"]');
-
-  const applyTo = sel ? sel.value : 'all';
-
-  // Ẩn tất cả các vùng có thể xuất hiện
-  ['createSkuField','createBrandField','createCategoryField','createSubcatField',
-   'skuIncludeField','skuExcludeField'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-
-  // Hiện vùng phù hợp cho UI mới (create*Field) — nếu không có, fallback về id cũ
-  const map = {
-    sku: ['createSkuField','skuIncludeField'],
-    brand: ['createBrandField'],
-    category: ['createCategoryField'],
-    subcat: ['createSubcatField'],
-    all: ['skuExcludeField'] // nếu bạn muốn hiện vùng loại trừ khi chọn "Tất cả"
-  };
-
-  (map[applyTo] || []).forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'block';
-  });
-}
-
+            
             function toggleSpecialRules() {
                 const isSpecial = document.querySelector('input[name="is_special"]').checked;
                 document.getElementById('specialRules').style.display = isSpecial ? 'block' : 'none';
@@ -1167,6 +1119,42 @@ if (couponBuilder && getComputedStyle(couponBuilder).display === 'none') {
 
 // --- DÁN THÊM ĐOẠN SCRIPT NÀY VÀO TRONG THẺ <script> HIỆN CÓ ---
 
+// --- DÁN HÀM MỚI VÀO ĐÂY (BẮT ĐẦU TỪ DÒNG 573) ---
+    function toggleCreateScopeFields() {
+        const typeSelect = document.getElementById('createApplyToTypeSelect');
+        if (!typeSelect) return;
+
+        const selectedType = typeSelect.value;
+
+        // Lấy tất cả các ô input
+        const skuField = document.getElementById('createSkuField');
+        const brandField = document.getElementById('createBrandField');
+        const categoryField = document.getElementById('createCategoryField');
+        const subcatField = document.getElementById('createSubcatField');
+
+        // Ẩn tất cả trước
+        if (skuField) skuField.style.display = 'none';
+        if (brandField) brandField.style.display = 'none';
+        if (categoryField) categoryField.style.display = 'none';
+        if (subcatField) subcatField.style.display = 'none';
+
+        // Hiển thị dựa trên lựa chọn
+        if (selectedType === 'sku' && skuField) {
+            skuField.style.display = 'block';
+        } else if (selectedType === 'brand' && brandField) {
+            brandField.style.display = 'block';
+        } else if (selectedType === 'category' && categoryField) {
+            categoryField.style.display = 'block';
+        } else if (selectedType === 'subcat' && subcatField) {
+            subcatField.style.display = 'block';
+        } else if (selectedType === 'brand_subcat') {
+            if (brandField) brandField.style.display = 'block';
+            if (subcatField) subcatField.style.display = 'block';
+        }
+        // Nếu là 'all', không làm gì cả (vì đã ẩn hết)
+    }
+
+
 // === Logic cho Coupon List Builder ===
 const createHasCouponListCheckbox = document.getElementById('createHasCouponListCheckbox');
 const createCouponListBuilder = document.getElementById('createCouponListBuilder');
@@ -1208,9 +1196,15 @@ function showCreateModal() {
     document.getElementById('promoForm').reset();
     createCouponListContainer.innerHTML = ''; // Xóa các dòng coupon cũ
     createCouponListBuilder.style.display = 'none'; // Ẩn builder
-    toggleApplyTo(); // Gọi lại hàm toggle cũ của bạn
+    toggleCreateScopeFields(); // Gọi lại hàm toggle cũ của bạn
 }
 
+
+function closeModal() {
+    const modal = document.getElementById('createPromoModal');
+    if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
 
         </script>
 

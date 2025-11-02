@@ -1,0 +1,150 @@
+<%- include('partials/header', {title: title, currentPage: currentPage, time: time}) %>
+
+<style>
+  .post-detail-container {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 32px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .admin-actions {
+    display: flex;
+    gap: 12px; /* Thêm khoảng cách 12px giữa các nút */
+    margin-bottom: 20px; /* Thêm khoảng cách bên dưới */
+  }
+
+  /* Tiêu đề lớn */
+  .post-detail-container h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+  }
+
+  /* Tiêu đề phụ */
+  .post-detail-container .post-subtitle {
+    font-size: 20px;
+    color: #6c757d;
+    font-weight: 400;
+    margin-bottom: 24px;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 24px;
+  }
+
+  /* Ảnh bìa */
+  .post-cover-image {
+    width: 100%;
+    height: auto;
+    max-height: 450px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 24px;
+  }
+
+  /* NỘI DUNG CHÍNH (Từ Quill.js) */
+  .post-content {
+    font-size: 17px;
+    line-height: 1.7;
+    overflow-wrap: break-word;
+    word-break: break-all;
+  }
+  /* Căn chỉnh các thành phần do Quill tạo ra */
+  .post-content p {
+    margin-bottom: 16px;
+  }
+  .post-content a {
+    color: #0d6efd;
+  }
+  .post-content blockquote {
+    border-left: 4px solid #ccc;
+    margin-left: 0;
+    padding-left: 16px;
+    color: #6c757d;
+    font-style: italic;
+  }
+  .post-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+  }
+</style>
+
+
+<div class="post-detail-container">
+
+  <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
+    <div class="admin-actions">
+      <a href="/admin/edit-post/<%= post.id %>" class="btn-edit">
+        ✏️ Sửa bài
+      </a>
+
+      <a href="#" id="btn-delete" data-id="<%= post.id %>" class="btn-delete">
+        🗑️ Xoá bài
+      </a>
+    </div>
+  <% } %>
+
+  <h1><%= post.title %></h1>
+
+  <% if (post.subtitle) { %>
+    <p class="post-subtitle"><%= post.subtitle %></p>
+  <% } %>
+
+  <% if (post.cover_image_url) { %>
+    <img src="<%= post.cover_image_url %>" alt="<%= post.title %>" class="post-cover-image">
+  <% } %>
+
+  <div class="post-content">
+    <%- post.content %>
+  </div>
+
+</div>
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const deleteButton = document.getElementById('btn-delete');
+
+    if (deleteButton) {
+      deleteButton.addEventListener('click', async function(e) {
+        e.preventDefault(); // Ngăn hành vi mặc định của thẻ <a>
+
+        const postId = this.getAttribute('data-id');
+
+        // Bước 1: Hỏi xác nhận
+        if (!confirm('Bạn có chắc chắn muốn XOÁ VĨNH VIỄN bài đăng này không?')) {
+          return; // Nếu user bấm "Cancel" thì dừng lại
+        }
+
+        // Bước 2: Gửi yêu cầu Xoá lên server
+        try {
+          const response = await fetch('/api/post/delete/' + postId, {
+            method: 'DELETE',
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+
+          const result = await response.json();
+
+          if (result.ok) {
+            // Xoá thành công
+            alert('Đã xoá bài đăng thành công!');
+            window.location.href = '/newsfeed'; // Chuyển về trang Bảng tin
+          } else {
+            throw new Error(result.error || 'Lỗi không xác định');
+          }
+
+        } catch (error) {
+          console.error('Lỗi khi xoá bài:', error);
+          alert('Đã xảy ra lỗi: ' + error.message);
+        }
+      });
+    }
+  });
+</script>
+
+
+<%- include('partials/footer') %>

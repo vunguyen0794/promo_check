@@ -1,25 +1,67 @@
+<%
+    // Helper để tính toán thông tin ngày hết hạn
+    function getExpiryInfo(endDateString) {
+        if (!endDateString) {
+            return { badgeClass: '', formattedDate: '' };
+        }
+        
+        const endDate = new Date(endDateString);
+        endDate.setHours(23, 59, 59, 999); 
+
+        const diffTime = endDate.getTime() - new Date().getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+        let badgeClass = '';
+        if (diffDays > 3) {
+            badgeClass = 'promo-expiry-badge--safe'; 
+        } else if (diffDays >= 0) {
+            badgeClass = 'promo-expiry-badge--urgent'; 
+        } else {
+            badgeClass = 'promo-expiry-badge--urgent'; 
+        }
+
+        const formattedDate = new Date(endDateString).toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+
+        return { badgeClass, formattedDate };
+    }
+%>
+
 <div class="promo-list">
     <% featuredPromos.forEach(function(p){ %>
+        <% 
+            // Gọi hàm helper cho mỗi CTKM
+            const expiry = getExpiryInfo(p.end_date);
+        %>
         <a class="promo-item" href="/promotion-detail/<%= p.id %>">
-            <div class="promo-name"><%= p.name %></div>
-           <div class="promo-meta">
-    <% if (p.__display_discount) { %>
-        <%= p.__display_prefix %>: 
-        <strong>
-            <% if (String(p.__display_discount).includes('%')) { %>
-                <%= p.__display_discount %>
-            <% } else { %>
-                <%= new Intl.NumberFormat('vi-VN').format(p.__display_discount) %>₫
+            
+            <div class="promo-item__content">
+                <div class="promo-name"><%= p.name %></div>
+                <div class="promo-meta">
+                    <% if (p.__display_discount) { %>
+                        <%= p.__display_prefix %>: 
+                        <strong>
+                            <% if (String(p.__display_discount).includes('%')) { %>
+                                <%= p.__display_discount %>
+                            <% } else { %>
+                                <%= new Intl.NumberFormat('vi-VN').format(p.__display_discount) %>₫
+                            <% } %>
+                        </strong>
+                    <% } else { %>
+                        <span class="dash-muted">Quà tặng/Khác</span>
+                    <% } %>
+                </div>
+            </div>
+            <%# --- Hiển thị Huy hiệu Hết hạn --- %>
+            <% if (expiry.formattedDate) { %>
+                <div class="promo-expiry-badge <%= expiry.badgeClass %>">
+                    Hết hạn: <%= expiry.formattedDate %>
+                </div>
             <% } %>
-        </strong>
-    <% } else { %>
-        <span class="dash-muted">Quà tặng/Khác</span>
-    <% } %>
 
-    <% if (p.__stackable) { %>
-        <span class="promo-tag">Có thể cộng dồn</span>
-    <% } %>
-</div>
         </a>
     <% }) %>
 </div>
