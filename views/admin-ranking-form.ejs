@@ -43,7 +43,7 @@
     <% /* --- TRƯỜNG MỚI --- */ %>
   <div class="form-group">
     <label for="sales_percentage">% Doanh số</label>
-    <input type="number" id="sales_percentage" name="sales_percentage" value="<%= ranking.sales_percentage || '' %>" placeholder="Ví dụ: 95">
+    <input type="number" step="0.01" id="sales_percentage" name="sales_percentage" value="<%= ranking.sales_percentage || '' %>" placeholder="Ví dụ: 95.5">
   </div>
   <% /* --- HẾT TRƯỜNG MỚI --- */ %>
     <div class="form-group">

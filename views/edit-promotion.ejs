@@ -697,6 +697,87 @@
       }
     })();
     });
+
+    // Dán mã này vào <script> trong file edit-promotion.ejs
+(function () {
+    let activeField = null;
+
+    // Bắt focus để biết đang chỉnh ô nào
+    document.querySelectorAll('.rte-field').forEach(el => {
+        el.addEventListener('focus', () => activeField = el);
+    });
+
+    // Toolbar: bold/italic/underline
+    const rteToolbar = document.getElementById('rteToolbar');
+    if (rteToolbar) {
+        rteToolbar.addEventListener('click', (e) => {
+            const btn = e.target.closest('.rte-btn');
+            if (!btn) return;
+            const cmd = btn.dataset.cmd;
+            if (!cmd) return;
+            document.execCommand(cmd, false, null);
+        });
+    }
+
+    // Xử lý nút LINK (ĐÃ SỬA)
+    const rteLinkBtn = document.getElementById('rteLink');
+    if (rteLinkBtn) {
+        rteLinkBtn.addEventListener('click', () => {
+            if (!activeField) { 
+                alert('Lỗi: Bạn phải bấm vào một ô nội dung TRƯỚC KHI bấm nút "Link".');
+                return;
+            }
+
+            const url = prompt('Nhập URL (có thể link rút gọn):', 'https://');
+            if (!url) return; // Dừng nếu user bấm "Hủy"
+
+            // Đảm bảo focus
+            activeField.focus();
+            
+            // SỬ DỤNG LỆNH GỐC 'createLink'
+            // Lệnh này tự động sử dụng văn bản đang được bôi đen.
+            document.execCommand('createLink', false, url);
+        });
+    }
+    // Đổi màu chữ
+    const rteColorInput = document.getElementById('rteColor');
+    if (rteColorInput) {
+        rteColorInput.addEventListener('input', (e) => {
+            if (!activeField) return; // Thêm kiểm tra
+            activeField.focus();
+            document.execCommand('foreColor', false, e.target.value);
+        });
+    }
+
+    // Emoji đơn giản
+    const rteEmojiBtn = document.getElementById('rteEmoji');
+    if (rteEmojiBtn) {
+        rteEmojiBtn.addEventListener('click', () => {
+            if (!activeField) {
+                alert('Lỗi: Bạn phải bấm vào một ô nội dung TRƯỚC KHI bấm nút "Emoji".');
+                return;
+            }
+            const emoji = prompt('Nhập emoji / icon:', '🔥');
+            if (emoji) {
+                activeField.focus();
+                document.execCommand('insertText', false, emoji);
+            }
+        });
+    }
+
+    // Trước khi submit: copy innerHTML => textarea ẩn
+    // Đảm bảo form của bạn có id="promoForm" (nếu là trang Sửa)
+    const promoForm = document.getElementById('promoForm'); 
+    if (promoForm) {
+        promoForm.addEventListener('submit', () => {
+            document.querySelectorAll('.rte-field').forEach((div) => {
+                const name = div.getAttribute('data-name');
+                const ta = div.parentElement.querySelector('textarea[name="' + name + '"]');
+                if (ta) ta.value = div.innerHTML;  // lưu HTML
+            });
+        });
+    }
+})();
     </script>                                 
 
                                     <div class="form-actions">

@@ -34,6 +34,13 @@ const supabaseKey =
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+const parseToArray = v => Array.isArray(v) ? v : (v==null || v==='' ? [] : [v]);
+const parseSkus = v => {
+      if (!v) return [];
+      // Dùng regex /[,\n\r\s]+/ cho cả hai trường hợp
+      if (Array.isArray(v)) return v.flatMap(x => String(x).split(/[,\n\r\s]+/)).map(s=>s.trim()).filter(Boolean);
+      return String(v).split(/[,\n\r\s]+/).map(s=>s.trim()).filter(Boolean);
+    };
 
 // ------------------------- BigQuery Client -------------------------
 let bigquery;
@@ -150,26 +157,7 @@ const upload = multer({
   },
 });
 
-const parseToArray = (str) => (str || '').split(',').map(s => s.trim()).filter(Boolean);
-function parseSkuList(raw) {
-  return String(raw || '')
-    .split(/[,;\n\r\t ]+/)
-    .map(s => s.trim())
-    .filter(Boolean);
-}
 
-// Hàm mới mạnh mẽ hơn
-function parseSkus(input) {
-  if (!input) return [];
-  const sanitized = String(input)
-    .replace(/\r\n/g, '\n') // Chuẩn hóa ký tự xuống dòng của Windows
-    .replace(/[,;]/g, '\n');  // Thay thế dấu phẩy, chấm phẩy bằng ký tự xuống dòng
-
-  return sanitized
-    .split(/\s+/) // Tách chuỗi bằng bất kỳ khoảng trắng nào (bao gồm cả \n)
-    .map(s => s.trim())
-    .filter(Boolean); // Loại bỏ các chuỗi rỗng
-}
 
 
 // So sánh thay đổi đơn giản cho một số field
@@ -1680,14 +1668,14 @@ app.get('/promo-management', requireAuth, requireManager, async (req, res) => {
   if (!couponListData.length) couponListData = null;
 }
 
-const parseToArray = (str) => (str || '').split(',').map(s => s.trim()).filter(Boolean);
+
     const uniq = arr => Array.from(new Set((arr||[]).filter(v => v !== '' && v != null)));
 
     // Xử lý Brand + Subcat
     const apply_brand_subcats_list = (apply_to_type === 'brand_subcat')
       ? ( () => {
-            const brands = uniq(parseToArray(apply_brands));
-            const subcats = uniq(parseToArray(apply_subcats));
+            const brands = uniq(parseSkus(apply_brands));
+            const subcats = uniq(parseSkus(apply_subcats));
             const bs = [];
             brands.forEach(b => subcats.forEach(s => bs.push({brand:String(b), subcat_id:String(s)})));
             return bs.length ? bs : null;
@@ -1699,9 +1687,9 @@ const parseToArray = (str) => (str || '').split(',').map(s => s.trim()).filter(B
       name, description, start_date, end_date, group_name, channel: channel || 'All', promo_type, 
       coupon_code: coupon_code || null, status: 'active',
       apply_to_all_skus: apply_to_type === 'all',
-      apply_to_brands: apply_to_type === 'brand' ? parseToArray(apply_brands) : null,
-      apply_to_categories: apply_to_type === 'category' ? parseToArray(apply_categories) : null,
-      apply_to_subcats: apply_to_type === 'subcat' ? parseToArray(apply_subcats) : null,
+      apply_to_brands: apply_to_type === 'brand' ? uniq(parseSkus(apply_brands)) : null,
+      apply_to_categories: apply_to_type === 'category' ? uniq(parseSkus(apply_categories)) : null,
+      apply_to_subcats: apply_to_type === 'subcat' ? uniq(parseSkus(apply_subcats)) : null,
       apply_brand_subcats: apply_brand_subcats_list,
       coupon_list: couponListData, 
       created_by: req.session.user?.id,
@@ -1935,13 +1923,7 @@ app.post('/edit-promotion/:id', requireAuth, async (req, res) => {
     const sameArrNum = (a,b)=> JSON.stringify(sortNum(a||[])) === JSON.stringify(sortNum(b||[]));
     const sameJson = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 
-    const parseToArray = v => Array.isArray(v) ? v : (v==null || v==='' ? [] : [v]);
-    const parseSkus = v => {
-      if (!v) return [];
-      if (Array.isArray(v)) return v.flatMap(x => String(x).split(/[,\n\r]+/)).map(s=>s.trim()).filter(Boolean);
-      return String(v).split(/[,\n\r]+/).map(s=>s.trim()).filter(Boolean);
-    };
-
+    
     // ===== 2) Lấy dữ liệu mới từ form =====
     const {
       name, description, start_date, end_date, channel, promo_type, coupon_code,
@@ -1999,9 +1981,9 @@ if (has_coupon_list && coupons) {
       detail_fields: detail || {},
       // phạm vi áp dụng
       apply_to_all_skus: apply_to_type === 'all',
-      apply_to_brands:   apply_to_type === 'brand'    ? uniq(parseToArray(apply_brands))    : null,
-      apply_to_categories: apply_to_type === 'category'? uniq(parseToArray(apply_categories)) : null,
-      apply_to_subcats:  apply_to_type === 'subcat'   ? uniq(parseToArray(apply_subcats))   : null,
+      apply_to_brands:   apply_to_type === 'brand'    ? uniq(parseSkus(apply_brands))    : null,
+      apply_to_categories: apply_to_type === 'category'? uniq(parseSkus(apply_categories)) : null,
+      apply_to_subcats:  apply_to_type === 'subcat'   ? uniq(parseSkus(apply_subcats))   : null,
       // tóm tắt scope mới (nếu bạn dùng Brand+Subcat)
       apply_brand_subcats: apply_to_type === 'brand_subcat'
         ? ( () => {
@@ -3400,7 +3382,7 @@ app.post('/admin/ranking/:action/:id?', requireManager, async (req, res) => {
       store: store || null,
       department: department || null,
       avatar_image_url: avatar_image_url || null,
-      sales_percentage: req.body.sales_percentage ? parseInt(req.body.sales_percentage) : null // <-- DÒNG MỚI
+      sales_percentage: req.body.sales_percentage ? parseFloat(req.body.sales_percentage) : null
     };
 
     if (action === 'new') {

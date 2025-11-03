@@ -30,13 +30,14 @@
                 <div class="logo">Hệ thống CTKM</div>
                 <nav class="nav">
                     <a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Trang Chủ</a>
+                    <a href="/newsfeed" class="<%= currentPage === 'newsfeed' ? 'active' : '' %>">Bảng tin</a>
                     
                     <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">FIFO Checking</a>  
              
                     <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>">Chiến giá</a>
                     <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
                         <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">Quản lý CTKM</a>
-                        <a href="/newsfeed" class="<%= currentPage === 'newsfeed' ? 'active' : '' %>">Bảng tin</a>
+                        
                     <% } %>
 
                 </nav>

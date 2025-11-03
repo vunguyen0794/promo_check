@@ -571,7 +571,20 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Dán vào bên trong <script> (ví dụ: dòng 713)
+function formatCurrency(input) {
+    // 1. Lấy giá trị, xóa mọi ký tự không phải số
+    let value = input.value.replace(/\D/g, '');
     
+    // 2. Định dạng lại với dấu chấm (kiểu Việt Nam)
+    if (value) {
+        input.value = new Intl.NumberFormat('vi-VN').format(value);
+    } else {
+        input.value = '';
+    }
+}
+
+
     // --- Hàm điều khiển popup danh sách coupon ---
     window.showCouponListModal = function (button) {
   var modal     = document.getElementById('couponListModal');
