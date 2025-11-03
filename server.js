@@ -97,6 +97,48 @@ app.use(async (req, res, next) => {
     minute: '2-digit',
   });
 
+  // 1. Cập nhật 'last_seen' cho user hiện tại (nếu đã đăng nhập)
+  // Chúng ta không 'await' để nó chạy ngầm, không làm chậm request
+
+  if (res.locals.user) {
+    supabase
+      .from('users')
+      .update({ last_seen: new Date().toISOString() })
+      .eq('id', res.locals.user.id)
+      .then(result => {
+        if (result.error) {
+          console.error('Lỗi cập nhật last_seen:', result.error.message);
+        }
+        // Cập nhật thành công, không cần làm gì
+      })
+      .catch(err => console.error('Lỗi nghiêm trọng last_seen:', err.message));
+  }
+
+  // 2. Lấy số user online (chỉ khi user là manager hoặc admin)
+  res.locals.onlineUserCount = null; // Khởi tạo là null
+
+  const isManagerOrAdmin = res.locals.user && (res.locals.user.role === 'manager' || res.locals.user.role === 'admin');
+
+  if (isManagerOrAdmin) {
+    try {
+      // Định nghĩa "online" là 5 phút gần nhất
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+      const { count, error } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true }) // Chỉ đếm
+        .gt('last_seen', fiveMinutesAgo); // Lớn hơn 5 phút trước
+
+      if (error) throw error;
+
+      res.locals.onlineUserCount = count;
+
+    } catch (e) {
+      console.error("Lỗi đếm user online:", e.message);
+    }
+  }
+  // --- KẾT THÚC PHẦN THÊM MỚI ---
+
   // Lấy dòng chữ chạy từ Supabase
   try {
     const { data } = await supabase
@@ -696,7 +738,20 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
     res.status(500).send('<p>Lỗi khi tải dữ liệu.</p>');
   }
 });
-// ---- Trang tất cả sản phẩm ----
+
+// ========================= PC BUILDER / BÁO GIÁ =========================
+app.get('/pc-builder', requireAuth, (req, res) => {
+  res.render('pc-builder', {
+    title: 'Báo giá - Xây dựng cấu hình',
+    currentPage: 'pc-builder', // Biến này dùng để active menu
+    // time đã có sẵn từ middleware
+  });
+});
+
+
+
+// =======================================================================
+
 // ---- Trang tất cả sản phẩm (phiên bản mới có category) ----
 app.get('/products', requireAuth, async (req, res) => {
   const q = (req.query.q || '').trim();
@@ -2407,9 +2462,9 @@ app.get('/api/utils/bom/by-component', async (req, res) => {
   }
 });
 
-app.get('/tien-ich', requireAuth, (req, res) => {
-  res.render('tien-ich', { user: req.user || null });
-});
+// app.get('/tien-ich', requireAuth, (req, res) => {
+  // res.render('tien-ich', { user: req.user || null });
+// });
 
 
 

@@ -2725,3 +2725,44 @@ th, strong, b {
 .contest-link:hover {
   background-color: #92400e;
 }
+
+/* ===== CSS CHO DROPDOWN MENU TIỆN ÍCH ===== */
+.nav .dropdown { 
+  position: relative; 
+}
+
+.nav .dropdown .dropdown-menu {
+  position: absolute;
+  top: 100%; /* Hiện ngay bên dưới link cha */
+  left: 0;
+  background: #fff; /* Nền trắng */
+  color: #333; /* Chữ đen (cho menu con) */
+  border: 1px solid #e5e7eb; /* Viền xám nhạt (giống .dash-card) */
+  border-radius: 8px; /* Bo góc (giống .modal-content) */
+  min-width: 180px;
+  padding: 6px;
+  display: none; /* Ẩn mặc định */
+  z-index: 50;
+  box-shadow: 0 8px 24px rgba(0,0,0,.08); /* Đổ bóng (giống modal) */
+}
+
+/* Class 'open' (được JS thêm vào) để hiển thị menu */
+.nav .dropdown .dropdown-menu.open { 
+  display: block; 
+}
+
+/* Các link bên trong dropdown */
+.nav .dropdown .dropdown-menu a {
+  display: block;
+  color: #111827; /* Màu chữ tối */
+  padding: 8px 10px;
+  border-radius: 6px; /* Bo góc nhẹ cho từng mục */
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Hiệu ứng hover cho link bên trong dropdown */
+.nav .dropdown .dropdown-menu a:hover { 
+  background: #f3f4f6; /* Nền xám nhạt khi hover */
+  color: #111827; /* Giữ nguyên màu chữ */
+}

@@ -185,14 +185,13 @@
             </div>
             <% } %>
 
-                <form action="/edit-promotion/<%= promotion.id %>" method="POST" class="promo-form">
+                <form action="/edit-promotion/<%= promotion.id %>" method="POST" class="promo-form" id="promoForm">
                     <div class="form-section">
                         <h3>📋 Thông tin cơ bản</h3>
 
                         <div class="form-group">
                             <label>Tên CTKM *</label>
                             <input type="text" name="name" value="<%= promotion.name || '' %>" required>
-                            <!-- Biến thể = Tên CTKM -->
                             <input type="hidden" name="subgroup_name" value="<%= promotion.name || '' %>">
                         </div>
                         <div class="form-group">
@@ -454,12 +453,10 @@
                                             <%= label %>
                                         </th>
                                         <td>
-                                            <!-- trường hiển thị -->
                                             <div class="rte-field" contenteditable="true"
                                             data-name="detail[<%= label %>]" data-index="<%= idx %>">
                                             <%- (promotion.detail_fields && promotion.detail_fields[label]) ? promotion.detail_fields[label] : '' %>
                                             </div>
-                                            <!-- textarea ẩn để submit -->
                                             <textarea name="detail[<%= label %>]" hidden></textarea>
                                         </td>
                                     </tr>
@@ -467,46 +464,10 @@
                             </tbody>
                         </table>
 
-
-                        <!-- Script RTE (đặt TRONG form, trước nút Lưu) -->
-                        <script>
-                            (function () {
-                                function exec(cmd) { document.execCommand(cmd, false, null); }
-                                var b = document.getElementById('rteBold');
-                                var i = document.getElementById('rteItalic');
-                                var u = document.getElementById('rteUnderline');
-                                var l = document.getElementById('rteLink');
-                                if (b) b.addEventListener('click', function () { exec('bold'); });
-                                if (i) i.addEventListener('click', function () { exec('italic'); });
-                                if (u) u.addEventListener('click', function () { exec('underline'); });
-                                if (l) l.addEventListener('click', function () {
-                                    var el = document.activeElement;
-                                    if (!el || el.getAttribute('contenteditable') !== 'true') return;
-                                    var url = prompt('Nhập URL:', 'https://');
-                                    if (!url) return;
-                                    var sel = window.getSelection ? String(window.getSelection()) : '';
-                                    var text = sel && sel.trim() ? sel : url;
-                                    var safe = url.replace(/"/g, '&quot;');
-                                    document.execCommand('insertHTML', false, '<a href="' + safe + '" target="_blank" rel="noopener noreferrer">' + text + '</a>');
-                                });
-
-                                // copy nội dung các div.rte-field vào textarea khi submit
-                                var form = document.currentScript.closest('form');
-                                if (form) {
-                                    form.addEventListener('submit', function () {
-                                        var fields = form.querySelectorAll('.rte-field');
-                                        fields.forEach(function (div) {
-                                            var name = div.getAttribute('data-name');
-                                            var ta = form.querySelector('textarea[name="' + name + '"]');
-                                            if (ta) ta.value = div.innerHTML.trim();
-                                        });
-                                    });
-                                }
-                            })();
-                        </script>
                         <div class="form-section">
                 <h3>🎯 Phạm vi áp dụng</h3>
-                                        <% let bs_brands=[]; let bs_subcats=[]; if (promotion.apply_brand_subcats && promotion.apply_brand_subcats.length> 0) {
+                                            <% let bs_brands=[];
+                                            let bs_subcats=[]; if (promotion.apply_brand_subcats && promotion.apply_brand_subcats.length> 0) {
                                             bs_brands = Array.from(new Set((promotion.apply_brand_subcats || []).map(x => x.brand)));
                                             bs_subcats = Array.from(new Set((promotion.apply_brand_subcats || []).map(x => x.subcat_id)));
                                             }
@@ -547,7 +508,8 @@
             
             <div class="form-section">
                 <h3>🔗 Quan hệ với CTKM khác</h3>
-                <% const grouped = {}; (allPromosForCompat || []).forEach(p=>{ const g = p.group_name || 'Khác'; (grouped[g] = grouped[g] || []).push(p); }); const groupNames = Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'vi')); %>
+                <% const grouped = {}; (allPromosForCompat || []).forEach(p=>{ const g = p.group_name || 'Khác'; (grouped[g] = grouped[g] || []).push(p); }); const groupNames = Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'vi'));
+                %>
                 <div class="form-group">
                     <label>Áp dụng cùng CTKM</label>
                     <div style="display:flex; gap:8px; margin-bottom:6px;">
@@ -560,7 +522,8 @@
                     <select name="apply_with[]" multiple class="multi-select" id="applyWithSelect">
                         <% groupNames.forEach(g => { %>
                             <optgroup label="<%= g %>">
-                                <% grouped[g].forEach(function(p){ var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name; %>
+                                <% grouped[g].forEach(function(p){ var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name;
+                                %>
                                     <option data-group="<%= g %>" value="<%= p.id %>" <%= (compatAllowIds||[]).includes(String(p.id)) ? 'selected' : '' %>><%= label %></option>
                                 <% }) %>
                             </optgroup>
@@ -578,9 +541,10 @@
                         <button type="button" class="btn btn-secondary" id="btnUnselectGroupEX" style="padding: 8px 12px;">Bỏ chọn</button>
                     </div>
                     <select name="exclude_with[]" multiple class="multi-select" id="excludeWithSelect">
-                         <% groupNames.forEach(g => { %>
+                        <% groupNames.forEach(g => { %>
                             <optgroup label="<%= g %>">
-                                <% grouped[g].forEach(function(p){ var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name; %>
+                                <% grouped[g].forEach(function(p){ var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name;
+                                %>
                                     <option data-group="<%= g %>" value="<%= p.id %>" <%= (compatExclIds||[]).includes(String(p.id)) ? 'selected' : '' %>><%= label %></option>
                                 <% }) %>
                             </optgroup>
@@ -597,14 +561,12 @@
     if (!typeSelect) return; // Thêm kiểm tra
 
     const selectedType = typeSelect.value;
-
     const fields = {
         sku: document.getElementById('skuField'),
         brand: document.getElementById('brandField'),
         category: document.getElementById('categoryField'),
         subcat: document.getElementById('subcatField')
     };
-
     // Ẩn tất cả trước
     for (const key in fields) {
         if (fields[key]) fields[key].style.display = 'none';
@@ -623,6 +585,38 @@
         // ---- Script 1: Ẩn/hiện các trường Phạm vi áp dụng ----
         toggleScopeFields();
 
+        // ---- Script 1b: Xử lý Checkbox Coupon List (FIXED) ----
+        try {
+            const couponCheckbox = document.getElementById('hasCouponListCheckbox');
+            const couponBuilder = document.getElementById('couponListBuilder');
+            // Lấy dữ liệu promotion đã được truyền vào từ EJS
+            const promoData = <%- JSON.stringify(promotion) %>;
+
+            // Hàm để bật/tắt
+            function toggleCouponBuilder() {
+                if (couponCheckbox && couponBuilder) {
+                    couponBuilder.style.display = couponCheckbox.checked ? 'block' : 'none';
+                }
+            }
+
+            // 1. Đặt trạng thái ban đầu khi tải trang
+            // Nếu promotion có coupon_list, tự động tick vào ô checkbox
+            if (couponCheckbox && promoData && promoData.coupon_list && promoData.coupon_list.length > 0) {
+                couponCheckbox.checked = true;
+            }
+
+            // 2. Thêm sự kiện 'change' để bật/tắt builder khi click
+            if (couponCheckbox) {
+                couponCheckbox.addEventListener('change', toggleCouponBuilder);
+            }
+
+            // 3. Chạy hàm này 1 lần khi tải trang để ẩn/hiện chính xác
+            toggleCouponBuilder();
+
+        } catch (e) {
+            console.error("Lỗi khởi tạo Coupon Builder Checkbox:", e);
+        }
+
         // ---- Script 2: Helper cho việc chọn nhóm CTKM tương thích ----
         function selectByGroup(selectEl, group, on = true) {
             if (!selectEl) return;
@@ -635,68 +629,111 @@
         document.getElementById('btnSelectGroupEX').onclick = () => selectByGroup(document.getElementById('excludeWithSelect'), document.getElementById('excludeWithGroupPicker').value, true);
         document.getElementById('btnUnselectGroupEX').onclick = () => selectByGroup(document.getElementById('excludeWithSelect'), document.getElementById('excludeWithGroupPicker').value, false);
 
-        // ---- Script 3: Script cho Rich Text Editor ----
-        const toolbar = document.getElementById('rteToolbar');
-        if (toolbar) {
-            const color = document.getElementById('rteColor');
-            const emoji = document.getElementById('rteEmoji');
-            const linkBtn = document.getElementById('rteLink');
-            function exec(cmd, val = null) { document.execCommand(cmd, false, val); }
-            toolbar.addEventListener('click', (e) => {
-                const btn = e.target.closest('[data-cmd]');
-                if (btn) exec(btn.getAttribute('data-cmd'));
-            });
-            if(color) color.addEventListener('input', (e) => exec('foreColor', e.target.value));
-            if(emoji) emoji.addEventListener('click', () => exec('insertText', '😊'));
-            if(linkBtn) linkBtn.addEventListener('click', () => {
-                const el = document.activeElement;
-                if (!el || el.getAttribute('contenteditable') !== 'true') return;
-                const url = prompt('Nhập URL:', 'https://');
-                if (!url) return;
-                const sel = window.getSelection ? String(window.getSelection()) : '';
-                const text = sel && sel.trim() ? sel : url;
-                const safe = url.replace(/"/g, '&quot;');
-                exec('insertHTML', `<a href="${safe}" target="_blank" rel="noopener noreferrer">${text}</a>`);
-            });
-
-        }
+        // ---- Script 3: Script cho Rich Text Editor (KHỐI TRÙNG LẶP ĐÃ BỊ XÓA) ----
+        // Khối mã từ đến đã được xóa
+       
         (function() {
-      const promo = <%- JSON.stringify(promotion) %>;
-      if (!promo) return;
+            const promo = <%- JSON.stringify(promotion) %>;
+            if (!promo) return;
 
-      const type = promo.discount_value_type;
-      const value = promo.discount_value;
-      const max = promo.max_discount_amount;
-      const min = promo.min_order_value;
+            const type = promo.discount_value_type;
+            const value = promo.discount_value;
+            const max = promo.max_discount_amount;
+            const min = promo.min_order_value;
 
-      const typeSelect = document.querySelector('select[name="discount_value_type"]');
-      const amountInput = document.querySelector('input[name="discount_amount"]');
-      const percentInput = document.querySelector('input[name="discount_percent"]');
-      const maxInput = document.querySelector('input[name="max_discount_amount"]');
-      const minInput = document.querySelector('input[name="min_order_value"]');
+            const typeSelect = document.querySelector('select[name="discount_value_type"]');
+            const amountInput = document.querySelector('input[name="discount_amount"]');
+            const percentInput = document.querySelector('input[name="discount_percent"]');
+            const maxInput = document.querySelector('input[name="max_discount_amount"]');
+            const minInput = document.querySelector('input[name="min_order_value"]');
 
-      if (type && typeSelect) {
-        typeSelect.value = type;
-      }
-      if (type === 'amount' && value && amountInput) {
-        amountInput.value = value;
-      }
-      if (type === 'percent' && value && percentInput) {
-        percentInput.value = value;
-      }
-      if (max && maxInput) {
-        maxInput.value = max;
-      }
-      if (min && minInput) {
-        minInput.value = min;
-      }
-      
-      // Quan trọng: Gọi lại hàm toggle để hiện/ẩn đúng ô input
-      if (typeof toggleDiscountInputs === 'function') {
-        toggleDiscountInputs();
-      }
-    })();
-    });
+            if (type && typeSelect) {
+                typeSelect.value = type;
+            }
+            if (type === 'amount' && value && amountInput) {
+                amountInput.value = value;
+            }
+            if (type === 'percent' && value && percentInput) {
+                percentInput.value = value;
+            }
+            if (max && maxInput) {
+                maxInput.value = max;
+            }
+            if (min && minInput) {
+                minInput.value = min;
+            }
+            
+            // Quan trọng: Gọi lại hàm toggle để hiện/ẩn đúng ô input
+            if (typeof toggleDiscountInputs === 'function') {
+                toggleDiscountInputs();
+            }
+        })();
+
+        // ---- Script 4: Xử lý Thêm/Xóa/Tải Coupon List (FIXED) ----
+        try {
+            const container = document.getElementById('couponListContainer');
+            const addBtn = document.getElementById('addCouponRowBtn');
+            // Lấy dữ liệu promotion đã được truyền vào từ EJS
+            const promoData = <%- JSON.stringify(promotion) %>;
+            let couponIdx = 0; // Bộ đếm để đảm bảo tên input là duy nhất
+
+            // Hàm tạo 1 dòng HTML
+            function createCouponRow(data = {}) {
+                const idx = couponIdx++; // Tăng bộ đếm
+                const row = document.createElement('div');
+                // Sử dụng class 'dynamic-item' đã có style
+                row.className = 'dynamic-item'; 
+                
+                // Cần 4 ô input + 1 nút xóa.
+                // Chúng ta sẽ tự định nghĩa style grid ở đây để khớp với 4 cột + nút xóa
+                row.style.display = 'grid';
+                // 1.5fr 1fr 1fr 1fr auto
+                row.style.gridTemplateColumns = '1.5fr 1fr 1fr 1fr auto';
+                row.style.gap = '10px';
+                row.style.marginBottom = '10px';
+
+                // Dùng .replace(/"/g, '&quot;') để tránh lỗi HTML nếu tên/mã có dấu nháy kép
+                row.innerHTML = `
+                    <input type="text" name="coupons[${idx}][name]" 
+                           placeholder="Tên/Nhóm SP (ví dụ: iPhone 15)" 
+                           value="${(data.name || '').replace(/"/g, '&quot;')}">
+                    <input type="text" name="coupons[${idx}][code]" 
+                           placeholder="Mã coupon *" 
+                           value="${(data.code || '').replace(/"/g, '&quot;')}" required>
+                    <input type="text" name="coupons[${idx}][discount]" 
+                           placeholder="Mức giảm (ví dụ: 500000)" 
+                           value="${data.discount || ''}">
+                    <input type="text" name="coupons[${idx}][note]" 
+                           placeholder="Điều kiện (nếu có)" 
+                           value="${(data.note || '').replace(/"/g, '&quot;')}">
+                    <button type="button" class="remove-item" 
+                            onclick="this.parentElement.remove()">Xóa</button>
+                `;
+                
+                if (container) {
+                    container.appendChild(row);
+                }
+            }
+
+            // 1. Tải các coupon đã có khi tải trang
+            if (promoData && promoData.coupon_list && Array.isArray(promoData.coupon_list)) {
+                promoData.coupon_list.forEach(item => {
+                    createCouponRow(item);
+                });
+            }
+
+            // 2. Xử lý nút "+ Thêm dòng"
+            if (addBtn) {
+                addBtn.addEventListener('click', function() {
+                    createCouponRow(); // Thêm dòng mới
+                });
+            }
+
+        } catch (e) {
+            console.error("Lỗi khởi tạo Coupon List Add/Remove:", e);
+        }
+
+    }); // <-- Đóng thẻ document.addEventListener('DOMContentLoaded')
 
     // Dán mã này vào <script> trong file edit-promotion.ejs
 (function () {
@@ -775,6 +812,15 @@
                 const ta = div.parentElement.querySelector('textarea[name="' + name + '"]');
                 if (ta) ta.value = div.innerHTML;  // lưu HTML
             });
+            
+            // Vô hiệu hóa các input coupon nếu checkbox không được chọn
+            const couponCheckbox = document.getElementById('hasCouponListCheckbox');
+            const couponBuilder = document.getElementById('couponListBuilder');
+            if (couponCheckbox && couponBuilder && !couponCheckbox.checked) {
+                couponBuilder.querySelectorAll('input, select, textarea').forEach(el => {
+                    el.disabled = true;
+                });
+            }
         });
     }
 })();
