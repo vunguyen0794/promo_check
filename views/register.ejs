@@ -18,14 +18,34 @@
 
             
             <div class="form-group">
-                <label>Email</label>
-                <input type="email" name="email" required placeholder="Nhập email của bạn">
-            </div>
+    <label>Email</label>
+    <input type="email" name="email" required placeholder="Nhập email của bạn" 
+           id="email" oninput="validateEmail()">
+    <small id="email-error" style="color: #dc3545; display: none; margin-top: 5px;">
+        Email phải có đuôi @phongvu.vn hoặc @phongvu-mna.vn
+    </small>
+</div>
             
+
             <div class="form-group">
-                <label>Mã Chi nhánh (Branch Code)</label>
-                <input type="text" name="branch_code" required placeholder="Nhập mã chi nhánh (ví dụ: CP01)">
-            </div>
+    <label>Mã Chi nhánh (Branch Code)</label>
+    <select name="branch_code" required class="info-select" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+        <option value="">-- Vui lòng chọn chi nhánh --</option>
+
+        <option value="CP01">CP01</option>
+        <option value="CP02">CP02</option>
+        <option value="CP05">CP05</option>
+        <option value="CP07">CP07</option>
+        <option value="CP08">CP08</option>
+        <option value="CP40">CP40</option>
+        <option value="CP46">CP46</option>
+        <option value="CP58">CP58</option>
+        <option value="CP62">CP62</option>
+        <option value="CP64">CP64</option>
+        <option value="CP67">CP67</option>
+        <option value="CP69">CP69</option>
+        </select>
+</div>
 
             <div class="form-group">
                 <label>Mật khẩu</label>
@@ -40,5 +60,29 @@
         </div>
     </div>
 </div>
+
+
+<script>
+function validateEmail() {
+    const emailInput = document.getElementById('email');
+    const emailError = document.getElementById('email-error');
+    const submitButton = document.querySelector('button[type="submit"]');
+
+    const email = emailInput.value.toLowerCase();
+
+    // Kiểm tra
+    const isValid = email.endsWith('@phongvu.vn') || email.endsWith('@phongvu-mna.vn');
+
+    if (email === "" || isValid) {
+        emailError.style.display = 'none';
+        submitButton.disabled = false;
+    } else {
+        emailError.style.display = 'block';
+        submitButton.disabled = true; // Chặn nhấn nút "Đăng ký"
+    }
+}
+</script>
+
+<%- include('partials/footer') %>
 
 <%- include('partials/footer') %>

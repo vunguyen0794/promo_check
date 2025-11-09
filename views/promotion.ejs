@@ -285,8 +285,68 @@
             transform: translateY(-1px);
         }
 
-        
+        /* === BỔ SUNG CSS RESPONSIVE CHO BẢNG === */
+        @media (max-width: 768px) {
 
+            .promo-table .code-badge {
+    white-space: normal; /* Cho phép nút tự xuống dòng */
+    word-break: break-all; /* Bẻ gãy chữ nếu cần */
+    line-height: 1.4;
+    padding: 6px 10px; /* Thu nhỏ nút một chút */
+}
+            /* Ẩn tiêu đề ngang của bảng */
+            .promo-table thead {
+                display: none;
+            }
+
+            /* Chuyển <td> thành block để xếp dọc */
+            .promo-table,
+            .promo-table tbody,
+            .promo-table tr,
+            .promo-table td {
+                display: block;
+                width: 100%;
+            }
+
+            /* Mỗi <tr> sẽ là một "card" riêng */
+            .promo-table tr {
+                margin-bottom: 15px;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                overflow: hidden; /* Giúp bo góc */
+            }
+
+            .promo-table td {
+                border: none;
+                border-bottom: 1px solid #f1f5f9;
+                padding-left: 15px;
+                padding-right: 15px;
+                position: relative;
+            }
+
+            .promo-table td:last-child {
+                border-bottom: none;
+            }
+
+            /* Hiển thị tiêu đề (data-label) bên trên nội dung */
+            .promo-table td::before {
+                content: attr(data-label); /* Lấy nội dung từ data-label="" */
+                display: block;
+                font-size: 12px;
+                font-weight: 600;
+                color: #6c757d;
+                margin-bottom: 4px;
+                padding-top: 5px; /* Thêm khoảng cách cho <td> đầu tiên */
+            }
+            
+            /* Tinh chỉnh cho <td> đầu tiên */
+            .promo-table td:first-child {
+                 padding-top: 15px;
+            }
+            .promo-table td:first-child::before {
+                 padding-top: 0;
+            }
+        }
 
     </style>
 
@@ -385,7 +445,139 @@
 </tr>
 
                         </table>
+                        <%# === KHỐI TỒN KHO MỚI (HỖ TRỢ ADMIN) === %>
+                        <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && inventoryMap && inventoryMap.get(product.sku)) { %>
+                            <%# --- Giao diện ADMIN (HCM.BD) --- %>
+                            <h3 style="font-size: 16px; font-weight: 700; margin-top: 20px; margin-bottom: 10px;">
+                                Tồn kho BigQuery (Tất cả chi nhánh)
+                            </h3>
+                            <p style="font-size: 13px; color: #6c757d; margin-top: -8px; margin-bottom: 10px;">
+                                (Đã trừ các serial được tick "Đã xuất" trong ngày)
+                            </p>
+                            <div class="table-scroll-wrapper">
+                                <table class="info-table" style="margin-top: 0;">
+                                    <thead>
+                                        <tr>
+                                            <th>Chi nhánh</th>
+                                            <th style="text-align: right;">Hàng bán mới</th>
+                                            <th style="text-align: right;">Trưng bày CĐ</th>
+                                            <th style="text-align: right;">Lưu kho TL</th>
+                                            <th style="text-align: right;">Trưng bày TL</th>
+                                            <th style="text-align: right;">Tồn khác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% const branchMap = inventoryMap.get(product.sku); %>
+                                        <% if (branchMap && branchMap.size > 0) { %>
+                                            <% [...branchMap.keys()].sort().forEach(branchId => { %>
+                                                <% const counts = branchMap.get(branchId); %>
+                                                <tr>
+                                                    <th><%= branchId %></th>
+                                                    <%# [YÊU CẦU 1.2] Thêm class 'zero-muted' nếu tồn = 0 %>
+<td style="text-align: right;" class="<%= counts.hang_ban_moi === 0 ? 'zero-muted' : '' %>">
+    <strong><%= counts.hang_ban_moi %></strong>
+</td>
+<td style="text-align: right;" class="<%= counts.trung_bay_chi_dinh === 0 ? 'zero-muted' : '' %>">
+    <strong><%= counts.trung_bay_chi_dinh %></strong>
+</td>
+<td style="text-align: right;" class="<%= counts.luu_kho_tl === 0 ? 'zero-muted' : '' %>">
+    <strong><%= counts.luu_kho_tl %></strong>
+</td>
+<td style="text-align: right;" class="<%= counts.trung_bay_tl === 0 ? 'zero-muted' : '' %>">
+    <strong><%= counts.trung_bay_tl %></strong>
+</td>
+<td style="text-align: right;" class="<%= counts.ton_khac === 0 ? 'zero-muted' : '' %>">
+    <strong><%= counts.ton_khac %></strong>
+</td>
+                                                </tr>
+                                            <% }); %>
+                                        <% } else { %>
+                                            <tr>
+                                                <td colspan="6" style="text-align: center; color: #6c757d;">
+                                                    Không có dữ liệu tồn kho BigQuery cho SKU này.
+                                                </td>
+                                            </tr>
+                                        <% } %>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                        <% } else if (typeof inventoryCounts !== 'undefined' && inventoryCounts && userBranch) { %>
+                            <%# --- Giao diện USER THƯỜNG --- %>
+                            <h3 style="font-size: 16px; font-weight: 700; margin-top: 20px; margin-bottom: 10px;">
+                                Tồn kho (BigQuery) - Chi nhánh: <%= userBranch %>
+                            </h3>
+                            <p style="font-size: 13px; color: #6c757d; margin-top: -8px; margin-bottom: 10px;">
+                                (Đã trừ các serial được tick "Đã xuất" trong ngày)
+                            </p>
+                            <table class="info-table" style="margin-top: 0;">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 150px;">Hàng bán mới</th>
+                                        <td><strong><%= inventoryCounts.hang_ban_moi %></strong>
+                                            <span style="font-size: 12px; color: #6c757d;">(Trưng bày + Lưu kho)</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Trưng bày chỉ định</th>
+                                        <td><strong><%= inventoryCounts.trung_bay_chi_dinh %></strong></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Lưu kho TL</th>
+                                        <td><strong><%= inventoryCounts.luu_kho_tl %></strong></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Trưng bày TL</th>
+                                        <td><strong><%= inventoryCounts.trung_bay_tl %></strong></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Tồn khác</th>
+                                        <td><strong><%= inventoryCounts.ton_khac %></strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        <% } else if (typeof userBranch !== 'undefined' && userBranch) { %>
+                            <%# --- Thông báo rỗng (cho user thường VÀ admin không có data) --- %>
+                            <div style="padding: 15px; text-align: center; color: #6c757d; font-style: italic;">
+                                Không có dữ liệu tồn kho BigQuery cho SKU này
+                                <% if (!isGlobalAdmin) { %> tại chi nhánh <%= userBranch %> <% } %>.
+                            </div>
+                        <% } %>
+                        <%# === KẾT THÚC KHỐI TỒN KHO === %>
                     </div>
+                    
+
+                    <% if (typeof oldestSerials !== 'undefined' && oldestSerials && oldestSerials.length > 0) { %>
+                        <div class="product-info" style="margin-top: 15px;">
+                            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0;">
+                                5 Serials tồn kho lâu nhất (Chưa xuất)
+                            </h3>
+                            <div class="table-scroll-wrapper">
+                                <table class="info-table" style="margin-top: 0;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 40%;">Serial</th>
+                                            <th style="width: 40%;">Location</th>
+                                            <th style="width: 20%; text-align: right;">Số ngày tồn</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% oldestSerials.forEach(serial => { %>
+                                            <tr>
+                                                <td><%= serial.serial %></td>
+                                                <td><%= serial.bin_zone %></td>
+                                                <td style="text-align: right; font-weight: 700;">
+                                                    <%= serial.days_old %>
+                                                </td>
+                                            </tr>
+                                        <% }); %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    <% } %>
+                    <%# === KẾT THÚC YÊU CẦU 3 === %>
+
                     <p style="margin-top:12px">
                         🔎 Lịch sử so sánh giá:
                         <strong>
@@ -465,12 +657,12 @@
                                                                     </div>
                                                                     <% } %>
                                             </td>
-                                            <td>
+                                            <td data-label="Áp dụng cùng">
                                                 <% if (promo.compat_allow_names && promo.compat_allow_names.length) { %>
   <%= promo.compat_allow_names.join(', ') %>
 <% } else { %><span class="muted">Không</span><% } %>
 </td>
-<td>
+<td data-label="Loại trừ">
   <% if (promo.compat_exclude_names && promo.compat_exclude_names.length) { %>
     <%= promo.compat_exclude_names.join(' , ') %>
   <% } else { %><span class="muted">Không</span><% } %>

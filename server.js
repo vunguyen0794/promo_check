@@ -22,6 +22,8 @@ const { Readable } = require('stream');
 const fs = require('fs');
 const { BigQuery } = require('@google-cloud/bigquery');
 const { sendNewPostEmail } = require('./utils/mailer');
+const ejs = require('ejs');
+const htmlPdf = require('html-pdf-node');
 
 const isVercel = !!process.env.VERCEL;
 
@@ -86,6 +88,45 @@ app.use(cookieSession({
   httpOnly: true,
   maxAge: 24 * 60 * 60 * 1000,
 }));
+
+const BRANCH_CONFIG = {
+  // Đây là mục dự phòng nếu không tìm thấy branch
+  'DEFAULT': {
+    name: "PHONG VŨ (Trụ sở chính)",
+    address: "Lô 10-12-14-16-18, đường số 1, KCN Tân Tạo, P. Tân Tạo, Q. Bình Tân, TPHCM",
+    mst: "0304998335",
+    hotline: "1800 6867",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Á Châu (ACB)",
+    bankHolder: "Công ty Cổ phần Thương mại - Dịch vụ Phong Vũ",
+    bankAccount: "123456789"
+  },
+  
+  // ----- ĐIỀN THÔNG TIN CHI NHÁNH CỦA BẠN VÀO ĐÂY -----
+  'HCM.BD': {
+    name: "PHONG VŨ (Chi nhánh HCM.BD)",
+    address: "[ĐỊA CHỈ CỦA HCM.BD]",
+    mst: "0304998335-XXX",
+    hotline: "[SĐT CỦA HCM.BD]",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Á Châu (ACB)",
+    bankHolder: "Tên chủ tài khoản của HCM.BD",
+    bankAccount: "987654321"
+  },
+  
+  'CP01': {
+    name: "PHONG VŨ (Chi nhánh CP01)",
+    address: "[ĐỊA CHỈ CỦA CP01]",
+    mst: "0304998335-YYY",
+    hotline: "[SĐT CỦA CP01]",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Ngoại thương (VCB)",
+    bankHolder: "Tên chủ tài khoản của CP01",
+    bankAccount: "1122334455"
+  }
+  // (Thêm các chi nhánh khác ở đây)
+};
+
 
 // ======================= MIDDLEWARE LẤY CÀI ĐẶT CHUNG =======================
 // Middleware này sẽ chạy TRƯỚC TẤT CẢ các route (app.get, app.post)
@@ -532,6 +573,24 @@ app.post('/login', async (req, res) => {
 app.post('/register', async (req, res) => {
   try {
     const { email, password, full_name, branch_code } = req.body;
+
+    // ===== BẮT ĐẦU CODE THÊM MỚI =====
+    // 1. Định nghĩa các domain hợp lệ
+    const allowedDomains = ['@phongvu.vn', '@phongvu-mna.vn'];
+
+    // 2. Kiểm tra email
+    const emailDomain = email.substring(email.lastIndexOf('@'));
+    if (!allowedDomains.includes(emailDomain.toLowerCase())) {
+      // Nếu email không hợp lệ, render lại trang đăng ký với lỗi
+      return res.render('register', {
+        title: 'Đăng ký',
+        currentPage: 'register',
+        error: 'Chỉ cho phép đăng ký bằng email nội bộ (@phongvu.vn hoặc @phongvu-mna.vn).',
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      });
+    }
+    // ===== KẾT THÚC CODE THÊM MỚI =====
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { data: user, error } = await supabase
@@ -934,6 +993,205 @@ app.get('/api/skus', async (req, res) => {
   }
 });
 
+// ===== SỬA API COMPONENTS (DÙNG .eq() VÌ CLIENT ĐÃ SỬA) =====
+app.get('/api/components', requireAuth, async (req, res) => {
+  try {
+    // Client đã gửi ID 3 phần (ví dụ: 'NH03-01-02')
+    const subcatPrefix = req.query.subcat; 
+    if (!subcatPrefix) {
+      return res.status(400).json({ ok: false, error: 'Thiếu mã subcat' });
+    }
+
+    // 1. Lấy danh sách linh kiện (SKU) từ Supabase
+    const { data: components, error: componentsError } = await supabase
+      .from('skus')
+      .select('sku, product_name, list_price, brand, subcat')
+      
+      // === SỬA LỖI: Dùng 'eq()' vì client đã gửi đúng ID 3 phần ===
+      .like('subcat', `${subcatPrefix}%`)
+      // =======================================================
+      
+      //.limit(100); 
+
+    if (componentsError) throw componentsError;
+    if (!components || components.length === 0) {
+      console.warn(`[Build PC] Không tìm thấy SKU nào cho subcat: ${subcatPrefix}`);
+      return res.json({ ok: true, components: [] });
+    }
+
+    const skuList = components.map(c => c.sku);
+
+    // 2. Lấy tồn kho (Giữ nguyên logic)
+    let stockMap = {};
+    try {
+        stockMap = await getSkuNewStockByBranch(skuList);
+    } catch (bqError) {
+        console.error("LỖI BIGQUERY (getSkuNewStockByBranch):", bqError.message);
+    }
+
+    // 3. Gộp dữ liệu (Giữ nguyên logic)
+    const componentsWithStock = components.map(component => {
+      const stock_by_branch = stockMap[component.sku] || {};
+      const total_stock = Object.values(stock_by_branch).reduce((sum, qty) => sum + qty, 0);
+
+      return {
+        ...component,
+        stock_by_branch: stock_by_branch,
+        total_stock: total_stock
+      };
+    });
+
+    // 4. Sắp xếp (Giữ nguyên logic)
+    componentsWithStock.sort((a, b) => b.total_stock - a.total_stock);
+    
+    // 5. Trả về dữ liệu
+    res.json({ ok: true, components: componentsWithStock });
+
+  } catch (e) {
+    console.error('Lỗi API /api/components:', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+// ===== KẾT THÚC SỬA API =====
+
+
+// ===== BẮT ĐẦU: SỬA TOÀN BỘ API CHECK PROMOS (CÓ CẢNH BÁO) =====
+app.post('/api/pc-builder/check-promos', requireAuth, async (req, res) => {
+  try {
+    const formatVND = (n) => {
+      return new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + ' VNĐ';
+    };
+
+    const { buildConfig, totalPrice } = req.body;
+    
+    if (!buildConfig || totalPrice === undefined) {
+      return res.status(400).json({ ok: false, error: 'Thiếu dữ liệu cấu hình.' });
+    }
+
+    const items = Object.values(buildConfig);
+    if (items.length === 0) {
+      return res.json({ ok: true, success: false, reason: 'Vui lòng chọn linh kiện.' });
+    }
+
+    // --- BƯỚC 1: ĐỊNH NGHĨA CÁC ĐIỀU KIỆN TỪ HÌNH ẢNH ---
+    
+    // Helper: Ánh xạ Subcat ID sang Tên Tiếng Việt
+    const subcatToName = (subcat) => {
+      const map = {
+        'NH03-01-02-01': 'Bo mạch chủ',
+        'NH03-01-01-01': 'Bộ vi xử lý (CPU)',
+        'NH03-01-03-01': 'Card màn hình (VGA)',
+        'NH03-01-07-01': 'Nguồn máy tính',
+        'NH03-01-04-01': 'Bộ nhớ trong (RAM)',
+        'NH03-01-05-01': 'Ổ cứng SSD',
+        'NH03-01-05-02': 'Ổ cứng HDD',
+        'NH03-01-06-01': 'Thùng máy'
+      };
+      // Xử lý nhóm ổ cứng
+      if (Array.isArray(subcat) && subcat.includes('NH03-01-05-01')) return 'Ổ cứng (SSD/HDD)';
+      return map[subcat] || subcat;
+    };
+
+    const group1_MustHaveOne = [
+      'NH03-01-02-01', // Bo mạch chủ
+      'NH03-01-01-01', // Bộ vi xử lý (CPU)
+      'NH03-01-03-01'  // Card màn hình (VGA)
+    ];
+    
+    const group2_MinOne = [
+      'NH03-01-07-01', // Nguồn máy tính
+      'NH03-01-04-01', // Bộ nhớ trong (RAM)
+      ['NH03-01-05-01', 'NH03-01-05-02'], // Ổ cứng (SSD hoặc HDD)
+      'NH03-01-06-01'  // Thùng máy
+    ];
+    
+    const tiers = [
+      { min: 50000000, discount: 1000000, code: 'PVBUILDPC25114' },
+      { min: 30000000, discount: 600000,  code: 'PVBUILDPC25113' },
+      { min: 20000000, discount: 400000,  code: 'PVBUILDPC25112' },
+      { min: 10000000, discount: 200000,  code: 'PVBUILDPC25111' }
+    ];
+
+    // --- BƯỚC 2: KIỂM TRA CÁC ĐIỀU KIỆN ---
+    let failReasons = []; // Mảng chứa các lý do thất bại
+
+    const countBySubcat = (subcat) => {
+      return items.filter(item => item.subcat === subcat).reduce((sum, item) => sum + item.quantity, 0);
+    };
+    
+    const hasSubcat = (subcatOrGroup) => {
+      if (Array.isArray(subcatOrGroup)) {
+        return items.some(item => subcatOrGroup.includes(item.subcat));
+      }
+      return items.some(item => item.subcat === subcatOrGroup);
+    };
+
+    // Kiểm tra Nhóm 1 (DUY NHẤT 1)
+    let group1_Violations = [];
+    for (const subcat of group1_MustHaveOne) {
+      const count = countBySubcat(subcat);
+      if (count === 0) {
+        group1_Violations.push(`Thiếu ${subcatToName(subcat)}`);
+      } else if (count > 1) {
+        group1_Violations.push(`Dư ${subcatToName(subcat)} (chỉ được 1)`);
+      }
+    }
+    if (group1_Violations.length > 0) {
+      failReasons.push(`Nhóm 1 (CPU/Main/VGA): ${group1_Violations.join(', ')}.`);
+    }
+
+    // Kiểm tra Nhóm 2 (TỐI THIỂU 1)
+    let group2_Violations = [];
+    for (const subcatOrGroup of group2_MinOne) {
+      if (!hasSubcat(subcatOrGroup)) {
+        group2_Violations.push(`Thiếu ${subcatToName(subcatOrGroup)}`);
+      }
+    }
+    if (group2_Violations.length > 0) {
+      failReasons.push(`Nhóm 2 (Linh kiện khác): ${group2_Violations.join(', ')}.`);
+    }
+
+    // --- BƯỚC 3: KẾT LUẬN ---
+    if (failReasons.length > 0) {
+      // TH 1: Không đạt điều kiện linh kiện
+      const reason = `Cấu hình chưa đạt: ${failReasons.join(' ')}`;
+      console.log(`[Build PC] Không đạt: ${reason}`);
+      return res.json({ ok: true, success: false, reason: reason });
+    }
+    
+    // TH 2: Đạt điều kiện, check giá
+    console.log("[Build PC] Cấu hình ĐẠT điều kiện linh kiện.");
+    for (const tier of tiers) {
+      if (totalPrice >= tier.min) {
+        // Đã tìm thấy bậc cao nhất phù hợp!
+        const promo = {
+          id: 'BUILD_PC_2511',
+          name: `Build PC - Giảm ${formatVND(tier.discount)} cho đơn từ ${formatVND(tier.min)}`,
+          description: 'Khách hàng build PC có các sản phẩm thỏa điều kiện.',
+          discount_amount: tier.discount,
+          coupon: tier.code
+        };
+        return res.json({ ok: true, success: true, promo: promo });
+      }
+    }
+
+    // TH 3: Đạt điều kiện, nhưng không đủ tiền
+    const lowestTier = tiers[tiers.length - 1]; // Bậc 10tr
+    const needed = lowestTier.min - totalPrice;
+    const reason = `Cấu hình đã đạt. Cần thêm ${formatVND(needed)} để nhận KM ${formatVND(lowestTier.discount)}.`;
+    console.log(`[Build PC] Đạt, nhưng không đủ ${lowestTier.min}.`);
+    return res.json({ 
+      ok: true, 
+      success: false, 
+      reason: reason
+    });
+
+  } catch (e) {
+    console.error('Lỗi API /api/pc-builder/check-promos:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+// ===== KẾT THÚC: SỬA TOÀN BỘ API =====
 // ------------------------- Chiến giá (UI + SAVE) -------------------------
 app.get('/price-battle', requireAuth, async (req, res) => {
   try {
@@ -1222,7 +1480,58 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     }
     const price = Number(product.list_price || 0);
     console.log(`[DEBUG] Bước 1: Đã tìm thấy sản phẩm - Tên: ${product.product_name}, Giá niêm yết: ${price}đ`);
+    // === BƯỚC MỚI: LẤY TỒN KHO BIGQUERY ===
+let inventoryMap = null; // Sẽ là Map<SKU, Map<Branch, Counts>>
+let inventoryCounts = null; // Sẽ là CountsObject (nếu là user thường)
+let isGlobalAdmin = false; // Mặc định là false
 
+try {
+    const userBranch = req.session.user?.branch_code || null;
+    const userRole = req.session.user?.role || null;
+    const today = new Date().toISOString().split('T')[0];
+
+    // Xác định quyền admin
+    isGlobalAdmin = (userRole === 'admin' || userBranch === 'HCM.BD');
+
+    if (userBranch && bigquery) { // Chỉ chạy nếu user có branch và BQ đã kết nối
+        const skuList = [product.sku];
+        // Truyền cờ isGlobalAdmin vào hàm
+        inventoryMap = await getInventoryCounts(skuList, userBranch, isGlobalAdmin, today);
+
+        if (inventoryMap.has(product.sku)) {
+            const branchMap = inventoryMap.get(product.sku);
+            if (!isGlobalAdmin) {
+                // User thường, chỉ lấy tồn của branch mình
+                if (branchMap.has(userBranch)) {
+                    inventoryCounts = branchMap.get(userBranch);
+                }
+            } else {
+                // Admin: không set inventoryCounts, sẽ truyền cả inventoryMap
+            }
+        }
+    }
+} catch (e) {
+    console.error("Lỗi khi lấy tồn kho cho /search-promotion:", e.message);
+}
+// === KẾT THÚC BƯỚC MỚI ===
+
+// === YÊU CẦU 3: LẤY TOP 5 SERIALS CŨ NHẤT ===
+let oldestSerials = [];
+try {
+    // Lấy today một lần nữa (hoặc dùng lại biến 'today' nếu nó ở ngoài scope)
+    const today = new Date().toISOString().split('T')[0];
+    const userBranch = req.session.user?.branch_code || null;
+    const userRole = req.session.user?.role || null;
+    const isGlobalAdmin = (userRole === 'admin' || userBranch === 'HCM.BD');
+
+    if (userBranch && bigquery) {
+        oldestSerials = await getOldestSerials(product.sku, userBranch, isGlobalAdmin, today, 5);
+    }
+} catch (e_serial) {
+    console.error("Lỗi khi lấy top 5 serials:", e_serial.message);
+    // Không dừng, tiếp tục render
+}
+// === KẾT THÚC YÊU CẦU 3 ===
     // 2) Lấy các CTKM đang active
     const today = new Date().toISOString().split('T')[0];
     const { data: promosRaw } = await supabase
@@ -1360,6 +1669,11 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       query: skuInput, product, promotions: promosAfterGroupPick,
       internalContest: internalContest,
       chosenPromos, totalDiscount, finalPrice, comparisonCount, error: null,
+      inventoryCounts: inventoryCounts, // Tồn kho cho user thường
+  inventoryMap: isGlobalAdmin ? inventoryMap : null, // Map tồn kho cho admin
+  userBranch: req.session.user?.branch_code || null,
+  isGlobalAdmin: isGlobalAdmin, // Cờ admin
+  oldestSerials: oldestSerials,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
 
@@ -1370,113 +1684,11 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
       error: 'Lỗi hệ thống: ' + (error?.message || String(error)),
       internalContest: null,
-      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    });
-  }
-});
-
-
-
-
-
-app.all('/search-promotion', requireAuth, async (req, res) => {
-  const skuInput = (
-    req.method === 'POST'
-      ? (req.body?.sku || req.body?.query)
-      : (req.query?.query || req.query?.sku)
-      || ''
-  ).toString().trim();
-
-  try {
-    console.log(`\n--- [DEBUG] BẮT ĐẦU TÌM KIẾM CHO SKU: ${skuInput} ---`);
-
-    if (!skuInput) {
-      return res.render('promotion', {
-        title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
-        product: null, promotions: promosAfterGroupPick,internalContest: internalContest, totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
-        error: 'Vui lòng nhập SKU.',
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      });
-    }
-
-    const { data: product } = await supabase.from('skus').select('*').eq('sku', skuInput).single();
-    if (!product) {
-      console.log(`[DEBUG] Lỗi: Không tìm thấy sản phẩm với SKU "${skuInput}".`);
-      return res.render('promotion', {
-        title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
-        product: null, promotions: promosAfterGroupPick,internalContest: internalContest, totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
-        error: 'Không tìm thấy thông tin cho SKU: ' + skuInput,
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      });
-    }
-    const price = Number(product.list_price || 0);
-    console.log(`[DEBUG] Bước 1: Đã tìm thấy sản phẩm - Tên: ${product.product_name}, Giá niêm yết: ${price}đ`);
-
-    const today = new Date().toISOString().split('T')[0];
-    const { data: promosRaw } = await supabase
-      .from('promotions')
-      .select('*, promotion_skus(*), promotion_excluded_skus(*), detail_fields, group_name, subgroup_name, apply_brand_subcats')
-      .lte('start_date', today)
-      .gte('end_date', today)
-      .eq('status', 'active');
-    console.log(`[DEBUG] Bước 2: Lấy được ${promosRaw?.length || 0} CTKM active từ database.`);
-
-    let promotions = (promosRaw || []).filter(p => {
-      const isExcluded = (p.promotion_excluded_skus || []).some(ex => ex.sku === product.sku);
-      if (isExcluded) return false;
-      if (p.apply_to_all_skus === true) return true;
-      const isIncluded = (p.promotion_skus || []).some(ps => ps.sku === product.sku);
-      return isIncluded;
-    });
-    console.log(`[DEBUG] Bước 3: Sau khi lọc theo SKU, còn lại ${promotions.length} CTKM.`);
-
-    // ... (Phần logic map tên CTKM tương thích giữ nguyên)
-
-    const todayStr = new Date().toISOString().slice(0, 10);
-    let availablePromos = (promotions || [])
-
-      .map(p => ({ ...p, discount_amount_calc: calcDiscountAmt(p, price) }));
-    console.log(`[DEBUG] Bước 4: Sau khi lọc theo đơn hàng tối thiểu, còn lại ${availablePromos.length} CTKM.`);
-
-    // --- LOGIC GỘP THEO GROUP ---
-    const bestByGroup = {};
-    for (const p of availablePromos) {
-      const groupKey = p.group_name || `__no_group_${p.id}__`;
-      if (!bestByGroup[groupKey] || p.discount_amount_calc > bestByGroup[groupKey].discount_amount_calc) {
-        bestByGroup[groupKey] = p;
-      }
-    }
-    const promosAfterGroupPick = Object.values(bestByGroup);
-    console.log(`[DEBUG] Bước 5: Sau khi gộp theo nhóm, còn lại ${promosAfterGroupPick.length} CTKM để hiển thị.`);
-    // --- KẾT THÚC LOGIC GỘP ---
-
-    const chosenPromos = pickStackable([...promosAfterGroupPick].sort((a, b) => b.discount_amount_calc - a.discount_amount_calc));
-    const totalDiscount = chosenPromos.reduce((s, p) => s + Number(p.discount_amount_calc || 0), 0);
-    const finalPrice = Math.max(0, price - totalDiscount);
-
-    let comparisonCount = 0;
-    try {
-      const cmp = await supabase.from('price_comparisons').select('*', { count: 'exact', head: true }).eq('sku', product.sku);
-      comparisonCount = cmp?.count || 0;
-    } catch { }
-
-    console.log(`--- [DEBUG] KẾT THÚC TÌM KIẾM ---`);
-    return res.render('promotion', {
-      title: 'CTKM theo SKU', currentPage: 'promotion',
-      query: skuInput,
-      product,
-      promotions: promosAfterGroupPick,internalContest: internalContest, // <-- Sử dụng kết quả đã gộp
-      chosenPromos, totalDiscount, finalPrice, comparisonCount, error: null,
-      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    });
-
-  } catch (error) {
-    console.error('SEARCH PROMO ERROR:', error);
-    return res.render('promotion', {
-      title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
-      product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
-      error: 'Lỗi hệ thống: ' + (error?.message || String(error)),
-      internalContest: null,
+      inventoryCounts: inventoryCounts, // Tồn kho cho user thường
+  inventoryMap: isGlobalAdmin ? inventoryMap : null, // Map tồn kho cho admin
+  userBranch: req.session.user?.branch_code || null,
+  isGlobalAdmin: isGlobalAdmin, // Cờ admin
+  oldestSerials: oldestSerials,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
   }
@@ -1560,11 +1772,45 @@ app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
       ]));
     }
 
+    // === BƯỚC MỚI: LẤY TỒN KHO BIGQUERY CHO TẤT CẢ SKU LIÊN QUAN ===
+let inventoryMap = new Map(); // Sẽ là Map<SKU, Map<Branch, Counts>>
+let allBranchNames = []; // Sẽ chứa các cột chi nhánh (cho admin)
+let isGlobalAdmin = false;
+
+const userBranch = req.session.user?.branch_code || null;
+const userRole = req.session.user?.role || null;
+
+try {
+    const today = new Date().toISOString().split('T')[0];
+    isGlobalAdmin = (userRole === 'admin' || userBranch === 'HCM.BD');
+
+    if (userBranch && bigquery && allCodes.length > 0) {
+        // Truyền cờ isGlobalAdmin
+        inventoryMap = await getInventoryCounts(allCodes, userBranch, isGlobalAdmin, today);
+
+        // Nếu là admin, tạo danh sách các cột chi nhánh để hiển thị
+        if (isGlobalAdmin) {
+            const branchSet = new Set();
+            inventoryMap.forEach(branchMap => {
+                branchMap.forEach((counts, branchId) => {
+                    branchSet.add(branchId);
+                });
+            });
+            allBranchNames = [...branchSet].sort(); // Lấy list branchs có tồn
+        }
+    }
+} catch (e) {
+    console.error("Lỗi khi lấy tồn kho cho /promotion-detail:", e.message);
+}
+// === KẾT THÚC BƯỚC MỚI ===
+
+
     const includedSkuDetails = includedCodes.map(code => ({
       sku: code,
       product_name: skuMetaByCode[code]?.product_name || '',
       brand: skuMetaByCode[code]?.brand || '',
       list_price: skuMetaByCode[code]?.list_price ?? null,
+      inventory: inventoryMap.get(code) || null, // SỬA: Giờ đây 'inventory' là Map<Branch, Counts>
     }));
     const excludedSkuDetails = excludedCodes.map(code => ({
       sku: code,
@@ -1599,7 +1845,10 @@ app.get('/promotion-detail/:id', requireAuth, async (req, res) => {
       includedSkuDetails,
       excludedSkuDetails,
       revisions,                 // non-manager sẽ là []
-      currentUser,               // truyền cho view biết vai trò
+      currentUser, 
+      userBranch: userBranch,              // truyền cho view biết vai trò
+      isGlobalAdmin: isGlobalAdmin, // <-- DÒNG MỚI
+  allBranchNames: allBranchNames, // <-- DÒNG MỚI (list các cột branch cho admin)
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
 
@@ -2466,6 +2715,93 @@ app.get('/api/utils/bom/by-component', async (req, res) => {
   // res.render('tien-ich', { user: req.user || null });
 // });
 
+// ===== BẮT ĐẦU SỬA LẠI TOÀN BỘ HÀM (Build PC) - FIX LOGIC CHECKED_OUT =====
+/**
+ * Lấy tồn HÀNG BÁN MỚI theo branch cho nhiều SKU (ĐÃ SỬA LỖI LOGIC)
+ * Dùng cho trang Build PC.
+ */
+async function getSkuNewStockByBranch(skus) {
+  // 1. Kiểm tra BigQuery
+  if (!bigquery) { 
+    console.warn("BuildPC: Bỏ qua BQ vì chưa cấu hình.");
+    return {};
+  }
+  if (!skus || !skus.length) return {};
+
+  // 2. Sửa Query: Lấy 'Serial' thay vì COUNT(*)
+  const query = `
+    SELECT
+      CAST(sku AS STRING) AS sku,
+      branch_id,
+      bin_zone,
+      Serial  -- Lấy Serial để kiểm tra
+    FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
+    WHERE CAST(sku AS STRING) IN UNNEST(@skus)
+      AND (Serial IS NOT NULL AND Serial != '') -- Chỉ lấy hàng có serial
+    /* Xóa GROUP BY để lấy từng dòng serial */
+  `;
+
+  // 3. Gọi BigQuery
+  let rows = [];
+  try {
+    const [bqRows] = await bigquery.query({
+      query,
+      params: { skus }
+    });
+    rows = bqRows;
+  } catch (e) {
+    console.error("Lỗi BQ (getSkuNewStockByBranch):", e.message);
+    return {}; // Trả về rỗng nếu BQ lỗi
+  }
+
+  if (rows.length === 0) {
+    return {}; // Không tìm thấy serial nào
+  }
+
+  // 4. Lấy danh sách serial "Đã xuất" từ SUPABASE (Giống FIFO)
+  const allSerials = [...new Set(rows.map(r => r.Serial))];
+  const today = new Date().toISOString().slice(0, 10);
+  let checkedOutSerials = new Set();
+  
+  try {
+    const { data: logData, error } = await supabase
+        .from('serial_check_log')
+        .select('serial')
+        .in('serial', allSerials)
+        .eq('check_date', today)
+        .eq('checked_out', true);
+    
+    if (error) throw error;
+    checkedOutSerials = new Set((logData || []).map(log => log.serial));
+  } catch (e) {
+      console.error("Lỗi Supabase (getSkuNewStockByBranch):", e.message);
+      // Tiếp tục chạy, nhưng có thể đếm thừa
+  }
+
+  // 5. Lọc bằng JavaScript (Lọc cả bin_zone và serial đã xuất)
+  const result = {};
+  const allowedZones = ['Trưng bày hàng bán mới', 'Lưu kho hàng bán mới'];
+  
+  for (const row of rows) {
+    // LỌC 1: Bỏ qua nếu serial đã bị check out
+    if (checkedOutSerials.has(row.Serial)) {
+      continue;
+    }
+    
+    // LỌC 2: Chỉ lấy 2 bin_zone bán hàng
+    if (allowedZones.includes((row.bin_zone || '').trim())) { 
+      const sku = row.sku;
+      const br = row.branch_id;
+      
+      if (!result[sku]) result[sku] = {};
+      
+      // Cộng dồn
+      result[sku][br] = (result[sku][br] || 0) + 1; // +1 cho mỗi serial hợp lệ
+    }
+  }
+  return result;
+}
+// ===== KẾT THÚC SỬA LẠI TOÀN BỘ HÀM =====
 
 
 // ========================= FIFO CHECKING ROUTES =========================
@@ -2620,6 +2956,235 @@ async function fetchInventoryFromBigQuery(branchCode, masterQuery, giftFilter, i
     }
 }
 
+// === HÀM HELPER LẤY TỒN KHO (ĐÃ SỬA ĐỂ HỖ TRỢ ADMIN XEM NHIỀU CHI NHÁNH) ===
+async function getInventoryCounts(skuList, userBranch, isGlobalAdmin, checkDate) {
+    // 1. Nếu không có SKU, không có chi nhánh, hoặc BQ không chạy -> trả về rỗng
+    if (!bigquery || !Array.isArray(skuList) || skuList.length === 0 || !userBranch || !checkDate) {
+        return new Map(); // Trả về Map rỗng
+    }
+
+    const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
+    const params = {
+        skuList: skuList.map(String), // Đảm bảo SKU là chuỗi
+        userBranch: userBranch,
+    };
+
+    let branchFilter = '';
+    // Nếu không phải admin, mới lọc theo chi nhánh
+    if (!isGlobalAdmin) {
+        branchFilter = 'AND Branch_ID = @userBranch';
+    }
+
+    // 2. Query BigQuery để lấy TẤT CẢ serial/bin_zone/branch cho các SKU
+    const bqQuery = `
+        SELECT
+            CAST(SKU AS STRING) AS sku,
+            Serial AS serial,
+            BIN_zone AS bin_zone,
+            Branch_ID AS branch_id
+        FROM ${BIGQUERY_TABLE}
+        WHERE CAST(SKU AS STRING) IN UNNEST(@skuList)
+          ${branchFilter} 
+          AND Serial IS NOT NULL
+          AND Serial != ''
+    `;
+    
+    let bqRows = [];
+    try {
+        const [rows] = await bigquery.query({
+            query: bqQuery,
+            location: 'asia-southeast1',
+            params: params,
+        });
+        bqRows = rows;
+    } catch (e) {
+        console.error("Lỗi query BQ (getInventoryCounts):", e.message);
+        return new Map(); // Trả về rỗng nếu BQ lỗi
+    }
+
+    if (bqRows.length === 0) {
+        return new Map(); // Không có tồn BQ
+    }
+
+    // 3. Lấy danh sách serial đã xuất TỪ SUPABASE
+    const allSerials = bqRows.map(r => r.serial);
+    let checkedOutSerials = new Set();
+    try {
+        // Lấy log của TẤT CẢ serials tìm thấy trong ngày
+        const { data: logData, error } = await supabase
+            .from('serial_check_log')
+            .select('serial')
+            .in('serial', allSerials)
+            .eq('check_date', checkDate)
+            .eq('checked_out', true); // Chỉ lấy serial đã tick "Đã xuất"
+            
+        if (error) throw error;
+        
+        (logData || []).forEach(log => {
+            checkedOutSerials.add(log.serial);
+        });
+    } catch (e) {
+        console.error("Lỗi query Supabase (getInventoryCounts):", e.message);
+    }
+
+    // 4. Lọc bỏ serial đã xuất và đếm theo SKU -> Branch -> Bin_zone
+    // Cấu trúc mới: Map<SKU, Map<Branch, CountsObject>>
+    const inventoryMap = new Map();
+
+    // Khởi tạo Map cho tất cả SKU
+    skuList.forEach(sku => {
+        inventoryMap.set(sku, new Map());
+    });
+
+    // Lấy danh sách tất cả các chi nhánh xuất hiện trong kết quả BQ
+    const allBranchesInResult = [...new Set(bqRows.map(r => r.branch_id))];
+
+    // Khởi tạo cấu trúc đếm cho từng SKU, từng Branch
+    skuList.forEach(sku => {
+        const branchMap = inventoryMap.get(sku);
+        allBranchesInResult.forEach(branchId => {
+            branchMap.set(branchId, {
+                hang_ban_moi: 0,
+                trung_bay_chi_dinh: 0,
+                luu_kho_tl: 0,
+                trung_bay_tl: 0,
+                ton_khac: 0,
+            });
+        });
+    });
+
+    // 5. Duyệt qua kết quả BQ để đếm
+    bqRows.forEach(row => {
+        // Bỏ qua nếu serial này đã bị tick "Đã xuất"
+        if (checkedOutSerials.has(row.serial)) {
+            return;
+        }
+
+        const sku = row.sku;
+        const branchId = row.branch_id;
+        const binZone = (row.bin_zone || '').trim();
+
+        const branchMap = inventoryMap.get(sku);
+        if (!branchMap) return; // SKU không có trong list
+
+        const counts = branchMap.get(branchId);
+        if (!counts) return; // Branch này không liên quan
+
+        // Phân loại theo yêu cầu của user
+        if (binZone === 'Trưng bày hàng bán mới' || binZone === 'Lưu kho hàng bán mới') {
+            counts.hang_ban_moi += 1;
+        } else if (binZone === 'Trưng bày chỉ định') {
+            counts.trung_bay_chi_dinh += 1;
+        } else if (binZone === 'Lưu kho thanh lý') {
+            counts.luu_kho_tl += 1;
+        } else if (binZone === 'Trưng bày thanh lý') {
+            counts.trung_bay_tl += 1;
+        } else {
+            counts.ton_khac += 1;
+        }
+    });
+
+    // 6. Dọn dẹp: Xóa các Map rỗng (nếu tồn kho = 0)
+    inventoryMap.forEach((branchMap, sku) => {
+        branchMap.forEach((counts, branchId) => {
+            const total = counts.hang_ban_moi + counts.trung_bay_chi_dinh + counts.luu_kho_tl + counts.trung_bay_tl + counts.ton_khac;
+            if (total === 0) {
+                branchMap.delete(branchId); // Xóa branch này nếu tồn = 0
+            }
+        });
+        if (branchMap.size === 0) {
+            inventoryMap.delete(sku); // Xóa SKU này nếu không có tồn ở đâu
+        }
+    });
+
+    return inventoryMap;
+}
+
+// === HÀM HELPER MỚI: LẤY TOP 5 SERIAL CŨ NHẤT (ĐÃ CẬP NHẬT) ===
+async function getOldestSerials(sku, userBranch, isGlobalAdmin, checkDate, limit = 5) {
+    if (!bigquery || !sku || !userBranch || !checkDate) {
+        return [];
+    }
+
+    const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
+    const params = {
+        sku: String(sku),
+        userBranch: userBranch,
+        isGlobalAdmin: isGlobalAdmin, // Truyền cờ admin
+    };
+
+    // Lọc chi nhánh (nếu không phải admin)
+    const branchFilter = isGlobalAdmin ? '' : 'AND Branch_ID = @userBranch';
+
+    // 1. Query BQ để lấy serials cũ nhất
+    const bqQuery = `
+        SELECT
+            Serial AS serial,
+            Location AS location, -- YÊU CẦU MỚI: Lấy Location
+            Aging_company AS days_old
+        FROM ${BIGQUERY_TABLE}
+        WHERE CAST(SKU AS STRING) = @sku
+          ${branchFilter}
+          AND BIN_zone IN ('Trưng bày hàng bán mới', 'Lưu kho hàng bán mới') -- YÊU CẦU MỚI: Lọc theo Bin_zone
+          AND Serial IS NOT NULL AND Serial != ''
+        ORDER BY Date_import_company ASC -- ASC = Cũ nhất trước
+        LIMIT 50 -- Lấy dư 50 để lọc serial đã xuất
+    `;
+
+    let bqRows = [];
+    try {
+        const [rows] = await bigquery.query({
+            query: bqQuery,
+            location: 'asia-southeast1',
+            params: params,
+        });
+        bqRows = rows;
+    } catch (e) {
+        console.error("Lỗi query BQ (getOldestSerials):", e.message);
+        return [];
+    }
+
+    if (bqRows.length === 0) {
+        return [];
+    }
+
+    // 2. Lấy danh sách serial đã xuất TỪ SUPABASE
+    const allSerials = bqRows.map(r => r.serial);
+    let checkedOutSerials = new Set();
+    try {
+        const { data: logData } = await supabase
+            .from('serial_check_log')
+            .select('serial')
+            .in('serial', allSerials)
+            .eq('check_date', checkDate)
+            .eq('checked_out', true);
+        
+        (logData || []).forEach(log => {
+            checkedOutSerials.add(log.serial);
+        });
+    } catch (e) {
+        console.error("Lỗi query Supabase (getOldestSerials):", e.message);
+    }
+
+    // 3. Lọc bỏ serial đã xuất và lấy 5 serial đầu tiên
+    const finalSerials = [];
+    for (const row of bqRows) {
+        if (!checkedOutSerials.has(row.serial)) {
+            finalSerials.push({
+                serial: row.serial,
+                // YÊU CẦU MỚI: Trả về 'location' thay vì 'bin_zone'
+                bin_zone: row.location || '-', // Dùng chung key 'bin_zone' để EJS không bị lỗi
+                days_old: row.days_old || 0,
+            });
+        }
+        // Dừng khi đã đủ 5 serial
+        if (finalSerials.length >= limit) {
+            break;
+        }
+    }
+
+    return finalSerials;
+}
 
 // [1] Route hiển thị trang (THAY THẾ TOÀN BỘ HÀM NÀY)
 app.get('/fifo-checking', requireAuth, async (req, res) => {
@@ -2721,6 +3286,7 @@ app.get('/api/fifo/filters', requireAuth, async (req, res) => {
         console.error('API FIFO Filters error:', e);
         res.status(500).json({ ok: false, error: 'Lỗi hệ thống: ' + e.message });
     }
+    
 });
 
 
@@ -3483,6 +4049,373 @@ app.delete('/api/ranking/delete/:id', requireManager, async (req, res) => {
   }
 });
 
+// ===== BẮT ĐẦU: SỬA TOÀN BỘ API BÁO GIÁ (DÙNG BRANCH CONFIG) =====
+app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
+  try {
+    // 1. Lấy dữ liệu (đã thêm customerPhone)
+    const { 
+      buildConfig, customerName, sendEmail, customerEmail, 
+      customerCC, contactInfo, customerPhone, // SĐT Khách
+      isGeneralQuote = false
+    } = req.body;
+
+    if (!buildConfig || !customerName || !contactInfo || !customerPhone) {
+      return res.status(400).json({ ok: false, error: 'Thiếu thông tin cấu hình, tên, SĐT khách hàng, hoặc SĐT liên hệ của bạn.' });
+    }
+    
+    // 2. Lấy dữ liệu (Items, Tổng tiền)
+    const items = Object.values(buildConfig);
+    let totalPrice = 0;
+    items.forEach(item => {
+      const price = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
+      totalPrice += price * item.quantity;
+    });
+
+
+    // 3. Lấy CTKM (ĐÃ SỬA: Chỉ tính KM cho PC-Builder) 
+    let appliedPromo = null;
+    
+    if (!isGeneralQuote) { 
+      // Chỉ chạy logic KM này nếu cờ isGeneralQuote không có (tức là từ trang Build PC)
+      console.log("[Báo giá] Đây là Build PC, đang kiểm tra KM...");
+      const tiers = [
+        { min: 50000000, discount: 1000000, code: 'PVBUILDPC25114' },
+        { min: 30000000, discount: 600000,  code: 'PVBUILDPC25113' },
+        { min: 20000000, discount: 400000,  code: 'PVBUILDPC25112' },
+        { min: 10000000, discount: 200000,  code: 'PVBUILDPC25111' }
+      ];
+      for (const tier of tiers) {
+        if (totalPrice >= tier.min) {
+          appliedPromo = {
+            name: `Build PC - Giảm ${new Intl.NumberFormat('vi-VN').format(tier.discount)} VNĐ`,
+            discount_amount: tier.discount,
+            coupon: tier.code
+          };
+          break; // Tìm thấy tier cao nhất
+        }
+      }
+    } else {
+      console.log("[Báo giá] Đây là Báo giá nhanh, bỏ qua KM 'Build PC'.");
+    }
+
+    // 4. Lấy thông tin Sales & Branch (ĐÃ SỬA)
+    const userFullName = req.session.user?.full_name || 'Nhân viên Phong Vũ';
+    const userEmail = req.session.user?.email || null;
+    const userBranchCode = req.session.user?.branch_code || 'DEFAULT';
+
+    // Lấy thông tin chi nhánh từ config
+    const branchInfo = BRANCH_CONFIG[userBranchCode] || BRANCH_CONFIG['DEFAULT'];
+    
+    // Helper
+    const formatVND_func = (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + ' VNĐ';
+    const todayStr = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const quoteNum = `PV-${Date.now().toString().slice(-6)}`;
+    const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
+
+    // 5. Render EJS template thành HTML
+    const htmlString = await ejs.renderFile(
+      path.join(__dirname, 'views/quote-template.ejs'),
+      {
+        appBaseUrl: appBaseUrl,
+        branchInfo: branchInfo, // Gửi cả cục config
+        
+        salesName: userFullName,
+        salesEmail: userEmail,
+        salesContact: contactInfo,
+        
+        quoteDate: todayStr,
+        quoteNumber: quoteNum,
+        
+        customerName: customerName,
+        customerEmail: customerEmail,
+        customerPhone: customerPhone,
+        
+        items: items,
+        promo: appliedPromo,
+        
+        formatVND: formatVND_func 
+      }
+    );
+
+    // 6. Chuyển HTML thành PDF Buffer
+    const pdfBuffer = await htmlPdf.generatePdf(
+      { content: htmlString }, 
+      { format: 'A4', printBackground: true }
+    );
+
+    // 7. Xử lý kết quả (ĐÃ SỬA LỖI TRÙNG)
+    if (sendEmail && customerEmail) {
+      const pdfFileName = `BaoGia_Quotation_${todayStr}_${customerName.replace(/ /g, '_')}.pdf`;
+      
+      const mailSubject = `Phongvu ${branchInfo.name} - Bảng báo giá/Quotation - ${todayStr} - ${customerName}`;
+      
+      const mailHtml = `
+        <p>Kính gửi ${customerName},</p>
+        <p>Phong Vũ ${branchInfo.name} xin gửi đến Quý Khách hàng bảng báo giá.</p>
+        <p>Xin vui lòng xem file PDF đính kèm để biết thêm chi tiết.</p>
+        <p><i>Kindly refer to the attached PDF file for more details.</i></p>
+        <br>
+        <p>Nếu Quý khách hàng cần thêm hỗ trợ, vui lòng liên hệ với đầu mối sau:</p>
+        <p><i>If you need any other support, please feel free to contact us by following contact:</i></p>
+        <p>
+          &emsp;&emsp;- Hỗ trợ bán hàng: ${userFullName}<br>
+          &emsp;&emsp;- Thông tin liên hệ: ${contactInfo}
+        </p>
+        <br>
+        <p>Xin cảm ơn Quý Khách hàng,</p>
+        <p><i>Thank you and Best regards,</i></p>
+      `;
+      
+      const toEmails = [customerEmail];
+      if (customerCC && customerCC.trim() !== '') {
+        toEmails.push(customerCC.trim());
+      }
+      
+      await sendNewPostEmail(
+        { title: mailSubject, content: mailHtml },
+        toEmails,
+        { 
+          filename: pdfFileName,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        },
+        userEmail
+      );
+      
+      res.json({ ok: true, message: `Đã gửi báo giá đến ${customerEmail} ${customerCC ? '(CC: ' + customerCC + ')' : ''} thành công.` });
+
+    } else {
+      // 6b. CHO DOWNLOAD PDF (Giữ nguyên)
+      const pdfFileName = `BaoGia_${customerName.replace(/ /g, '_')}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${pdfFileName}"`);
+      res.send(pdfBuffer);
+    }
+
+  } catch (e) {
+    console.error('Lỗi API /api/pc-builder/generate-quote:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+// ===== KẾT THÚC: SỬA TOÀN BỘ API BÁO GIÁ =====s
+
+// (Trong file server.js)
+app.get('/quote-builder', requireAuth, (req, res) => {
+  res.render('quote-builder', {
+    title: 'Báo giá nhanh',
+    currentPage: 'quote-builder', // Dùng để active menu (nếu cần)
+  });
+});
+
+
+// (Trong file server.js)
+
+// SỬA LẠI API NÀY: Thêm logic lọc và tải mặc định
+app.get('/api/quote/search-products', requireAuth, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    const category = (req.query.category || '').trim();
+    const subcat = (req.query.subcat || '').trim();
+    const limit = 20;
+
+    let query = supabase
+      .from('skus')
+      .select('sku, product_name, brand, list_price');
+
+    // 1. Lọc theo từ khóa (nếu có)
+    if (q) {
+      query = query.or(`sku.ilike.%${q}%,product_name.ilike.%${q}%`);
+    }
+    
+    // 2. Lọc theo Category (NHxx)
+    if (category) {
+      query = query.eq('category', category);
+    }
+    
+    // 3. Lọc theo Subcat (Tên nhóm)
+    if (subcat) {
+      query = query.eq('subcat', subcat);
+    }
+
+    // 4. Sắp xếp và Tải mặc định
+    if (!q && !category && !subcat) {
+      // Nếu không tìm kiếm/lọc gì, tải 20 SP giá cao nhất
+      query = query.order('list_price', { ascending: false, nullsFirst: false });
+    } else {
+      // Nếu có tìm kiếm, ưu tiên sắp xếp theo SKU
+      query = query.order('sku', { ascending: true });
+    }
+
+    const { data, error } = await query.limit(limit);
+    if (error) throw error;
+
+    res.json({ ok: true, products: data || [] });
+
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// API MỚI: Lấy các tùy chọn cho bộ lọc báo giá
+app.get('/api/quote/filter-options', requireAuth, async (req, res) => {
+  try {
+    // Lấy Category (NHxx)
+    const { data: categories, error: catError } = await supabase
+      .from('skus')
+      .select('category')
+      .neq('category', null);
+    if (catError) throw catError;
+    
+    // Lấy Subcat (Tên nhóm SP)
+    const { data: subcats, error: subcatError } = await supabase
+      .from('skus')
+      .select('subcat')
+      .neq('subcat', null);
+    if (subcatError) throw subcatError;
+
+    const uniqueCategories = [...new Set((categories || []).map(item => item.category))].sort();
+    const uniqueSubcats = [...new Set((subcats || []).map(item => item.subcat))].sort();
+
+    res.json({ 
+      ok: true, 
+      categories: uniqueCategories, 
+      subcats: uniqueSubcats 
+    });
+
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// (Trong file server.js, gần cuối)
+
+// (Trong file server.js)
+
+// API MỚI: Đồng bộ SKUs từ BigQuery (ĐÃ SỬA LỖI PAGINATION LẦN CUỐI)
+app.post('/api/admin/sync-bq-skus', requireAuth, requireManager, async (req, res) => {
+  if (!bigquery) {
+    return res.status(500).json({ ok: false, error: 'BigQuery client chưa được cấu hình trên server.' });
+  }
+  
+  console.log('[SYNC] Bắt đầu đồng bộ SKUs từ BigQuery...');
+
+  try {
+    // 1. Query BigQuery (Đã tối ưu TRIM)
+    const bqQuery = `
+      SELECT
+        TRIM(CAST(SKU AS STRING)) AS sku,
+        MAX(SKU_name) AS product_name,
+        MAX(Brand) AS brand,
+        MAX(Category_ID) AS category,
+        MAX(SubCategory_ID) AS subcat
+      FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
+      WHERE SKU IS NOT NULL AND TRIM(CAST(SKU AS STRING)) != ''
+      GROUP BY 1
+    `;
+    
+    const [bqRowsRaw] = await bigquery.query({
+      query: bqQuery,
+      location: 'asia-southeast1',
+    });
+
+    if (!bqRowsRaw || bqRowsRaw.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Không tìm thấy dữ liệu SKU nào từ BigQuery.' });
+    }
+    
+    const bqRows = bqRowsRaw.map(row => ({
+      sku: (row.sku || '').trim(),
+      product_name: (row.product_name || '').trim(),
+      brand: (row.brand || '').trim() || null,
+      category: (row.category || '').trim() || null,
+      subcat: (row.subcat || '').trim() || null
+    })).filter(row => row.sku);
+
+    console.log(`[SYNC] Lấy và dọn dẹp ${bqRows.length} SKU duy nhất từ BigQuery.`);
+
+    // 2. Lấy *TẤT CẢ* SKUs hiện có trong Supabase (XỬ LÝ PAGINATION)
+    const existingSkuSet = new Set();
+    
+    // === SỬA LỖI: ĐẶT PAGE_SIZE = 1000 (ĐÚNG THEO GIỚI HẠN CỦA SERVER) ===
+    const PAGE_SIZE = 1000; 
+    // ===================================================================
+    
+    let page = 0;
+    let keepFetching = true;
+
+    console.log(`[SYNC] Bắt đầu lấy SKUs hiện có từ Supabase (mỗi trang ${PAGE_SIZE} SKU)...`);
+    
+    while(keepFetching) {
+      const { data: skuPage, error: supabaseError } = await supabase
+        .from('skus')
+        .select('sku')
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+      if (supabaseError) throw supabaseError;
+
+      if (!skuPage || skuPage.length === 0) {
+        keepFetching = false; // Dừng lại khi không còn dữ liệu
+      } else {
+        skuPage.forEach(s => {
+          if (s.sku) existingSkuSet.add(s.sku.trim()); 
+        });
+        
+        // Logic đúng: Nếu server trả về *ít hơn* số ta yêu cầu, đó mới là trang cuối
+        if (skuPage.length < PAGE_SIZE) { 
+          keepFetching = false;
+        }
+        
+        // Tăng trang để lấy lượt tiếp theo
+        page++; 
+      }
+    }
+    console.log(`[SYNC] Đã có tổng cộng ${existingSkuSet.size} SKU (đã dọn dẹp) trong Supabase.`);
+
+
+    // 3. Lọc ra những SKU mới
+    const newSkuPayloads = bqRows.filter(bqRow => !existingSkuSet.has(bqRow.sku));
+
+    if (newSkuPayloads.length === 0) {
+      const message = 'Đồng bộ hoàn tất. Không có SKU nào mới.';
+      console.log(`[SYNC] ${message}`);
+      return res.json({ ok: true, message: message, new_skus: 0 });
+    }
+
+    // 4. CHỈ INSERT những SKU mới
+    console.log(`[SYNC] Chuẩn bị chèn ${newSkuPayloads.length} SKU mới...`);
+    
+    const BATCH_SIZE = 1000; // Giữ nguyên batch insert là 1000
+    let totalInsertedCount = 0;
+
+    for (let i = 0; i < newSkuPayloads.length; i += BATCH_SIZE) {
+      const batch = newSkuPayloads.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      
+      const finalBatch = batch.map(b => ({
+        ...b,
+        product_name: b.product_name || b.sku
+      }));
+
+      const { error: insertError, count } = await supabase
+        .from('skus')
+        .insert(finalBatch);
+
+      if (insertError) {
+        console.error(`[SYNC] Lỗi khi chèn batch ${batchNum}:`, insertError.message);
+        throw new Error(`Lỗi khi chèn batch ${batchNum}: ${insertError.message}`);
+      }
+      
+      totalInsertedCount += (count || batch.length); 
+    }
+    
+    const message = `Đồng bộ hoàn tất. Đã chèn ${totalInsertedCount} SKU mới.`;
+    console.log(`[SYNC] ${message}`);
+    res.json({ ok: true, message: message, new_skus: totalInsertedCount });
+
+  } catch (e) {
+    console.error('[SYNC] Lỗi đồng bộ BigQuery:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {

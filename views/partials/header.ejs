@@ -28,20 +28,27 @@
         <div class="container">
             <div class="header-content">
                 <div class="logo">Hệ thống CTKM</div>
-                <nav class="nav">
+<nav class="nav">
                     <a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Trang Chủ</a>
+                    <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">FIFO Checking</a>
                     <a href="/newsfeed" class="<%= currentPage === 'newsfeed' ? 'active' : '' %>">Bảng tin</a>
-                    
-                    <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">FIFO Checking</a>  
-             
                     <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>">Chiến giá</a>
                     <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
                         <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">Quản lý CTKM</a>
-                        
                     <% } %>
-
-                </nav>
-                <span id="local-time" class="time-display"></span>
+                    </nav> <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
+                    </nav> <div class="dropdown">
+                    <a href="#" id="utilitiesDropdownToggle" style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none; padding: 6px 10px;" class="<%= currentPage === 'pc-builder' ? 'active' : '' %>">
+                        Tiện ích
+                        <span style="font-size: 10px;">▼</span>
+                    </a>
+                    <div class="dropdown-menu" id="utilitiesDropdownMenu">
+                         <a href="/pc-builder">Build PC</a>
+                         <a href="/quote-builder">Báo giá</a>
+                         <a href="#">Check BOM PCPV</a>
+                    </div>
+                </div>
+                <% } %>
                 <% /* === BẮT ĐẦU: Chỉ báo User Online === */ %>
 <% if (
     locals.user && 
@@ -87,6 +94,13 @@
                             <div class="user-avatar"><%= user.full_name ? user.full_name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() %></div>
                             <span><%= user.full_name || user.email %></span>
                         </div>
+                     
+                       <% if (user.role === 'manager' || user.role === 'admin') { %>
+                          <button type="button" class="btn btn-warning" id="btnSyncBigQuery" style="padding: 5px 10px; font-size: 0.8rem;">
+                            Sync BQ
+                          </button>
+                        <% } %>
+
                         <form action="/logout" method="POST" style="display: inline;">
                             <button type="submit" class="logout-btn">Đăng xuất</button>
                         </form>
@@ -111,7 +125,38 @@
   </div> 
   <% /* === KẾT THÚC WRAPPER MỚI === */ %>
 
+  <script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Tìm 2 yếu tố: Nút bấm và Menu con
+    const toggleButton = document.getElementById('utilitiesDropdownToggle');
+    const dropdownMenu = document.getElementById('utilitiesDropdownMenu');
 
+    if (toggleButton && dropdownMenu) {
+        
+        // 1. Khi bấm vào nút "Tiện ích"
+        toggleButton.addEventListener('click', function(event) {
+            // Ngăn trình duyệt nhảy lên đầu trang (vì href="#")
+            event.preventDefault(); 
+            
+            // Thêm/xóa class 'open' để CSS trong style.css có thể hoạt động
+            dropdownMenu.classList.toggle('open');
+        });
+
+        // 2. (Tùy chọn) Tự động đóng menu nếu bấm ra ngoài
+        document.addEventListener('click', function(event) {
+            // Kiểm tra xem có bấm VÀO NÚT hoặc VÀO MENU không
+            const isClickInsideToggle = toggleButton.contains(event.target);
+            const isClickInsideMenu = dropdownMenu.contains(event.target);
+
+            if (!isClickInsideToggle && !isClickInsideMenu) {
+                // Nếu bấm ra ngoài -> xóa class 'open' để ẩn đi
+                dropdownMenu.classList.remove('open');
+            }
+        });
+    }
+});
+</script>
   <script>
     (function tick(){
       var el = document.getElementById('local-time');
@@ -144,6 +189,31 @@
       }
     });
     /* === HẾT SCRIPT ẨN HEADER === */
+
+    const syncButton = document.getElementById('btnSyncBigQuery');
+  if (syncButton) {
+    syncButton.addEventListener('click', async () => {
+      if (!confirm('Bạn có chắc muốn đồng bộ SKUs từ BigQuery?\nViệc này sẽ chèn các SKU mới vào hệ thống.')) {
+        return;
+      }
+      syncButton.disabled = true;
+  syncButton.textContent = 'Đang sync...';
+  try {
+    const res = await fetch('/api/admin/sync-bq-skus', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Lỗi không xác định');
+    }
+    alert(`Đồng bộ thành công!\nĐã thêm mới: ${data.new_skus} SKU.`);
+    
+  } catch (err) {
+    alert('Lỗi đồng bộ: ' + err.message);
+  } finally {
+    syncButton.disabled = false;
+    syncButton.textContent = 'Sync BQ';
+  }
+});
+}
   </script>
 
   <main class="main-content">

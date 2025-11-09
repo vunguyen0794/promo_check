@@ -7,8 +7,7 @@ const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3300';
 const fromEmail = 'onboarding@resend.dev'; // Thay bằng email đã xác thực của bạn
 
 /**
- * Tạo Template Email HTML
- * Dùng inline-styles để tương thích với Gmail, Outlook...
+ * Tạo Template Email HTML (CHỈ DÙNG CHO BẢNG TIN)
  */
 function createEmailTemplate(post) {
   const postUrl = `${appBaseUrl}/newsfeed/post/${post.id}`;
@@ -36,7 +35,7 @@ function createEmailTemplate(post) {
           ${post.content}
         </div>
         
-        <a href="${postUrl}" class="button">Xem bài đăng</a>
+        ${post.id ? `<a href="${postUrl}" class="button">Xem bài đăng</a>` : ''}
       </div>
     </body>
     </html>
@@ -44,30 +43,38 @@ function createEmailTemplate(post) {
 }
 
 /**
- * Hàm gửi email chính
- * (Không 'await' hàm này trong server.js để tránh block response)
+ * Hàm gửi email CHUNG
+ * (Dùng cho cả Bảng tin và Báo giá)
+ * SỬA: Thêm 'attachment' và 'replyTo'
  */
-async function sendNewPostEmail(post, recipientEmails) {
+async function sendNewPostEmail(post, recipientEmails, attachment = null, replyTo = null) {
   if (!recipientEmails || recipientEmails.length === 0) {
     console.log('[Mailer] Không có email nào để gửi.');
     return;
   }
   
-  // Tên bài đăng làm tiêu đề email
-  const subject = `[Thông báo mới] ${post.title}`;
+  // Tên bài đăng hoặc Tiêu đề báo giá
+  const subject = post.title;
   
-  // Tạo HTML
-  const emailHtml = createEmailTemplate(post);
+  // QUAN TRỌNG:
+  // - Nếu 'post.content' đã có (từ Báo giá), dùng nó.
+  // - Nếu không, tạo nó (từ Bảng tin).
+  const emailHtml = post.content ? post.content : createEmailTemplate(post);
 
   try {
     console.log(`[Mailer] Bắt đầu gửi email "${subject}" đến ${recipientEmails.length} người...`);
     
-    const { data, error } = await resend.emails.send({
+    // SỬA: Thêm 'attachments' và 'reply_to'
+    const payload = {
       from: `Hệ thống CTKM <${fromEmail}>`,
-      to: recipientEmails, // Resend hỗ trợ gửi hàng loạt
+      to: recipientEmails,
       subject: subject,
       html: emailHtml,
-    });
+      attachments: attachment ? [attachment] : undefined, // <-- ĐÃ THÊM
+      reply_to: replyTo || undefined // <-- ĐÃ THÊM
+    };
+
+    const { data, error } = await resend.emails.send(payload);
 
     if (error) {
       console.error('[Mailer] Lỗi khi gửi:', error);

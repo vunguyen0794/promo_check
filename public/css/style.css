@@ -68,7 +68,8 @@ body {
     flex-wrap: nowrap; /* <--- SỬA LỖI */
 
     /* Cho phép menu co giãn và cuộn ngang */
-    flex: 1 1 auto; 
+    flex: 0 1 auto;
+    min-width: 0;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch; 
     
@@ -2726,34 +2727,80 @@ th, strong, b {
   background-color: #92400e;
 }
 
-/* ===== CSS CHO DROPDOWN MENU TIỆN ÍCH ===== */
-.nav .dropdown { 
-  position: relative; 
+.nav .dropdown {
+  position: relative; /* Neo menu con vào đây */
 }
 
-.nav .dropdown .dropdown-menu {
-  position: absolute;
+/* Hiệu ứng hover cho link bên trong dropdown */
+.nav .dropdown .dropdown-menu a:hover { 
+  background: #f3f4f6; /* Nền xám nhạt khi hover */
+  color: #111827; /* Giữ nguyên màu chữ */
+}
+
+/* [YÊU CẦU 1.2 / 2.1] Tô màu xám nhạt cho số 0 */
+
+/* Áp dụng cho <td> (thường là trang promotion-detail) */
+td.zero-muted {
+    color: #b0bec5;
+    font-weight: 400;
+}
+
+/* Áp dụng cho <strong> bên trong <td> (thường là trang promotion) */
+td.zero-muted strong {
+    color: #b0bec5;
+    font-weight: 400;
+}
+
+/* [YÊU CẦU 1.1] Sửa lỗi cuộn ngang cho bảng SKU áp dụng */
+/* File promotion-detail.ejs đã dùng class "table-scroll-wrapper" 
+  cho các bảng khác. Chúng ta sẽ thêm class này vào file EJS.
+  CSS này đảm bảo class đó hoạt động.
+*/
+.table-scroll-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ===== FIX DROPDOWN MENU TIỆN ÍCH (Bản sửa lỗi) ===== */
+
+/* 1. "Neo" menu cha (div.dropdown) */
+.header-content .dropdown {
+  position: relative; /* Neo menu con vào đây */
+  /* Thêm dòng này để nó căn lề giống các menu khác */
+  display: flex; 
+  align-items: center;
+}
+
+/* 2. Style cho menu con (ẩn mặc định) */
+.header-content .dropdown .dropdown-menu {
+  position: absolute; /* "Bay" lơ lửng */
   top: 100%; /* Hiện ngay bên dưới link cha */
   left: 0;
   background: #fff; /* Nền trắng */
-  color: #333; /* Chữ đen (cho menu con) */
-  border: 1px solid #e5e7eb; /* Viền xám nhạt (giống .dash-card) */
-  border-radius: 8px; /* Bo góc (giống .modal-content) */
+  border: 1px solid #e5e7eb; /* Viền xám nhạt */
+  border-radius: 8px; /* Bo góc */
   min-width: 180px;
   padding: 6px;
-  display: none; /* Ẩn mặc định */
   z-index: 50;
-  box-shadow: 0 8px 24px rgba(0,0,0,.08); /* Đổ bóng (giống modal) */
+  box-shadow: 0 8px 24px rgba(0,0,0,.08); /* Đổ bóng */
+  
+  /* Ẩn đi */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px); /* Hiệu ứng hơi trượt lên */
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
 }
 
-/* Class 'open' (được JS thêm vào) để hiển thị menu */
-.nav .dropdown .dropdown-menu.open { 
-  display: block; 
+/* 3. Khi class 'open' được thêm vào -> HIỂN THỊ NÓ */
+.header-content .dropdown .dropdown-menu.open { 
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0); /* Trở về vị trí 0 */
 }
 
-/* Các link bên trong dropdown */
-.nav .dropdown .dropdown-menu a {
-  display: block;
+/* 4. Style các link bên trong dropdown (xếp dọc) */
+.header-content .dropdown .dropdown-menu a {
+  display: block; /* Xếp dọc */
   color: #111827; /* Màu chữ tối */
   padding: 8px 10px;
   border-radius: 6px; /* Bo góc nhẹ cho từng mục */
@@ -2761,8 +2808,8 @@ th, strong, b {
   white-space: nowrap;
 }
 
-/* Hiệu ứng hover cho link bên trong dropdown */
-.nav .dropdown .dropdown-menu a:hover { 
+/* 5. Hiệu ứng hover cho link bên trong */
+.header-content .dropdown .dropdown-menu a:hover { 
   background: #f3f4f6; /* Nền xám nhạt khi hover */
   color: #111827; /* Giữ nguyên màu chữ */
 }

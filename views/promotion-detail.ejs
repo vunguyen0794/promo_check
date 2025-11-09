@@ -481,7 +481,19 @@
                 <input type="search" class="sku-search" placeholder="Tìm trong danh sách..." oninput="filterSkuTable('includedSkuBlock')">
             </div>
             <table class="sku-table">
-                <thead><tr><th>SKU</th><th>Tên SP</th><th>Brand</th><th>Giá</th></tr></thead>
+                <thead><tr><th>SKU</th><th>Tên SP</th><th>Brand</th><th>Giá</th>
+                <%# === CỘT TỒN KHO MỚI (HỖ TRỢ ADMIN) === %>
+                    <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && allBranchNames && allBranchNames.length > 0) { %>
+                        <%# Admin: Hiển thị NHIỀU CỘT theo allBranchNames %>
+                        <% (allBranchNames || []).forEach(branchName => { %>
+                            <th style="text-align: center;">Tồn <%= branchName %> (Mới)</th>
+                        <% }); %>
+                    <% } else if (typeof userBranch !== 'undefined' && userBranch && !isGlobalAdmin) { %>
+                        <%# User thường: Hiển thị 1 CỘT %>
+                        <th style="text-align: center;">Tồn <%= userBranch %> (Mới)</th>
+                    <% } %>
+                    <%# === KẾT THÚC === %>
+                </tr></thead>
                 <tbody>
                     <% includedSkuDetails.forEach(function(r){ %>
                         <tr class="sku-row">
@@ -489,6 +501,31 @@
                             <td><%= r.product_name || '-' %></td>
                             <td><%= r.brand || '-' %></td>
                             <td><%= (r.list_price != null) ? r.list_price.toLocaleString('vi-VN') : '-' %></td>
+                            <%# === DỮ LIỆU TỒN KHO MỚI (HỖ TRỢ ADMIN) === %>
+                        <%
+                            // r.inventory là Map<Branch, Counts> hoặc null
+                            const inventoryForSku = r.inventory || new Map();
+                        %>
+
+                          <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && allBranchNames && allBranchNames.length > 0) { %>
+                            <%# Admin: Lặp qua các cột branch... %>
+<% (allBranchNames || []).forEach(branchName => { %>
+    <% const counts = inventoryForSku.get(branchName); %>
+    <% const ton_moi = (counts ? counts.hang_ban_moi : 0); %>
+    <td style="text-align: center; font-weight: 700;" class="<%= ton_moi === 0 ? 'zero-muted' : '' %>">
+        <%= ton_moi %>
+    </td>
+<% }); %>
+<% } else if (typeof userBranch !== 'undefined' && userBranch && !isGlobalAdmin) { %>
+    <%# User thường: Chỉ lấy 1 cột... %>
+    <% const counts = inventoryForSku.get(userBranch); %>
+    <% const ton_moi = (counts ? counts.hang_ban_moi : 0); %>
+    <td style="text-align: center; font-weight: 700;" class="<%= ton_moi === 0 ? 'zero-muted' : '' %>">
+        <%= ton_moi %>
+    </td>
+<% } %>
+                            
+                        <%# === KẾT THÚC === %>
                         </tr>
                     <% }) %>
                 </tbody>
@@ -506,6 +543,7 @@
                 <div class="sku-table-title">SKU loại trừ</div>
                 <input type="search" class="sku-search" placeholder="Tìm trong danh sách..." oninput="filterSkuTable('excludedSkuBlock')">
             </div>
+            <div class="table-scroll-wrapper"></div>
             <table class="sku-table">
                 <thead><tr><th>SKU</th><th>Tên SP</th><th>Brand</th><th>Giá</th></tr></thead>
                 <tbody>
@@ -519,6 +557,7 @@
                     <% }) %>
                 </tbody>
             </table>
+            </div>
              <div class="notfound empty" style="display:none;">Không tìm thấy kết quả phù hợp</div>
             <% if (excludedSkuDetails.length > 10) { %>
                 <button type="button" class="btn-more" onclick="toggleMore('excludedSkuBlock')">Xem thêm…</button>
@@ -773,6 +812,7 @@ function buildHierarchy(items) {
   <style>
     .sku-table-block {
       margin-top: 14px;
+      overflow-x: auto;
     }
 
     .sku-table-header {

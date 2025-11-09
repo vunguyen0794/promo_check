@@ -1,0 +1,662 @@
+<%- include('partials/header', { title: 'Tạo Báo giá Nhanh', currentPage: 'quote-builder' }) %>
+
+<style>
+  /* === BẮT ĐẦU CSS (Copy từ pc-builder.ejs) === */
+  /* CSS riêng cho trang này */
+  .pc-builder-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* === CSS CHO CỘT TÓM TẮT (BÊN PHẢI) === */
+  .price-summary-sticky {
+    position: sticky;
+    top: 80px;
+  }
+  .summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  .summary-item-info {
+    flex-grow: 1; /* Cho phép khối tên co giãn */
+    margin-right: 10px;
+  }
+  .summary-item-name {
+    display: block; /* Tên SP ở 1 hàng */
+  }
+  .summary-item-price {
+    font-weight: 600;
+    text-align: right;
+    min-width: 100px;
+    flex-shrink: 0; /* Không co lại */
+  }
+  .quantity-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+  }
+  .qty-btn {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #cbd5e1;
+    background-color: #f8fafc;
+    color: #475569;
+    border-radius: 999px; /* Tròn */
+    cursor: pointer;
+    font-weight: 600;
+    line-height: 1; /* Căn số */
+  }
+  .qty-btn:hover {
+    background-color: #e2e8f0;
+  }
+  .qty-display {
+    font-weight: 600;
+    padding: 0 5px;
+    min-width: 20px;
+    text-align: center;
+  }
+
+  /* === CSS CHO MODAL CHỌN LINH KIỆN === */
+  .component-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .component-item:hover {
+    background-color: #f8fafc;
+  }
+  .component-item-main-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 10px;
+  }
+  .component-item-info { 
+    font-size: 14px; 
+    flex-grow: 1;
+  }
+  .component-item-info strong { color: #111827; }
+  .component-item-info span { color: #64748b; font-size: 12px; }
+  .component-item-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .component-item-price { 
+    font-weight: 700; 
+    color: #e53935;
+    text-align: right;
+    min-width: 80px;
+  }
+  .btn-select-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    background-color: #10b981;
+    color: white; border: none; border-radius: 6px;
+    cursor: pointer;
+  }
+  /* Nút đã chọn */
+  .btn-select-item.selected {
+    background-color: #64748b;
+  }
+
+  /* === BỐ CỤC 2 CỘT DESKTOP === */
+  @media (min-width: 992px) {
+    .pc-builder-layout {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    .builder-main {
+      flex: 2;
+    }
+    .builder-sidebar {
+      flex: 1;
+    }
+  }
+
+  /* === CSS CHO SỬA GIÁ (Copy y hệt) === */
+  .summary-item-price {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; /* Căn phải */
+  }
+  
+  .price-edit-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .price-edit-controls input {
+    width: 100px;
+    padding: 5px 8px;
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+  }
+
+  .btn-price-action {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: 4px;
+    opacity: 0.6;
+  }
+  .btn-price-action:hover {
+    opacity: 1;
+  }
+  /* === KẾT THÚC CSS === */
+</style>
+
+<div class="pc-builder-layout">
+  
+  <div class="builder-main">
+    <div class="dash-card">
+      <div class="dash-title">Tạo báo giá nhanh</div>
+      
+      <p style="margin: 15px 0; color: #475569;">
+        Thêm sản phẩm vào giỏ hàng, sau đó nhấn "Lưu cấu hình & Báo giá" ở cột bên phải để xuất file PDF hoặc gửi email.
+      </p>
+      
+      <button class="btn btn-primary" id="btnOpenSearchModal" style="padding: 12px 20px; font-size: 16px;">
+        + Thêm sản phẩm...
+      </button>
+
+    </div>
+  </div>
+  
+  <div class="builder-sidebar">
+    <div class="dash-card price-summary-sticky">
+      <div class="dash-title">Tổng chi phí (tạm tính)</div>
+      
+      <div id="summary-list">
+        <div class="dash-muted" style="text-align: center; padding: 20px 0;">
+          Vui lòng thêm sản phẩm
+        </div>
+      </div>
+
+      <div style="border-top: 2px solid #f1f5f9; margin-top: 15px; padding-top: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 800; font-size: 18px;">Tổng cộng:</span>
+          <span style="font-weight: 800; font-size: 22px; color: #e53935;" id="total-price">
+            0 VNĐ
+          </span>
+        </div>
+        <button class="btn btn-primary" style="width: 100%; margin-top: 15px; padding: 12px;" id="mainQuoteButton">
+          Lưu cấu hình & Báo giá
+        </button>
+      </div>
+      
+    </div>
+  </div>
+  
+</div> <div class="modal" id="componentModal" style="display: none;">
+  <div class="modal-content" style="max-width: 800px;">
+    <span class="close" id="componentModalClose">&times;</span>
+    <h3 id="componentModalTitle" style="margin-top: 0;">Chọn sản phẩm</h3>
+    
+    <input type="text" id="componentSearch" class="search-input" 
+           placeholder="Tìm theo tên hoặc SKU..." 
+           style="width: 100%; margin-bottom: 15px;">
+    
+    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+      <select id="filterCategory" class="info-select" style="flex: 1;">
+        <option value="">-- Lọc theo Ngành (NH) --</option>
+        </select>
+      <select id="filterSubcat" class="info-select" style="flex: 1;">
+        <option value="">-- Lọc theo Nhóm SP --</option>
+        </select>
+    </div>
+    <div id="componentModalList" style="max-height: 50vh; overflow-y: auto;">
+      </div>
+  </div>
+  </div>
+</div>
+
+<div id="priceHistoryModal" class="modal" style="display:none">
+  <div class="modal-content" style="max-width: 600px;">
+    <span id="phClose" class="close">&times;</span>
+    <h3>Lịch sử sửa giá (SKU: <span id="phSku"></span>)</h3>
+    <table class="detail-table" id="phTable" style="width: 100%; margin-top: 15px;">
+      <thead>
+        <tr><th>Thời gian</th><th>Giá cũ</th><th>Giá mới</th><th>Người sửa</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="quoteModal" class="modal" style="display:none">
+  <div class="modal-content" style="max-width: 500px;">
+    <span id="quoteClose" class="close">&times;</span>
+    <h3>Thông tin báo giá</h3>
+     
+    <form id="quoteForm">
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>Tên Khách hàng / Công ty:</label>
+        <input type="text" id="quoteCustomerName" class="info-input" placeholder="Kính gửi..." required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+      </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>SĐT Khách hàng:</label>
+        <input type="text" id="quoteCustomerPhone" class="info-input" placeholder="SĐT của khách hàng" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+      </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>Thông tin liên hệ của bạn (SĐT/Zalo):</label>
+        <input type="text" id="quoteContactInfo" class="info-input" placeholder="090..." required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+      </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="quoteSendEmail" style="width: 18px; height: 18px;">
+          Gửi email báo giá
+        </label>
+      </div>
+      <div class="form-group" id="quoteEmailGroup" style="display: none; margin-bottom: 20px;">
+        <label>Email nhận báo giá:</label>
+        <input type="email" id="quoteCustomerEmail" class="info-input" placeholder="example@gmail.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+      </div>
+      <div class="form-group" id="quoteCCGroup" style="display: none; margin-bottom: 20px;">
+        <label>CC (Email phụ, tùy chọn):</label>
+        <input type="email" id="quoteCCEmail" class="info-input" placeholder="cc@example.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+      </div>
+      
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;" id="quoteSubmitButton">
+        Xác nhận & Tạo báo giá
+      </button>
+      <div id="quoteLoading" class="dash-muted" style="text-align: center; padding: 20px; display: none;">
+        Đang tạo PDF, vui lòng chờ...
+      </div>
+    </form>
+    
+  </div>
+</div>
+<%- include('partials/toast') %>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // ----- BIẾN TOÀN CỤC -----
+  let currentBuildConfig = {}; // Giỏ hàng (Key là SKU)
+  let productCache = []; // Lưu kết quả tìm kiếm
+
+  // ----- LẤY CÁC ELEMENT CHÍNH -----
+  const summaryList = document.getElementById('summary-list');
+  const totalPriceEl = document.getElementById('total-price');
+  const btnOpenSearchModal = document.getElementById('btnOpenSearchModal');
+  
+  // Elements Modal tìm kiếm
+  const modal = document.getElementById('componentModal');
+  const modalClose = document.getElementById('componentModalClose');
+  const modalTitle = document.getElementById('componentModalTitle');
+  const modalList = document.getElementById('componentModalList');
+  const componentSearch = document.getElementById('componentSearch');
+  
+  // BỘ LỌC MỚI
+  const filterCategory = document.getElementById('filterCategory');
+  const filterSubcat = document.getElementById('filterSubcat');
+  
+  // ... (Các element modal Lịch sử và Báo giá giữ nguyên) ...
+  const priceHistoryModal = document.getElementById('priceHistoryModal');
+  const phClose = document.getElementById('phClose');
+  const phTbody = document.querySelector('#phTable tbody');
+  const phSku = document.getElementById('phSku');
+  const quoteModal = document.getElementById('quoteModal');
+  const quoteClose = document.getElementById('quoteClose');
+  const quoteForm = document.getElementById('quoteForm');
+  const quoteSendEmail = document.getElementById('quoteSendEmail');
+  const quoteEmailGroup = document.getElementById('quoteEmailGroup');
+  const quoteCCGroup = document.getElementById('quoteCCGroup');
+  const quoteCustomerEmail = document.getElementById('quoteCustomerEmail');
+  const quoteSubmitButton = document.getElementById('quoteSubmitButton');
+  const quoteLoading = document.getElementById('quoteLoading');
+  const mainQuoteButton = document.getElementById('mainQuoteButton');
+
+  // ----- HÀM HỖ TRỢ -----
+  function formatVND(n) {
+    return new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + ' VNĐ';
+  }
+  function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  // HÀM CẬP NHẬT TỔNG TIỀN & GIỎ HÀNG (Giữ nguyên)
+  function updateSummaryAndTotal() {
+    let totalPrice = 0;
+    let summaryHtml = '';
+    const sortedSkus = Object.keys(currentBuildConfig).sort();
+    for (const sku of sortedSkus) {
+      const item = currentBuildConfig[sku];
+      if (!item) continue;
+      if (!item.quantity || item.quantity < 1) item.quantity = 1;
+      const currentPrice = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
+      totalPrice += currentPrice * item.quantity;
+      let priceHtml = '';
+      if (item.isEditingPrice) {
+        priceHtml = `
+          <div class="price-edit-controls">
+            <input type="number" value="${currentPrice}" id="price-input-${sku}" style="width: 100px;">
+            <button class="btn-price-action" data-sku="${sku}" data-action="save-price">✔️</button>
+            <button class="btn-price-action" data-sku="${sku}" data-action="cancel-price">✖️</button>
+          </div>`;
+      } else {
+        let priceDisplay = formatVND(currentPrice);
+        if (item.edited_price !== undefined && item.edited_price !== item.list_price) {
+           priceDisplay = `<strong style="color: #10b981;">${formatVND(item.edited_price)}</strong>`;
+        }
+        priceHtml = `
+          <span>${priceDisplay}</span>
+          <button class="btn-price-action btn-edit-price" data-sku="${sku}" title="Sửa giá">✏️</button>
+          <button class="btn-price-action btn-history-price" data-sku="${sku}" title="Lịch sử giá">🕘</button>`;
+      }
+      summaryHtml += `
+        <div class="summary-item">
+          <div class="summary-item-info">
+            <span class="summary-item-name">${item.product_name}</span>
+            <span style="font-size: 12px; color: #64748b; margin-top: 2px; display: block;">SKU: ${item.sku}</span>
+            <div class="quantity-controls">
+              <button class="qty-btn" data-sku="${sku}" data-action="decrease" ${item.quantity <= 1 ? 'disabled' : ''}>-</button>
+              <span class="qty-display">${item.quantity}</span>
+              <button class="qty-btn" data-sku="${sku}" data-action="increase">+</button>
+            </div>
+          </div>
+          <div class="summary-item-price" id="price-display-${sku}">${priceHtml}</div>
+          <button class="btn-price-action" data-sku="${sku}" data-action="remove-item" title="Xóa" style="margin-left: 5px;">✖️</button>
+        </div>`;
+    }
+    summaryList.innerHTML = summaryHtml || `<div class="dash-muted" style="text-align: center; padding: 20px 0;">Vui lòng thêm sản phẩm</div>`;
+    totalPriceEl.textContent = formatVND(totalPrice);
+  }
+
+  // HÀM TĂNG/GIẢM/XÓA (Giữ nguyên)
+  function changeQuantity(sku, action) {
+    const item = currentBuildConfig[sku];
+    if (!item) return;
+    if (action === 'increase') item.quantity += 1;
+    else if (action === 'decrease' && item.quantity > 1) item.quantity -= 1;
+    else if (action === 'remove-item' && confirm(`Xóa "${item.product_name}"?`)) {
+      delete currentBuildConfig[sku];
+    }
+    updateSummaryAndTotal();
+  }
+
+  // HÀM VẼ DANH SÁCH SP (Giữ nguyên)
+  function renderComponentList(products) {
+    if (products.length === 0) {
+      modalList.innerHTML = '<div class="dash-muted" style="text-align: center; padding: 20px;">Không tìm thấy sản phẩm nào.</div>';
+      return;
+    }
+    modalList.innerHTML = products.map(item => {
+      const isInCart = !!currentBuildConfig[item.sku];
+      return `
+      <div class="component-item">
+        <div class="component-item-main-row">
+          <div class="component-item-info">
+            <strong>${item.product_name}</strong><br>
+            <span>SKU: ${item.sku} | Brand: ${item.brand || 'N/A'}</span>
+          </div>
+          <div class="component-item-action">
+            <span class="component-item-price">${formatVND(item.list_price)}</span>
+            <button class="btn-select-item ${isInCart ? 'selected' : ''}" data-sku="${item.sku}" ${isInCart ? 'disabled' : ''}>
+              ${isInCart ? 'Đã thêm' : 'Chọn'}
+            </button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  
+  // HÀM LỊCH SỬ GIÁ (Giữ nguyên)
+  async function showPriceHistoryModal(sku) {
+    phSku.textContent = sku;
+    phTbody.innerHTML = '<tr><td colspan="4">Đang tải...</td></tr>';
+    priceHistoryModal.style.display = 'flex';
+    try {
+      const res = await fetch(`/api/sku/${sku}/price-history`);
+      const js = await res.json();
+      if (!js.ok) throw new Error(js.error || 'Load failed');
+      const rows = (js.history || []).map(r => `
+        <tr>
+          <td>${new Date(r.changed_at).toLocaleString('vi-VN')}</td>
+          <td style="text-align: right;">${formatVND(r.old_price)}</td>
+          <td style="text-align: right;">${formatVND(r.new_price)}</td>
+          <td>${r.user || '-'}</td>
+        </tr>`).join('');
+      phTbody.innerHTML = rows || '<tr><td colspan="4">Chưa có lịch sử</td></tr>';
+    } catch (e) {
+      phTbody.innerHTML = `<tr><td colspan="4" class="error-message">Lỗi: ${e.message}</td></tr>`;
+    }
+  }
+
+  // HÀM TẢI BỘ LỌC (MỚI)
+  let filtersLoaded = false;
+  async function loadFilterOptions() {
+    if (filtersLoaded) return; // Chỉ tải 1 lần
+    try {
+      const res = await fetch('/api/quote/filter-options');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+
+      filterCategory.innerHTML = '<option value="">-- Lọc theo Ngành (NH) --</option>';
+      data.categories.forEach(cat => {
+        filterCategory.innerHTML += `<option value="${cat}">${cat}</option>`;
+      });
+
+      filterSubcat.innerHTML = '<option value="">-- Lọc theo Nhóm SP --</option>';
+      data.subcats.forEach(sub => {
+        filterSubcat.innerHTML += `<option value="${sub}">${sub}</option>`;
+      });
+      filtersLoaded = true;
+    } catch (err) {
+      console.error("Lỗi tải bộ lọc:", err.message);
+    }
+  }
+
+  // HÀM TÌM KIẾM SẢN PHẨM (SỬA LẠI)
+  async function searchProducts() {
+    const query = componentSearch.value.trim();
+    const category = filterCategory.value;
+    const subcat = filterSubcat.value;
+    
+    // Nếu không gõ gì và không lọc gì -> API sẽ tự trả về SP mặc định
+    modalList.innerHTML = '<div class="dash-muted" style="text-align: center; padding: 20px;">Đang tải...</div>';
+    
+    try {
+      const params = new URLSearchParams({ q: query, category, subcat });
+      const res = await fetch(`/api/quote/search-products?${params.toString()}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      
+      productCache = data.products;
+      renderComponentList(productCache);
+      
+    } catch (err) {
+      modalList.innerHTML = `<div class="error-message">Lỗi: ${err.message}</div>`;
+    }
+  }
+  const debouncedSearchProducts = debounce(searchProducts, 300);
+
+  // ----- GẮN CÁC BỘ LẮNG NGHE SỰ KIỆN -----
+
+  // 1. MỞ MODAL TÌM KIẾM (SỬA LẠI)
+  btnOpenSearchModal.addEventListener('click', () => {
+    modal.style.display = 'flex';
+    componentSearch.focus();
+    loadFilterOptions(); // Tải bộ lọc (nếu chưa có)
+    
+    // SỬA LỖI: Tải danh sách SP mặc định (khi chưa tìm gì)
+    if (componentSearch.value === '' && filterCategory.value === '' && filterSubcat.value === '') {
+      searchProducts();
+    } else {
+      renderComponentList(productCache); // Hiển thị lại kết quả cũ (nếu có)
+    }
+  });
+
+  // 2. GÕ TÌM KIẾM (SỬA LẠI)
+  componentSearch.addEventListener('input', debouncedSearchProducts);
+  
+  // 3. THAY ĐỔI BỘ LỌC (MỚI)
+  filterCategory.addEventListener('change', searchProducts);
+  filterSubcat.addEventListener('change', searchProducts);
+  
+  // 4. CHỌN 1 MÓN TRONG MODAL (Giữ nguyên)
+  modalList.addEventListener('click', (e) => {
+    const selectButton = e.target.closest('.btn-select-item');
+    if (selectButton && !selectButton.disabled) {
+      const sku = selectButton.dataset.sku;
+      const selectedItem = productCache.find(c => c.sku === sku);
+      if (selectedItem) {
+        currentBuildConfig[sku] = { ...selectedItem, quantity: 1 };
+        updateSummaryAndTotal();
+        selectButton.textContent = 'Đã thêm';
+        selectButton.disabled = true;
+        selectButton.classList.add('selected');
+        if (typeof showToast === 'function') {
+          showToast(`Đã thêm: ${selectedItem.product_name}`, 'success');
+        }
+      }
+    }
+  });
+
+  // 5. SỰ KIỆN TRONG GIỎ HÀNG (Giữ nguyên)
+  summaryList.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const sku = btn.dataset.sku;
+    const action = btn.dataset.action;
+    if (action === 'increase' || action === 'decrease' || action === 'remove-item') {
+      changeQuantity(sku, action);
+    }
+    if (btn.classList.contains('btn-edit-price')) { /* ... logic sửa giá ... */
+      const item = currentBuildConfig[sku];
+      if (item) { item.isEditingPrice = true; updateSummaryAndTotal(); document.getElementById(`price-input-${sku}`).focus(); }
+    }
+    if (btn.classList.contains('btn-history-price')) { /* ... logic lịch sử ... */
+      showPriceHistoryModal(sku);
+    }
+    if (action === 'save-price') { /* ... logic lưu giá ... */
+      const item = currentBuildConfig[sku];
+      const inputEl = document.getElementById(`price-input-${sku}`);
+      const newPrice = Number(inputEl.value);
+      if (!item || newPrice < 0) { alert('Giá không hợp lệ'); return; }
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/sku/${sku}/price`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ new_price: newPrice })
+        });
+        const js = await res.json();
+        if (!js.ok) throw new Error(js.error || 'Cập nhật thất bại');
+        item.edited_price = newPrice;
+        item.isEditingPrice = false;
+        showToast('Đã lưu giá mới!', 'success');
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+        btn.disabled = false;
+      }
+      updateSummaryAndTotal();
+    }
+    if (action === 'cancel-price') { /* ... logic hủy sửa giá ... */
+      const item = currentBuildConfig[sku];
+      if (item) { item.isEditingPrice = false; updateSummaryAndTotal(); }
+    }
+  });
+
+  // 6. ĐÓNG MODAL (Giữ nguyên)
+  modalClose.onclick = () => { modal.style.display = 'none'; };
+  if (phClose) phClose.onclick = () => { priceHistoryModal.style.display = 'none'; };
+  if (quoteClose) quoteClose.onclick = () => { quoteModal.style.display = 'none'; };
+  window.onclick = (e) => {
+    if (e.target == modal) modal.style.display = 'none';
+    if (priceHistoryModal && e.target == priceHistoryModal) priceHistoryModal.style.display = 'none';
+    if (quoteModal && e.target == quoteModal) quoteModal.style.display = 'none';
+  };
+
+  // 7. SỰ KIỆN NÚT BÁO GIÁ (Giữ nguyên)
+  mainQuoteButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (Object.keys(currentBuildConfig).length === 0) {
+      showToast('Vui lòng chọn ít nhất 1 sản phẩm', 'warn'); return;
+    }
+    quoteModal.style.display = 'flex';
+    quoteLoading.style.display = 'none';
+    quoteSubmitButton.style.display = 'block';
+    quoteSubmitButton.disabled = false;
+  });
+
+  // 8. CHECKBOX GỬI EMAIL (Giữ nguyên)
+  quoteSendEmail.addEventListener('change', (e) => {
+    quoteEmailGroup.style.display = e.target.checked ? 'block' : 'none';
+    quoteCCGroup.style.display = e.target.checked ? 'block' : 'none';
+    quoteCustomerEmail.required = e.target.checked;
+  });
+  
+  // 9. SUBMIT FORM BÁO GIÁ (Giữ nguyên)
+  quoteForm.addEventListener('submit', async (e) => {
+    e.preventDefault(); 
+    quoteLoading.style.display = 'block';
+    quoteSubmitButton.style.display = 'none';
+    quoteSubmitButton.disabled = true;
+    const customerName = document.getElementById('quoteCustomerName').value.trim();
+    const sendEmail = quoteSendEmail.checked;
+    const customerEmail = document.getElementById('quoteCustomerEmail').value.trim();
+    const contactInfo = document.getElementById('quoteContactInfo').value.trim();
+    const customerCC = document.getElementById('quoteCCEmail').value.trim();
+    const customerPhone = document.getElementById('quoteCustomerPhone').value.trim();
+    if (!customerName || !contactInfo || !customerPhone) {
+      alert('Vui lòng nhập đủ Tên, SĐT Khách hàng, và SĐT liên hệ của bạn.');
+      quoteLoading.style.display = 'none'; quoteSubmitButton.style.display = 'block'; quoteSubmitButton.disabled = false;
+      return;
+    }
+    try {
+      const res = await fetch('/api/pc-builder/generate-quote', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          buildConfig: currentBuildConfig, customerName, sendEmail,
+          customerEmail, contactInfo, customerCC, customerPhone, isGeneralQuote: true
+        })
+      });
+      if (!res.ok) { const errData = await res.json(); throw new Error(errData.error || `Lỗi server`); }
+      if (sendEmail) {
+        const data = await res.json();
+        showToast(data.message || 'Gửi email thành công!', 'success');
+        quoteModal.style.display = 'none';
+      } else {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+a.style.display = 'none'; a.href = url;
+        a.download = `BaoGia_${customerName.replace(/ /g, '_')}.pdf`;
+        document.body.appendChild(a); a.click();
+        window.URL.revokeObjectURL(url); document.body.removeChild(a);
+        showToast('Đang tải file PDF...', 'success');
+        quoteModal.style.display = 'none';
+      }
+    } catch (err) {
+      alert('Lỗi tạo báo giá: ' + err.message);
+    } finally {
+      quoteLoading.style.display = 'none';
+      quoteSubmitButton.style.display = 'block';
+      quoteSubmitButton.disabled = false;
+    }
+  });
+
+  // 10. KHỞI TẠO
+  updateSummaryAndTotal();
+});
+</script>
+
+<%- include('partials/footer') %>
