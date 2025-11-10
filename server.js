@@ -93,7 +93,7 @@ const BRANCH_CONFIG = {
   // Đây là mục dự phòng nếu không tìm thấy branch
   'DEFAULT': {
     name: "PHONG VŨ (Trụ sở chính)",
-    address: "Lô 10-12-14-16-18, đường số 1, KCN Tân Tạo, P. Tân Tạo, Q. Bình Tân, TPHCM",
+    address: "677/2A Điện Biên Phủ, Phường Thạnh Mỹ Tây, Tp. Hồ Chí Minh",
     mst: "0304998335",
     hotline: "1800 6867",
     website: "phongvu.vn",
@@ -115,15 +115,135 @@ const BRANCH_CONFIG = {
   },
   
   'CP01': {
-    name: "PHONG VŨ (Chi nhánh CP01)",
-    address: "[ĐỊA CHỈ CỦA CP01]",
-    mst: "0304998335-YYY",
-    hotline: "[SĐT CỦA CP01]",
+    name: "PHONG VŨ (Chi nhánh 264 NTMK)",
+    address: "264A-264B-264C Nguyễn Thị Minh Khai, Phường Võ Thị Sáu, Quận 3, Thành phố Hồ Chí Minh",
+    mst: "0304998358",
+    hotline: "0287.301.6867",
     website: "phongvu.vn",
-    bankName: "Ngân hàng TMCP Ngoại thương (VCB)",
-    bankHolder: "Tên chủ tài khoản của CP01",
-    bankAccount: "1122334455"
-  }
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PVSFI"
+  },
+
+    'CP02': {
+    name: "PHONG VŨ (Chi nhánh Bình Dương)",
+    address: "408 Đại Lộ Bình Dương, Phường Phú Lợi, Tp. Hồ Chí Minh",
+    mst: "0304998358",
+    hotline: "0274.730.6867",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PV158"
+  },
+
+      'CP05': {
+    name: "PHONG VŨ (Chi nhánh Quận 6)",
+    address: "1081A - 1081C Hậu Giang, Phường Bình Phú, TPHCM",
+    mst: "0304998358",
+    hotline: "0287.303.6867",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PV670"
+  },
+
+        'CP07': {
+    name: "PHONG VŨ (Chi nhánh Quận 7)",
+    address: "Số 9-11 Nguyễn Thị Thập, Phường Tân Mỹ, TPHCM",
+    mst: "0304998358",
+    hotline: "0287.305.6867",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PVDUT"
+  },
+          'CP08': {
+    name: "PHONG VŨ (Chi nhánh Gò Vấp)",
+    address: "2A Nguyễn Oanh, Phường Hạnh Thông, TPHCM",
+    mst: "0304998358",
+    hotline: "0287.309.6867",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PVGOV"
+  },
+
+            'CP40': {
+    name: "PHONG VŨ (Chi nhánh Tân Bình)",
+    address: "02 Đường Hoàng Hoa Thám, Phường Bảy Hiền, Tp. Hồ Chí Minh",
+    mst: "0304998358",
+    hotline: "0287.302.6867",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PVP2U"
+  },
+
+              'CP46': {
+    name: "PHONG VŨ (Chi nhánh Thủ Đức 1)",
+    address: "164 Lê Văn Việt, Phường Tăng Nhơn Phú, TPHCM",
+    mst: "0304998358",
+    hotline: "0287.304.6867",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PV4TC"
+  },
+
+                'CP67': {
+    name: "PHONG VŨ (Chi nhánh Thủ đức 2)",
+    address: "269 - 271 Võ Văn Ngân, Phường Thủ Đức, TPHCM",
+    mst: "0304998358",
+    hotline: "02873.000.089",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PV124"
+  },
+
+                  'CP58': {
+    name: "PHONG VŨ (Chi nhánh Cách mạng tháng tám)",
+    address: "132E Cách Mạng Tháng Tám, Phường Nhiêu Lộc, Tp. Hồ Chí Minh",
+    mst: "0304998358",
+    hotline: "0287.305.8867",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PVIJO"
+  },
+
+                    'CP62': {
+    name: "PHONG VŨ (Chi nhánh Bình Thạnh)",
+    address: "26 Phan Đăng Lưu, Phường Gia Định, Tp. Hồ Chí Minh",
+    mst: "0304998358",
+    hotline: "0287.308.8867",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PVICU"
+  },
+
+                      'CP64': {
+    name: "PHONG VŨ (Chi nhánh Quận 12)",
+    address: "38M Đường Nguyễn Ảnh Thủ, Phường Trung Mỹ Tây, Tp. Hồ Chí Minh",
+    mst: "0304998358",
+    hotline: "0287.303.8699",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PVOLL"
+  },
+
+                        'CP69': {
+    name: "PHONG VŨ (Chi nhánh Dĩ An)",
+    address: "67 - 69 Nguyễn An Ninh, Phường Dĩ An, Thành phố Hồ Chí Minh",
+    mst: "0304998358",
+    hotline: "0287.300.0996",
+    website: "phongvu.vn",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PV124"
+  },
   // (Thêm các chi nhánh khác ở đây)
 };
 
@@ -450,7 +570,9 @@ app.get('/google/drive/connect', requireAuth, (req, res) => {
   const url = oauth2.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
-    scope: ['https://www.googleapis.com/auth/drive.file'],
+    scope: ['https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/spreadsheets.readonly'
+    ],
     state: 'global', // đánh dấu connect CHUNG
   });
   return res.redirect(url);
@@ -570,40 +692,73 @@ app.post('/login', async (req, res) => {
   }
 });
 
+
 app.post('/register', async (req, res) => {
   try {
-    const { email, password, full_name, branch_code } = req.body;
+    const { email, password, full_name } = req.body;
+    const emailToRegister = email.toLowerCase().trim();
 
-    // ===== BẮT ĐẦU CODE THÊM MỚI =====
-    // 1. Định nghĩa các domain hợp lệ
+    // 1. Kiểm tra domain (vẫn giữ)
     const allowedDomains = ['@phongvu.vn', '@phongvu-mna.vn'];
-
-    // 2. Kiểm tra email
-    const emailDomain = email.substring(email.lastIndexOf('@'));
-    if (!allowedDomains.includes(emailDomain.toLowerCase())) {
-      // Nếu email không hợp lệ, render lại trang đăng ký với lỗi
-      return res.render('register', {
-        title: 'Đăng ký',
-        currentPage: 'register',
-        error: 'Chỉ cho phép đăng ký bằng email nội bộ (@phongvu.vn hoặc @phongvu-mna.vn).',
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      });
+    const emailDomain = emailToRegister.substring(emailToRegister.lastIndexOf('@'));
+    if (!allowedDomains.includes(emailDomain)) {
+      throw new Error('Chỉ cho phép đăng ký bằng email nội bộ (@phongvu.vn hoặc @phongvu-mna.vn).');
     }
-    // ===== KẾT THÚC CODE THÊM MỚI =====
 
+    // 2. KIỂM TRA TÀI KHOẢN TỒN TẠI (LOGIC MỚI)
+    // (Kiểm tra trước để đưa ra thông báo lỗi chính xác)
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', emailToRegister)
+      .single();
+
+    if (existingUser) {
+      throw new Error(`Email "${emailToRegister}" đã được đăng ký. Vui lòng đăng nhập.`);
+    }
+
+    // 3. Tra cứu Google Sheets (Đã sửa ở Bước 1)
+    const accessInfo = await getUserAccessInfo(emailToRegister);
+
+    // 4. Validation
+    if (!accessInfo) {
+      throw new Error(`Email "${emailToRegister}" không có trong danh sách nhân sự được phép đăng ký.`);
+    }
+
+    // 5. Kiểm tra ngày hết hạn
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}${mm}${dd}`;
+
+    if (String(accessInfo.end_date) < todayStr) {
+      throw new Error(`Tài khoản nhân sự "${emailToRegister}" đã hết hạn (End Date: ${accessInfo.end_date}).`);
+    }
+
+    // 6. Nếu mọi thứ OK, tiến hành tạo tài khoản
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const { data: user, error } = await supabase
+    const { data: user, error: insertError } = await supabase
       .from('users')
-      .insert([{ email, password_hash: hashedPassword, full_name, role: 'staff', branch_code: (branch_code || 'DEFAULT').toUpperCase() }])
+      .insert([{ 
+        email: emailToRegister, 
+        password_hash: hashedPassword, 
+        full_name,
+        role: 'staff',
+        branch_code: accessInfo.branch_id
+      }])
       .select()
       .single();
 
-    if (error) throw error;
+    if (insertError) throw insertError;
 
-    req.session.user = user;
+    // 7. Đăng nhập và chuyển hướng
+    req.session.user = { id: user.id, email: user.email, full_name: user.full_name, role: user.role, branch_code: user.branch_code };
     res.redirect('/');
+    
   } catch (error) {
+    // 8. Trả về lỗi
     res.render('register', {
       title: 'Đăng ký',
       currentPage: 'register',
@@ -612,6 +767,7 @@ app.post('/register', async (req, res) => {
     });
   }
 });
+
 
 app.post('/logout', (req, res) => { req.session = null; return res.redirect('/login'); });
 
@@ -2448,6 +2604,96 @@ app.get('/drive-test', requireAuth, async (req, res) => {
     res.status(500).json({ ok: false, error: e?.message || String(e) });
   }
 });
+
+// (Trong file server.js)
+
+// HÀM MỚI 1: Tạo client Google Sheets
+async function getGlobalSheetsClient() {
+  const { data: tok, error } = await supabase
+    .from('app_google_tokens')
+    .select('*')
+    .eq('id', 'global')
+    .single();
+
+  if (error || !tok || !tok.refresh_token) {
+    throw new Error('Google Sheets/Drive chung chưa được kết nối (vào /google/drive/connect)');
+  }
+
+  const oauth2 = getOAuthClient();
+  oauth2.setCredentials({
+    access_token: tok.access_token || undefined,
+    refresh_token: tok.refresh_token || undefined,
+    expiry_date: tok.expiry_date || undefined,
+    scope: tok.scope || undefined,
+    token_type: tok.token_type || undefined,
+  });
+
+  oauth2.on('tokens', async (tokens) => {
+    try {
+      await supabase.from('app_google_tokens').upsert({
+        id: 'global',
+        access_token: tokens.access_token || tok.access_token || null,
+        refresh_token: tokens.refresh_token || tok.refresh_token || null,
+        scope: tokens.scope || tok.scope || null,
+        token_type: tokens.token_type || tok.token_type || null,
+        expiry_date: tokens.expiry_date || tok.expiry_date || null,
+      });
+    } catch (e) {
+      console.warn('update global token failed:', e?.message || e);
+    }
+  });
+
+  return google.sheets({ version: 'v4', auth: oauth2 });
+}   
+
+// HÀM MỚI 2: Tra cứu thông tin nhân sự từ Google Sheet
+async function getUserAccessInfo(email) {
+  const emailToFind = email.toLowerCase().trim();
+  const sheetId = process.env.GOOGLE_SHEET_ID_NHANSU;
+  const range = 'Sheet1!A:G'; // Lấy từ cột A (Email) đến cột G (End Date)
+
+  if (!sheetId) {
+    throw new Error('Chưa cấu hình GOOGLE_SHEET_ID_NHANSU trong .env');
+  }
+
+  try {
+    const sheets = await getGlobalSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: range,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      console.warn(`[Auth] Không tìm thấy dữ liệu nào trong Google Sheet.`);
+      return null;
+    }
+
+    // Bỏ qua header, tìm email (Cột A = 0), lấy Branch (Cột D = 3), End Date (Cột G = 6)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const rowEmail = (row[1] || '').toLowerCase().trim();
+      
+      if (rowEmail === emailToFind) {
+        // Đã tìm thấy!
+        return {
+          email: rowEmail,
+          name: row[2] || '', // Cột C (name)
+          branch_id: (row[3] || 'DEFAULT').trim(), // Cột D (branch_id)
+          end_date: row[6] || '99991231' // Cột G (end_date)
+        };
+      }
+    }
+
+    // Không tìm thấy email
+    return null;
+
+  } catch (err) {
+    console.error(`[Auth] Lỗi API Google Sheets: ${err.message}`);
+    throw new Error(`Lỗi khi tra cứu Google Sheets: ${err.message}`);
+  }
+}
+
 
 
 // Yêu cầu: đã có supabase client. Cần multer riêng cho CSV nếu bạn đã có filter ảnh.

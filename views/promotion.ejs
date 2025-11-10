@@ -509,30 +509,48 @@
                             </h3>
                             <p style="font-size: 13px; color: #6c757d; margin-top: -8px; margin-bottom: 10px;">
                                 (Đã trừ các serial được tick "Đã xuất" trong ngày)
-                            </p>
-                            <table class="info-table" style="margin-top: 0;">
+                            </p><table class="info-table" style="margin-top: 0;">
                                 <tbody>
                                     <tr>
                                         <th style="width: 150px;">Hàng bán mới</th>
-                                        <td><strong><%= inventoryCounts.hang_ban_moi %></strong>
+                                        <td class="<%= inventoryCounts.hang_ban_moi === 0 ? 'zero-muted' : '' %>">
+                                            <strong>
+                                                <%= inventoryCounts.hang_ban_moi %>
+                                            </strong>
                                             <span style="font-size: 12px; color: #6c757d;">(Trưng bày + Lưu kho)</span>
                                         </td>
                                     </tr>
                                     <tr>
                                         <th>Trưng bày chỉ định</th>
-                                        <td><strong><%= inventoryCounts.trung_bay_chi_dinh %></strong></td>
+                                        <td class="<%= inventoryCounts.trung_bay_chi_dinh === 0 ? 'zero-muted' : '' %>">
+                                            <strong>
+                                                <%= inventoryCounts.trung_bay_chi_dinh %>
+                                            </strong>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>Lưu kho TL</th>
-                                        <td><strong><%= inventoryCounts.luu_kho_tl %></strong></td>
+                                        <td class="<%= inventoryCounts.luu_kho_tl === 0 ? 'zero-muted' : '' %>">
+                                            <strong>
+                                                <%= inventoryCounts.luu_kho_tl %>
+                                            </strong>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>Trưng bày TL</th>
-                                        <td><strong><%= inventoryCounts.trung_bay_tl %></strong></td>
+                                        <td class="<%= inventoryCounts.trung_bay_tl === 0 ? 'zero-muted' : '' %>">
+                                            <strong>
+                                                <%= inventoryCounts.trung_bay_tl %>
+                                            </strong>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>Tồn khác</th>
-                                        <td><strong><%= inventoryCounts.ton_khac %></strong></td>
+                                        <td class="<%= inventoryCounts.ton_khac === 0 ? 'zero-muted' : '' %>">
+                                            <strong>
+                                                <%= inventoryCounts.ton_khac %>
+                                            </strong>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
