@@ -18,12 +18,16 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 const { google } = require('googleapis');
-const { Readable } = require('stream');
+
 const fs = require('fs');
 const { BigQuery } = require('@google-cloud/bigquery');
 const { sendNewPostEmail } = require('./utils/mailer');
 const ejs = require('ejs');
-const htmlPdf = require('html-pdf-node');
+const chromium = require('chrome-aws-lambda');
+const puppeteerCore = require('puppeteer-core'); // Đổi tên thành puppeteerCore
+const puppeteer = require('puppeteer'); // Đây là bản đầy đủ cho local
+const { Readable, PassThrough } = require('stream');
+
 
 const isVercel = !!process.env.VERCEL;
 
@@ -536,13 +540,24 @@ async function getGlobalDrive() {
   return google.drive({ version: 'v3', auth: oauth2 });
 }
 
+
 async function uploadBufferToDriveGlobal(buffer, filename, mimeType, parentId) {
   const drive = await getGlobalDrive();
 
   const parents = parentId ? [parentId] : undefined;
+
+  // === SỬA LỖI: Tạo một PassThrough Stream ===
+  // Đây là cách chuẩn để chuyển Buffer thành Stream cho googleapis
+  const bufferStream = new PassThrough();
+  bufferStream.end(buffer);
+  // =======================================
+  
   const { data: created } = await drive.files.create({
     requestBody: { name: filename, parents },
-    media: { mimeType, body: Readable.from(buffer) },
+    media: { 
+      mimeType: mimeType,
+      body: bufferStream // <-- Gửi stream đã tạo
+    },
     fields: 'id,name,webViewLink',
   });
 
@@ -3008,21 +3023,34 @@ async function getSkuNewStockByBranch(skus) {
   const allSerials = [...new Set(rows.map(r => r.Serial))];
   const today = new Date().toISOString().slice(0, 10);
   let checkedOutSerials = new Set();
+
+  const BATCH_SIZE = 500;
+  console.log(`[getSkuNewStockByBranch] Lấy ${allSerials.length} serials, chia thành các batch ${BATCH_SIZE}...`);
   
   try {
-    const { data: logData, error } = await supabase
-        .from('serial_check_log')
-        .select('serial')
-        .in('serial', allSerials)
-        .eq('check_date', today)
-        .eq('checked_out', true);
-    
-    if (error) throw error;
-    checkedOutSerials = new Set((logData || []).map(log => log.serial));
+    for (let i = 0; i < allSerials.length; i += BATCH_SIZE) {
+      const batch = allSerials.slice(i, i + BATCH_SIZE);
+      
+      const { data: logData, error } = await supabase
+          .from('serial_check_log')
+          .select('serial')
+          .in('serial', batch) // Chỉ query 1 batch
+          .eq('check_date', today)
+          .eq('checked_out', true);
+      
+      if (error) {
+        // Log lỗi của batch này nhưng vẫn tiếp tục
+        console.error(`Lỗi Supabase batch ${i}:`, error.message);
+      } else {
+        (logData || []).forEach(log => checkedOutSerials.add(log.serial));
+      }
+    }
   } catch (e) {
+      // Lỗi này là lỗi chung (như 'fetch failed' ban đầu)
       console.error("Lỗi Supabase (getSkuNewStockByBranch):", e.message);
-      // Tiếp tục chạy, nhưng có thể đếm thừa
   }
+
+  console.log(`[getSkuNewStockByBranch] Đã tìm thấy ${checkedOutSerials.size} serial đã xuất hôm nay.`);
 
   // 5. Lọc bằng JavaScript (Lọc cả bin_zone và serial đã xuất)
   const result = {};
@@ -4383,26 +4411,105 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
       }
     );
 
-    // 6. Chuyển HTML thành PDF Buffer
-    const pdfBuffer = await htmlPdf.generatePdf(
-      { content: htmlString }, 
-      { format: 'A4', printBackground: true }
-    );
+    // 6. Chuyển HTML thành PDF Buffer (ĐÃ SỬA LỖI LOCAL/VERCEL)
+    let browser = null;
+    let pdfBuffer;
 
-    // 7. Xử lý kết quả (ĐÃ SỬA LỖI TRÙNG)
+    try {
+        let launchOptions;
+        let puppeteerToUse; // Biến để chọn đúng thư viện
+
+        if (isVercel) {
+            // 1. Cấu hình cho Vercel
+            console.log("[PDF] Đang chạy trên Vercel, sử dụng chrome-aws-lambda.");
+            puppeteerToUse = puppeteerCore; // Dùng bản core
+            launchOptions = {
+                args: chromium.args,
+                defaultViewport: chromium.defaultViewport,
+                executablePath: await chromium.executablePath,
+                headless: chromium.headless,
+                ignoreHTTPSErrors: true,
+            };
+        } else {
+            // 2. Cấu hình cho Localhost
+            console.log("[PDF] Đang chạy ở local, sử dụng puppeteer (full).");
+            puppeteerToUse = puppeteer; // Dùng bản đầy đủ
+            launchOptions = {
+                headless: true,
+                // Không cần executablePath, nó sẽ tự tìm
+            };
+        }
+
+        // Khởi chạy bằng đúng thư viện đã chọn
+        browser = await puppeteerToUse.launch(launchOptions); 
+
+        const page = await browser.newPage();
+        
+        // Nạp nội dung HTML (đã render từ EJS) vào
+        await page.setContent(htmlString, { waitUntil: 'networkidle0' });
+        
+        // "In" ra PDF
+        pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
+        });
+
+    } catch (pdfError) {
+        console.error("Lỗi tạo PDF (Puppeteer):", pdfError);
+        // Ghi log chi tiết hơn cho lỗi local
+        if (!isVercel && pdfError.message.includes('Could not find expected browser')) {
+            console.error("--- LỖI PUPPETEER LOCAL ---");
+            console.error("Trình duyệt Chromium có thể chưa được tải về.");
+            console.error("Hãy thử chạy lại 'npm uninstall puppeteer && npm install puppeteer'");
+        }
+        throw new Error(`Lỗi Puppeteer: ${pdfError.message}`);
+    } finally {
+        // Luôn đóng trình duyệt sau khi xong
+        if (browser !== null) {
+            await browser.close();
+        }
+    }
+
+    // 7. Xử lý kết quả (ĐÃ SỬA: Tải lên Google Drive, không đính kèm)
     if (sendEmail && customerEmail) {
       const pdfFileName = `BaoGia_Quotation_${todayStr}_${customerName.replace(/ /g, '_')}.pdf`;
       
+      // === SỬA LỖI: TẢI PDF LÊN GOOGLE DRIVE ===
+      let publicPdfUrl = '';
+      try {
+          // Lấy ID thư mục từ .env, nếu không có thì tải lên root My Drive
+          const driveFolderId = process.env.PRICE_BATTLE_DRIVE_FOLDER_ID || null;
+          
+          // Gọi hàm đã có sẵn trong server.js 
+          publicPdfUrl = await uploadBufferToDriveGlobal(
+              pdfBuffer,
+              pdfFileName,
+              'application/pdf',
+              driveFolderId
+          );
+      } catch (storageError) {
+          console.error("[Google Drive] Lỗi tải PDF:", storageError.message);
+          // Nếu tải PDF lên bị lỗi, báo lỗi cho user
+          return res.status(500).json({ ok: false, error: `Lỗi Google Drive: ${storageError.message}` });
+      }
+      // ===========================================
+
       const mailSubject = `Phongvu ${branchInfo.name} - Bảng báo giá/Quotation - ${todayStr} - ${customerName}`;
       
+      // === SỬA LỖI: THÊM NÚT DOWNLOAD VÀO EMAIL ===
       const mailHtml = `
         <p>Kính gửi ${customerName},</p>
         <p>Phong Vũ ${branchInfo.name} xin gửi đến Quý Khách hàng bảng báo giá.</p>
-        <p>Xin vui lòng xem file PDF đính kèm để biết thêm chi tiết.</p>
-        <p><i>Kindly refer to the attached PDF file for more details.</i></p>
+        <p><b>Vui lòng nhấn vào nút bên dưới để tải file PDF.</b></p>
+        <br>
+        <a href="${publicPdfUrl}" style="background-color: #1a73e8; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+          Tải Báo Giá (PDF)
+        </a>
+        <br><br>
+        <p><i>Kindly click the button above to download the PDF file.</i></p>
         <br>
         <p>Nếu Quý khách hàng cần thêm hỗ trợ, vui lòng liên hệ với đầu mối sau:</p>
-        <p><i>If you need any other support, please feel free to contact us by following contact:</i></p>
         <p>
           &emsp;&emsp;- Hỗ trợ bán hàng: ${userFullName}<br>
           &emsp;&emsp;- Thông tin liên hệ: ${contactInfo}
@@ -4420,13 +4527,10 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
       await sendNewPostEmail(
         { title: mailSubject, content: mailHtml },
         toEmails,
-        { 
-          filename: pdfFileName,
-          content: pdfBuffer,
-          contentType: 'application/pdf'
-        },
+        null, // <-- SỬA LỖI: KHÔNG ĐÍNH KÈM FILE (gửi null)
         userEmail
       );
+      // ===============================================
       
       res.json({ ok: true, message: `Đã gửi báo giá đến ${customerEmail} ${customerCC ? '(CC: ' + customerCC + ')' : ''} thành công.` });
 
@@ -4438,7 +4542,7 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
       res.send(pdfBuffer);
     }
 
-  } catch (e) {
+} catch (e) {
     console.error('Lỗi API /api/pc-builder/generate-quote:', e.message);
     res.status(500).json({ ok: false, error: e.message });
   }
