@@ -29,7 +29,7 @@ const puppeteer = require('puppeteer'); // Đây là bản đầy đủ cho loca
 const { Readable, PassThrough } = require('stream');
 
 
-const isVercel = !!process.env.VERCEL;
+const isVercel = !!process.env.VERCEL_ENV;
 
 // ------------------------- Supabase -------------------------
 const supabaseUrl = process.env.SUPABASE_URL;
