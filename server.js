@@ -4737,7 +4737,7 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
         let launchOptions;
         let puppeteerToUse; // Biến để chọn đúng thư viện
 
-        if (isVercel) {
+        if (true) {
             // 1. Cấu hình cho Vercel
             console.log("[PDF] Đang chạy trên Vercel, sử dụng chrome-aws-lambda.");
             puppeteerToUse = puppeteerCore; // Dùng bản core
