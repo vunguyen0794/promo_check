@@ -1,0 +1,291 @@
+<%- include('partials/header', { title, currentPage }) %>
+
+<% /* === CSS cho trang Dashboard === */ %>
+<style>
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+  }
+  .info-table th {
+    background: #f8f9fa;
+    padding: 10px 12px; /* (SỬA LỖI 3) Giảm padding cho đỡ cao */
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    position: sticky; 
+    top: 0;
+    z-index: 10;
+  }
+  .info-table td {
+    padding: 10px 12px;
+    border: 1px solid #dee2e6;
+    background: white;
+    word-wrap: break-word;
+    vertical-align: top;
+  }
+  .table-scroll-wrapper {
+    overflow: auto;
+    max-height: 75vh;
+  }
+
+  /* (MỚI - SỬA LỖI 1) CSS cho các hàng linh kiện */
+  .component-detail-row {
+    display: none; /* Ẩn mặc định */
+    background-color: #f8fafc;
+  }
+  .component-detail-row.open {
+    display: table-row; /* Hiển thị khi bấm + */
+  }
+  .component-detail-row td {
+    font-size: 13px;
+    color: #334155;
+    border-top: 1px dashed #cbd5e1 !important;
+  }
+  .component-detail-row .sku-cell {
+    padding-left: 25px !important; /* Thụt vào cho dễ nhìn */
+  }
+  
+  .bottleneck { 
+    background-color: #fef9c3 !important; 
+    color: #713f12 !important; 
+    font-weight: 700 !important; 
+  }
+  
+  .toggle-details {
+    cursor: pointer; font-size: 1.5rem; font-weight: 700;
+    text-align: center; width: 30px;
+  }
+  .stock-buildable {
+    font-weight: 800;
+    color: #166534; /* Xanh lá */
+    font-size: 1.1rem;
+  }
+  .stock-final {
+    font-weight: 400;
+    color: #475569; /* Xám */
+    font-size: 0.9rem;
+  }
+  
+  .pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .pagination-controls a.btn[disabled] {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+  .pagination-controls .page-info select {
+    padding: 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+  }
+</style>
+
+<div class="dash-card">
+  <div class="dash-title">Dashboard Năng Lực Lắp Ráp (Tổng Hợp)</div>
+
+  <form method="GET" action="/bom-dashboard">
+    <div class="search-controls" style="display: flex; gap: 10px; margin-bottom: 15px;">
+      <input type="text" name="q" class="search-input" style="flex-grow: 1;"
+             placeholder="Tìm theo SKU hoặc Tên Thành phẩm..."
+             value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+      <button type="submit" class="btn btn-primary">Tìm</button>
+      <% if (typeof searchQuery !== 'undefined' && searchQuery) { %>
+        <a href="/bom-dashboard" class="btn btn-secondary">Xóa tìm kiếm</a>
+      <% } %>
+    </div>
+  </form>
+  
+  <p class="dash-muted">
+    Hiển thị trang <strong><%= page %> / <%= totalPages %></strong> 
+    (Tổng số: <strong><%= totalItems %></strong> SKU Thành phẩm).
+  </p>
+  
+  <div class="table-scroll-wrapper">
+    <table class="info-table" id="bomDashboardTable">
+      <thead>
+        <tr>
+          <th style="width: 50px;"></th> <th style="width: 130px;">SKU</th>
+          <th style="width: 350px;">Tên</th> <th style="width: 110px; text-align: right;">
+            Tổng (T/R)
+          </th>
+
+          <% if (isGlobalAdmin) { %>
+            <% branches.forEach(branch => { %>
+              <th style="width: 100px; text-align: right;">
+                <%= branch %> (T/R)
+              </th>
+            <% }); %>
+          <% } else if (userBranch) { %>
+              <th style="width: 100px; text-align: right;">
+                <%= userBranch %> (T/R)
+              </th>
+          <% } %>
+        </tr>
+      </thead>
+      <tbody id="bomDashboardBody">
+        
+        <% results.forEach(row => { %>
+          
+          <tr data-sku="<%= row.sku %>">
+            <td class="toggle-details" data-sku="<%= row.sku %>">
+              +
+            </td>
+            <td><strong><%= row.sku %></strong></td>
+            <td><%= row.name %></td>
+            
+            <td style="text-align: right;">
+              <div class="stock-final">T: <%= row.finalStock_Total %></div>
+              <div class="stock-buildable">R: <%= row.buildable_Total %></div>
+            </td>
+            
+            <% if (isGlobalAdmin) { %>
+              <% branches.forEach(branch => { %>
+                <td style="text-align: right;">
+                  <div class="stock-final">T: <%= row.finalStock_ByBranch[branch] || 0 %></div>
+                  <div class="stock-buildable">R: <%= row.buildable_ByBranch[branch] || 0 %></div>
+                </td>
+              <% }); %>
+            <% } else if (userBranch) { %>
+               <td style="text-align: right;">
+                  <div class="stock-final">T: <%= row.finalStock_ByBranch[userBranch] || 0 %></div>
+                  <div class="stock-buildable">R: <%= row.buildable_ByBranch[userBranch] || 0 %></div>
+                </td>
+            <% } %>
+          </tr>
+          
+          <tr class="component-detail-row details-<%= row.sku %>">
+            <td></td>
+            <th class="sku-cell" style="background: #eef2ff;">SKU Linh Kiện</th>
+            <th style="background: #eef2ff;">Tên Linh Kiện</th>
+            <th style="background: #eef2ff; text-align: right;">Tổng Tồn LK</th>
+            
+            <% if (isGlobalAdmin) { %>
+              <% branches.forEach(branch => { %>
+                <th style="background: #eef2ff; text-align: right;"><%= branch %> (C/T)</th>
+              <% }); %>
+            <% } else if (userBranch) { %>
+              <th style="background: #eef2ff; text-align: right;"><%= userBranch %> (C/T)</th>
+            <% } %>
+          </tr>
+
+          <% row.components.forEach(comp => { %>
+            <% 
+              const totalHave = Object.values(comp.branches).reduce((sum, br) => sum + (br.have || 0), 0);
+            %>
+            <tr class="component-detail-row details-<%= row.sku %>">
+              <td></td>
+              <td class="sku-cell">
+                <strong><%= comp.sku %></strong>
+              </td>
+              <td><%= comp.name %></td>
+              
+              <td style="text-align: right; font-weight: 700;">
+                <%= totalHave %>
+              </td>
+
+              <% if (isGlobalAdmin) { %>
+                <% branches.forEach(br => { %>
+                  <% const have = comp.branches[br]?.have || 0; %>
+                  <% const isBottleneck = have < comp.need; %>
+                  <td class="<%= isBottleneck ? 'bottleneck' : '' %>" style="text-align: right;">
+                    C: <%= comp.need %> / T: <%= have %>
+                  </td>
+                <% }); %>
+              <% } else if (userBranch) { %>
+                  <% const have = comp.branches[userBranch]?.have || 0; %>
+                  <% const isBottleneck = have < comp.need; %>
+                  <td class="<%= isBottleneck ? 'bottleneck' : '' %>" style="text-align: right;">
+                    C: <%= comp.need %> / T: <%= have %>
+                  </td>
+              <% } %>
+            </tr>
+          <% }); %>
+
+        <% }); %>
+        <% if (results.length === 0) { %>
+          <tr>
+            <td colspan="100%" style="text-align: center;" class="dash-muted">
+              Không tìm thấy SKU Thành phẩm nào khớp với tìm kiếm của bạn.
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination-controls">
+    <% const qParams = (typeof searchQuery !== 'undefined' && searchQuery) ? `&q=${encodeURIComponent(searchQuery)}` : ''; %>
+    
+    <a href="?page=1<%= qParams %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
+      &lt;&lt; Đầu
+    </a>
+    <a href="?page=<%= page - 1 %><%= qParams %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
+      &lt; Trước
+    </a>
+    
+    <span class="page-info">
+      Trang
+      <select id="pageSelect" onchange="window.location.href=this.value;">
+        <% for (let i = 1; i <= totalPages; i++) { %>
+          <% if (totalPages <= 100 || (i >= page - 5 && i <= page + 5) || i === 1 || i === totalPages) { %>
+            <option value="?page=<%= i %><%= qParams %>" <%= i === page ? 'selected' : '' %>>
+              <%= i %>
+            </option>
+          <% } else if (i === page - 6 || i === page + 6) { %>
+            <option disabled>...</option>
+          <% } %>
+        <% } %>
+      </select>
+      / <%= totalPages %>
+    </span>
+    
+    <a href="?page=<%= page + 1 %><%= qParams %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
+      Sau &gt;
+    </a>
+    <a href="?page=<%= totalPages %><%= qParams %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
+      Cuối &gt;&gt;
+    </a>
+  </div>
+</div>
+
+<%- include('partials/toast') %>
+
+<script>
+// (SỬA LỖI 1) Cập nhật JS cho nút +
+document.addEventListener('DOMContentLoaded', function() {
+  const tableBody = document.getElementById('bomDashboardBody');
+  if (!tableBody) return;
+
+  tableBody.querySelectorAll('.toggle-details').forEach(button => {
+    button.addEventListener('click', () => {
+      const sku = button.dataset.sku;
+      // Tìm TẤT CẢ các hàng chi tiết của SKU này
+      const detailRows = tableBody.querySelectorAll(`.details-${sku}`);
+      
+      let isOpen = false;
+      detailRows.forEach((row, index) => {
+        // Kiểm tra trạng thái của hàng ĐẦU TIÊN
+        if (index === 0) {
+          isOpen = row.classList.contains('open');
+        }
+        // Áp dụng trạng thái ngược lại
+        if (isOpen) {
+          row.classList.remove('open');
+        } else {
+          row.classList.add('open');
+        }
+      });
+      
+      button.textContent = isOpen ? '+' : '−';
+    });
+  });
+});
+</script>
+
+<%- include('partials/footer') %>

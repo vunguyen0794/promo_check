@@ -36,19 +36,24 @@
                     <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
                         <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">Quản lý CTKM</a>
                     <% } %>
-                    </nav> <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
                     </nav> <div class="dropdown">
-                    <a href="#" id="utilitiesDropdownToggle" style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none; padding: 6px 10px;" class="<%= currentPage === 'pc-builder' ? 'active' : '' %>">
+                  
+  <% /* Sửa class: Thêm 'quote-builder' vào check */ %>
+  <a href="#" id="utilitiesDropdownToggle" style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none;
+padding: 6px 10px;" class="<%= ['pc-builder', 'quote-builder'].includes(currentPage) ? 'active' : '' %>">
                         Tiện ích
                         <span style="font-size: 10px;">▼</span>
                     </a>
-                    <div class="dropdown-menu" id="utilitiesDropdownMenu">
-                         <a href="/pc-builder">Build PC</a>
-                         <a href="/quote-builder">Báo giá</a>
-                         <a href="#">Check BOM PCPV</a>
-                    </div>
+                  
+  <% /* Sửa menu: Thêm 2 link mới */ %>
+  <div class="dropdown-menu" id="utilitiesDropdownMenu">
+                         <a href="/pc-builder">Build PC (Linh kiện)</a>
+                         <a href="/quote-builder">Báo giá nhanh (SKU)</a>
+                         <a href="/bom-check">Check BOM (Tra cứu)</a>
+                         <a href="/bom-dashboard">BOM Dashboard (Tổng hợp)</a>
+              
+      </div>
                 </div>
-                <% } %>
                 <% /* === BẮT ĐẦU: Chỉ báo User Online === */ %>
 <% if (
     locals.user && 

@@ -1,0 +1,301 @@
+<%- include('partials/header', { title, currentPage }) %>
+
+<% /* === CSS cho trang BOM === */ %>
+<style>
+  .bom-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .search-controls {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+  }
+  .search-controls .form-group {
+    flex-grow: 1;
+  }
+  .search-options {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+  .search-options label {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* CSS cho bảng kết quả (tái sử dụng từ promotion.ejs) */
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+  }
+  .info-table th {
+    background: #f8f9fa;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border: 1px solid #dee2e6;
+  }
+  .info-table td {
+    padding: 12px;
+    border: 1px solid #dee2e6;
+    background: white;
+  }
+  .info-table tr:nth-child(even) td {
+    background: #f8f9fa;
+  }
+  .table-scroll-wrapper {
+    overflow-x: auto;
+  }
+
+  /* CSS cho chi tiết linh kiện */
+  .component-detail-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .component-detail-list li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 5px 0;
+    border-bottom: 1px dashed #e5e7eb;
+  }
+  .component-detail-list li:last-child {
+    border-bottom: none;
+  }
+  .component-detail-list .sku-name {
+    font-weight: 600;
+  }
+  .component-detail-list .sku-stats {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .bottleneck {
+    background-color: #fef9c3; /* Vàng nhạt */
+    color: #713f12;
+    font-weight: 700;
+  }
+</style>
+
+<div class="bom-container">
+  <div class="dash-card">
+    <div class="dash-title">Kiểm tra BOM (Định mức) PCPV</div>
+    
+    <div class="search-controls">
+      <div class="form-group">
+        <label for="skuSearchInput">Nhập SKU:</label>
+        <input type="text" id="skuSearchInput" class="search-input" placeholder="Nhập SKU Thành phẩm hoặc Linh kiện...">
+      </div>
+      <button class="btn btn-primary" id="searchButton" style="padding: 10px 20px;">
+        🔍 Tra cứu
+      </button>
+    </div>
+
+    <div class="search-options">
+      <label>
+        <input type="radio" name="search_mode" value="final" checked>
+        Tìm theo SKU Thành phẩm (PCPV)
+      </label>
+      <label>
+        <input type="radio" name="search_mode" value="component">
+        Tìm theo SKU Linh kiện (Tra ngược)
+      </label>
+    </div>
+  </div>
+
+  <div class="dash-card" style="margin-top: 20px;">
+    <div class="dash-title">Kết quả tra cứu</div>
+    <div id="resultsContainer">
+      <div class="dash-muted" style="text-align: center; padding: 20px;">
+        Vui lòng nhập SKU và nhấn "Tra cứu".
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/toast') %>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('skuSearchInput');
+  const searchButton = document.getElementById('searchButton');
+  const resultsContainer = document.getElementById('resultsContainer');
+  const currentUserRole = "<%= user ? user.role : 'staff' %>";
+
+  // Bắt sự kiện Enter
+  searchInput.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Ngăn form submit (nếu có)
+      handleSearch();
+    }
+  });
+
+  // Bắt sự kiện Click
+  searchButton.addEventListener('click', handleSearch);
+
+  async function handleSearch() {
+    const sku = searchInput.value.trim();
+    const mode = document.querySelector('input[name="search_mode"]:checked').value;
+
+    if (!sku) {
+      showToast('Vui lòng nhập SKU.', 'warn');
+      return;
+    }
+
+    let url = '';
+    if (mode === 'final') {
+      // Yêu cầu 1: Tìm theo SKU Thành phẩm
+      url = `/api/utils/bom/by-final?sku=${encodeURIComponent(sku)}`;
+    } else {
+      // Yêu cầu 2: Tìm theo SKU Linh kiện (Tra ngược)
+      url = `/api/utils/bom/by-component?sku=${encodeURIComponent(sku)}`;
+    }
+
+    resultsContainer.innerHTML = '<div class="dash-muted" style="text-align: center; padding: 20px;">Đang tải...</div>';
+    
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Lỗi không xác định từ server');
+      }
+
+      // Gọi hàm render tương ứng
+      if (mode === 'final') {
+        renderFinalResults(data); // Render kết quả tính toán
+      } else {
+        renderComponentResults(data); // Render danh sách PCPV
+      }
+
+    } catch (err) {
+      console.error('Lỗi khi tra cứu BOM:', err);
+      resultsContainer.innerHTML = `<div class="error-message">Lỗi: ${err.message}</div>`;
+      showToast(err.message, 'error');
+    }
+  }
+
+  // HÀM RENDER KẾT QUẢ (Req 2 & 3: Tính toán số lượng ráp)
+  function renderFinalResults(data) {
+    const { final, buildableByBranch } = data;
+    const isManager = (currentUserRole === 'manager' || currentUserRole === 'admin');
+
+    if (!buildableByBranch || buildableByBranch.length === 0) {
+      let emptyHtml = `
+        <div class="dash-muted" style="text-align: center; padding: 20px;">
+          Không tìm thấy định mức (BOM) cho SKU: <strong>${final.sku}</strong>
+        </div>`;
+      
+      // (MỚI) Nếu là manager, hiển thị nút "Tạo BOM"
+      if (isManager) {
+        emptyHtml += `
+          <div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
+            <a href="/admin/bom/create?final_sku=${final.sku}" class="btn btn-primary">
+              + Tạo BOM cho SKU này
+            </a>
+          </div>
+        `;
+      }
+      resultsContainer.innerHTML = emptyHtml;
+      return;
+    }
+
+    // Hiển thị tên PCPV
+    let html = `<h3 style="margin-top:0;">SKU Thành phẩm: ${final.name || final.sku}</h3>`;
+
+    // (Req 2) Bảng data để thấy list PCPV có thể ráp ở mỗi branch
+    html += '<div class="table-scroll-wrapper">';
+    html += '<table class="info-table">';
+    html += `
+      <thead>
+        <tr>
+          <th>Chi nhánh</th>
+          <th style="text-align: right;">Số lượng có thể ráp</th>
+          <th>Linh kiện thiếu (Tô màu nổi bật)</th>
+          <th>Chi tiết linh kiện (Cần/ Tồn/ Ráp được)</th>
+        </tr>
+      </thead>
+      <tbody>
+    `;
+
+    buildableByBranch.forEach(branchData => {
+      // (Req 3) Tính toán chi tiết linh kiện
+      const componentsHtml = branchData.components.map(comp => {
+        const isBottleneck = (comp.sku === branchData.bottleneck);
+        return `
+          <li class="${isBottleneck ? 'bottleneck' : ''}">
+            <span class="sku-name">${comp.sku} (${comp.name})</span>
+            <span class="sku-stats">
+              (Cần: ${comp.need} / 
+              Tồn: ${comp.have} / 
+              Ráp được: ${comp.can_build_this})
+            </span>
+          </li>
+        `;
+      }).join('');
+
+      html += `
+        <tr>
+          <td><strong>${branchData.branch}</strong></td>
+          <td style="text-align: right; font-size: 1.2rem; font-weight: 800;">
+            ${branchData.buildable}
+          </td>
+          <td>${branchData.bottleneck || (branchData.buildable > 0 ? 'N/A' : 'Không có linh kiện')}</td>
+          <td><ul class="component-detail-list">${componentsHtml}</ul></td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table></div>';
+    resultsContainer.innerHTML = html;
+  }
+  
+  // HÀM RENDER KẾT QUẢ (Req 1: Tra cứu ngược)
+  function renderComponentResults(data) {
+    const { component, results } = data;
+
+    if (!results || results.length === 0) {
+      resultsContainer.innerHTML = `<div class="dash-muted" style="text-align: center; padding: 20px;">Không tìm thấy PCPV nào sử dụng linh kiện: <strong>${component}</strong></div>`;
+      return;
+    }
+
+    let html = `<h3 style="margin-top:0;">Linh kiện: ${component}</h3>`;
+    html += `<p>${results.length} SKU Thành phẩm (PCPV) sau sử dụng linh kiện này:</p>`;
+    
+    html += '<table class="info-table"><tbody>';
+    results.forEach(final => {
+      html += `
+        <tr>
+          <td><strong>${final.sku}</strong></td>
+          <td>${final.name || 'N/A'}</td>
+          <td>
+            <button class="btn btn-secondary" 
+                    style="padding: 5px 10px; font-size: 12px;"
+                    onclick="searchSku('${final.sku}')">
+              Check số lượng ráp
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+    html += '</tbody></table>';
+    resultsContainer.innerHTML = html;
+  }
+
+  // Hàm helper để bấm nút "Check số lượng ráp"
+  window.searchSku = function(sku) {
+    document.getElementById('skuSearchInput').value = sku;
+    document.querySelector('input[name="search_mode"][value="final"]').checked = true;
+    handleSearch();
+  }
+});
+</script>
+
+<%- include('partials/footer') %>

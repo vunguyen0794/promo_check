@@ -1,0 +1,71 @@
+<%- include('partials/header', { title, currentPage }) %>
+
+<style>
+  .bom-form-container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .bom-textarea {
+    width: 100%;
+    min-height: 250px;
+    font-family: monospace;
+    font-size: 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px;
+  }
+</style>
+
+<div class="bom-form-container">
+  <div class="dash-card">
+    <div class="dash-title">
+      Tạo/Cập nhật Định Mức (BOM)
+    </div>
+
+    <% if (error) { %>
+      <div class="error-message" style="margin-bottom: 15px;"><%= error %></div>
+    <% } %>
+
+    <form action="/admin/bom/create" method="POST">
+      
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>SKU Thành phẩm (PCPV):</label>
+        <input type="text" class="info-input" name="final_sku" 
+               value="<%= finalSku %>" readonly 
+               style="background: #e2e8f0; cursor: not-allowed;">
+      </div>
+      
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>Tên Thành phẩm:</label>
+        <input type="text" class="info-input" 
+               value="<%= finalName %>" disabled>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label for="components_list">Danh sách Linh kiện (SKU, Số lượng):</label>
+        <textarea id="components_list" name="components_list" class="bom-textarea" 
+                  placeholder="Dán danh sách SKU tại đây.
+Ví dụ:
+250808056, 1
+251019397, 1
+250203230, 2
+..."><%
+  existingBom.forEach(item => { %>
+<%= item.component_sku %>, <%= item.qty_per %>
+<% }); %></textarea>
+        <p class="dash-muted" style="font-size: 13px; margin-top: 5px;">
+          Mỗi dòng 1 linh kiện. Phân tách SKU và Số lượng bằng dấu phẩy (,) hoặc khoảng trắng (space).
+        </p>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="padding: 12px 20px;">
+        Lưu Định Mức (BOM)
+      </button>
+      <a href="/bom-check?sku=<%= finalSku %>" class="btn btn-secondary">
+        Hủy
+      </a>
+    </form>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

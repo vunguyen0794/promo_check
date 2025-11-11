@@ -29,7 +29,7 @@ const puppeteer = require('puppeteer'); // Đây là bản đầy đủ cho loca
 const { Readable, PassThrough } = require('stream');
 
 
-const isVercel = !!process.env.VERCEL_ENV;
+const isVercel = !!process.env.VERCEL;
 
 // ------------------------- Supabase -------------------------
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -2853,122 +2853,440 @@ app.post('/api/utils/bom/import', uploadCsv.single('file'), async (req, res) => 
   }
 });
 
-app.get('/api/utils/bom/by-final', async (req, res) => {
+// (TRONG server.js)
+// API TÍNH SỐ LƯỢNG RÁP ĐƯỢC (ĐÃ SỬA LẠI HOÀN CHỈNH)
+app.get('/api/utils/bom/by-final', requireAuth, async (req, res) => {
   try {
     const sku = (req.query.sku || '').trim();
-    if (!sku) return res.status(400).json({ ok: false, error: 'Thiếu sku' });
+    if (!sku) {
+      return res.status(400).json({ ok: false, error: 'Thiếu SKU thành phẩm' });
+    }
 
-    // Lấy các dòng BOM của final_sku
+    // 1. Lấy thông tin User (Phân quyền)
+    const userBranch = req.session.user?.branch_code;
+    const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
+    const today = new Date().toISOString().split('T')[0];
+
+    // 2. Lấy danh sách linh kiện cần thiết từ BOM
     const { data: parts, error: e1 } = await supabase
       .from('bom_relations')
       .select('component_sku, component_name, qty_per, final_name')
       .eq('final_sku', sku);
     if (e1) throw e1;
 
-    if (!parts || !parts.length) return res.json({ ok: true, final: { sku, name: null }, components: [], branches: [] });
+    if (!parts || !parts.length) {
+      return res.json({ 
+        ok: true, 
+        final: { sku, name: 'Không tìm thấy BOM' }, 
+        buildableByBranch: [] 
+      });
+    }
 
-    const finalName = parts[0]?.final_name || null;
-
-    // Lấy tồn kho cho toàn bộ linh kiện liên quan
+    const finalName = parts[0]?.final_name || sku;
     const compSkus = Array.from(new Set(parts.map(p => p.component_sku)));
-    const { data: inv, error: e2 } = await supabase
-      .from('inventories')
-      .select('sku, branch_code, branch_name, stock_qty')
-      .in('sku', compSkus);
-    if (e2) throw e2;
 
-    // Gom theo branch
-    const branches = {};
-    for (const r of inv) {
-      if (!branches[r.branch_code]) branches[r.branch_code] = { branch: r.branch_code, branch_name: r.branch_name, stockBySku: {} };
-      branches[r.branch_code].stockBySku[r.sku] = (branches[r.branch_code].stockBySku[r.sku] || 0) + Number(r.stock_qty || 0);
-    }
+    // 3. Lấy tồn kho BigQuery cho TẤT CẢ linh kiện
+    // Hàm getInventoryCounts đã xử lý phân quyền (isGlobalAdmin hay userBranch)
+    const inventoryMap = await getInventoryCounts(compSkus, userBranch, isGlobalAdmin, today);
 
-    // Tính buildable từng branch
-    const out = [];
-    const branchKeys = Object.keys(branches).sort();
-    for (const b of branchKeys) {
-      const ctx = branches[b];
-      let minBuild = Infinity;
-      const detail = [];
-      for (const p of parts) {
-        const have = ctx.stockBySku[p.component_sku] || 0;
-        const need = Number(p.qty_per || 1);
-        const can = Math.floor(have / need);
-        detail.push({ compSKU: p.component_sku, compName: p.component_name, need, have, can });
-        if (can < minBuild) minBuild = can;
+    // 4. Xác định các chi nhánh cần tính toán
+    const branchesToProcess = isGlobalAdmin 
+        ? ( () => {
+              const allBranches = new Set();
+              inventoryMap.forEach(branchMap => { // Map<SKU, Map<Branch, Counts>>
+                branchMap.forEach((counts, branchId) => allBranches.add(branchId));
+              });
+              // Nếu admin, nhưng không có tồn kho ở đâu, hiển thị chi nhánh của admin
+              if (allBranches.size === 0) return [userBranch]; 
+              return [...allBranches].sort();
+            })()
+        : [userBranch]; // User thường chỉ thấy chi nhánh của mình
+
+    // 5. Tính toán số lượng có thể ráp
+    const branchResults = new Map();
+    
+    // Khởi tạo kết quả
+    branchesToProcess.forEach(br => {
+      branchResults.set(br, { 
+        buildable: Infinity, // Bắt đầu với vô cực
+        bottleneck: null,    // SKU gây nghẽn
+        components: []       // Chi tiết tính toán
+      });
+    });
+
+    // Duyệt qua TỪNG LINH KIỆN (parts)
+    for (const part of parts) {
+      const compSku = part.component_sku;
+      const needQty = Number(part.qty_per || 1);
+      
+      const stockMapForSku = inventoryMap.get(compSku); // Map<Branch, Counts>
+      
+      // Duyệt qua TỪNG CHI NHÁNH (branches)
+      for (const branch of branchesToProcess) {
+        const branchCalc = branchResults.get(branch);
+        
+        const counts = stockMapForSku?.get(branch);
+        // Chỉ tính "Hàng bán mới" (bao gồm Trưng bày và Lưu kho)
+        const haveQty = counts?.hang_ban_moi || 0;
+        
+        const canBuild = Math.floor(haveQty / needQty);
+        
+        // Thêm chi tiết linh kiện
+        branchCalc.components.push({
+          sku: compSku,
+          name: part.component_name || 'N/A',
+          need: needQty,
+          have: haveQty,
+          can_build_this: canBuild
+        });
+
+        // Kiểm tra xem linh kiện này có phải là "nút thắt" mới không
+        if (canBuild < branchCalc.buildable) {
+          branchCalc.buildable = canBuild;
+          branchCalc.bottleneck = compSku; // Ghi nhận SKU gây nghẽn
+        }
       }
-      if (minBuild === Infinity) minBuild = 0;
-      out.push({ branch: b, branch_name: ctx.branch_name, buildable: minBuild, components: detail });
     }
+    
+    // 6. Chuyển Map thành Array để trả về JSON
+    const buildableByBranch = [];
+    branchResults.forEach((data, branch) => {
+      // Nếu buildable vẫn là Infinity (do không có linh kiện nào), set về 0
+      if (data.buildable === Infinity) data.buildable = 0;
+      buildableByBranch.push({ branch, ...data });
+    });
+
+    // Sắp xếp theo số lượng ráp được (Req 2)
+    buildableByBranch.sort((a, b) => b.buildable - a.buildable);
 
     res.json({
       ok: true,
       final: { sku, name: finalName },
-      components: parts.map(p => ({ compSKU: p.component_sku, compName: p.component_name, qtyPer: p.qty_per })),
-      branches: out
+      buildableByBranch: buildableByBranch
     });
+
   } catch (e) {
+    console.error('Lỗi /api/utils/bom/by-final:', e.message);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
 
+// (TRONG server.js)
+// API TÌM PCPV BẰNG LINH KIỆN (ĐÃ SỬA)
 app.get('/api/utils/bom/by-component', async (req, res) => {
   try {
     const comp = (req.query.sku || '').trim();
-    if (!comp) return res.status(400).json({ ok: false, error: 'Thiếu sku' });
+    if (!comp) {
+      return res.status(400).json({ ok: false, error: 'Thiếu SKU linh kiện' });
+    }
 
-    // Tìm các final có dùng linh kiện này
+    // 1. Tìm tất cả các PCPV (final_sku) có dùng linh kiện này
     const { data: finals, error: e1 } = await supabase
       .from('bom_relations')
       .select('final_sku, final_name')
       .eq('component_sku', comp);
     if (e1) throw e1;
 
-    const uniqFinals = Array.from(new Map(finals.map(f => [f.final_sku, { sku: f.final_sku, name: f.final_name }])).values());
-    const results = [];
+    // Lọc duy nhất
+    const uniqFinals = Array.from(
+      new Map(
+        finals.map(f => [f.final_sku, { sku: f.final_sku, name: f.final_name }])
+      ).values()
+    );
+    
+    // 2. Trả về danh sách PCPV
+    // (Chúng ta sẽ không tính toán tồn kho ở đây, vì nó quá nặng)
+    // (User sẽ bấm vào 1 trong các PCPV này để gọi API 'by-final' ở trên)
+    res.json({ 
+      ok: true, 
+      component: comp, 
+      results: uniqFinals 
+    });
 
-    // Với mỗi final_sku, tính buildable như trên
-    for (const f of uniqFinals) {
-      const { data: parts, error: e2 } = await supabase
-        .from('bom_relations')
-        .select('component_sku, component_name, qty_per')
-        .eq('final_sku', f.sku);
-      if (e2) throw e2;
+  } catch (e) {
+    console.error('Lỗi /api/utils/bom/by-component:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 
-      const compSkus = Array.from(new Set(parts.map(p => p.component_sku)));
-      const { data: inv, error: e3 } = await supabase
-        .from('inventories')
-        .select('sku, branch_code, branch_name, stock_qty')
-        .in('sku', compSkus);
-      if (e3) throw e3;
+// (TRONG server.js)
 
-      const branches = {};
-      for (const r of inv) {
-        if (!branches[r.branch_code]) branches[r.branch_code] = { branch: r.branch_code, branch_name: r.branch_name, stockBySku: {} };
-        branches[r.branch_code].stockBySku[r.sku] = (branches[r.branch_code].stockBySku[r.sku] || 0) + Number(r.stock_qty || 0);
-      }
+// Route mới để render trang Check BOM
+app.get('/bom-check', requireAuth, (req, res) => {
+  res.render('bom-check', {
+    title: 'Kiểm tra BOM PCPV',
+    currentPage: 'pc-builder', // Giữ cho menu "Tiện ích" sáng lên
+    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    // Biến 'user' sẽ tự động được truyền vào từ middleware
+  });
+});
 
-      const out = [];
-      for (const b of Object.keys(branches).sort()) {
-        const ctx = branches[b];
-        let minBuild = Infinity;
-        for (const p of parts) {
-          const have = ctx.stockBySku[p.component_sku] || 0;
-          const need = Number(p.qty_per || 1);
-          const can = Math.floor(have / need);
-          if (can < minBuild) minBuild = can;
-        }
-        if (minBuild === Infinity) minBuild = 0;
-        out.push({ branch: b, branch_name: ctx.branch_name, buildable: minBuild });
-      }
 
-      results.push({ final: f, branches: out });
+
+// (TRONG server.js)
+
+// Route TỔNG HỢP (Dashboard) - BẢN CUỐI (Thêm Search + Phân trang)
+app.get('/bom-dashboard', requireAuth, async (req, res) => {
+  try {
+    // === (MỚI) Thêm Search Query ===
+    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const pageSize = 20; // 20 PCPV mỗi trang
+    const searchQuery = (req.query.q || '').trim().toLowerCase(); // Lấy query 'q'
+    
+    // --- A. Lấy thông tin User (Phân quyền) ---
+    const userBranch = req.session.user?.branch_code;
+    const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
+    const today = new Date().toISOString().split('T')[0];
+
+    // --- B. Lấy danh sách PCPV từ BigQuery ---
+    const bqPcpvQuery = `
+      SELECT
+        DISTINCT CAST(SKU AS STRING) AS sku,
+        MAX(SKU_name) AS name
+      FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
+      WHERE SubCategory_name LIKE 'Máy tính bộ Phong Vũ%'
+      GROUP BY 1
+    `;
+    
+    let allFinalSkus = [];
+    if (bigquery) {
+      const [bqRows] = await bigquery.query({
+        query: bqPcpvQuery,
+        location: 'asia-southeast1'
+      });
+      allFinalSkus = bqRows.map(r => ({ sku: r.sku, name: r.name || r.sku }));
+    } else {
+      console.warn('BOM Dashboard: BigQuery chưa cấu hình, không thể lấy danh sách PCPV.');
+      // (Fallback logic)
+      const { data: allFinalsData } = await supabase.from('bom_relations').select('final_sku, final_name');
+      allFinalSkus = Array.from(new Map((allFinalsData || []).map(f => [f.final_sku, { sku: f.final_sku, name: f.final_name || f.final_sku }])).values());
     }
 
-    res.json({ ok: true, component: comp, results });
+    // === (MỚI) Lọc theo Search Query ===
+    let filteredFinalSkus = allFinalSkus;
+    if (searchQuery) {
+      filteredFinalSkus = allFinalSkus.filter(f => 
+        f.sku.toLowerCase().includes(searchQuery) || 
+        f.name.toLowerCase().includes(searchQuery)
+      );
+    }
+    // ===================================
+
+    const totalItems = filteredFinalSkus.length; // Sửa: đếm trên danh sách đã lọc
+    const totalPages = Math.ceil(totalItems / pageSize);
+    if (totalPages > 0 && page > totalPages) page = totalPages; // Điều chỉnh trang nếu query
+
+    // Lấy 20 SKU cho trang này TỪ DANH SÁCH ĐÃ LỌC
+    const pageSkus = filteredFinalSkus.slice((page - 1) * pageSize, page * pageSize);
+    const pageSkuList = pageSkus.map(f => f.sku);
+
+    if (pageSkuList.length === 0) {
+      // (Không tìm thấy kết quả hoặc không có BOM)
+      return res.render('bom-dashboard', {
+        title: 'Dashboard Lắp Ráp BOM', currentPage: 'pc-builder', time: res.locals.time,
+        results: [], branches: [], page: 1, totalPages: 1, totalItems: 0,
+        searchQuery: (req.query.q || ''), // Trả lại query
+        isGlobalAdmin: isGlobalAdmin, userBranch: userBranch
+      });
+    }
+    
+    // --- C. Lấy BOM cho 20 SKU này (từ Supabase) ---
+    const { data: bomParts, error: e2 } = await supabase
+      .from('bom_relations')
+      .select('final_sku, component_sku, component_name, qty_per')
+      .in('final_sku', pageSkuList);
+    if (e2) throw e2;
+    
+    // (Phần D và E - Lấy tồn kho và Tính toán giữ nguyên y hệt)
+    
+    // --- D. Lấy tồn kho ---
+    const bomMap = new Map();
+    pageSkus.forEach(f => bomMap.set(f.sku, []));
+    (bomParts || []).forEach(p => { bomMap.get(p.final_sku)?.push(p); });
+    const allComponentSkus = Array.from(new Set((bomParts || []).map(p => p.component_sku)));
+    const skusToFetchStock = [...new Set([...pageSkuList, ...allComponentSkus])];
+    const inventoryMap = await getInventoryCounts(skusToFetchStock, userBranch, isGlobalAdmin, today);
+    const allBranches = new Set();
+    inventoryMap.forEach(branchMap => {
+        branchMap.forEach((counts, branchId) => allBranches.add(branchId));
+    });
+    const sortedBranches = [...allBranches].sort();
+
+    // --- E. Tính toán & Xây dựng dữ liệu render ---
+    const results = [];
+    for (const final of pageSkus) {
+      const finalSku = final.sku;
+      const components = bomMap.get(finalSku) || [];
+      const finalProductStockMap = inventoryMap.get(finalSku);
+      let totalFinalStock = 0;
+      const finalStockByBranch = new Map();
+      sortedBranches.forEach(br => {
+        const stock = finalProductStockMap?.get(br)?.hang_ban_moi || 0;
+        finalStockByBranch.set(br, stock);
+        totalFinalStock += stock;
+      });
+      let totalBuildable = 0;
+      const buildableByBranch = new Map();
+      const componentDetails = new Map();
+      components.forEach(c => {
+        componentDetails.set(c.component_sku, { name: c.component_name || 'N/A', need: c.qty_per, branches: new Map() });
+      });
+      sortedBranches.forEach(br => {
+        let buildableForBranch = Infinity;
+        for (const comp of components) {
+          const compSku = comp.component_sku;
+          const needQty = Number(comp.qty_per || 1);
+          const compStockMap = inventoryMap.get(compSku);
+          const haveQty = compStockMap?.get(br)?.hang_ban_moi || 0;
+          componentDetails.get(compSku).branches.set(br, { have: haveQty });
+          const canBuild = Math.floor(haveQty / needQty);
+          if (canBuild < buildableForBranch) buildableForBranch = canBuild;
+        }
+        const finalBuildable = (buildableForBranch === Infinity) ? 0 : buildableForBranch;
+        buildableByBranch.set(br, finalBuildable);
+        totalBuildable += finalBuildable;
+      });
+      results.push({
+        sku: finalSku, name: final.name,
+        finalStock_Total: totalFinalStock, finalStock_ByBranch: Object.fromEntries(finalStockByBranch),
+        buildable_Total: totalBuildable, buildable_ByBranch: Object.fromEntries(buildableByBranch),
+        components: Array.from(componentDetails.entries()).map(([sku, data]) => ({ sku, ...data, branches: Object.fromEntries(data.branches) }))
+      });
+    }
+
+    // Sắp xếp
+    results.sort((a, b) => b.buildable_Total - a.buildable_Total);
+    
+    // 4. Render
+    res.render('bom-dashboard', {
+      title: 'Dashboard Lắp Ráp BOM',
+      currentPage: 'pc-builder',
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      results: results,
+      branches: sortedBranches,
+      page: page,
+      totalPages: totalPages,
+      totalItems: totalItems,
+      searchQuery: (req.query.q || ''), // (MỚI) Trả lại query
+      isGlobalAdmin: isGlobalAdmin,
+      userBranch: userBranch
+    });
+
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    console.error('Lỗi /bom-dashboard:', e.message);
+    res.redirect('/bom-check?error=' + encodeURIComponent(e.message));
+  }
+});
+
+
+// (TRONG server.js)
+
+// Route 1 (GET): Hiển thị form để tạo BOM
+app.get('/admin/bom/create', requireAuth, async (req, res) => {
+  const finalSku = req.query.final_sku || '';
+  let finalName = 'SKU không rõ';
+
+  if (finalSku) {
+    // Lấy tên SKU để hiển thị
+    const { data: skuData } = await supabase
+      .from('skus')
+      .select('product_name')
+      .eq('sku', finalSku)
+      .single();
+    if (skuData) {
+      finalName = skuData.product_name;
+    }
+  }
+
+  res.render('admin-bom-form', {
+    title: 'Tạo Định Mức (BOM)',
+    currentPage: 'pc-builder',
+    finalSku: finalSku,
+    finalName: finalName,
+    existingBom: [], // Dùng cho form rỗng
+    error: null
+  });
+});
+
+// (TRONG server.js)
+
+// Route 2 (POST): Lưu BOM mới (ĐÃ NÂNG CẤP - TỰ TRA CỨU TÊN)
+app.post('/admin/bom/create', requireAuth, async (req, res) => {
+const { final_sku, components_list } = req.body;
+
+  if (!final_sku || !components_list) {
+    return res.status(400).send('Thiếu SKU Thành phẩm hoặc Danh sách Linh kiện.');
+  }
+
+  try {
+    // 1. Phân tích danh sách linh kiện từ textarea (Lấy SKU và Qty)
+    const lines = (components_list || '').split(/\r?\n/);
+    const componentMap = new Map(); // Dùng Map để tránh trùng lặp
+
+    lines.forEach(line => {
+      const parts = line.split(/[,\s\t]+/); // Tách bằng dấu phẩy, space, hoặc tab
+      const sku = parts[0] ? parts[0].trim() : null;
+      const qty = (parts[1] ? parseInt(parts[1].trim(), 10) : 1) || 1;
+
+      if (sku) {
+        componentMap.set(sku, qty);
+      }
+    });
+
+    const componentSkuList = Array.from(componentMap.keys());
+    if (componentSkuList.length === 0) {
+      throw new Error('Danh sách linh kiện rỗng hoặc không hợp lệ.');
+    }
+
+    // 2. (MỚI) Tra cứu tên linh kiện từ bảng 'skus'
+    const { data: skuData, error: skuError } = await supabase
+      .from('skus')
+      .select('sku, product_name')
+      .in('sku', componentSkuList);
+    
+    if (skuError) throw new Error(`Lỗi tra cứu tên SKU: ${skuError.message}`);
+
+    const skuNameMap = new Map(
+      (skuData || []).map(item => [item.sku, item.product_name])
+    );
+
+    // 3. (MỚI) Tạo payload hoàn chỉnh
+    const componentsPayload = componentSkuList.map(sku => {
+      return {
+        final_sku: final_sku,
+        component_sku: sku,
+        qty_per: componentMap.get(sku) || 1,
+        component_name: skuNameMap.get(sku) || null // Thêm tên vào đây
+      };
+    });
+
+    // 4. Xóa BOM cũ (nếu có)
+    await supabase
+      .from('bom_relations')
+      .delete()
+      .eq('final_sku', final_sku);
+
+    // 5. Chèn BOM mới
+    const { error: insertError } = await supabase
+      .from('bom_relations')
+      .insert(componentsPayload);
+    
+    if (insertError) throw insertError;
+
+    // 6. Thành công, chuyển về trang tra cứu
+    res.redirect(`/bom-check?sku=${encodeURIComponent(final_sku)}&success=true`);
+
+  } catch (err) {
+    // (Tải lại thông tin để render lỗi)
+    const { data: skuData } = await supabase.from('skus').select('product_name').eq('sku', final_sku).single();
+    res.render('admin-bom-form', {
+      title: 'Tạo Định Mức (BOM)',
+      currentPage: 'pc-builder',
+      finalSku: final_sku,
+      finalName: skuData?.product_name || 'SKU không rõ',
+      existingBom: [],
+      error: 'Lỗi khi lưu: ' + err.message
+    });
   }
 });
 
@@ -4527,7 +4845,7 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
       await sendNewPostEmail(
         { title: mailSubject, content: mailHtml },
         toEmails,
-        null, // <-- SỬA LỖI: KHÔNG ĐÍNH KÈM FILE (gửi null)
+        undefined, // <-- SỬA LỖI: KHÔNG ĐÍNH KÈM FILE (gửi null)
         userEmail
       );
       // ===============================================
