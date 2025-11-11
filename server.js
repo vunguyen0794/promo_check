@@ -4737,15 +4737,22 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
         let launchOptions;
         let puppeteerToUse; // Biến để chọn đúng thư viện
 
-        if (true) {
+        if (isVercel) {
             // 1. Cấu hình cho Vercel
-            console.log("[PDF] Đang chạy trên Vercel, sử dụng chrome-aws-lambda.");
+            console.log("[PDF] Đang chạy trên Vercel, sử dụng @sparticuz/chromium.");
+            
+            // SỬA: Thay 'chrome-aws-lambda' bằng '@sparticuz/chromium'
+            const chromium = require('@sparticuz/chromium'); 
+            const puppeteerCore = require('puppeteer-core'); 
+
             puppeteerToUse = puppeteerCore; // Dùng bản core
             launchOptions = {
                 args: chromium.args,
                 defaultViewport: chromium.defaultViewport,
-                executablePath: await chromium.executablePath,
-                headless: chromium.headless,
+                // SỬA: chromium.executablePath là MỘT HÀM ()
+                executablePath: await chromium.executablePath(), 
+                // SỬA: chromium.headless là MỘT BOOLEAN
+                headless: chromium.headless, 
                 ignoreHTTPSErrors: true,
             };
         } else {
