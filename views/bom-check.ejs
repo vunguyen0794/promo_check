@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
     buildableByBranch.forEach(branchData => {
       // (Req 3) Tính toán chi tiết linh kiện
       const componentsHtml = branchData.components.map(comp => {
-        const isBottleneck = (comp.sku === branchData.bottleneck);
+        const isBottleneck = (comp.have < comp.need);
         return `
           <li class="${isBottleneck ? 'bottleneck' : ''}">
             <span class="sku-name">${comp.sku} (${comp.name})</span>

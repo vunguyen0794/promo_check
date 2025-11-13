@@ -105,7 +105,7 @@
                     <th class="right">SL</th>
                     <th class="right">Đơn giá (chưa VAT)</th>
                     <th class="right">Thành tiền (chưa VAT)</th>
-                    <th class="right">Thuế (VAT 10%)</th>
+                    <th class="right">Thuế (VAT 8%)</th>
                     <th class="right">Tổng tiền (có VAT)</th>
                 </tr>
             </thead>
@@ -120,7 +120,7 @@
                       const unitPriceWithVat = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
                       
                       // 2. Tính đơn giá (CHƯA VAT) - (tính ngược)
-                      const unitPriceNoVat = Math.round(unitPriceWithVat / 1.1);
+                      const unitPriceNoVat = Math.round(unitPriceWithVat / 1.08);
                       
                       // 3. Tính Thành tiền (CHƯA VAT)
                       const lineTotalNoVat = unitPriceNoVat * item.quantity;
@@ -160,7 +160,7 @@
                 <span class="right"><%= formatVND(subTotalNoVat) %></span>
             </div>
             <div class="total-row">
-                <span>Tổng tiền VAT (10%):</span>
+                <span>Tổng tiền VAT (8%):</span>
                 <span class="right"><%= formatVND(totalVat) %></span>
             </div>
             

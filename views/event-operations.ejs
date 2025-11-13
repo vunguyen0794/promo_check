@@ -1,0 +1,623 @@
+<%- include('partials/header', { title, currentPage }) %>
+
+<% /* === CSS cho tính năng Event === */ %>
+<style>
+  .event-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  /* CSS cho phần Tạo Đơn Hàng */
+  .order-creation-grid {
+    display: grid;
+    grid-template-columns: 400px 1fr; /* Cột 1: Tìm kiếm | Cột 2: Giỏ hàng */
+    gap: 20px;
+    margin-top: 15px;
+  }
+  
+  /* Cột tìm kiếm */
+  .search-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+  }
+  .search-controls .search-input {
+    flex-grow: 1;
+    padding: 12px 14px;
+    font-size: 16px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+  }
+  .search-filter {
+    margin: 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .search-filter label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+  }
+
+  .search-results-list {
+    margin-top: 5px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+  }
+  .result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+  }
+  .result-item:hover { background-color: #f8f9fa; }
+  .result-item:last-child { border-bottom: none; }
+  .result-item-info .name { font-weight: 600; }
+  .result-item-info .sku { font-size: 13px; color: #6c757d; }
+  .result-item-stock { text-align: right; }
+  .result-item-stock .stock { font-weight: 700; font-size: 14px; }
+  .result-item-stock .price { font-size: 13px; color: #e74c3c; }
+
+  /* (MỚI) Badge cho BIN */
+  .bin-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .bin-badge.mkt {
+    background-color: #dcfce7; /* Xanh lá */
+    color: #166534;
+  }
+  .bin-badge.other {
+    background-color: #fef9c3; /* Vàng */
+    color: #713f12;
+  }
+  
+  /* Cột giỏ hàng */
+  .cart-column .info-table { margin-top: 0; }
+  .cart-column .info-table td { background: #fff; vertical-align: middle; }
+  .cart-column .info-table .price-input {
+    width: 120px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    text-align: right;
+    font-weight: 700;
+  }
+  .cart-column .info-table .qty-input {
+    width: 60px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    text-align: center;
+  }
+  .cart-total {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: right;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #e74c3c;
+  }
+  
+  /* Form khách hàng */
+  .customer-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+  }
+  .customer-form .form-group {
+    margin-bottom: 0;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .form-group input, .form-group textarea, .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 15px;
+    background-color: #fff; /* Thêm nền trắng cho select */
+    height: 42px; /* Đồng bộ chiều cao */
+  }
+  .form-group textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+  .full-span {
+    grid-column: 1 / -1; /* Chiếm toàn bộ chiều rộng grid */
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .order-creation-grid {
+      grid-template-columns: 1fr; /* Xếp chồng 2 cột */
+    }
+    .cart-column {
+      margin-top: 20px;
+    }
+  }
+  @media (max-width: 600px) {
+    .customer-form {
+      grid-template-columns: 1fr; /* Xếp chồng 2 cột KH */
+    }
+  }
+
+</style>
+
+<div class.="event-container">
+    <% if (eventStatus && eventStatus.is_event_active) { %>
+      
+      <div class="dash-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+          <div class="dash-title" style="margin-bottom: 0;">
+            Tạo Đơn Hàng Event: <%= eventStatus.event_name %>
+          </div>
+          <a href="/event-orders" class="btn btn-secondary">Xem Lịch sử Đơn hàng</a>
+        </div>
+        
+        <div class="order-creation-grid" id="event-cart-app">
+          
+          <div class="search-column">
+            <h3 style="margin-top: 0;">1. Tìm sản phẩm</h3>
+            
+            <div class="search-controls">
+                <input type="text" id="skuSearchInput" class="search-input" placeholder="Nhập SKU hoặc Tên sản phẩm...">
+            </div>
+            
+            <div class="search-filter">
+                <label>
+                    <input type="checkbox" id="searchModeCheckbox">
+                    Tìm ở tất cả các BIN (Không chỉ 'Hàng MKT')
+                </label>
+            </div>
+
+            <div class="search-results-list" id="searchResultsList">
+              <div class="dash-muted" style="text-align: center; padding: 20px;">
+                Gõ để tìm sản phẩm...
+              </div>
+            </div>
+          </div>
+          
+          <div class="cart-column">
+            <h3 style="margin-top: 0;">2. Giỏ hàng</h3>
+            <div class="table-scroll-wrapper">
+              <table class="info-table">
+                <thead>
+                  <tr>
+                    <th>Sản phẩm</th>
+                    <th style="width: 80px;">SL</th>
+                    <th style="width: 140px;">Đơn giá</th>
+                    <th style="width: 50px;">Xóa</th>
+                  </tr>
+                </thead>
+                <tbody id="cartTableBody">
+                  </tbody>
+              </table>
+            </div>
+            
+            <div id="cartEmptyState" class="dash-muted" style="text-align: center; padding: 20px; border: 1px solid #e9ecef; border-top: none;">
+              Chưa có sản phẩm nào trong giỏ.
+            </div>
+            
+            <div class="cart-total" id="cartTotal">
+              Tổng cộng: 0 VNĐ
+            </div>
+            
+            <h3 style="margin-top: 20px;">3. Thông tin khách hàng & Lưu đơn</h3>
+            <div class="customer-form">
+              <div class="form-group">
+                <label for="customerName">Tên khách hàng (*)</label>
+                <input type="text" id="customerName" placeholder="Nguyễn Văn A">
+              </div>
+              <div class="form-group">
+                <label for="customerPhone">SĐT Khách hàng (*)</label>
+                <input type="tel" id="customerPhone" placeholder="090xxxxxxx">
+              </div>
+              <div class="form-group full-span">
+                <label for="paymentMethod">Phương thức thanh toán (*)</label>
+                <select id="paymentMethod" >
+                  <option value="">-- Chọn hình thức --</option>
+                  <option value="Tiền mặt">Tiền mặt</option>
+                  <option value="Chuyển khoản">Chuyển khoản</option>
+                  <option value="Quẹt thẻ">Quẹt thẻ</option>
+                  <option value="Vnpay">Vnpay</option>
+                </select>
+              </div>
+              <div class="form-group full-span">
+                <label for="orderNotes">Ghi chú đơn hàng</label>
+                <textarea id="orderNotes" placeholder="Ghi chú thêm (VD: Xuất VAT,...)"></textarea>
+              </div>
+            </div>
+            
+            <button class="btn btn-primary" id="saveOrderButton" style="width: 100%; margin-top: 15px; padding: 15px; font-size: 1.1rem;">
+              Lưu Đơn Hàng & In Bill
+            </button>
+            
+          </div>
+        </div>
+      </div>
+      
+      <div class="dash-card">
+        <h3 style="margin-top: 0;">Tồn kho Event (BIN MKT) - Chi nhánh: <%= user.branch_code %></h3>
+        <div class="table-scroll-wrapper">
+          <table class="info-table">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Tên sản phẩm</th>
+                <th>Brand</th>
+                <th style="text-align: right;">Tồn kho (Hàng MKT)</th> </tr>
+            </thead>
+            <tbody>
+              <% if (eventStock && eventStock.length > 0) { %>
+                <% eventStock.forEach(item => { %>
+                  <tr>
+                    <td><%= item.sku %></td>
+                    <td><%= item.sku_name %></td>
+                    <td><%= item.brand %></td>
+                    <td style="text-align: right; font-weight: 700;"><%= item.stock_qty %></td>
+                  </tr>
+                <% }); %>
+              <% } else { %>
+                <tr>
+                  <td colspan="4" class="dash-muted" style="text-align: center;">
+                    Không tìm thấy tồn kho tại Hàng MKT. </td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    <% } else { %>
+      <div class="dash-card" style="text-align: center; padding: 40px;">
+        <div class="dash-title">Chi nhánh không chạy Event</div>
+        <p class="dash-muted">
+          Chi nhánh của bạn (<%= user.branch_code %>) hiện không được kích hoạt Event Mode.
+          <br>
+          Vui lòng liên hệ Admin để bật Event.
+        </p>
+      </div>
+    <% } %>
+</div>
+
+<%- include('partials/toast') %>
+
+<script>
+// ===================================
+// === LOGIC CHO GIỎ HÀNG (EVENT) ===
+// ===================================
+document.addEventListener('DOMContentLoaded', function() {
+  // Chỉ chạy JS nếu app tồn tại
+  const app = document.getElementById('event-cart-app');
+  if (!app) return;
+
+  const searchInput = document.getElementById('skuSearchInput');
+  const searchModeCheckbox = document.getElementById('searchModeCheckbox'); // (MỚI)
+  const resultsList = document.getElementById('searchResultsList');
+  const cartBody = document.getElementById('cartTableBody');
+  const cartEmpty = document.getElementById('cartEmptyState');
+  const cartTotalEl = document.getElementById('cartTotal');
+  const saveOrderBtn = document.getElementById('saveOrderButton');
+  
+  // Biến toàn cục chứa giỏ hàng (key là SKU)
+  const cart = new Map();
+  let searchTimeout;
+
+  // --- 1. HÀM TÌM KIẾM (ĐÃ CẬP NHẬT) ---
+  const handleSearchInput = () => {
+    clearTimeout(searchTimeout);
+    const query = searchInput.value.trim();
+    
+    if (query.length < 3) {
+      resultsList.innerHTML = '<div class="dash-muted" style="text-align: center; padding: 20px;">Gõ ít nhất 3 ký tự...</div>';
+      return;
+    }
+    
+    resultsList.innerHTML = '<div class="dash-muted" style="text-align: center; padding: 20px;">Đang tìm...</div>';
+
+    searchTimeout = setTimeout(async () => {
+      try {
+        // (MỚI) Lấy chế độ tìm kiếm
+        const mode = searchModeCheckbox.checked ? 'all_bins' : 'mkt_only';
+        const res = await fetch(`/api/event/search-sku?q=${encodeURIComponent(query)}&mode=${mode}`);
+        const data = await res.json();
+        
+        if (!data.ok) throw new Error(data.error);
+        
+        if (data.results.length === 0) {
+          resultsList.innerHTML = '<div class="dash-muted" style="text-align: center; padding: 20px;">Không tìm thấy SKU.</div>';
+          return;
+        }
+        
+        renderSearchResults(data.results);
+      } catch (err) {
+        resultsList.innerHTML = `<div class="error-message" style="margin: 10px;">${err.message}</div>`;
+      }
+    }, 300);
+  };
+  
+  // Gắn sự kiện
+  searchInput.addEventListener('input', handleSearchInput);
+  searchModeCheckbox.addEventListener('change', handleSearchInput); // (MỚI)
+
+  // --- 2. HÀM RENDER KẾT QUẢ TÌM KIẾM (ĐÃ CẬP NHẬT) ---
+  function renderSearchResults(results) {
+    resultsList.innerHTML = ''; // Xóa nội dung cũ
+    results.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'result-item';
+      
+      const isOutOfStock = item.stock <= 0;
+      
+      // (MỚI) Tạo badge
+      let badgeHtml = '';
+      if (item.badge === 'Hàng MKT') {
+        badgeHtml = '<span class="bin-badge mkt">Hàng MKT</span>';
+      } else if (item.badge === 'BIN Khác') {
+        badgeHtml = '<span class="bin-badge other">BIN Khác</span>';
+      }
+      const displayPrice = item.event_price !== null ? item.event_price : item.list_price;
+      div.innerHTML = `
+        <div class="result-item-info">
+          <div class="name">${item.product_name}</div>
+          <div class="sku">${item.sku}</div>
+        </div>
+        <div class="result-item-stock">
+          <div class="stock" style="${isOutOfStock ? 'color: #ccc;' : 'color: #166534;'}">
+            Tồn: ${item.stock}
+          </div>
+          <div class="price">${formatVND(item.list_price)}</div>
+        </div>
+      `;
+      
+      // (MỚI) Chèn badge vào .result-item-info
+      div.querySelector('.result-item-info .sku').insertAdjacentHTML('afterend', badgeHtml);
+      
+      if (isOutOfStock) {
+        div.style.opacity = '0.5';
+        div.style.cursor = 'not-allowed';
+      } else {
+        // Chỉ thêm sự kiện click nếu còn hàng
+        div.addEventListener('click', () => {
+          addToCart(item); // item đã chứa 'badge' và 'stock'
+          searchInput.value = ''; // Xóa ô tìm kiếm
+          resultsList.innerHTML = '<div class="dash-muted" style="text-align: center; padding: 20px;">Gõ để tìm sản phẩm...</div>';
+        });
+      }
+      
+      resultsList.appendChild(div);
+    });
+  }
+
+  // --- 3. HÀM THÊM VÀO GIỎ HÀNG (ĐÃ CẬP NHẬT) ---
+  function addToCart(item) {
+    if (cart.has(item.sku)) {
+      // Nếu đã có, tăng số lượng
+      const existingItem = cart.get(item.sku);
+      existingItem.quantity++;
+      // (Kiểm tra tồn kho)
+      if (existingItem.quantity > item.stock) { // 'stock' là tồn kho (MKT hoặc Khác)
+          existingItem.quantity = item.stock;
+          showToast(`SKU ${item.sku} chỉ còn ${item.stock} sản phẩm.`, 'warn');
+      }
+    } else {
+      // Nếu chưa có, thêm mới
+      const priceToUse = item.event_price !== null ? item.event_price : (item.list_price || 0);
+      cart.set(item.sku, {
+        sku: item.sku,
+        product_name: item.product_name,
+        quantity: 1,
+        list_price: priceToUse,
+        final_price: priceToUse, // Giá cuối = Giá niêm yết
+        max_stock: item.stock, // (SỬA) Dùng tồn kho từ item
+        badge: item.badge // (MỚI) Lưu lại badge
+      });
+    }
+    renderCart();
+  }
+
+  // --- 4. HÀM RENDER GIỎ HÀNG (ĐÃ CẬP NHẬT) ---
+  function renderCart() {
+    if (cart.size === 0) {
+      cartBody.innerHTML = '';
+      cartEmpty.style.display = 'block';
+    } else {
+      cartBody.innerHTML = '';
+      cartEmpty.style.display = 'none';
+      
+      cart.forEach(item => {
+        const tr = document.createElement('tr');
+        
+        // (MỚI) Thêm badge vào giỏ hàng
+        let badgeHtml = '';
+        if (item.badge === 'Hàng MKT') {
+          badgeHtml = '<span class="bin-badge mkt">Hàng MKT</span>';
+        } else if (item.badge === 'BIN Khác') {
+          badgeHtml = '<span class="bin-badge other">BIN Khác</span>';
+        }
+
+        tr.innerHTML = `
+          <td>
+            <div class="name">${item.product_name}</div>
+            <div class="sku">${item.sku} ${badgeHtml}</div>
+          </td>
+          <td>
+            <input type="number" class="qty-input" data-sku="${item.sku}" value="${item.quantity}" min="1" max="${item.max_stock}">
+          </td>
+          <td>
+            <input type="text" class="price-input" data-sku="${item.sku}" value="${formatNumber(item.final_price)}">
+          </td>
+          <td>
+            <button class="btn btn-danger btn-sm" data-sku="${item.sku}">Xóa</button>
+          </td>
+        `;
+        cartBody.appendChild(tr);
+      });
+    }
+    updateTotal();
+  }
+
+  // --- 5. HÀM CẬP NHẬT TỔNG TIỀN (Giữ nguyên) ---
+  function updateTotal() {
+    let total = 0;
+    cart.forEach(item => {
+      total += item.final_price * item.quantity;
+    });
+    cartTotalEl.textContent = `Tổng cộng: ${formatVND(total)}`;
+  }
+
+  // --- 6. HÀM XỬ LÝ SỰ KIỆN TRONG GIỎ HÀNG (ĐÃ CẬP NHẬT) ---
+  cartBody.addEventListener('click', (e) => {
+    // Nút Xóa
+    if (e.target.classList.contains('btn-danger')) {
+      const sku = e.target.dataset.sku;
+      if (confirm(`Bạn có chắc muốn xóa SKU ${sku} khỏi giỏ hàng?`)) {
+        cart.delete(sku);
+        renderCart();
+      }
+    }
+  });
+  
+  cartBody.addEventListener('change', (e) => {
+    const sku = e.target.dataset.sku;
+    if (!sku) return;
+    const item = cart.get(sku);
+    
+    // Thay đổi Số lượng
+    if (e.target.classList.contains('qty-input')) {
+      let newQty = parseInt(e.target.value, 10);
+      if (isNaN(newQty) || newQty < 1) newQty = 1;
+      
+      if (newQty > item.max_stock) {
+        newQty = item.max_stock;
+        showToast(`SKU ${sku} chỉ còn ${item.max_stock} sản phẩm.`, 'warn');
+      }
+      
+      e.target.value = newQty; // Cập nhật input
+      item.quantity = newQty;
+    }
+    
+    // Thay đổi Giá
+    if (e.target.classList.contains('price-input')) {
+      let newPrice = parseNumber(e.target.value);
+      if (isNaN(newPrice) || newPrice < 0) newPrice = 0;
+      
+      item.final_price = newPrice;
+      e.target.value = formatNumber(newPrice); // Format lại
+    }
+    
+    updateTotal();
+  });
+  
+  // Định dạng giá khi người dùng rời khỏi ô input
+  cartBody.addEventListener('blur', (e) => {
+    if (e.target.classList.contains('price-input')) {
+        let newPrice = parseNumber(e.target.value);
+        if (isNaN(newPrice) || newPrice < 0) newPrice = 0;
+        e.target.value = formatNumber(newPrice);
+    }
+  }, true);
+
+
+  // --- 7. HÀM LƯU ĐƠN HÀNG (Giữ nguyên) ---
+  saveOrderBtn.addEventListener('click', async () => {
+    const customerName = document.getElementById('customerName').value.trim();
+    const customerPhone = document.getElementById('customerPhone').value.trim();
+    const notes = document.getElementById('orderNotes').value.trim();
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    // Validate
+    if (cart.size === 0) {
+      showToast('Giỏ hàng đang trống!', 'error');
+      return;
+    }
+    if (!customerName || !customerPhone) {
+      showToast('Vui lòng nhập Tên và SĐT khách hàng.', 'error');
+      return;
+    }
+    if (!paymentMethod) {
+      showToast('Vui lòng chọn Phương thức thanh toán.', 'error');
+      return;
+    }
+    // Lấy tổng tiền cuối
+    let totalAmount = 0;
+    const cartArray = [];
+    cart.forEach(item => {
+      totalAmount += item.final_price * item.quantity;
+      cartArray.push(item);
+    });
+    
+    const payload = {
+      cart: cartArray,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      notes: notes,
+      totalAmount: totalAmount,
+      paymentMethod: paymentMethod
+    };
+
+    // Gửi API
+    saveOrderBtn.disabled = true;
+    saveOrderBtn.textContent = 'Đang lưu...';
+    
+    try {
+      const res = await fetch('/api/event/save-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      
+      if (!res.ok || !data.ok) throw new Error(data.error);
+      
+      showToast(`Tạo đơn hàng #${data.orderId} thành công!`, 'success');
+      
+      // Reset giỏ hàng
+      cart.clear();
+      renderCart();
+      document.getElementById('customerName').value = '';
+      document.getElementById('customerPhone').value = '';
+      document.getElementById('orderNotes').value = '';
+      
+      // TODO: Kích hoạt In Bill (Mục 2b)
+      window.open(`/event-bill/${data.orderId}`, '_blank'); // <-- (ĐÃ SỬA)
+
+      
+    } catch (err) {
+      showToast(`Lỗi: ${err.message}`, 'error');
+    } finally {
+      saveOrderBtn.disabled = false;
+      saveOrderBtn.textContent = 'Lưu Đơn Hàng & In Bill';
+    }
+  });
+
+  // --- HÀM HELPER ĐỊNH DẠNG SỐ (Giữ nguyên) ---
+  function formatVND(n) {
+    return new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + ' VNĐ';
+  }
+  function formatNumber(n) {
+    return new Intl.NumberFormat('vi-VN').format(Number(n || 0));
+  }
+  function parseNumber(s) {
+    return parseInt(String(s || '').replace(/\D/g, ''), 10) || 0;
+  }
+
+});
+</script>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hóa đơn #<%= order.id %></title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            padding: 20px 0;
+        }
+        .bill {
+            width: 320px; /* Cố định chiều rộng (giống máy in 80mm) */
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+        }
+        .header .branch-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .header .info {
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+        .title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 15px 0;
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+            padding: 8px 0;
+        }
+        .meta-info {
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+        .items-table {
+            width: 100%;
+            margin-top: 15px;
+            font-size: 0.8rem;
+        }
+        .items-table .line {
+            border-top: 1px dashed #000;
+        }
+        .items-table .item-name {
+            padding-top: 5px;
+        }
+        .items-table .item-details {
+            padding-bottom: 5px;
+            font-weight: 700;
+        }
+        .items-table .right {
+            text-align: right;
+            vertical-align: top;
+        }
+        .total-section {
+            margin-top: 15px;
+            border-top: 1px solid #000;
+            padding-top: 10px;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+        .total-section div {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .total-section .grand-total {
+            font-size: 1.1rem;
+            border-top: 1px dashed #000;
+            padding-top: 5px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        /* (SỬA) CSS cho vùng chứa QR Code */
+        .qr-code {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 10px;
+            border: 1px solid #ccc;
+            padding: 5px; /* Thêm padding nhỏ để QR không dính viền */
+        }
+        /* (MỚI) CSS cho ảnh QR bên trong (do thư viện tạo ra) */
+        .qr-code img {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        .footer .thank-you {
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        /* CSS cho Nút In */
+        @media print {
+            body {
+                background: #fff;
+                padding: 0;
+            }
+            .controls {
+                display: none !important;
+            }
+            .bill {
+                width: 100%;
+                box-shadow: none;
+            }
+        }
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .controls button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .controls button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <button onclick="window.print()">🖨️ In Hóa Đơn</button>
+        <button onclick="window.close()">Đóng</button>
+    </div>
+
+    <div class="bill">
+        <div class="header">
+            <div class="branch-name"><%= eventStatus.event_name ? eventStatus.event_name.toUpperCase() : branchInfo.name.toUpperCase() %></div>
+            <div class="info">
+                <%= eventStatus.event_address || branchInfo.address %><br>
+                Leader: <%= eventStatus.event_lead || 'N/A' %>
+            </div>
+        </div>
+
+        <div class="title">
+            PHIẾU THANH TOÁN (EVENT)
+        </div>
+
+        <div class="meta-info">
+            <div>Ngày: <%= new Date(order.created_at).toLocaleString('vi-VN') %></div>
+            <div>Số HĐ: #<%= order.id %></div>
+            <div>NVBH: <%= order.seller_name %></div>
+            <div style="border-top: 1px dashed #ccc; margin-top: 5px; padding-top: 5px;">
+                KH: <%= order.customer_name %><br>
+                SĐT: <%= order.customer_phone %>
+            </div>
+        </div>
+
+        <table class="items-table">
+            <thead>
+                <tr class="line">
+                    <th style="padding-top: 8px;">Tên sản phẩm</th>
+                    <th style="padding-top: 8px;" class="right">Tổng</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% items.forEach(item => { %>
+                    <tr class="item-name">
+                        <td colspan="2"><%= item.product_name %> (SKU: <%= item.sku %>)</td>
+                    </tr>
+                    <tr class="item-details">
+                        <td><%= item.quantity %> x <%= formatVND(item.final_price) %></td>
+                        <td class="right"><%= formatVND(item.quantity * item.final_price) %></td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+
+        <div class="total-section">
+            <div class="payment-method">
+                <span>Hình thức:</span>
+                <span><%= order.payment_method %></span>
+            </div>
+
+            <div class="grand-total">
+                <span>TỔNG CỘNG:</span>
+                <span><%= formatVND(order.total_amount) %></span>
+            </div>
+        </div>
+
+        <% if (order.payment_method === 'Chuyển khoản') { %>
+            <div class="bank-info" style="margin-top: 15px; font-size: 0.8rem; border-top: 1px dashed #000; padding-top: 10px;">
+                <div style="font-weight: 700; text-align: center; margin-bottom: 5px;">THÔNG TIN CHUYỂN KHOẢN</div>
+                <div>NH: <%= branchInfo.bankName %></div>
+                <div>STK: <%= branchInfo.bankAccount %></div>
+                <div>CTK: <%= branchInfo.bankHolder %></div>
+                <div>Nội dung: HĐ <%= order.id %> - <%= order.customer_phone %></div>
+            </div>
+        <% } %>
+
+        <div class="footer">
+        
+            <div id="qrcode-container" class="qr-code"></div>
+
+            <div class="thank-you">
+                Cảm ơn Quý khách!
+            </div>
+            <div style="font-size: 0.7rem; margin-top: 5px;">(Hóa đơn Event)</div>
+        </div>
+    </div>
+
+    <script>
+        // (MỚI) Logic tạo QR Code
+        (function() {
+            // 1. Lấy link QR từ EJS (logic này giữ nguyên)
+            <% 
+              let qrLink = 'https://phongvu.vn/event/order/' + order.id;
+              if (eventStatus && eventStatus.qr_link_prefix) {
+                if (eventStatus.qr_link_prefix.includes('{order.id}')) {
+                    qrLink = eventStatus.qr_link_prefix.replace('{order.id}', order.id);
+                } else {
+                    qrLink = eventStatus.qr_link_prefix + order.id;
+                }
+              }
+            %>
+
+            // 2. Lấy link đã xử lý và render
+            const finalQrLink = "<%= qrLink %>"; 
+            const container = document.getElementById('qrcode-container');
+            
+            try {
+                new QRCode(container, {
+                    text: finalQrLink,
+                    width: 138,
+                    height: 138,
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            } catch (e) {
+                console.error('Lỗi tạo QR:', e);
+                container.innerHTML = "Lỗi tạo QR";
+            }
+        })();
+
+        // Tự động bật cửa sổ in khi tải trang
+        window.onload = function() {
+            window.print();
+        }
+    </script>
+</body>
+</html>

@@ -84,6 +84,34 @@
     border: 1px solid #cbd5e1;
     border-radius: 6px;
   }
+
+    /* (MỚI) CSS cho Filter Tabs */
+.filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 15px;
+}
+.filter-tabs a {
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  background-color: #f1f5f9;
+  transition: all 0.2s ease;
+}
+.filter-tabs a:hover {
+  background-color: #e2e8f0;
+}
+.filter-tabs a.active {
+  background-color: #3b82f6; /* Màu xanh */
+  color: #ffffff;
+}
+
 </style>
 
 <div class="dash-card">
@@ -100,18 +128,39 @@
       <% } %>
     </div>
   </form>
-  
+
+<% 
+      const qParams = (typeof searchQuery !== 'undefined' && searchQuery) ? '&q=' + encodeURIComponent(searchQuery) : ''; 
+      const typeParams = (typeof filterType !== 'undefined' && filterType) ? '&type=' + encodeURIComponent(filterType) : '';
+      const allParams = qParams + typeParams;
+    %>
+
+    <% /* === (MỚI) Bộ lọc PCPV (Sử dụng biến đã khai báo) === */ %>
+    <div class="filter-tabs">
+      <a href="?<%= qParams %>" 
+         class="<%= (!filterType) ? 'active' : '' %>">
+        Tất cả PCPV
+      </a>
+      <a href="?type=vanphong<%= qParams %>" 
+         class="<%= (filterType === 'vanphong') ? 'active' : '' %>">
+        PCPV Văn phòng
+      </a>
+      <a href="?type=gaming<%= qParams %>" 
+         class="<%= (filterType === 'gaming') ? 'active' : '' %>">
+        PCPV Gaming
+      </a>
+    </div>
+
   <p class="dash-muted">
     Hiển thị trang <strong><%= page %> / <%= totalPages %></strong> 
     (Tổng số: <strong><%= totalItems %></strong> SKU Thành phẩm).
   </p>
-  
   <div class="table-scroll-wrapper">
     <table class="info-table" id="bomDashboardTable">
       <thead>
         <tr>
           <th style="width: 50px;"></th> <th style="width: 130px;">SKU</th>
-          <th style="width: 350px;">Tên</th> <th style="width: 110px; text-align: right;">
+          <th style="width: 350px;">Tên</th> <th style="width: 110px; text-align: right; background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">
             Tổng (T/R)
           </th>
 
@@ -139,10 +188,10 @@
             <td><strong><%= row.sku %></strong></td>
             <td><%= row.name %></td>
             
-            <td style="text-align: right;">
-              <div class="stock-final">T: <%= row.finalStock_Total %></div>
-              <div class="stock-buildable">R: <%= row.buildable_Total %></div>
-            </td>
+            <td style="text-align: right; background-color: #f8fafc; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">
+  <div class="stock-final">T: <%= row.finalStock_Total %></div>
+  <div class="stock-buildable">R: <%= row.buildable_Total %></div>
+</td>
             
             <% if (isGlobalAdmin) { %>
               <% branches.forEach(branch => { %>
@@ -219,39 +268,37 @@
     </table>
   </div>
 
-  <div class="pagination-controls">
-    <% const qParams = (typeof searchQuery !== 'undefined' && searchQuery) ? `&q=${encodeURIComponent(searchQuery)}` : ''; %>
-    
-    <a href="?page=1<%= qParams %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
-      &lt;&lt; Đầu
-    </a>
-    <a href="?page=<%= page - 1 %><%= qParams %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
-      &lt; Trước
-    </a>
-    
-    <span class="page-info">
-      Trang
-      <select id="pageSelect" onchange="window.location.href=this.value;">
-        <% for (let i = 1; i <= totalPages; i++) { %>
-          <% if (totalPages <= 100 || (i >= page - 5 && i <= page + 5) || i === 1 || i === totalPages) { %>
-            <option value="?page=<%= i %><%= qParams %>" <%= i === page ? 'selected' : '' %>>
-              <%= i %>
-            </option>
-          <% } else if (i === page - 6 || i === page + 6) { %>
-            <option disabled>...</option>
-          <% } %>
+<div class="pagination-controls">
+  <a href="?page=1<%= allParams %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
+    &lt;&lt; Đầu
+  </a>
+  <a href="?page=<%= page - 1 %><%= allParams %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
+    &lt; Trước
+  </a>
+  
+  <span class="page-info">
+    Trang
+    <select id="pageSelect" onchange="window.location.href=this.value;">
+      <% for (let i = 1; i <= totalPages; i++) { %>
+        <% if (totalPages <= 100 || (i >= page - 5 && i <= page + 5) || i === 1 || i === totalPages) { %>
+          <option value="?page=<%= i %><%= allParams %>" <%= i === page ? 'selected' : '' %>>
+            <%= i %>
+          </option>
+        <% } else if (i === page - 6 || i === page + 6) { %>
+          <option disabled>...</option>
         <% } %>
-      </select>
-      / <%= totalPages %>
-    </span>
-    
-    <a href="?page=<%= page + 1 %><%= qParams %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
-      Sau &gt;
-    </a>
-    <a href="?page=<%= totalPages %><%= qParams %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
-      Cuối &gt;&gt;
-    </a>
-  </div>
+      <% } %>
+    </select>
+    / <%= totalPages %>
+  </span>
+  
+  <a href="?page=<%= page + 1 %><%= allParams %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
+    Sau &gt;
+  </a>
+  <a href="?page=<%= totalPages %><%= allParams %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
+    Cuối &gt;&gt;
+  </a>
+</div>
 </div>
 
 <%- include('partials/toast') %>

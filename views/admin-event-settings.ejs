@@ -1,0 +1,160 @@
+<%- include('partials/header', { title, currentPage }) %>
+
+<style>
+  .event-settings-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .settings-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    font-size: 14px;
+  }
+  .settings-table th, .settings-table td {
+    border: 1px solid #dee2e6;
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .settings-table th {
+    background: #f8f9fa;
+  }
+  .settings-table tr:nth-child(even) td {
+    background: #fdfdfd;
+  }
+  /* Cột 1: Chi nhánh */
+  .settings-table td:nth-child(1) {
+    font-weight: 600;
+  }
+  /* Cột 2: Checkbox */
+  .settings-table td:nth-child(2) {
+    text-align: center;
+    vertical-align: middle;
+  }
+  .settings-table input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 13px;
+    min-width: 200px; /* Đảm bảo ô input đủ rộng */
+  }
+  .settings-table .btn-save {
+    padding: 8px 15px;
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  .settings-table .btn-save:disabled {
+    opacity: 0.5;
+  }
+</style>
+
+<div class="event-settings-container">
+  <div class="dash-card">
+    <div class="dash-title">Quản lý Cài đặt Event (Tất cả Chi nhánh)</div>
+    
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="error-message"><%= error %></div>
+    <% } %>
+
+    <div class="table-scroll-wrapper">
+      <table class="settings-table">
+        <thead>
+          <tr>
+            <th>Chi nhánh</th>
+            <th>Kích hoạt</th>
+            <th>Tên Event</th>
+            <th>Địa chỉ Event</th>
+            <th>Event Leader</th>
+            <th>Link QR (Tiền tố)</th>
+            <th>Lưu</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% branchData.forEach(branch => { %>
+            <tr data-branch-code="<%= branch.branch_code %>">
+              <td>
+                <strong><%= branch.branch_code %></strong><br>
+                <small><%= branch.branch_name %></small>
+              </td>
+              <td>
+                <input type="checkbox" 
+                       name="is_event_active" 
+                       <%= branch.is_event_active ? 'checked' : '' %>>
+              </td>
+              <td>
+                <input type="text" name="event_name" value="<%= branch.event_name %>">
+              </td>
+              <td>
+                <input type="text" name="event_address" value="<%= branch.event_address %>">
+              </td>
+              <td>
+                <input type="text" name="event_lead" value="<%= branch.event_lead %>">
+              </td>
+              <td>
+                <input type="text" name="qr_link_prefix" value="<%= branch.qr_link_prefix %>" placeholder="https://link.com/ (để trống nếu dùng link mặc định)">
+              </td>
+              <td>
+                <button class="btn btn-primary btn-sm btn-save" onclick="saveSettings(this)">
+                  Lưu
+                </button>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/toast') %>
+
+<script>
+async function saveSettings(button) {
+  const tr = button.closest('tr');
+  const branchCode = tr.dataset.branchCode;
+  if (!branchCode) {
+    showToast('Lỗi: Không tìm thấy mã chi nhánh.', 'error');
+    return;
+  }
+
+  // Tắt nút, hiển thị trạng thái "đang lưu"
+  button.disabled = true;
+  button.textContent = 'Đang lưu...';
+
+  // Thu thập dữ liệu từ các ô input
+  const payload = {
+    branch_code: branchCode,
+    is_event_active: tr.querySelector('input[name="is_event_active"]').checked,
+    event_name: tr.querySelector('input[name="event_name"]').value,
+    event_address: tr.querySelector('input[name="event_address"]').value,
+    event_lead: tr.querySelector('input[name="event_lead"]').value,
+    qr_link_prefix: tr.querySelector('input[name="qr_link_prefix"]').value
+  };
+
+  try {
+    const res = await fetch('/api/admin/event-settings/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Lỗi không xác định');
+    }
+    
+    showToast(`Đã lưu cài đặt cho ${branchCode}!`, 'success');
+
+  } catch (err) {
+    showToast(`Lỗi: ${err.message}`, 'error');
+  } finally {
+    // Bật lại nút
+    button.disabled = false;
+    button.textContent = 'Lưu';
+  }
+}
+</script>
+
+<%- include('partials/footer') %>

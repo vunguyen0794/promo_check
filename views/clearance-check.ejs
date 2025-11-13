@@ -1,0 +1,287 @@
+<%- include('partials/header', { title: title, currentPage: currentPage }) %>
+
+<% /* === CSS (Giữ nguyên từ promotion.ejs) === */ %>
+<style>
+    .promotion-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f8f9fa;
+        min-height: 100vh;
+    }
+    .search-section {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e9ecef;
+    }
+    .search-section h1 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+        font-size: 28px;
+        font-weight: 700;
+        text-align: center;
+    }
+    .search-form {
+        display: flex;
+        gap: 15px;
+        align-items: end;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    .form-group {
+        flex: 1;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #495057;
+        font-size: 14px;
+    }
+    .form-group input {
+        width: 100%;
+        padding: 14px 16px;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+        transition: border-color 0.3s ease;
+    }
+    .form-group input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+    .btn-search {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 14px 30px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        height: 50px;
+    }
+    .btn-search:hover {
+        background: #c0392b;
+        transform: translateY(-2px);
+    }
+    .product-info {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e9ecef;
+    }
+    .product-info h2 {
+        color: #2c3e50;
+        margin-bottom: 25px;
+        font-size: 22px;
+        font-weight: 700;
+        padding-bottom: 15px;
+        border-bottom: 3px solid #e74c3c;
+    }
+    .info-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+    .info-table th {
+        background: #f8f9fa;
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+        color: #495057;
+        border: 1px solid #dee2e6;
+        width: 150px;
+    }
+    .info-table td {
+        padding: 15px;
+        border: 1px solid #dee2e6;
+        font-weight: 500;
+        color: #2c3e50;
+        background: white;
+    }
+    .info-table tr:nth-child(even) td {
+        background: #f8f9fa;
+    }
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px solid #f5c6cb;
+        text-align: center;
+    }
+    .table-scroll-wrapper {
+        overflow-x: auto;
+    }
+</style>
+
+<div class="promotion-container">
+    <% if (typeof error !=='undefined' && error) { %>
+        <div class="error-message">
+            ⚠️ <%= error %>
+        </div>
+    <% } %>
+    
+    <div class="page-search">
+        <div class="search-section">
+            <h1>Tra cứu hàng thanh lý</h1>
+            <form action="/clearance-check" method="POST" class="search-form" id="searchForm">
+              <div class="form-group">
+                <label for="skuSearch">Nhập SKU</label>
+                <div class="autocomplete-container">
+                  <input type="text" id="skuSearch" name="sku" autocomplete="off"
+                         placeholder="Ví dụ: 244994124"
+                         value="<%= typeof product !== 'undefined' && product ? product.sku : '' %>">
+                  <div class="autocomplete-results" id="autocompleteResults"></div>
+                </div>
+              </div>
+              <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
+            </form>
+        </div>
+    </div>
+
+    <% if (typeof product !=='undefined' && product) { %>
+        <div class="product-info">
+            <h2>Thông tin sản phẩm (Supabase)</h2>
+            <table class="info-table">
+                <tr>
+                    <th>SKU</th>
+                    <td><%= product.sku %></td>
+                </tr>
+                 <tr>
+                    <th>Tên sản phẩm</th>
+                    <td><%= product.product_name %></td>
+                </tr>
+                <tr>
+                    <th>Brand</th>
+                    <td><%= product.brand %></td>
+                </tr>
+                <tr>
+                    <th>Giá niêm yết</th>
+                    <td><strong><%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' VNĐ' : 'N/A' %></strong></td>
+                </tr>
+            </table>
+
+            <% /* (Phần hiển thị tồn kho BQ) */ %>
+            <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && inventoryMap && inventoryMap.get(product.sku)) { %>
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 20px; margin-bottom: 10px;">
+                    Tồn kho BigQuery (Tất cả chi nhánh)
+                </h3>
+                <div class="table-scroll-wrapper">
+                    <table class="info-table" style="margin-top: 0;">
+                        <thead>
+                           <tr>
+                              <th>Chi nhánh</th>
+                              <th style="text-align: right;">Hàng bán mới</th>
+                              <th style="text-align: right;">Trưng bày CĐ</th>
+                              <th style="text-align: right;">Lưu kho TL</th>
+                              <th style="text-align: right;">Trưng bày TL</th>
+                              <th style="text-align: right;">Tồn khác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                            <% const branchMap = inventoryMap.get(product.sku); %>
+                            <% [...branchMap.keys()].sort().forEach(branchId => { %>
+                                <% const counts = branchMap.get(branchId); %>
+                                <tr>
+                                   <th><%= branchId %></th>
+                                   <td style="text-align: right;"><%= counts.hang_ban_moi %></td>
+                                   <td style="text-align: right;"><%= counts.trung_bay_chi_dinh %></td>
+                                   <td style="text-align: right;"><%= counts.luu_kho_tl %></td>
+                                   <td style="text-align: right;"><%= counts.trung_bay_tl %></td>
+                                   <td style="text-align: right;"><%= counts.ton_khac %></td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } else if (typeof inventoryCounts !== 'undefined' && inventoryCounts && typeof userBranch !== 'undefined' && userBranch) { %>
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 20px; margin-bottom: 10px;">
+                    Tồn kho (BigQuery) - Chi nhánh: <%= userBranch %>
+                </h3>
+                <table class="info-table" style="margin-top: 0;">
+                    <tbody>
+                        <tr><th style="width: 150px;">Hàng bán mới</th><td><strong><%= inventoryCounts.hang_ban_moi %></strong></td></tr>
+                        <tr><th>Trưng bày chỉ định</th><td><strong><%= inventoryCounts.trung_bay_chi_dinh %></strong></td></tr>
+                        <tr><th>Lưu kho TL</th><td><strong><%= inventoryCounts.luu_kho_tl %></strong></td></tr>
+                        <tr><th>Trưng bày TL</th><td><strong><%= inventoryCounts.trung_bay_tl %></strong></td></tr>
+                        <tr><th>Tồn khác</th><td><strong><%= inventoryCounts.ton_khac %></strong></td></tr>
+                    </tbody>
+                </table>
+            <% } else if (typeof userBranch !== 'undefined' && userBranch) { %>
+                <div style="padding: 15px; text-align: center; color: #6c757d; font-style: italic;">
+                    Không có dữ liệu tồn kho BigQuery cho SKU này.
+                </div>
+            <% } %>
+        </div>
+    <% } %>
+    <% /* === HẾT PHẦN SAO CHÉP === */ %>
+
+
+    <% /* === BẮT ĐẦU: KHỐI HIỂN THỊ MỚI === */ %>
+    <% if (typeof clearanceInfo !== 'undefined' && clearanceInfo && clearanceInfo.length > 0) { %>
+      <div class="product-info" style="margin-top: 20px;">
+        <h2 style="border-bottom-color: #27ae60;">Thông tin Thanh lý (Google Sheet) - Tìm thấy <%= clearanceInfo.length %> Serial</h2>
+        
+        <div class="table-scroll-wrapper">
+          <table class="info-table" style="min-width: 800px;">
+            <thead>
+              <tr>
+                <th>Serial</th>
+                <th>Tình trạng</th>
+                <th>KFI</th>
+                <th>Giá Thanh Lý</th>
+                <th>Hết BH</th>
+                <th>Hình ảnh</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% clearanceInfo.forEach(item => { %>
+                <tr>
+                  <td><strong><%= item.serial %></strong></td>
+                  <td><%- (item.tinh_trang || '').replace(/\n/g, '<br>') %></td>
+                  <td><%= item.kfi %></td>
+                  <td><strong><%= item.clearance_price %></strong></td>
+                  <td><%= item.warranty_end %></td>
+                  <td>
+                    <% if (item.images && item.images.length > 0) { %>
+                      <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                        <% item.images.forEach(imgUrl => { %>
+                          <a href="<%= imgUrl %>" target="_blank">
+                            <img src="<%= imgUrl %>" alt="Hình ảnh thanh lý" style="height: 80px; width: 80px; object-fit: cover; border-radius: 8px;">
+                          </a>
+                        <% }); %>
+                      </div>
+                    <% } else { %>
+                      <span class="dash-muted">N/A</span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% } else if (typeof product !== 'undefined' && product) { %>
+      <div class="dash-muted" style="text-align: center; padding: 20px; margin-top: 20px; background: #fff; border-radius: 12px;">
+        Không tìm thấy thông tin thanh lý (Google Sheet) cho SKU này.
+      </div>
+    <% } %>
+
+</div> <% /* Đóng .promotion-container */ %>
+
+<%- include('partials/toast') %>
+<%- include('partials/search-autocomplete') %> 
+<%- include('partials/footer') %>
+</body>
+</html>

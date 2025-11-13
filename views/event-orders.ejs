@@ -1,0 +1,154 @@
+<%- include('partials/header', { title, currentPage }) %>
+
+<style>
+  .order-list-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .order-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .order-header {
+    padding: 12px 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .order-id {
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  .order-id small {
+    font-size: 13px;
+    font-weight: 400;
+    color: #6c757d;
+  }
+  .order-body {
+    padding: 20px;
+  }
+  .order-customer-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+  .info-block strong {
+    display: block;
+    font-size: 13px;
+    color: #495057;
+    margin-bottom: 3px;
+  }
+  .order-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .order-items-table th, .order-items-table td {
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    text-align: left;
+  }
+  .order-items-table th {
+    background: #f8f9fa;
+  }
+  .order-items-table .right {
+    text-align: right;
+  }
+</style>
+
+<div class="order-list-container">
+  <div class="dash-card">
+    <div class="dash-title">
+      Lịch sử Đơn hàng Event
+      <span class="dash-muted" style="font-size: 1rem; font-weight: 500;">
+        (<%= (userRole === 'manager' || userRole === 'admin') ? 'Quản lý - Chi nhánh ' + userBranch : 'Đơn hàng của tôi' %>)
+      </span>
+    </div>
+    
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="error-message"><%= error %></div>
+    <% } %>
+
+    <a href="/event-operations" class="btn btn-secondary" style="margin-bottom: 20px;">&larr; Quay lại Tạo Đơn</a>
+
+    <% if (orders && orders.length > 0) { %>
+      <% orders.forEach(order => { %>
+        <div class="order-card">
+          <div class="order-header">
+            <div>
+              <span class="order-id">Đơn hàng #<%= order.id %></span>
+              <small><%= new Date(order.created_at).toLocaleString('vi-VN') %></small>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 1.3rem; font-weight: 700; color: #e74c3c;">
+                <%= new Intl.NumberFormat('vi-VN').format(order.total_amount || 0) %> VNĐ
+              </div>
+              <% if (userRole === 'manager' || userRole === 'admin') { %>
+                <small>Nhân viên: <strong><%= order.seller_name %></strong></small>
+              <% } %>
+            </div>
+          </div>
+          <div class="order-body">
+            <div class="order-customer-info">
+              <div class="info-block">
+                <strong>Khách hàng</strong>
+                <span><%= order.customer_name %></span>
+              </div>
+              <div class="info-block">
+                <strong>Số điện thoại</strong>
+                <span><%= order.customer_phone %></span>
+              </div>
+              <div class="info-block" style="grid-column: 1 / -1;">
+                <strong>Ghi chú</strong>
+                <span><%= order.notes || '(Không có ghi chú)' %></span>
+              </div>
+            </div>
+            
+            <table class="order-items-table">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Tên sản phẩm</th>
+                  <th class="right">SL</th>
+                  <th class="right">Đơn giá</th>
+                  <th class="right">Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% (order.event_order_items || []).forEach(item => { %>
+                  <tr>
+                    <td><%= item.sku %></td>
+                    <td><%= item.product_name %></td>
+                    <td class="right"><%= item.quantity %></td>
+                    <td class="right"><%= new Intl.NumberFormat('vi-VN').format(item.final_price || 0) %></td>
+                    <td class="right"><strong><%= new Intl.NumberFormat('vi-VN').format((item.final_price || 0) * item.quantity) %></strong></td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+            
+            <div style="text-align: right; margin-top: 15px;">
+              <button class="btn btn-primary" onclick="window.open('/event-bill/<%= order.id %>', '_blank')">
+                In Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    <% } else { %>
+      <div class="dash-muted" style="text-align: center; padding: 40px;">
+        Không tìm thấy đơn hàng nào.
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

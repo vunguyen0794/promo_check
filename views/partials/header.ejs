@@ -32,10 +32,13 @@
                     <a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Trang Chủ</a>
                     <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">FIFO Checking</a>
                     <a href="/newsfeed" class="<%= currentPage === 'newsfeed' ? 'active' : '' %>">Bảng tin</a>
-                    <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>">Chiến giá</a>
+                    
                     <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
                         <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">Quản lý CTKM</a>
-                    <% } %>
+                        <a href="/admin/event-settings" class="<%= currentPage === 'event-settings' ? 'active' : '' %>">Cài đặt Event</a>
+                                            <a href="/clearance-check" class="<%= currentPage === 'clearance-check' ? 'active' : '' %>">Tra cứu Hàng thanh lý</a>
+                             <a href="/event-operations" class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>">Vận hành Event</a>
+                        <% } %>
                     </nav> <div class="dropdown">
                   
   <% /* Sửa class: Thêm 'quote-builder' vào check */ %>
@@ -49,6 +52,7 @@ padding: 6px 10px;" class="<%= ['pc-builder', 'quote-builder'].includes(currentP
   <div class="dropdown-menu" id="utilitiesDropdownMenu">
                          <a href="/pc-builder">Build PC (Linh kiện)</a>
                          <a href="/quote-builder">Báo giá nhanh (SKU)</a>
+                         <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>">Chiến giá</a>
                          <a href="/bom-check">Check BOM (Tra cứu)</a>
                          <a href="/bom-dashboard">BOM Dashboard (Tổng hợp)</a>
               
@@ -130,38 +134,56 @@ padding: 6px 10px;" class="<%= ['pc-builder', 'quote-builder'].includes(currentP
   </div> 
   <% /* === KẾT THÚC WRAPPER MỚI === */ %>
 
-  <script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Tìm 2 yếu tố: Nút bấm và Menu con
-    const toggleButton = document.getElementById('utilitiesDropdownToggle');
-    const dropdownMenu = document.getElementById('utilitiesDropdownMenu');
-
-    if (toggleButton && dropdownMenu) {
-        
-        // 1. Khi bấm vào nút "Tiện ích"
-        toggleButton.addEventListener('click', function(event) {
-            // Ngăn trình duyệt nhảy lên đầu trang (vì href="#")
+    // Logic for "Tiện ích"
+    const utilsToggleButton = document.getElementById('utilitiesDropdownToggle');
+    const utilsDropdownMenu = document.getElementById('utilitiesDropdownMenu');
+    if (utilsToggleButton && utilsDropdownMenu) {
+        utilsToggleButton.addEventListener('click', function(event) {
             event.preventDefault(); 
-            
-            // Thêm/xóa class 'open' để CSS trong style.css có thể hoạt động
-            dropdownMenu.classList.toggle('open');
+            utilsDropdownMenu.classList.toggle('open');
         });
-
-        // 2. (Tùy chọn) Tự động đóng menu nếu bấm ra ngoài
         document.addEventListener('click', function(event) {
-            // Kiểm tra xem có bấm VÀO NÚT hoặc VÀO MENU không
-            const isClickInsideToggle = toggleButton.contains(event.target);
-            const isClickInsideMenu = dropdownMenu.contains(event.target);
-
+            const isClickInsideToggle = utilsToggleButton.contains(event.target);
+            const isClickInsideMenu = utilsDropdownMenu.contains(event.target);
             if (!isClickInsideToggle && !isClickInsideMenu) {
-                // Nếu bấm ra ngoài -> xóa class 'open' để ẩn đi
-                dropdownMenu.classList.remove('open');
+                utilsDropdownMenu.classList.remove('open');
             }
         });
     }
+    
+    // (MỚI) Logic for "Quản trị"
+    const adminToggleButton = document.getElementById('adminDropdownToggle');
+    const adminDropdownMenu = document.getElementById('adminDropdownMenu');
+    if (adminToggleButton && adminDropdownMenu) {
+        adminToggleButton.addEventListener('click', function(event) {
+            event.preventDefault(); 
+            adminDropdownMenu.classList.toggle('open');
+            
+            // (MỚI) Đóng menu "Tiện ích" nếu nó đang mở
+            if (utilsDropdownMenu) utilsDropdownMenu.classList.remove('open');
+        });
+        document.addEventListener('click', function(event) {
+            const isClickInsideToggle = adminToggleButton.contains(event.target);
+            const isClickInsideMenu = adminDropdownMenu.contains(event.target);
+            if (!isClickInsideToggle && !isClickInsideMenu) {
+                adminDropdownMenu.classList.remove('open');
+            }
+        });
+    }
+    
+    // (MỚI) Đảm bảo 2 dropdown không mở cùng lúc
+    if (utilsToggleButton) {
+      utilsToggleButton.addEventListener('click', () => {
+        if (adminDropdownMenu) adminDropdownMenu.classList.remove('open');
+      });
+    }
+
 });
 </script>
+
   <script>
     (function tick(){
       var el = document.getElementById('local-time');
