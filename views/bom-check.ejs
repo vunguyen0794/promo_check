@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>`;
       
       // (MỚI) Nếu là manager, hiển thị nút "Tạo BOM"
-      if (isManager) {
+
         emptyHtml += `
           <div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
             <a href="/admin/bom/create?final_sku=${final.sku}" class="btn btn-primary">
@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </a>
           </div>
         `;
-      }
+
       resultsContainer.innerHTML = emptyHtml;
       return;
     }

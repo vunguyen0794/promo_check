@@ -437,7 +437,9 @@
     <button id="btnHistoryPrice" type="button" title="Lịch sử giá">🕘</button>
 
     <span id="priceEdit" style="display:none;margin-left:8px;">
-      <input id="priceInput" type="number" min="0" step="1000" value="<%= product.list_price || 0 %>" style="width:140px;">
+      <input id="priceInput" type="text" inputmode="numeric" 
+       value="<%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) : '0' %>" 
+       style="width:140px; text-align: right;">
       <button id="btnSavePrice" type="button">Lưu</button>
       <button id="btnCancelPrice" type="button">Huỷ</button>
     </span>
@@ -727,6 +729,16 @@
 
 
 <script>
+
+function parseNumber(s) {
+  // Loại bỏ tất cả ký tự không phải số
+  return parseInt(String(s || '').replace(/\D/g, ''), 10) || 0;
+}
+function formatNumber(n) {
+  // Định dạng lại số với dấu .
+  return new Intl.NumberFormat('vi-VN').format(Number(n || 0));
+}
+
 (function(){
   const sku = "<%= product ? product.sku : '' %>";
   const btnEdit  = document.getElementById('btnEditPrice');
@@ -738,6 +750,17 @@
 
   function fmtVND(n){ return new Intl.NumberFormat('vi-VN').format(Number(n||0)) + ' VNĐ'; }
 
+  if (input) {
+    input.addEventListener('input', (e) => {
+      // 1. Lấy giá trị số thô
+      const rawValue = parseNumber(e.target.value);
+      // 2. Định dạng lại
+      const formattedValue = formatNumber(rawValue);
+      // 3. Gán lại vào ô input
+      e.target.value = formattedValue;
+    });
+  }
+  
   if (btnEdit){
     btnEdit.onclick = ()=>{ view.style.display='none'; editWrap.style.display='inline-block'; input.focus(); };
   }
@@ -747,8 +770,8 @@
   if (btnSave){
     btnSave.onclick = async ()=>{
       try{
-        const newPrice = Number(input.value);
-        if (!Number.isFinite(newPrice) || newPrice < 0) { alert('Giá không hợp lệ'); return; }
+        const newPrice = parseNumber(input.value);
+        if (newPrice < 0) { alert('Giá không hợp lệ'); return; }
         const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price`, {
           method:'POST',
           headers:{'Content-Type':'application/json'},
@@ -878,8 +901,8 @@ function formatCurrency(input) {
 
         if(btnSave) btnSave.onclick = async () => {
             try {
-                const newPrice = Number(input.value);
-                if (!Number.isFinite(newPrice) || newPrice < 0) { alert('Giá không hợp lệ'); return; }
+                const newPrice = parseNumber(input.value);
+                if (newPrice < 0) { alert('Giá không hợp lệ'); return;
                 const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ new_price: newPrice }) });
                 const js = await res.json();
                 if (!js.ok) throw new Error(js.error || 'Cập nhật giá thất bại');

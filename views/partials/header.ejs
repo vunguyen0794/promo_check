@@ -28,36 +28,49 @@
         <div class="container">
             <div class="header-content">
                 <div class="logo">Hệ thống CTKM</div>
-<nav class="nav">
-                    <a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Trang Chủ</a>
-                    <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">FIFO Checking</a>
-                    <a href="/newsfeed" class="<%= currentPage === 'newsfeed' ? 'active' : '' %>">Bảng tin</a>
+                  <nav class="nav">
+    <a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Trang Chủ</a>
+    <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">FIFO Checking</a>
+    <a href="/newsfeed" class="<%= currentPage === 'newsfeed' ? 'active' : '' %>">Bảng tin</a>
+    
+    <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
+        <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">Quản lý CTKM</a>
+    <% } %>  
+                    </nav>
+                     
+                <% 
+    // Mảng này chứa TẤT CẢ các trang con thuộc "Tiện ích"
+    const utilityPages = [
+        'pc-builder', 'quote-builder', 'price-battle', 
+        'bom-check', 'bom-dashboard', 'clearance-check',
+        'event-operations', 'event-orders', 'event-settings'
+    ];
+%>
+<div class="dropdown">
+    
+    <a href="#" id="utilitiesDropdownToggle" style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none; padding: 6px 10px;" 
+       class="<%= utilityPages.includes(currentPage) ? 'active' : '' %>">
+        Tiện ích
+        <span style="font-size: 10px;">▼</span>
+    </a>
+                  
+    <div class="dropdown-menu" id="utilitiesDropdownMenu">
+        <a href="/pc-builder">Build PC (Linh kiện)</a>
+        <a href="/quote-builder">Báo giá nhanh (SKU)</a>
+        <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>">Chiến giá</a>
+        <a href="/bom-check">Check BOM (Tra cứu)</a>
+        <a href="/bom-dashboard">BOM Dashboard (Tổng hợp)</a>
+        
+        <a href="/clearance-check" class="<%= currentPage === 'clearance-check' ? 'active' : '' %>">Tra cứu Hàng thanh lý</a>
+
+        <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
+            <a href="/event-operations" class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>">Vận hành Event</a>
+            <a href="/admin/event-settings" class="<%= currentPage === 'event-settings' ? 'active' : '' %>">Cài đặt Event</a>
+        <% } %>
+    </div>
+</div>
+
                     
-                    <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
-                        <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">Quản lý CTKM</a>
-                        <a href="/admin/event-settings" class="<%= currentPage === 'event-settings' ? 'active' : '' %>">Cài đặt Event</a>
-                                            <a href="/clearance-check" class="<%= currentPage === 'clearance-check' ? 'active' : '' %>">Tra cứu Hàng thanh lý</a>
-                             <a href="/event-operations" class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>">Vận hành Event</a>
-                        <% } %>
-                    </nav> <div class="dropdown">
-                  
-  <% /* Sửa class: Thêm 'quote-builder' vào check */ %>
-  <a href="#" id="utilitiesDropdownToggle" style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none;
-padding: 6px 10px;" class="<%= ['pc-builder', 'quote-builder'].includes(currentPage) ? 'active' : '' %>">
-                        Tiện ích
-                        <span style="font-size: 10px;">▼</span>
-                    </a>
-                  
-  <% /* Sửa menu: Thêm 2 link mới */ %>
-  <div class="dropdown-menu" id="utilitiesDropdownMenu">
-                         <a href="/pc-builder">Build PC (Linh kiện)</a>
-                         <a href="/quote-builder">Báo giá nhanh (SKU)</a>
-                         <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>">Chiến giá</a>
-                         <a href="/bom-check">Check BOM (Tra cứu)</a>
-                         <a href="/bom-dashboard">BOM Dashboard (Tổng hợp)</a>
-              
-      </div>
-                </div>
                 <% /* === BẮT ĐẦU: Chỉ báo User Online === */ %>
 <% if (
     locals.user && 

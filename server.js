@@ -2624,14 +2624,11 @@ app.get('/drive-test', requireAuth, async (req, res) => {
 // (TRONG server.js)
 
 // --- (SỬA LẠI) Cấu hình Sheet Thanh Lý ---
-const CLEARANCE_SHEET_ID = '12LYDG5fhzAPngdXT9NLpDLAOaPyEQKGs1uOFb0A0QQA'; 
+const CLEARANCE_SHEET_ID = '1uvSNw6PL46896rOo0PIf67hP3BCmR6WnoR1zhthU_ts'; 
 const CLEARANCE_SHEET_TAB = 'Sheet1'; // Tên Tab bạn đã cung cấp
 
 async function getClearanceInfoFromSheet(sku) {
-  if (!CLEARANCE_SHEET_ID || CLEARANCE_SHEET_ID === 'YOUR_GOOGLE_SHEET_ID_HERE') {
-    console.warn('Chưa cấu hình CLEARANCE_SHEET_ID');
-    return null;
-  }
+
   try {
     const sheets = await getGlobalSheetsClient();
     // (SỬA LẠI) Đọc từ cột A đến cột S
@@ -2652,22 +2649,23 @@ async function getClearanceInfoFromSheet(sku) {
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       // Cột F là SKU (chỉ số 5)
-      if (row[5] && String(row[6]).trim() === String(sku)) {
-        
+      if (row[5] && String(row[5]).trim() === String(sku)) {
+        const store_name = row[2] || 'N/A';
         // Cột I (Serial - chỉ số 9)
-        const serial = row[9] || 'N/A';
+        const serial = row[8] || 'N/A';
         // (MỚI) Cột J (Link ảnh - chỉ số 9) - TÔI TẠM ĐOÁN LÀ J, VÌ I BỊ TRÙNG
         const images = (row[24] || '').split(',').map(link => link.trim()).filter(Boolean); 
         // Cột K (Bảo hành - chỉ số 10)
-        const warrantyEnd = row[11] || 'N/A';
+        const warrantyEnd = row[10] || 'N/A';
         // Cột O (Giá - chỉ số 14)
-        const clearancePrice = row[15] || 'N/A';
+        const clearancePrice = row[14] || 'N/A';
         // Cột R (KFI - chỉ số 17)
-        const kfi = row[18] || 'N/A';
-        // Cột S (Tình trạng - chỉ số 18)
-        const status = row[19] || 'Không có mô tả';
+        const kfi = row[17] || 'N/A';
+
+        const status = row[18] || 'Không có mô tả';
 
         results.push({
+          store_name: store_name,
           serial: serial,
           images: images,
           warranty_end: warrantyEnd,
@@ -2685,10 +2683,6 @@ async function getClearanceInfoFromSheet(sku) {
   }
 }
 
-
-
-// (TRONG server.js)
-
 app.all('/clearance-check', requireAuth, async (req, res) => {
   const skuInput = (req.method === 'POST' ? req.body?.sku : req.query?.sku) || '';
   if (!skuInput) {
@@ -2696,32 +2690,45 @@ app.all('/clearance-check', requireAuth, async (req, res) => {
   }
 
   try {
-    // 1. Lấy thông tin SKU (từ Supabase)
-    const { data: product } = await supabase.from('skus').select('*').eq('sku', skuInput).single();
-    if (!product) {
-      return res.render('clearance-check', { title: 'Tra cứu hàng thanh lý', currentPage: 'clearance-check', error: `Không tìm thấy SKU: ${skuInput}`, product: null, clearanceInfo: null });
-    }
+    // --- SỬA LOGIC: Chạy song song cả 3 truy vấn ---
 
-    // 2. Lấy tồn kho (từ BigQuery)
     const userBranch = req.session.user?.branch_code;
     const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
     const today = new Date().toISOString().split('T')[0];
+
+    // 1. Lấy thông tin SKU (từ Supabase)
+    //    (Không báo lỗi nếu không tìm thấy, product sẽ là null)
+    const { data: product } = await supabase.from('skus').select('*').eq('sku', skuInput).single();
+
+    // 2. Lấy tồn kho (từ BigQuery)
+    const inventoryMap = await getInventoryCounts([skuInput], userBranch, isGlobalAdmin, today);
+    const inventoryCounts = inventoryMap.get(skuInput)?.get(userBranch); 
+
+    // 3. Lấy thông tin từ Google Sheet (trả về MẢNG hoặc null)
+    const clearanceInfo = await getClearanceInfoFromSheet(skuInput);
+
+    // --- SỬA LOGIC: Chỉ báo lỗi nếu CẢ 2 ĐỀU KHÔNG CÓ ---
+    // Nếu không tìm thấy trong Supabase VÀ cũng không tìm thấy trong Google Sheet
+    if (!product && (!clearanceInfo || clearanceInfo.length === 0)) {
+      return res.render('clearance-check', { 
+        title: 'Tra cứu hàng thanh lý', 
+        currentPage: 'clearance-check', 
+        error: `Không tìm thấy SKU: ${skuInput} (Cả trong Supabase và Google Sheet)`, 
+        product: null, 
+        clearanceInfo: null 
+      });
+    }
     
-    const inventoryMap = await getInventoryCounts([product.sku], userBranch, isGlobalAdmin, today);
-    const inventoryCounts = inventoryMap.get(product.sku)?.get(userBranch); // Tồn kho của user
-
-    // 3. (MỚI) Lấy thông tin từ Google Sheet (trả về MẢNG)
-    const clearanceInfo = await getClearanceInfoFromSheet(product.sku);
-
+    // --- SỬA LOGIC: Render với bất cứ thông tin nào tìm được ---
     res.render('clearance-check', {
-      title: `Thanh lý: ${product.sku}`,
+      title: `Thanh lý: ${skuInput}`,
       currentPage: 'clearance-check',
-      product,
-      inventoryMap, // Cho Admin
-      inventoryCounts, // Cho User
+      product: product, // Sẽ là null nếu không có, EJS tự xử lý
+      inventoryMap, 
+      inventoryCounts, 
       isGlobalAdmin,
       userBranch,
-      clearanceInfo: clearanceInfo, // (MỚI) Đây là MẢNG các serial
+      clearanceInfo: clearanceInfo, // Sẽ là null/rỗng nếu không có, EJS tự xử lý
       error: null
     });
 
@@ -2746,7 +2753,7 @@ async function getEventStockByBranch(branchCode) {
       COUNT(Serial) AS stock_qty
     FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
     WHERE Branch_ID = @branchCode
-      AND BIN_zone = 'Hàng MKT' -- Chỉ lấy BIN MKT
+      AND BIN_zone = 'Hàng MKT' -- Chỉ lấy BIN MKT
       AND Serial IS NOT NULL AND Serial != ''
     GROUP BY 1
     ORDER BY stock_qty DESC

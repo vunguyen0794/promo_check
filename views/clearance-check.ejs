@@ -237,6 +237,7 @@
           <table class="info-table" style="min-width: 800px;">
             <thead>
               <tr>
+                <th style="width: 120px;">SR tồn (Cửa hàng)</th>
                 <th>Serial</th>
                 <th>Tình trạng</th>
                 <th>KFI</th>
@@ -248,10 +249,13 @@
             <tbody>
               <% clearanceInfo.forEach(item => { %>
                 <tr>
+                  <td><%= item.store_name %></td>
                   <td><strong><%= item.serial %></strong></td>
                   <td><%- (item.tinh_trang || '').replace(/\n/g, '<br>') %></td>
                   <td><%= item.kfi %></td>
-                  <td><strong><%= item.clearance_price %></strong></td>
+                  <td style="text-align: right; font-weight: 700;">
+                    <%= new Intl.NumberFormat('vi-VN').format(Number(String(item.clearance_price).replace(/\D/g,'')) || 0) %>
+                  </td>
                   <td><%= item.warranty_end %></td>
                   <td>
                     <% if (item.images && item.images.length > 0) { %>
