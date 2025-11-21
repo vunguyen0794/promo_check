@@ -786,108 +786,112 @@ app.post('/register', async (req, res) => {
 
 app.post('/logout', (req, res) => { req.session = null; return res.redirect('/login'); });
 
-
-// Thay thế toàn bộ route app.get('/', ...) bằng code này
+// --- ROUTE TRANG CHỦ (RENDER LẦN ĐẦU) ---
 app.get('/', requireAuth, async (req, res) => {
   try {
     const selectedGroup = req.query.group || '';
+    const searchQuery = (req.query.q || '').trim().toLowerCase();
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-    const pageSize = 8; // Hiển thị 8 CTKM mỗi trang
-
-    // === PHẦN 1: LẤY DỮ LIỆU CTKM NỔI BẬT (ĐÃ SỬA LỖI) ===
+    const pageSize = 8;
     const today = new Date().toISOString().slice(0, 10);
+
+    // 1. Query DB (Lấy SKU để search)
     const { data: allPromos, error: promosErr } = await supabase
       .from('promotions')
-      .select('*')
+      .select('*, promotion_skus(sku)')
       .eq('status', 'active')
       .lte('start_date', today)
       .gte('end_date', today);
     if (promosErr) throw promosErr;
 
+    // 2. Tính toán Discount & Stack (Logic cũ giữ nguyên)
     const promoIds = allPromos.map(p => p.id);
     const { data: compatRows } = await supabase.from('promotion_compat_allows').select('promotion_id').in('promotion_id', promoIds);
     const promosWithAllowRules = new Set((compatRows || []).map(r => r.promotion_id));
 
     const promosWithStackInfo = allPromos.map(p => {
-      let displayDiscount = null;
-      let displayPrefix = 'Giảm';
-      let discountValueForSort = 0;
-
+      let displayDiscount = null; let displayPrefix = 'Giảm'; let discountValueForSort = 0;
       if (p.coupon_list && p.coupon_list.length > 0) {
-        // Lấy tất cả các mức giảm từ danh sách, chuyển đổi "500.000" thành số 500000
         const discounts = p.coupon_list.map(c => parseFloat(String(c.discount).replace(/[^0-9]/g, '')) || 0);
         const maxDiscount = Math.max(...discounts);
-        if (maxDiscount > 0) {
-          displayDiscount = maxDiscount;
-          displayPrefix = 'Giảm đến';
-          discountValueForSort = maxDiscount;
-        }
+        if (maxDiscount > 0) { displayDiscount = maxDiscount; displayPrefix = 'Giảm đến'; discountValueForSort = maxDiscount; }
       } else if (String(p.discount_value_type || '').toLowerCase() === 'amount') {
-        displayDiscount = p.discount_value;
-        discountValueForSort = p.discount_value || 0;
+        displayDiscount = p.discount_value; discountValueForSort = p.discount_value || 0;
       } else if (String(p.discount_value_type || '').toLowerCase() === 'percent') {
         displayDiscount = `${p.discount_value}%`;
-        // Ước tính giá trị giảm để sắp xếp
-        discountValueForSort = (p.discount_value / 100) * 10000000; // Giả định giá trị SP là 10M để so sánh
+        discountValueForSort = (p.discount_value / 100) * 10000000;
         if (p.max_discount_amount) discountValueForSort = Math.min(discountValueForSort, p.max_discount_amount);
       }
-
       const isStackable = p.compatible_with_other_promos === true || promosWithAllowRules.has(p.id);
-
-      return {
-        ...p,
-        __stackable: isStackable,
-        __display_discount: displayDiscount,
-        __display_prefix: displayPrefix,
-        __sort_value: discountValueForSort, // Dùng giá trị này để sắp xếp
-      };
+      return { ...p, __stackable: isStackable, __display_discount: displayDiscount, __display_prefix: displayPrefix, __sort_value: discountValueForSort };
     });
 
-    // Cập nhật lại logic sắp xếp để dùng giá trị mới
-    let filteredPromos = promosWithStackInfo;
-    if (selectedGroup) {
-      filteredPromos = promosWithStackInfo.filter(p => p.group_name === selectedGroup);
-    }
-    filteredPromos.sort((a, b) => b.__sort_value - a.__sort_value); // Sắp xếp theo mức giảm ước tính
-    // ...
+    const userBranch = req.session.user?.branch_code; 
 
-    const allGroups = [...new Set(promosWithStackInfo.map(p => p.group_name).filter(Boolean))].sort();
+// Hàm kiểm tra xem User có được thấy Promo này không
+const isVisibleToUser = (p) => {
+    // Check Branch
+    if (p.apply_branches && p.apply_branches.length > 0) {
+        // Nếu user chưa đăng nhập hoặc branch user không nằm trong list cho phép
+        if (!userBranch || !p.apply_branches.includes(userBranch)) {
+            return false; 
+        }
+    }
+    return true;
+};
+
+    // 3. --- LOGIC LỌC QUAN TRỌNG (Group -> Search) ---
+    let filteredPromos = promosWithStackInfo;
+
+    // BƯỚC A: Lọc theo Nhóm trước (nếu có) - "Khoanh vùng dữ liệu"
+    if (selectedGroup) {
+      filteredPromos = filteredPromos.filter(p => p.group_name === selectedGroup);
+    }
+
+    // BƯỚC B: Tìm kiếm trong vùng dữ liệu đã khoanh
+    if (searchQuery) {
+      filteredPromos = filteredPromos.filter(p => {
+        const pName = (p.name || '').toLowerCase();
+        const pGroup = (p.group_name || '').toLowerCase();
+        const pDesc = (p.description || '').toLowerCase();
+        // Tìm trong danh sách SKU áp dụng
+        const hasSkuMatch = (p.promotion_skus || []).some(item => (item.sku || '').toLowerCase().includes(searchQuery));
+
+        return pName.includes(searchQuery) || 
+               pGroup.includes(searchQuery) || 
+               pDesc.includes(searchQuery) || 
+               hasSkuMatch;
+      });
+    }
+
+    // 4. Sắp xếp & Phân trang
+    filteredPromos.sort((a, b) => b.__sort_value - a.__sort_value);
+    
+    // Lấy danh sách nhóm (Sắp xếp A->Z)
+    const allGroups = [...new Set(promosWithStackInfo.map(p => p.group_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
     const totalItems = filteredPromos.length;
     const totalPages = Math.ceil(totalItems / pageSize);
     const paginatedPromos = filteredPromos.slice((page - 1) * pageSize, page * pageSize);
 
-    // === PHẦN 2: LẤY DỮ LIỆU SO SÁNH GIÁ (ĐÃ KHÔI PHỤC) ===
+    // 5. Các data phụ (Matrix, Random...) - Giữ nguyên code cũ của bạn
     const { data: pc } = await supabase.from('price_comparisons').select('sku, product_name, brand, competitor_name').order('created_at', { ascending: false }).limit(100);
-    const bySku = {};
-    const totalBySku = {};
-    (pc || []).forEach(r => {
-      if (!r.sku) return;
-      if (!bySku[r.sku]) bySku[r.sku] = { product_name: r.product_name || '', brand: r.brand || '', counts: {} };
-      bySku[r.sku].counts[r.competitor_name] = (bySku[r.sku].counts[r.competitor_name] || 0) + 1;
-      totalBySku[r.sku] = (totalBySku[r.sku] || 0) + 1;
-    });
+    const bySku = {}; const totalBySku = {};
+    (pc || []).forEach(r => { if (!r.sku) return; if (!bySku[r.sku]) bySku[r.sku] = { product_name: r.product_name || '', brand: r.brand || '', counts: {} }; bySku[r.sku].counts[r.competitor_name] = (bySku[r.sku].counts[r.competitor_name] || 0) + 1; totalBySku[r.sku] = (totalBySku[r.sku] || 0) + 1; });
     const topSkus = Object.keys(totalBySku).sort((a, b) => totalBySku[b] - totalBySku[a]).slice(0, 10);
-    const compSet = {};
-    topSkus.forEach(s => Object.keys(bySku[s].counts).forEach(c => { compSet[c] = (compSet[c] || 0) + bySku[s].counts[c]; }));
+    const compSet = {}; topSkus.forEach(s => Object.keys(bySku[s].counts).forEach(c => { compSet[c] = (compSet[c] || 0) + bySku[s].counts[c]; }));
     const competitorCols = Object.keys(compSet).sort((a, b) => compSet[b] - compSet[a]).slice(0, 6);
-    const matrixRows = topSkus.map(sku => {
-      const row = bySku[sku];
-      let topComp = '-'; let topCompCount = 0;
-      Object.entries(row.counts).forEach(([c, n]) => { if (n > topCompCount) { topComp = c; topCompCount = n; } });
-      return { sku, product_name: row.product_name, brand: row.brand, total: totalBySku[sku], top_competitor: topComp, cells: competitorCols.map(c => row.counts[c] || 0) };
-    });
-
-    // === PHẦN 3: LẤY SẢN PHẨM NGẪU NHIÊN ===
-    const { data: randomSkus } = await supabase
-  .from('skus')
-  .select('*')
-  .order('list_price', { ascending: false, nullsFirst: false }) // Sắp xếp giá giảm dần
-  .limit(8);
+    const matrixRows = topSkus.map(sku => { const row = bySku[sku]; let topComp = '-'; let topCompCount = 0; Object.entries(row.counts).forEach(([c, n]) => { if (n > topCompCount) { topComp = c; topCompCount = n; } }); return { sku, product_name: row.product_name, brand: row.brand, total: totalBySku[sku], top_competitor: topComp, cells: competitorCols.map(c => row.counts[c] || 0) }; });
+    
+    const { data: randomSkus } = await supabase.from('skus').select('*').order('list_price', { ascending: false, nullsFirst: false }).limit(8);
 
     res.render('index', {
       title: 'Trang chủ', currentPage: 'home',
-      featuredPromos: paginatedPromos, allGroups, selectedGroup, page, totalPages,
+      featuredPromos: paginatedPromos, 
+      allGroups, 
+      selectedGroup, 
+      searchQuery, // Truyền lại query để hiển thị trên ô input
+      page, totalPages,
       matrixRows, competitorCols,
       randomSkus: randomSkus || [],
     });
@@ -897,74 +901,72 @@ app.get('/', requireAuth, async (req, res) => {
   }
 });
 
-
-// Thêm route này vào file server.js
+// --- API FEATURED PROMOS (DÙNG CHO AJAX) ---
 app.get('/api/featured-promos', requireAuth, async (req, res) => {
   try {
     const selectedGroup = req.query.group || '';
+    const searchQuery = (req.query.q || '').trim().toLowerCase();
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
     const pageSize = 8;
     const today = new Date().toISOString().slice(0, 10);
 
-    const { data: allPromos } = await supabase.from('promotions').select('*').eq('status', 'active').lte('start_date', today).gte('end_date', today);
+    const { data: allPromos } = await supabase
+      .from('promotions')
+      .select('*, promotion_skus(sku)')
+      .eq('status', 'active')
+      .lte('start_date', today)
+      .gte('end_date', today);
 
     const promoIds = allPromos.map(p => p.id);
     const { data: compatRows } = await supabase.from('promotion_compat_allows').select('promotion_id').in('promotion_id', promoIds);
     const promosWithAllowRules = new Set((compatRows || []).map(r => r.promotion_id));
+
     const promosWithStackInfo = allPromos.map(p => {
-      let displayDiscount = null;
-      let displayPrefix = 'Giảm';
-      let discountValueForSort = 0;
-
-      if (p.coupon_list && p.coupon_list.length > 0) {
-        // Lấy tất cả các mức giảm từ danh sách, chuyển đổi "500.000" thành số 500000
-        const discounts = p.coupon_list.map(c => parseFloat(String(c.discount).replace(/[^0-9]/g, '')) || 0);
-        const maxDiscount = Math.max(...discounts);
-        if (maxDiscount > 0) {
-          displayDiscount = maxDiscount;
-          displayPrefix = 'Giảm đến';
-          discountValueForSort = maxDiscount;
-        }
-      } else if (String(p.discount_value_type || '').toLowerCase() === 'amount') {
-        displayDiscount = p.discount_value;
-        discountValueForSort = p.discount_value || 0;
-      } else if (String(p.discount_value_type || '').toLowerCase() === 'percent') {
-        displayDiscount = `${p.discount_value}%`;
-        // Ước tính giá trị giảm để sắp xếp
-        discountValueForSort = (p.discount_value / 100) * 10000000; // Giả định giá trị SP là 10M để so sánh
-        if (p.max_discount_amount) discountValueForSort = Math.min(discountValueForSort, p.max_discount_amount);
-      }
-
-      const isStackable = p.compatible_with_other_promos === true || promosWithAllowRules.has(p.id);
-
-      return {
-        ...p,
-        __stackable: isStackable,
-        __display_discount: displayDiscount,
-        __display_prefix: displayPrefix,
-        __sort_value: discountValueForSort, // Dùng giá trị này để sắp xếp
-      };
+       let displayDiscount = null; let displayPrefix = 'Giảm'; let discountValueForSort = 0;
+       if (p.coupon_list && p.coupon_list.length > 0) {
+         const discounts = p.coupon_list.map(c => parseFloat(String(c.discount).replace(/[^0-9]/g, '')) || 0);
+         const maxDiscount = Math.max(...discounts);
+         if (maxDiscount > 0) { displayDiscount = maxDiscount; displayPrefix = 'Giảm đến'; discountValueForSort = maxDiscount; }
+       } else if (String(p.discount_value_type || '').toLowerCase() === 'amount') {
+         displayDiscount = p.discount_value; discountValueForSort = p.discount_value || 0;
+       } else if (String(p.discount_value_type || '').toLowerCase() === 'percent') {
+         displayDiscount = `${p.discount_value}%`; discountValueForSort = (p.discount_value / 100) * 10000000; 
+         if (p.max_discount_amount) discountValueForSort = Math.min(discountValueForSort, p.max_discount_amount);
+       }
+       const isStackable = p.compatible_with_other_promos === true || promosWithAllowRules.has(p.id);
+       return { ...p, __stackable: isStackable, __display_discount: displayDiscount, __display_prefix: displayPrefix, __sort_value: discountValueForSort };
     });
 
-    // Cập nhật lại logic sắp xếp để dùng giá trị mới
+    // --- LOGIC LỌC GIỐNG HỆT ROUTE TRANG CHỦ ---
     let filteredPromos = promosWithStackInfo;
-    if (selectedGroup) {
-      filteredPromos = promosWithStackInfo.filter(p => p.group_name === selectedGroup);
-    }
-    filteredPromos.sort((a, b) => b.__sort_value - a.__sort_value); // Sắp xếp theo mức giảm ước tính
 
+    if (selectedGroup) {
+      filteredPromos = filteredPromos.filter(p => p.group_name === selectedGroup);
+    }
+
+    if (searchQuery) {
+      filteredPromos = filteredPromos.filter(p => {
+        const pName = (p.name || '').toLowerCase();
+        const pGroup = (p.group_name || '').toLowerCase();
+        const pDesc = (p.description || '').toLowerCase();
+        const hasSkuMatch = (p.promotion_skus || []).some(item => (item.sku || '').toLowerCase().includes(searchQuery));
+        return pName.includes(searchQuery) || pGroup.includes(searchQuery) || pDesc.includes(searchQuery) || hasSkuMatch;
+      });
+    }
+
+    filteredPromos.sort((a, b) => b.__sort_value - a.__sort_value);
 
     const totalPages = Math.ceil(filteredPromos.length / pageSize);
     const paginatedPromos = filteredPromos.slice((page - 1) * pageSize, page * pageSize);
 
-    // Chỉ render và trả về file partial
     res.render('partials/_featured-promos', {
       featuredPromos: paginatedPromos,
       page,
       totalPages,
-      selectedGroup
+      selectedGroup // Không cần truyền searchQuery xuống partial
     });
   } catch (e) {
+    console.error(e);
     res.status(500).send('<p>Lỗi khi tải dữ liệu.</p>');
   }
 });
@@ -1617,92 +1619,91 @@ async function getEligiblePromosForSku(skuCode) {
   return { sku: skuRow, price, groups, picked };
 }
 
+// --- ROUTE TÌM KIẾM SKU (ĐÃ SỬA LỖI SCOPE & THIẾU HÀM) ---
 app.all('/search-promotion', requireAuth, async (req, res) => {
+  // 1. Khai báo biến bên ngoài try/catch để tránh lỗi ReferenceError khi render lỗi
+  let inventoryMap = null;
+  let inventoryCounts = null;
+  let oldestSerials = [];
+  let isGlobalAdmin = false;
+  let product = null;
+  let promotions = [];
+  let chosenPromos = [];
+  let internalContest = null;
+  let totalDiscount = 0;
+  let finalPrice = 0;
+  let comparisonCount = 0;
+
   const skuInput = (
-    req.method === 'POST'
-      ? (req.body?.sku || req.body?.query)
-      : (req.query?.query || req.query?.sku)
-      || ''
+    req.method === 'POST' ? (req.body?.sku || req.body?.query) : (req.query?.query || req.query?.sku) || ''
   ).toString().trim();
 
   try {
     console.log(`\n--- [DEBUG] BẮT ĐẦU TÌM KIẾM CHO SKU: ${skuInput} ---`);
 
+    const userBranch = req.session.user?.branch_code || null;
+    const userRole = req.session.user?.role || null;
+    
+    // --- ĐỊNH NGHĨA HÀM isVisibleToUser (SỬA LỖI 1) ---
+    const isVisibleToUser = (p) => {
+        // Check Branch
+        if (p.apply_branches && p.apply_branches.length > 0) {
+            // Nếu user chưa đăng nhập hoặc branch user không nằm trong list cho phép
+            if (!userBranch || !p.apply_branches.includes(userBranch)) {
+                return false; 
+            }
+        }
+        return true;
+    };
+    // --------------------------------------------------
+
     if (!skuInput) {
-      return res.render('promotion', {
-        title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
-        product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
-        error: 'Vui lòng nhập SKU.',
-        internalContest: null,
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      });
+      throw new Error('Vui lòng nhập SKU.');
     }
 
     // 1) Lấy sản phẩm
-    const { data: product } = await supabase.from('skus').select('*').eq('sku', skuInput).single();
+    const { data: productData } = await supabase.from('skus').select('*').eq('sku', skuInput).single();
+    product = productData;
+
     if (!product) {
-      return res.render('promotion', {
-        title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
-        product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
-        error: 'Không tìm thấy thông tin cho SKU: ' + skuInput,
-         internalContest: null,
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      });
+       throw new Error('Không tìm thấy thông tin cho SKU: ' + skuInput);
     }
+    
     const price = Number(product.list_price || 0);
     console.log(`[DEBUG] Bước 1: Đã tìm thấy sản phẩm - Tên: ${product.product_name}, Giá niêm yết: ${price}đ`);
-    // === BƯỚC MỚI: LẤY TỒN KHO BIGQUERY ===
-let inventoryMap = null; // Sẽ là Map<SKU, Map<Branch, Counts>>
-let inventoryCounts = null; // Sẽ là CountsObject (nếu là user thường)
-let isGlobalAdmin = false; // Mặc định là false
 
-try {
-    const userBranch = req.session.user?.branch_code || null;
-    const userRole = req.session.user?.role || null;
-    const today = new Date().toISOString().split('T')[0];
+    // === LẤY TỒN KHO BIGQUERY ===
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        isGlobalAdmin = (userRole === 'admin' || userBranch === 'HCM.BD');
 
-    // Xác định quyền admin
-    isGlobalAdmin = (userRole === 'admin' || userBranch === 'HCM.BD');
+        if (userBranch && bigquery) {
+            const skuList = [product.sku];
+            inventoryMap = await getInventoryCounts(skuList, userBranch, isGlobalAdmin, today);
 
-    if (userBranch && bigquery) { // Chỉ chạy nếu user có branch và BQ đã kết nối
-        const skuList = [product.sku];
-        // Truyền cờ isGlobalAdmin vào hàm
-        inventoryMap = await getInventoryCounts(skuList, userBranch, isGlobalAdmin, today);
-
-        if (inventoryMap.has(product.sku)) {
-            const branchMap = inventoryMap.get(product.sku);
-            if (!isGlobalAdmin) {
-                // User thường, chỉ lấy tồn của branch mình
-                if (branchMap.has(userBranch)) {
-                    inventoryCounts = branchMap.get(userBranch);
+            if (inventoryMap.has(product.sku)) {
+                const branchMap = inventoryMap.get(product.sku);
+                if (!isGlobalAdmin) {
+                    if (branchMap.has(userBranch)) {
+                        inventoryCounts = branchMap.get(userBranch);
+                    }
                 }
-            } else {
-                // Admin: không set inventoryCounts, sẽ truyền cả inventoryMap
             }
         }
+    } catch (e) {
+        console.error("Lỗi khi lấy tồn kho:", e.message);
     }
-} catch (e) {
-    console.error("Lỗi khi lấy tồn kho cho /search-promotion:", e.message);
-}
-// === KẾT THÚC BƯỚC MỚI ===
 
-// === YÊU CẦU 3: LẤY TOP 5 SERIALS CŨ NHẤT ===
-let oldestSerials = [];
-try {
-    // Lấy today một lần nữa (hoặc dùng lại biến 'today' nếu nó ở ngoài scope)
-    const today = new Date().toISOString().split('T')[0];
-    const userBranch = req.session.user?.branch_code || null;
-    const userRole = req.session.user?.role || null;
-    const isGlobalAdmin = (userRole === 'admin' || userBranch === 'HCM.BD');
-
-    if (userBranch && bigquery) {
-        oldestSerials = await getOldestSerials(product.sku, userBranch, isGlobalAdmin, today, 5);
+    // === LẤY TOP 5 SERIALS ===
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        if (userBranch && bigquery) {
+            oldestSerials = await getOldestSerials(product.sku, userBranch, isGlobalAdmin, today, 5);
+        }
+    } catch (e_serial) {
+        console.error("Lỗi khi lấy serials:", e_serial.message);
     }
-} catch (e_serial) {
-    console.error("Lỗi khi lấy top 5 serials:", e_serial.message);
-    // Không dừng, tiếp tục render
-}
-// === KẾT THÚC YÊU CẦU 3 ===
+
     // 2) Lấy các CTKM đang active
     const today = new Date().toISOString().split('T')[0];
     const { data: promosRaw } = await supabase
@@ -1711,76 +1712,58 @@ try {
       .lte('start_date', today)
       .gte('end_date', today)
       .eq('status', 'active');
+    
     console.log(`[DEBUG] Bước 2: Lấy được ${promosRaw?.length || 0} CTKM active từ database.`);
 
     // 3) Lọc theo SKU áp dụng / loại trừ
-    let promotions = (promosRaw || []).filter(p => {
+    let filteredPromos = (promosRaw || []).filter(p => {
+        const pBrand = (product.brand || '').toLowerCase();
+        const pCategory = (product.category || '').toLowerCase();
+        const pSubcat = (product.subcat || '').toLowerCase();
 
-            // Chuẩn hóa dữ liệu sản phẩm (viết thường)
-            const pBrand = (product.brand || '').toLowerCase();
-            const pCategory = (product.category || '').toLowerCase();
-            const pSubcat = (product.subcat || '').toLowerCase();
+        // Check Branch ngay tại đây
+        if (!isVisibleToUser(p)) return false;
 
-            // 1. Kiểm tra Loại trừ (Luôn ưu tiên)
-            const isExcludedCheck = (p.promotion_excluded_skus || []).some(ex => ex.sku === product.sku);
-            if (isExcludedCheck) {
-                return false;
-            }
+        // Check Exclude
+        if (p.exclude_brands && p.exclude_brands.length > 0) {
+             if (p.exclude_brands.map(b=>b.toLowerCase()).includes(pBrand)) return false;
+        }
+        if (p.exclude_subcats && p.exclude_subcats.length > 0) {
+             if (p.exclude_subcats.map(s=>s.toLowerCase()).some(ex => pSubcat.includes(ex))) return false;
+        }
+        const isExcludedCheck = (p.promotion_excluded_skus || []).some(ex => ex.sku === product.sku);
+        if (isExcludedCheck) return false;
 
-            // 2. Áp dụng cho Tất cả SKU
-            if (p.apply_to_all_skus) return true;
+        // Check Include
+        if (p.apply_to_all_skus) return true;
+        if (p.apply_brand_subcats && p.apply_brand_subcats.length > 0) {
+            const isMatch = p.apply_brand_subcats.some(rule => 
+                (rule.brand || '').toLowerCase() === pBrand && (rule.subcat_id || '').toLowerCase() === pSubcat
+            );
+            if (isMatch) return true;
+        }
+        if (p.apply_to_brands && p.apply_to_brands.map(b=>b.toLowerCase()).includes(pBrand)) return true;
+        if (p.apply_to_categories && p.apply_to_categories.map(c=>c.toLowerCase()).includes(pCategory)) return true;
+        if (p.apply_to_subcats && p.apply_to_subcats.map(s=>s.toLowerCase()).includes(pSubcat)) return true;
+        if ((p.promotion_skus || []).some(ps => ps.sku === product.sku)) return true;
 
-            // 3. Áp dụng theo Brand + Subcat (viết thường)
-            if (p.apply_brand_subcats && p.apply_brand_subcats.length > 0) {
-                const isMatch = p.apply_brand_subcats.some(rule => 
-                    (rule.brand || '').toLowerCase() === pBrand && 
-                    (rule.subcat_id || '').toLowerCase() === pSubcat
-                );
-                if (isMatch) return true; 
-                // Quan trọng: Không return false vội, để check các rule khác
-            }
+        return false;
+    });
 
-            // 4. Áp dụng theo Brand (viết thường)
-            if (p.apply_to_brands && p.apply_to_brands.length > 0) {
-                const brandsLower = p.apply_to_brands.map(b => (b || '').toLowerCase());
-                if (brandsLower.includes(pBrand)) return true;
-            }
+    console.log(`[DEBUG] Bước 3: Sau khi lọc theo SKU/Branch, còn lại ${filteredPromos.length} CTKM.`);
 
-            // 5. Áp dụng theo Category (viết thường)
-            if (p.apply_to_categories && p.apply_to_categories.length > 0) {
-                const catsLower = p.apply_to_categories.map(c => (c || '').toLowerCase());
-                if (catsLower.includes(pCategory)) return true;
-            }
+    internalContest = filteredPromos.find(p => p.promo_type === 'Thi đua nội bộ') || null;
+    const regularPromos = filteredPromos.filter(p => p.promo_type !== 'Thi đua nội bộ');
 
-            // 6. Áp dụng theo Subcat (viết thường)
-            if (p.apply_to_subcats && p.apply_to_subcats.length > 0) {
-                const subcatsLower = p.apply_to_subcats.map(s => (s || '').toLowerCase());
-                if (subcatsLower.includes(pSubcat)) return true;
-            }
-
-            // 7. Áp dụng theo danh sách SKU
-            const isIncluded = (p.promotion_skus || []).some(ps => ps.sku === product.sku);
-            if (isIncluded) return true;
-
-            // Nếu không khớp rule nào
-            return false;
-        });
-    console.log(`[DEBUG] Bước 3: Sau khi lọc theo SKU, còn lại ${promotions.length} CTKM.`);
-
-
-    const internalContest = promotions.find(p => p.promo_type === 'Thi đua nội bộ') || null;
-    const regularPromos = promotions.filter(p => p.promo_type !== 'Thi đua nội bộ');
-
-    console.log(`[DEBUG]   => Tách ra: ${internalContest ? 1 : 0} Thi đua, ${regularPromos.length} CTKM thường.`);
-    // 4) Map tên CTKM “áp dụng cùng/loại trừ”
-    if (promotions.length) {
-      const ids = promotions.map(p => p.id);
+    // 4) Map tên CTKM tương thích
+    if (filteredPromos.length) {
+      const ids = filteredPromos.map(p => p.id);
       const { data: allows } = await supabase.from('promotion_compat_allows').select('promotion_id, with_promotion_id').in('promotion_id', ids);
       const { data: excludes } = await supabase.from('promotion_compat_excludes').select('promotion_id, with_promotion_id').in('promotion_id', ids);
       const { data: allPromosLite } = await supabase.from('promotions').select('id, name, group_name');
       const promoInfoById = Object.fromEntries((allPromosLite || []).map(p => [p.id, p]));
 
-      promotions.forEach(p => {
+      filteredPromos.forEach(p => {
         const allowIds = (allows || []).filter(r => r.promotion_id === p.id).map(r => r.with_promotion_id);
         p.compat_allow_names = [...new Set(allowIds.map(id => promoInfoById[id]?.group_name).filter(Boolean))];
         const exclIds = (excludes || []).filter(r => r.promotion_id === p.id).map(r => r.with_promotion_id);
@@ -1788,83 +1771,98 @@ try {
       });
     }
 
-    // 5) Lọc cuối cùng và tính toán
+    // 5) Tính toán giá trị giảm
     let availablePromos = (regularPromos || []).map(p => {
-  const ruleDiscount   = calcDiscountAmt(p, price);   // amount/percent
-  const couponDiscount = getMaxCouponDiscount(p);     // coupon lớn nhất
-  const bestDiscount   = Math.max(ruleDiscount, couponDiscount);
+        const ruleDiscount = calcDiscountAmt(p, price);
+        const couponDiscount = getMaxCouponDiscount(p);
+        const bestDiscount = Math.max(ruleDiscount, couponDiscount);
+        return { ...p, discount_amount_calc: bestDiscount };
+    });
 
-  return {
-    ...p,
-    rule_discount: ruleDiscount,                 // (tuỳ chọn) để debug/hiển thị
-    max_coupon_discount: couponDiscount,         // dùng khi cần show trong card
-    discount_amount_calc: bestDiscount           // 👈 GIÁ TRỊ DÙNG ĐỂ CỘNG TỔNG
-  };
-});
-
-
-    // === LỌC CÓ ĐIỀU KIỆN: Chỉ lọc theo `min_order_value` NẾU sản phẩm đã có giá > 0 ===
     if (price > 0) {
-      console.log(`[DEBUG] Bước 4: Sản phẩm có giá (${price}đ > 0), TIẾN HÀNH lọc theo đơn hàng tối thiểu.`);
-      availablePromos = availablePromos.filter(p => Number(p.min_order_value || 0) <= price);
-    } else {
-      console.log(`[DEBUG] Bước 4: Sản phẩm chưa có giá, BỎ QUA lọc theo đơn hàng tối thiểu.`);
+        availablePromos = availablePromos.filter(p => Number(p.min_order_value || 0) <= price);
     }
-    console.log(`   => Sau Bước 4, còn lại ${availablePromos.length} CTKM.`);
+    console.log(`[DEBUG] Bước 4: Sau khi lọc min_order_value, còn lại ${availablePromos.length} CTKM.`);
 
-
-    // --- Logic gộp theo Group ---
+    // --- LOGIC GỘP NHÓM & DEBUG ---
     const bestByGroup = {};
+    const listFinal = [];
+
+    console.log("--- [DEBUG CHI TIẾT GỘP NHÓM] ---");
     for (const p of availablePromos) {
-      const groupKey = p.group_name || `__no_group_${p.id}__`;
-      if (!bestByGroup[groupKey] || p.discount_amount_calc > bestByGroup[groupKey].discount_amount_calc) {
-        bestByGroup[groupKey] = p;
-      }
+        // (Đã check isVisibleToUser ở trên rồi, nhưng check lại cho chắc nếu logic thay đổi)
+        if (!isVisibleToUser(p)) continue;
+
+        const groupKey = p.group_name || `__no_group_${p.id}__`;
+        const discountVal = p.discount_amount_calc || 0;
+
+        console.log(` >> Xét CTKM ID:${p.id} | Tên: ${p.name} | Nhóm: ${p.group_name} | Giảm: ${discountVal}`);
+        console.log(`    Option 'Show Multiple': ${p.show_multiple_in_group}`);
+
+        if (p.show_multiple_in_group) {
+            listFinal.push(p);
+            console.log(`    => ✅ LẤY LUÔN (Do có tick hiển thị cùng nhóm)`);
+        } else {
+            if (!bestByGroup[groupKey]) {
+                bestByGroup[groupKey] = p;
+                console.log(`    => 🔵 Tạm giữ (Là CTKM đầu tiên của nhóm này)`);
+            } else {
+                const currentBest = bestByGroup[groupKey];
+                if (discountVal > currentBest.discount_amount_calc) {
+                    console.log(`    => 🟢 Thay thế CTKM ID:${currentBest.id} (Vì giảm ${discountVal} > ${currentBest.discount_amount_calc})`);
+                    bestByGroup[groupKey] = p;
+                } else {
+                    console.log(`    => 🔴 Bỏ qua (Thua CTKM ID:${currentBest.id} đang giữ)`);
+                }
+            }
+        }
     }
-    const promosAfterGroupPick = Object.values(bestByGroup);
-    console.log(`[DEBUG] Bước 5: Sau khi gộp theo nhóm, còn lại ${promosAfterGroupPick.length} CTKM để hiển thị.`);
 
-    const chosenPromos = pickStackable([...promosAfterGroupPick].sort((a, b) => b.discount_amount_calc - a.discount_amount_calc));
-    const totalDiscount = chosenPromos.reduce((s, p) => s + Number(p.discount_amount_calc || 0), 0);
-    const finalPrice = Math.max(0, price - totalDiscount);
+    Object.values(bestByGroup).forEach(p => {
+        listFinal.push(p);
+    });
+    console.log("-----------------------------------");
 
-    let comparisonCount = 0;
+    // Gán vào biến promotions để render
+    promotions = listFinal.sort((a, b) => b.discount_amount_calc - a.discount_amount_calc);
+    
+    // Tính toán Stackable (cộng dồn)
+    chosenPromos = pickStackable(promotions);
+    totalDiscount = chosenPromos.reduce((s, p) => s + Number(p.discount_amount_calc || 0), 0);
+    finalPrice = Math.max(0, price - totalDiscount);
+
     try {
       const cmp = await supabase.from('price_comparisons').select('*', { count: 'exact', head: true }).eq('sku', product.sku);
       comparisonCount = cmp?.count || 0;
     } catch { }
 
     console.log(`--- [DEBUG] KẾT THÚC TÌM KIẾM ---`);
+
     return res.render('promotion', {
       title: 'CTKM theo SKU', currentPage: 'promotion',
-      query: skuInput, product, promotions: promosAfterGroupPick,
-      internalContest: internalContest,
-      chosenPromos, totalDiscount, finalPrice, comparisonCount, error: null,
-      inventoryCounts: inventoryCounts, // Tồn kho cho user thường
-  inventoryMap: isGlobalAdmin ? inventoryMap : null, // Map tồn kho cho admin
-  userBranch: req.session.user?.branch_code || null,
-  isGlobalAdmin: isGlobalAdmin, // Cờ admin
-  oldestSerials: oldestSerials,
+      query: skuInput, product, promotions,
+      internalContest, chosenPromos, totalDiscount, finalPrice, comparisonCount, error: null,
+      inventoryCounts, inventoryMap, userBranch, isGlobalAdmin, oldestSerials,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
 
   } catch (error) {
     console.error('SEARCH PROMO ERROR:', error);
+    // Sửa lỗi 2: Render lỗi nhưng vẫn truyền đủ biến (dù là null) để tránh ReferenceError
     return res.render('promotion', {
       title: 'CTKM theo SKU', currentPage: 'promotion', query: skuInput,
       product: null, promotions: [], totalDiscount: 0, finalPrice: 0, comparisonCount: 0,
       error: 'Lỗi hệ thống: ' + (error?.message || String(error)),
-      internalContest: null,
-      inventoryCounts: inventoryCounts, // Tồn kho cho user thường
-  inventoryMap: isGlobalAdmin ? inventoryMap : null, // Map tồn kho cho admin
-  userBranch: req.session.user?.branch_code || null,
-  isGlobalAdmin: isGlobalAdmin, // Cờ admin
-  oldestSerials: oldestSerials,
+      internalContest: null, chosenPromos: [],
+      inventoryCounts: null, // Truyền null thay vì undefined
+      inventoryMap: null, 
+      userBranch: req.session?.user?.branch_code || null,
+      isGlobalAdmin: false, 
+      oldestSerials: [],
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
   }
 });
-
 
 
 
@@ -2090,131 +2088,112 @@ app.get('/promo-management', requireAuth, requireManager, async (req, res) => {
 
 // Thay thế toàn bộ route app.post('/create-promotion', ...) bằng code này
 
-    app.post('/create-promotion', requireAuth, async (req, res) => {
+// [MỚI] Route Tạo CTKM (Đã bao gồm Branch, Exclude Mở Rộng, Show Multiple)
+app.post('/create-promotion', requireAuth, async (req, res) => {
     try {
-    const {
-      name, description, start_date, end_date, channel, promo_type, coupon_code,
-      group_name, apply_to_type, apply_brands, apply_categories, apply_subcats,
-      skus, excluded_skus, has_coupon_list, coupons,
-      detail
-    } = req.body;
-    
-    const apply_with = req.body['apply_with[]'];
-    const exclude_with = req.body['exclude_with[]'];
+        const {
+            name, description, start_date, end_date, channel, promo_type, coupon_code,
+            group_name, apply_to_type, apply_brands, apply_categories, apply_subcats,
+            skus, excluded_skus, has_coupon_list, coupons, detail
+        } = req.body;
 
-    // === XỬ LÝ GIÁ TRỊ GIẢM (PHẦN BỊ THIẾU) ===
-    const discount_value_type = req.body.discount_value_type || null;
-    let discount_value = null;
-    if (discount_value_type === 'amount') {
-        discount_value = Number(req.body.discount_amount) || 0;
-    } else if (discount_value_type === 'percent') {
-        discount_value = Number(req.body.discount_percent) || 0;
-    }
-    const max_discount_amount = req.body.max_discount_amount ? Number(req.body.max_discount_amount) : null;
-    const min_order_value = req.body.min_order_value ? Number(req.body.min_order_value) : 0;
-    // ===========================================
+        const apply_with = req.body['apply_with[]'];
+        const exclude_with = req.body['exclude_with[]'];
 
-    let couponListData = null;
-    if (has_coupon_list && coupons) {
-    const list = Array.isArray(coupons) ? coupons : Object.values(coupons);
-    couponListData = list
-    .filter(c => c && c.code && String(c.code).trim() !== '')
-    .map(c => {
-      // bóc số cho discount nếu người dùng nhập "900,000"
-      const raw = c.discount;
-      const discount =
-        typeof raw === 'number'
-          ? raw
-          : (raw == null || raw === '' ? null : (parseFloat(String(raw).replace(/[^0-9]/g, '')) || 0));
-      return {
-        name: (c.name || '').trim(),
-        code: String(c.code).trim(),
-        discount,                       // 👈 LƯU MỨC GIẢM
-        note: (c.note || '').trim()     // 👈 LƯU GHI CHÚ/ĐIỀU KIỆN
-      };
-    });
+        // --- HELPER ---
+        const parseList = (str) => String(str || '').split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+        const uniq = arr => [...new Set(arr)];
+        const parseSkus = (v) => { // Helper parse SKU cũ của bạn
+            if (!v) return [];
+            if (Array.isArray(v)) return v.flatMap(x => String(x).split(/[,\n\r\s]+/)).map(s=>s.trim()).filter(Boolean);
+            return String(v).split(/[,\n\r\s]+/).map(s=>s.trim()).filter(Boolean);
+        };
 
-  // sắp xếp ổn định để diff không ảo
-  couponListData.sort((a, b) =>
-    (a.code || '').localeCompare(b.code || '') ||
-    (a.name || '').localeCompare(b.name || '')
-  );
+        // Xử lý giá trị giảm
+        const discount_value_type = req.body.discount_value_type || null;
+        let discount_value = null;
+        if (discount_value_type === 'amount') discount_value = Number(req.body.discount_amount) || 0;
+        else if (discount_value_type === 'percent') discount_value = Number(req.body.discount_percent) || 0;
+        const max_discount_amount = req.body.max_discount_amount ? Number(req.body.max_discount_amount) : null;
+        const min_order_value = req.body.min_order_value ? Number(req.body.min_order_value) : 0;
 
-  if (!couponListData.length) couponListData = null;
-}
+        // Xử lý Coupon List
+        let couponListData = null;
+        if (has_coupon_list && coupons) {
+            const list = Array.isArray(coupons) ? coupons : Object.values(coupons);
+            couponListData = list.filter(c => c && c.code && String(c.code).trim() !== '').map(c => {
+                const raw = c.discount;
+                const discount = typeof raw === 'number' ? raw : (raw == null || raw === '' ? null : (parseFloat(String(raw).replace(/[^0-9]/g, '')) || 0));
+                return { name: (c.name || '').trim(), code: String(c.code).trim(), discount, note: (c.note || '').trim() };
+            });
+            couponListData.sort((a, b) => (a.code || '').localeCompare(b.code || '') || (a.name || '').localeCompare(b.name || ''));
+            if (!couponListData.length) couponListData = null;
+        }
 
-
-    const uniq = arr => Array.from(new Set((arr||[]).filter(v => v !== '' && v != null)));
-
-    // Xử lý Brand + Subcat
-    const apply_brand_subcats_list = (apply_to_type === 'brand_subcat')
-      ? ( () => {
+        // Xử lý Brand + Subcat
+        const apply_brand_subcats_list = (apply_to_type === 'brand_subcat') ? (() => {
             const brands = uniq(parseSkus(apply_brands));
             const subcats = uniq(parseSkus(apply_subcats));
             const bs = [];
-            brands.forEach(b => subcats.forEach(s => bs.push({brand:String(b), subcat_id:String(s)})));
+            brands.forEach(b => subcats.forEach(s => bs.push({ brand: String(b), subcat_id: String(s) })));
             return bs.length ? bs : null;
-          })()
-      : null;
+        })() : null;
 
+        // [MỚI] Xử lý apply_branches
+        let branchesInput = req.body['apply_branches[]'] || req.body.apply_branches;
+        const applyBranches = branchesInput ? (Array.isArray(branchesInput) ? branchesInput : [branchesInput]) : null;
 
-    const insertPayload = {
-      name, description, start_date, end_date, group_name, channel: channel || 'All', promo_type, 
-      coupon_code: coupon_code || null, status: 'active',
-      apply_to_all_skus: apply_to_type === 'all',
-      apply_to_brands: apply_to_type === 'brand' ? uniq(parseSkus(apply_brands)) : null,
-      apply_to_categories: apply_to_type === 'category' ? uniq(parseSkus(apply_categories)) : null,
-      apply_to_subcats: apply_to_type === 'subcat' ? uniq(parseSkus(apply_subcats)) : null,
-      apply_brand_subcats: apply_brand_subcats_list,
-      coupon_list: couponListData, 
-      created_by: req.session.user?.id,
-      detail_fields: detail || {},
-      // Bổ sung các trường giá trị giảm
-      discount_value_type,
-      discount_value,
-      max_discount_amount,
-      min_order_value
-    };
+        const insertPayload = {
+            name, description, start_date, end_date, group_name, 
+            channel: channel || 'All', promo_type, coupon_code: coupon_code || null, status: 'active',
+            apply_to_all_skus: apply_to_type === 'all',
+            apply_to_brands: apply_to_type === 'brand' ? uniq(parseSkus(apply_brands)) : null,
+            apply_to_categories: apply_to_type === 'category' ? uniq(parseSkus(apply_categories)) : null,
+            apply_to_subcats: apply_to_type === 'subcat' ? uniq(parseSkus(apply_subcats)) : null,
+            apply_brand_subcats: apply_brand_subcats_list,
+            coupon_list: couponListData,
+            created_by: req.session.user?.id,
+            detail_fields: detail || {},
+            discount_value_type, discount_value, max_discount_amount, min_order_value,
 
-    console.log("Dữ liệu chuẩn bị INSERT vào DB:", insertPayload);
+            // --- CÁC TRƯỜNG MỚI ---
+            show_multiple_in_group: req.body.show_multiple_in_group === 'on',
+            apply_branches: applyBranches,
+            exclude_brands: uniq(parseList(req.body.exclude_brands)),
+            exclude_subcats: uniq(parseList(req.body.exclude_subcats)),
+        };
 
-    const { data: promotion, error } = await supabase.from('promotions').insert([insertPayload]).select('id').single();
-    
-    
-    if (error) throw error;
-    const newPromoId = promotion.id;
+        const { data: promotion, error } = await supabase.from('promotions').insert([insertPayload]).select('id').single();
+        if (error) throw error;
+        const newPromoId = promotion.id;
 
-    if (apply_to_type === 'sku') {
-      const includeList = [...new Set(parseSkus(skus))];
-      if (includeList.length > 0) await supabase.from('promotion_skus').insert(includeList.map(sku => ({ promotion_id: newPromoId, sku })));
+        // Insert SKU Include/Exclude
+        if (apply_to_type === 'sku') {
+            const includeList = [...new Set(parseSkus(skus))];
+            if (includeList.length > 0) await supabase.from('promotion_skus').insert(includeList.map(sku => ({ promotion_id: newPromoId, sku })));
+        }
+        const excludeList = [...new Set(parseSkus(excluded_skus))];
+        if (excludeList.length > 0) await supabase.from('promotion_excluded_skus').insert(excludeList.map(sku => ({ promotion_id: newPromoId, sku })));
+
+        // Insert Brand+Subcat
+        if (apply_brand_subcats_list && apply_brand_subcats_list.length > 0) {
+            await supabase.from('promotion_brand_subcats').insert(apply_brand_subcats_list.map(p => ({ promotion_id: newPromoId, brand: p.brand, subcat_id: p.subcat_id })));
+        }
+
+        // Insert Compat
+        if (apply_with && Array.isArray(apply_with) && apply_with.length > 0) await supabase.from('promotion_compat_allows').insert(apply_with.map(pid => ({ promotion_id: newPromoId, with_promotion_id: pid })));
+        if (exclude_with && Array.isArray(exclude_with) && exclude_with.length > 0) await supabase.from('promotion_compat_excludes').insert(exclude_with.map(pid => ({ promotion_id: newPromoId, with_promotion_id: pid })));
+
+        // Log History
+        await supabase.from('promotion_revisions').insert({ promotion_id: newPromoId, user_id: req.session.user?.id || null, action: 'create', snapshot: insertPayload });
+
+        return res.json({ success: true, id: promotion.id });
+    } catch (error) {
+        console.error('Lỗi khi tạo CTKM:', error);
+        res.status(500).json({ success: false, error: 'Lỗi khi tạo CTKM: ' + error.message });
     }
-
-    const excludeList = [...new Set(parseSkus(excluded_skus))];
-    if (excludeList.length > 0) await supabase.from('promotion_excluded_skus').insert(excludeList.map(sku => ({ promotion_id: newPromoId, sku })));
-
-    if (apply_brand_subcats_list && apply_brand_subcats_list.length > 0) {
-      await supabase.from('promotion_brand_subcats').insert(
-        apply_brand_subcats_list.map(p => ({ promotion_id: newPromoId, brand: p.brand, subcat_id: p.subcat_id }))
-      );
-    }
-
-    if (apply_with && Array.isArray(apply_with) && apply_with.length > 0) await supabase.from('promotion_compat_allows').insert(apply_with.map(pid => ({ promotion_id: newPromoId, with_promotion_id: pid })));
-    if (exclude_with && Array.isArray(exclude_with) && exclude_with.length > 0) await supabase.from('promotion_compat_excludes').insert(exclude_with.map(pid => ({ promotion_id: newPromoId, with_promotion_id: pid })));
-
-
-    await supabase.from('promotion_revisions').insert({
-      promotion_id: newPromoId,
-      user_id: req.session.user?.id || null,
-      action: 'create',
-      snapshot: insertPayload
-    });
-
-    return res.json({ success: true, id: promotion.id });
-  } catch (error) {
-    console.error('Lỗi khi tạo CTKM:', error);
-    res.status(500).json({ success: false, error: 'Lỗi khi tạo CTKM: ' + error.message });
-  }
 });
+
 
 // Thay thế toàn bộ route sao chép bằng code này
 app.post('/api/promotions/:id/clone', requireAuth, async (req, res) => {
@@ -2358,24 +2337,29 @@ app.get('/edit-promotion/:id', requireAuth, async (req, res) => {
 });
 
 // Thay thế toàn bộ route app.post('/edit-promotion/:id', ...) bằng code này
-// ===== UPDATE PROMOTION (with full diff for history) =====
+
+// [MỚI] Route Sửa CTKM (Đã bao gồm Branch, Exclude Mở Rộng, Show Multiple)
 app.post('/edit-promotion/:id', requireAuth, async (req, res) => {
   const id = Number(req.params.id);
+  // Helpers
+  const parseList = (str) => String(str || '').split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+  const parseSkus = (v) => { if (!v) return []; if (Array.isArray(v)) return v.flatMap(x => String(x).split(/[,\n\r\s]+/)).map(s=>s.trim()).filter(Boolean); return String(v).split(/[,\n\r\s]+/).map(s=>s.trim()).filter(Boolean); };
+  const uniq = arr => Array.from(new Set((arr || []).filter(v => v !== '' && v != null)));
+  const sortStr = arr => uniq(arr).sort((a, b) => String(a).localeCompare(String(b)));
+  const sortNum = arr => uniq(arr.map(Number)).sort((a, b) => a - b);
+  const sameJson = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const sameArr = (a, b) => JSON.stringify(sortStr(a || [])) === JSON.stringify(sortStr(b || []));
+  const sameArrNum = (a, b) => JSON.stringify(sortNum(a || [])) === JSON.stringify(sortNum(b || []));
+  const parseToArray = v => Array.isArray(v) ? v : (v==null || v==='' ? [] : [v]);
+
   try {
     if (!id) throw new Error('Thiếu promotion id');
 
-    // ===== 1) Lấy bản cũ (promotion + bảng phụ) =====
-    const { data: oldPromotion, error: eOld } =
-      await supabase.from('promotions').select('*').eq('id', id).single();
+    // 1. Lấy dữ liệu CŨ
+    const { data: oldPromotion, error: eOld } = await supabase.from('promotions').select('*').eq('id', id).single();
     if (eOld || !oldPromotion) throw new Error('Không tìm thấy CTKM để cập nhật.');
 
-    const [
-      oldSkusIncRes,
-      oldSkusExcRes,
-      oldAllowRes,
-      oldExclRes,
-      oldBrandSubRes // nếu bạn có bảng này; nếu không, trả về [] cũng OK
-    ] = await Promise.all([
+    const [oldSkusIncRes, oldSkusExcRes, oldAllowRes, oldExclRes, oldBrandSubRes] = await Promise.all([
       supabase.from('promotion_skus').select('sku').eq('promotion_id', id),
       supabase.from('promotion_excluded_skus').select('sku').eq('promotion_id', id),
       supabase.from('promotion_compat_allows').select('with_promotion_id').eq('promotion_id', id),
@@ -2385,206 +2369,152 @@ app.post('/edit-promotion/:id', requireAuth, async (req, res) => {
 
     const oldSkusInc = (oldSkusIncRes.data || []).map(r => String(r.sku));
     const oldSkusExc = (oldSkusExcRes.data || []).map(r => String(r.sku));
-    const oldAllows  = (oldAllowRes.data  || []).map(r => Number(r.with_promotion_id));
-    const oldExcls   = (oldExclRes.data   || []).map(r => Number(r.with_promotion_id));
-    const oldBrandSub= (oldBrandSubRes.data|| []).map(r => ({brand:String(r.brand), subcat_id:String(r.subcat_id)}));
+    const oldAllows = (oldAllowRes.data || []).map(r => Number(r.with_promotion_id));
+    const oldExcls = (oldExclRes.data || []).map(r => Number(r.with_promotion_id));
+    const oldBrandSub = (oldBrandSubRes.data || []).map(r => ({ brand: String(r.brand), subcat_id: String(r.subcat_id) }));
 
-    // ===== helpers =====
-    const uniq = arr => Array.from(new Set((arr||[]).filter(v => v !== '' && v != null)));
-    const sortStr = arr => uniq(arr).sort((a,b)=> String(a).localeCompare(String(b)));
-    const sortNum = arr => uniq(arr.map(Number)).sort((a,b)=>a-b);
-    const stableJson = obj => JSON.stringify(obj, Object.keys(obj||{}).sort());
-    const sameArr = (a,b) => JSON.stringify(sortStr(a||[])) === JSON.stringify(sortStr(b||[]));
-    const sameArrNum = (a,b)=> JSON.stringify(sortNum(a||[])) === JSON.stringify(sortNum(b||[]));
-    const sameJson = (a,b) => JSON.stringify(a) === JSON.stringify(b);
-
-    
-    // ===== 2) Lấy dữ liệu mới từ form =====
+    // 2. Lấy dữ liệu MỚI
     const {
       name, description, start_date, end_date, channel, promo_type, coupon_code,
       group_name, apply_to_type, apply_brands, apply_categories, apply_subcats,
-      skus, excluded_skus, has_coupon_list, coupons,
-      detail
+      skus, excluded_skus, has_coupon_list, coupons, detail
     } = req.body;
 
-    const apply_with   = parseToArray(req.body.apply_with);
+    const apply_with = parseToArray(req.body.apply_with);
     const exclude_with = parseToArray(req.body.exclude_with);
 
-    // Coupon builder → chuẩn hoá danh sách để so sánh/lưu
-    // Coupon builder → chuẩn hoá danh sách để so sánh/lưu (GIỮ FULL TRƯỜNG)
-let couponListData = null;
-if (has_coupon_list && coupons) {
-  const list = Array.isArray(coupons) ? coupons : Object.values(coupons);
-  couponListData = list
-    .filter(c => c && c.code && String(c.code).trim() !== '')
-    .map(c => {
-      // bóc số cho discount nếu người dùng nhập "900,000"
-      const raw = c.discount;
-      const discount =
-        typeof raw === 'number'
-          ? raw
-          : (raw == null || raw === '' ? null : (parseFloat(String(raw).replace(/[^0-9]/g, '')) || 0));
-      return {
-        name: (c.name || '').trim(),
-        code: String(c.code).trim(),
-        discount,                       // 👈 LƯU MỨC GIẢM
-        note: (c.note || '').trim()     // 👈 LƯU GHI CHÚ/ĐIỀU KIỆN
-      };
-    });
+    // [MỚI] Xử lý Chi nhánh
+    let branchesInput = req.body['apply_branches[]'] || req.body.apply_branches;
+    const applyBranches = branchesInput ? (Array.isArray(branchesInput) ? branchesInput : [branchesInput]) : null;
 
-  // sắp xếp ổn định để diff không ảo
-  couponListData.sort((a, b) =>
-    (a.code || '').localeCompare(b.code || '') ||
-    (a.name || '').localeCompare(b.name || '')
-  );
+    // Xử lý Coupon
+    let couponListData = null;
+    if (has_coupon_list && coupons) {
+      const list = Array.isArray(coupons) ? coupons : Object.values(coupons);
+      couponListData = list.filter(c => c && c.code && String(c.code).trim() !== '').map(c => {
+          const raw = c.discount;
+          const discount = typeof raw === 'number' ? raw : (raw == null || raw === '' ? null : (parseFloat(String(raw).replace(/[^0-9]/g, '')) || 0));
+          return { name: (c.name || '').trim(), code: String(c.code).trim(), discount, note: (c.note || '').trim() };
+        });
+      couponListData.sort((a, b) => (a.code || '').localeCompare(b.code || '') || (a.name || '').localeCompare(b.name || ''));
+      if (!couponListData.length) couponListData = null;
+    }
 
-  if (!couponListData.length) couponListData = null;
-}
+    // Xử lý giá trị giảm (Đảm bảo không mất khi sửa)
+    const discount_value_type = req.body.discount_value_type || null;
+    let discount_value = null;
+    if (discount_value_type === 'amount') discount_value = Number(req.body.discount_amount) || 0;
+    else if (discount_value_type === 'percent') discount_value = Number(req.body.discount_percent) || 0;
+    const max_discount_amount = req.body.max_discount_amount ? Number(req.body.max_discount_amount) : null;
+    const min_order_value = req.body.min_order_value ? Number(req.body.min_order_value) : 0;
 
 
-    // ===== 3) Chuẩn bị payload update promotions =====
+    // 3. Chuẩn bị payload UPDATE
     const updatePayload = {
-      name,
-      description,
-      start_date,
-      end_date,
-      group_name,
-      channel: channel || 'ALL',
-      promo_type,
-      coupon_code: coupon_code || null,
-      coupon_list: couponListData,           // 👈 sẽ được ghi lịch sử nếu đổi
-      detail_fields: detail || {},
-      // phạm vi áp dụng
+      name, description, start_date, end_date, group_name,
+      channel: channel || 'ALL', promo_type, coupon_code: coupon_code || null,
+      coupon_list: couponListData, detail_fields: detail || {},
+      
+      // --- CÁC TRƯỜNG MỚI ---
+      show_multiple_in_group: req.body.show_multiple_in_group === 'on',
+      apply_branches: applyBranches,
+      exclude_brands: uniq(parseList(req.body.exclude_brands)),
+      exclude_subcats: uniq(parseList(req.body.exclude_subcats)),
+      // ---------------------
+
       apply_to_all_skus: apply_to_type === 'all',
-      apply_to_brands:   apply_to_type === 'brand'    ? uniq(parseSkus(apply_brands))    : null,
-      apply_to_categories: apply_to_type === 'category'? uniq(parseSkus(apply_categories)) : null,
-      apply_to_subcats:  apply_to_type === 'subcat'   ? uniq(parseSkus(apply_subcats))   : null,
-      // tóm tắt scope mới (nếu bạn dùng Brand+Subcat)
-      apply_brand_subcats: apply_to_type === 'brand_subcat'
-        ? ( () => {
-              const bs = [];
-              uniq(parseToArray(apply_brands)).forEach(b =>
-                uniq(parseToArray(apply_subcats)).forEach(s => bs.push({brand:String(b), subcat_id:String(s)}))
-              );
-              return bs.length ? bs : null;
-            })()
-        : null,
+      apply_to_brands: apply_to_type === 'brand' ? uniq(parseSkus(apply_brands)) : null,
+      apply_to_categories: apply_to_type === 'category' ? uniq(parseSkus(apply_categories)) : null,
+      apply_to_subcats: apply_to_type === 'subcat' ? uniq(parseSkus(apply_subcats)) : null,
+      
+      apply_brand_subcats: apply_to_type === 'brand_subcat' ? (() => {
+          const bs = [];
+          uniq(parseSkus(apply_brands)).forEach(b => uniq(parseSkus(apply_subcats)).forEach(s => bs.push({ brand: String(b), subcat_id: String(s) })));
+          return bs.length ? bs : null;
+        })() : null,
+
+      // Update giá trị giảm
+      discount_value_type, discount_value, max_discount_amount, min_order_value,
       updated_at: new Date().toISOString()
     };
 
-    // ===== 4) Tính toán dữ liệu bảng phụ MỚI (trước khi ghi) =====
+    // 4. Tính toán bảng phụ MỚI
     const newSkusInc = uniq(parseSkus(skus));
     const newSkusExc = uniq(parseSkus(excluded_skus));
-    const newAllows  = sortNum(apply_with);
-    const newExcls   = sortNum(exclude_with);
-    const newBrandSub= updatePayload.apply_brand_subcats ? updatePayload.apply_brand_subcats.map(x=>({brand:x.brand, subcat_id:x.subcat_id})) : [];
+    const newAllows = sortNum(apply_with);
+    const newExcls = sortNum(exclude_with);
+    const newBrandSub = updatePayload.apply_brand_subcats ? updatePayload.apply_brand_subcats.map(x => ({ brand: x.brand, subcat_id: x.subcat_id })) : [];
 
-    // ===== 5) Tạo DIFF đầy đủ để ghi lịch sử =====
+    // 5. Tạo DIFF (Lịch sử)
     const diff = {};
-
-    // a) các field scalar/JSON chính, thêm cả apply_to_type & coupon_list
     const compareKeys = [
-      'name','description','start_date','end_date','channel','promo_type','coupon_code','group_name',
-      'apply_to_all_skus','apply_to_brands','apply_to_categories','apply_to_subcats',
-      'apply_brand_subcats',   // 👈 scope mới
-      'detail_fields','coupon_list'
+      'name', 'description', 'start_date', 'end_date', 'channel', 'promo_type', 'coupon_code', 'group_name',
+      'apply_to_all_skus', 'apply_to_brands', 'apply_to_categories', 'apply_to_subcats', 'apply_brand_subcats', 'detail_fields', 'coupon_list',
+      'discount_value_type', 'discount_value', 'max_discount_amount', 'min_order_value',
+      // Keys mới
+      'show_multiple_in_group', 'apply_branches', 'exclude_brands', 'exclude_subcats'
     ];
-    // thêm key “apply_to_type” riêng (không nằm trong bảng)
-    if (String(oldPromotion.apply_to_type || '') !== String(apply_to_type || '')) {
-      diff.apply_to_type = { from: oldPromotion.apply_to_type, to: apply_to_type };
-    }
+
+    if (String(oldPromotion.apply_to_type || '') !== String(apply_to_type || '')) diff.apply_to_type = { from: oldPromotion.apply_to_type, to: apply_to_type };
 
     compareKeys.forEach(k => {
       const oldVal = oldPromotion[k];
       const newVal = updatePayload[k];
-      // so mảng: chuẩn hoá
       if (Array.isArray(oldVal) || Array.isArray(newVal)) {
-        const norm = v => Array.isArray(v) ? v.slice() : (v==null?[]: [v]);
+        const norm = v => Array.isArray(v) ? v.slice() : (v == null ? [] : [v]);
         const o = norm(oldVal); const n = norm(newVal);
-        // riêng brand_subcats: sort theo brand+subcat_id
         if (k === 'apply_brand_subcats') {
-          const sortPairs = arr => (arr||[]).map(x=>({brand:String(x.brand), subcat_id:String(x.subcat_id)}))
-                                            .sort((a,b)=> a.brand.localeCompare(b.brand) || a.subcat_id.localeCompare(b.subcat_id));
-          if (JSON.stringify(sortPairs(o)) !== JSON.stringify(sortPairs(n))) {
-            diff[k] = { from: o, to: n };
-          }
+          const sortPairs = arr => (arr || []).map(x => ({ brand: String(x.brand), subcat_id: String(x.subcat_id) })).sort((a, b) => a.brand.localeCompare(b.brand) || a.subcat_id.localeCompare(b.subcat_id));
+          if (JSON.stringify(sortPairs(o)) !== JSON.stringify(sortPairs(n))) diff[k] = { from: o, to: n };
         } else {
-          if (JSON.stringify(sortStr(o)) !== JSON.stringify(sortStr(n))) {
-            diff[k] = { from: o, to: n };
-          }
+          if (JSON.stringify(sortStr(o)) !== JSON.stringify(sortStr(n))) diff[k] = { from: o, to: n };
         }
       } else {
-        // object/JSON khác
         if (!sameJson(oldVal, newVal)) diff[k] = { from: oldVal, to: newVal };
       }
     });
 
-    // b) bảng phụ: SKU include/exclude, compat allows/excludes, brand_subcat
     if (!sameArr(oldSkusInc, newSkusInc)) diff.sku_includes = { from: sortStr(oldSkusInc), to: sortStr(newSkusInc) };
     if (!sameArr(oldSkusExc, newSkusExc)) diff.sku_excludes = { from: sortStr(oldSkusExc), to: sortStr(newSkusExc) };
-    if (!sameArrNum(oldAllows,  newAllows)) diff.compat_allows   = { from: sortNum(oldAllows), to: sortNum(newAllows) };
-    if (!sameArrNum(oldExcls,   newExcls))  diff.compat_excludes = { from: sortNum(oldExcls),  to: sortNum(newExcls) };
-    // brand_subcat
-    const sortPairs = arr => (arr||[]).map(x=>({brand:String(x.brand), subcat_id:String(x.subcat_id)}))
-                                      .sort((a,b)=> a.brand.localeCompare(b.brand) || a.subcat_id.localeCompare(b.subcat_id));
-    if (JSON.stringify(sortPairs(oldBrandSub)) !== JSON.stringify(sortPairs(newBrandSub))) {
-      diff.brand_subcats_map = { from: sortPairs(oldBrandSub), to: sortPairs(newBrandSub) };
-    }
+    if (!sameArrNum(oldAllows, newAllows)) diff.compat_allows = { from: sortNum(oldAllows), to: sortNum(newAllows) };
+    if (!sameArrNum(oldExcls, newExcls)) diff.compat_excludes = { from: sortNum(oldExcls), to: sortNum(newExcls) };
+    const sortPairs = arr => (arr || []).map(x => ({ brand: String(x.brand), subcat_id: String(x.subcat_id) })).sort((a, b) => a.brand.localeCompare(b.brand) || a.subcat_id.localeCompare(b.subcat_id));
+    if (JSON.stringify(sortPairs(oldBrandSub)) !== JSON.stringify(sortPairs(newBrandSub))) diff.brand_subcats_map = { from: sortPairs(oldBrandSub), to: sortPairs(newBrandSub) };
 
-    // ===== 6) Ghi UPDATE =====
-    const { error: promoUpdateError } =
-      await supabase.from('promotions').update(updatePayload).eq('id', id);
+    // 6. Thực hiện UPDATE DB
+    const { error: promoUpdateError } = await supabase.from('promotions').update(updatePayload).eq('id', id);
     if (promoUpdateError) throw promoUpdateError;
 
-    // làm sạch + ghi lại bảng phụ
+    // Cập nhật bảng phụ
     await supabase.from('promotion_skus').delete().eq('promotion_id', id);
-    if (newSkusInc.length) {
-      await supabase.from('promotion_skus').insert(newSkusInc.map(sku => ({ promotion_id: id, sku })));
-    }
+    if (newSkusInc.length) await supabase.from('promotion_skus').insert(newSkusInc.map(sku => ({ promotion_id: id, sku })));
 
     await supabase.from('promotion_excluded_skus').delete().eq('promotion_id', id);
-    if (newSkusExc.length) {
-      await supabase.from('promotion_excluded_skus').insert(newSkusExc.map(sku => ({ promotion_id: id, sku })));
-    }
+    if (newSkusExc.length) await supabase.from('promotion_excluded_skus').insert(newSkusExc.map(sku => ({ promotion_id: id, sku })));
 
     await supabase.from('promotion_compat_allows').delete().eq('promotion_id', id);
-    if (newAllows.length) {
-      await supabase.from('promotion_compat_allows').insert(newAllows.map(pid => ({ promotion_id: id, with_promotion_id: pid })));
-    }
+    if (newAllows.length) await supabase.from('promotion_compat_allows').insert(newAllows.map(pid => ({ promotion_id: id, with_promotion_id: pid })));
 
     await supabase.from('promotion_compat_excludes').delete().eq('promotion_id', id);
-    if (newExcls.length) {
-      await supabase.from('promotion_compat_excludes').insert(newExcls.map(pid => ({ promotion_id: id, with_promotion_id: pid })));
-    }
+    if (newExcls.length) await supabase.from('promotion_compat_excludes').insert(newExcls.map(pid => ({ promotion_id: id, with_promotion_id: pid })));
 
-    // brand_subcat mapping + tóm tắt JSON
     await supabase.from('promotion_brand_subcats').delete().eq('promotion_id', id);
-    if (newBrandSub.length) {
-      await supabase.from('promotion_brand_subcats').insert(newBrandSub.map(p => ({ promotion_id: id, brand: p.brand, subcat_id: p.subcat_id })));
-      await supabase.from('promotions').update({ apply_brand_subcats: newBrandSub }).eq('id', id);
-    } else {
-      await supabase.from('promotions').update({ apply_brand_subcats: null }).eq('id', id);
-    }
+    if (newBrandSub.length) await supabase.from('promotion_brand_subcats').insert(newBrandSub.map(p => ({ promotion_id: id, brand: p.brand, subcat_id: p.subcat_id })));
 
-    // ===== 7) Ghi lịch sử nếu có thay đổi =====
+    // 7. Ghi lịch sử
     if (Object.keys(diff).length > 0) {
       await supabase.from('promotion_revisions').insert({
-        promotion_id: id,
-        user_id: req.session.user?.id || null,
-        action: 'update',
-        diff,
-        snapshot: { ...oldPromotion, ...updatePayload } // ảnh chụp sau cập nhật
+        promotion_id: id, user_id: req.session.user?.id || null, action: 'update', diff, snapshot: { ...oldPromotion, ...updatePayload }
       });
     }
 
     return res.redirect(`/promotion-detail/${id}`);
+
   } catch (e) {
     console.error(`Lỗi khi cập nhật CTKM #${id}:`, e);
     return res.status(500).send('Lỗi khi lưu CTKM: ' + e.message);
   }
 });
-
-
 
 // Xoá CTKM
 app.delete('/api/promotions/:id', requireManager, async (req, res) => {

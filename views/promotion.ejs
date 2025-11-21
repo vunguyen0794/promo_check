@@ -724,212 +724,166 @@
 
 
   <!-- ... các script khác của trang ... -->
- 
-
-
-
-<script>
-
-function parseNumber(s) {
-  // Loại bỏ tất cả ký tự không phải số
-  return parseInt(String(s || '').replace(/\D/g, ''), 10) || 0;
-}
-function formatNumber(n) {
-  // Định dạng lại số với dấu .
-  return new Intl.NumberFormat('vi-VN').format(Number(n || 0));
-}
-
-(function(){
-  const sku = "<%= product ? product.sku : '' %>";
-  const btnEdit  = document.getElementById('btnEditPrice');
-  const btnSave  = document.getElementById('btnSavePrice');
-  const btnCancel= document.getElementById('btnCancelPrice');
-  const view     = document.getElementById('priceView');
-  const editWrap = document.getElementById('priceEdit');
-  const input    = document.getElementById('priceInput');
-
-  function fmtVND(n){ return new Intl.NumberFormat('vi-VN').format(Number(n||0)) + ' VNĐ'; }
-
-  if (input) {
-    input.addEventListener('input', (e) => {
-      // 1. Lấy giá trị số thô
-      const rawValue = parseNumber(e.target.value);
-      // 2. Định dạng lại
-      const formattedValue = formatNumber(rawValue);
-      // 3. Gán lại vào ô input
-      e.target.value = formattedValue;
-    });
-  }
-  
-  if (btnEdit){
-    btnEdit.onclick = ()=>{ view.style.display='none'; editWrap.style.display='inline-block'; input.focus(); };
-  }
-  if (btnCancel){
-    btnCancel.onclick = ()=>{ editWrap.style.display='none'; view.style.display='inline'; };
-  }
-  if (btnSave){
-    btnSave.onclick = async ()=>{
-      try{
-        const newPrice = parseNumber(input.value);
-        if (newPrice < 0) { alert('Giá không hợp lệ'); return; }
-        const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price`, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ new_price: newPrice })
-        });
-        const js = await res.json();
-        if (!js.ok) throw new Error(js.error || 'Cập nhật giá thất bại');
-
-        // cập nhật UI
-        view.innerHTML = `<strong>${fmtVND(js.new_price)}</strong>`;
-        editWrap.style.display='none'; view.style.display='inline';
-        
-
-         // ✅ QUAN TRỌNG: gửi lại form để server tính lại finalPrice/totalDiscount
-      const f = document.getElementById('searchForm');
-      if (f) f.submit();
-        
-      // gợi ý: mở luôn lịch sử để thấy dòng mới
-        //const btnHist = document.getElementById('btnHistoryPrice');
-        ///if (btnHist) btnHist.click();
-      }catch(e){
-        alert(e.message);
-      }
-    };
-  }
-})();
-</script>
-
-
-
-<script>
+ <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Dán vào bên trong <script> (ví dụ: dòng 713)
-function formatCurrency(input) {
-    // 1. Lấy giá trị, xóa mọi ký tự không phải số
-    let value = input.value.replace(/\D/g, '');
-    
-    // 2. Định dạng lại với dấu chấm (kiểu Việt Nam)
-    if (value) {
-        input.value = new Intl.NumberFormat('vi-VN').format(value);
-    } else {
-        input.value = '';
+
+    // --- 1. CÁC HÀM HELPER ---
+    function parseNumber(s) {
+        return parseInt(String(s || '').replace(/\D/g, ''), 10) || 0;
     }
-}
+    
+    function formatNumber(n) {
+        return new Intl.NumberFormat('vi-VN').format(Number(n || 0));
+    }
 
-
-    // --- Hàm điều khiển popup danh sách coupon ---
+    // --- 2. LOGIC POPUP COUPON ---
     window.showCouponListModal = function (button) {
-  var modal     = document.getElementById('couponListModal');
-  var titleEl   = document.getElementById('couponModalTitle');
-  var container = document.getElementById('couponModalTableContainer');
-  if (!modal || !titleEl || !container) return;
+        var modal = document.getElementById('couponListModal');
+        var titleEl = document.getElementById('couponModalTitle');
+        var container = document.getElementById('couponModalTableContainer');
+        if (!modal || !titleEl || !container) return;
 
-  var promoName = (button && button.dataset && button.dataset.promoName) ? button.dataset.promoName : '—';
+        var promoName = (button && button.dataset && button.dataset.promoName) ? button.dataset.promoName : '—';
+        var coupons = [];
+        try {
+            coupons = JSON.parse((button && button.dataset && button.dataset.coupons) ? button.dataset.coupons : '[]');
+        } catch (e) { coupons = []; }
 
-  // Parse JSON an toàn
-  var coupons = [];
-  try {
-    coupons = JSON.parse((button && button.dataset && button.dataset.coupons) ? button.dataset.coupons : '[]');
-  } catch (e) {
-    console.warn('data-coupons không phải JSON hợp lệ:', e);
-    coupons = [];
-  }
+        function fmt(n) { return new Intl.NumberFormat('vi-VN').format(n); }
+        
+        var sorted = coupons.slice().sort(function(a, b) {
+            return (parseFloat(String(b.discount).replace(/\D/g,'')) || 0) - (parseFloat(String(a.discount).replace(/\D/g,'')) || 0);
+        });
 
-  function toNumber(v) {
-    if (typeof v === 'number') return v;
-    if (v == null || v === '') return 0;
-    return parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0;
-  }
-  function fmt(n) {
-    return new Intl.NumberFormat('vi-VN').format(toNumber(n));
-  }
-  function esc(s) { return (s == null ? '' : String(s)); }
+        var rows = sorted.map(function(c) {
+            var disc = parseFloat(String(c.discount).replace(/\D/g,'')) || 0;
+            return '<tr>' +
+                '<td>' + (c.name || '-') + '</td>' +
+                '<td><button class="code-badge" onclick="copyCode(this)" data-code="' + (c.code || '') + '">' +
+                '<span>' + (c.code || '') + '</span> <small>(copy)</small></button></td>' +
+                '<td>' + (disc ? fmt(disc) : '-') + '</td>' +
+                '<td>' + (c.note || '-') + '</td>' +
+                '</tr>';
+        }).join('');
 
-  // Sắp xếp GIẢM DẦN theo discount
-  var sorted = coupons.slice().sort(function(a, b) {
-    return toNumber(b && b.discount) - toNumber(a && a.discount);
-  });
+        titleEl.textContent = 'Danh sách coupon cho: ' + promoName;
+        container.innerHTML = '<div class="table-scroll-wrapper"><table class="info-table" style="margin-top:15px"><thead><tr><th>Tên/Nhóm SP</th><th>Mã Voucher</th><th>Mức giảm</th><th>Điều kiện</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+        modal.style.display = 'block';
+    };
 
-  // Render bảng (không dùng backtick)
-  var rows = '';
-  sorted.forEach(function(c) {
-    rows += '<tr>'
-      + '<td>' + (esc(c && c.name) || '-') + '</td>'
-      + '<td><button class="code-badge" onclick="copyCode(this)" data-code="' + (esc(c && c.code) || '') + '">'
-      + '<span>' + (esc(c && c.code) || '') + '</span> <small>(copy)</small>'
-      + '</button></td>'
-      + '<td>' + (toNumber(c && c.discount) ? fmt(c.discount) : '-') + '</td>'
-      + '<td>' + (esc(c && c.note) || '-') + '</td>'
-      + '</tr>';
-  });
-
-  titleEl.textContent = 'Danh sách coupon cho: ' + promoName;
-  container.innerHTML =
-      '<div class="table-scroll-wrapper">'
-    +   '<table class="info-table" style="margin-top:15px">'
-    +     '<thead>'
-    +       '<tr>'
-    +         '<th>Tên/Nhóm SP</th>'
-    +         '<th>Mã Voucher</th>'
-    +         '<th>Mức giảm</th>'
-    +         '<th>Điều kiện</th>'
-    +       '</tr>'
-    +     '</thead>'
-    +     '<tbody>' + rows + '</tbody>'
-    +   '</table>'
-    + '</div>';
-
-  modal.style.display = 'block';
-};
-    // --- Logic cho việc sửa giá và xem lịch sử ---
+    // --- 3. LOGIC SẢN PHẨM (GIÁ & LỊCH SỬ) ---
     const sku = "<%= (typeof product !== 'undefined' && product) ? product.sku : '' %>";
+    
     if (sku) {
-        const btnEdit  = document.getElementById('btnEditPrice');
-        const btnSave  = document.getElementById('btnSavePrice');
-        const btnCancel= document.getElementById('btnCancelPrice');
-        const view     = document.getElementById('priceView');
+        const btnEdit = document.getElementById('btnEditPrice');
+        const btnSave = document.getElementById('btnSavePrice');
+        const btnCancel = document.getElementById('btnCancelPrice');
+        const view = document.getElementById('priceView');
         const editWrap = document.getElementById('priceEdit');
-        const input    = document.getElementById('priceInput');
+        const input = document.getElementById('priceInput');
+        
+        // Nút xem lịch sử
         const btnHistory = document.getElementById('btnHistoryPrice');
         const historyModal = document.getElementById('priceHistoryModal');
         const historyClose = document.getElementById('phClose');
         const historyTbody = document.querySelector('#phTable tbody');
 
-        if(btnEdit) btnEdit.onclick = () => { view.style.display='none'; editWrap.style.display='inline-block'; input.focus(); };
-        if(btnCancel) btnCancel.onclick = () => { editWrap.style.display='none'; view.style.display='inline'; };
+        // --- Xử lý Sửa Giá ---
+        if (input) {
+            input.addEventListener('input', (e) => {
+                e.target.value = formatNumber(parseNumber(e.target.value));
+            });
+        }
 
-        if(btnSave) btnSave.onclick = async () => {
+        if (btnEdit) btnEdit.onclick = () => {
+            view.style.display = 'none';
+            editWrap.style.display = 'inline-block';
+            input.focus();
+        };
+        
+        if (btnCancel) btnCancel.onclick = () => {
+            editWrap.style.display = 'none';
+            view.style.display = 'inline';
+        };
+
+        if (btnSave) btnSave.onclick = async () => {
             try {
                 const newPrice = parseNumber(input.value);
-                if (newPrice < 0) { alert('Giá không hợp lệ'); return;
-                const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ new_price: newPrice }) });
+                if (newPrice < 0) { alert('Giá không hợp lệ'); return; }
+                
+                const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_price: newPrice })
+                });
+                
                 const js = await res.json();
-                if (!js.ok) throw new Error(js.error || 'Cập nhật giá thất bại');
+                if (!js.ok) throw new Error(js.error || 'Cập nhật thất bại');
+                
+                // Reload để tính lại KM
                 document.getElementById('searchForm').submit();
-            } catch(e) {
+            } catch (e) {
                 alert(e.message);
             }
         };
 
-        if(btnHistory) btnHistory.addEventListener('click', async () => {
-            try{
-                const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price-history`);
-                const js = await res.json();
-                if (!js.ok) throw new Error(js.error||'Load history failed');
-                const rows = (js.history||[]).map(r=>`<tr><td>${new Date(r.changed_at).toLocaleString('vi-VN')}</td><td>${new Intl.NumberFormat('vi-VN').format(r.old_price||0)} VNĐ</td><td>${new Intl.NumberFormat('vi-VN').format(r.new_price||0)} VNĐ</td><td>${r.user||'-'}</td></tr>`).join('');
-                historyTbody.innerHTML = rows || `<tr><td colspan="4">Chưa có lịch sử</td></tr>`;
-                historyModal.style.display = 'block'; // 'flex' có thể làm vỡ layout cũ
-            } catch(e) { alert('Không tải được lịch sử giá: ' + e.message); }
-        });
+        // --- Xử lý Xem Lịch Sử (Đã fix) ---
+        if (btnHistory) {
+            btnHistory.addEventListener('click', async (e) => {
+                e.preventDefault(); // Ngăn hành vi mặc định
+                
+                // Reset bảng trước khi load
+                historyTbody.innerHTML = '<tr><td colspan="4" style="text-align:center">Đang tải...</td></tr>';
+                historyModal.style.display = 'block'; // Hiện modal ngay lập tức
 
+                try {
+                    const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price-history`);
+                    const js = await res.json();
+                    
+                    if (!js.ok) throw new Error(js.error || 'Load failed');
+
+                    const rows = (js.history || []).map(r => `
+                        <tr>
+                            <td>${new Date(r.changed_at).toLocaleString('vi-VN')}</td>
+                            <td>${new Intl.NumberFormat('vi-VN').format(r.old_price || 0)}</td>
+                            <td><strong>${new Intl.NumberFormat('vi-VN').format(r.new_price || 0)}</strong></td>
+                            <td>${r.user || '-'}</td>
+                        </tr>
+                    `).join('');
+
+                    historyTbody.innerHTML = rows || `<tr><td colspan="4" style="text-align:center">Chưa có lịch sử sửa giá</td></tr>`;
+                    
+                } catch (e) {
+                    historyTbody.innerHTML = `<tr><td colspan="4" style="color:red;text-align:center">Lỗi: ${e.message}</td></tr>`;
+                }
+            });
+        }
+
+        // Đóng modal lịch sử
         if (historyClose) historyClose.onclick = () => historyModal.style.display = 'none';
-        window.addEventListener('click', e => { 
-            if (e.target === historyModal) historyModal.style.display = 'none';
-            if (e.target === document.getElementById('couponListModal')) document.getElementById('couponListModal').style.display = 'none';
+    }
+
+    // --- 4. ĐÓNG MODAL KHI CLICK RA NGOÀI ---
+    window.addEventListener('click', (e) => {
+        const historyModal = document.getElementById('priceHistoryModal');
+        const couponModal = document.getElementById('couponListModal');
+        if (e.target === historyModal) historyModal.style.display = 'none';
+        if (e.target === couponModal) couponModal.style.display = 'none';
+    });
+});
+
+// Hàm copy code (giữ nguyên global để HTML gọi được)
+window.copyCode = function(btn) {
+    const code = btn.getAttribute('data-code');
+    if (code) {
+        navigator.clipboard.writeText(code).then(() => {
+            // Hiệu ứng nhỏ khi copy
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span>Đã copy!</span>';
+            setTimeout(() => btn.innerHTML = originalText, 1500);
         });
     }
-});
+};
 </script>
 
 

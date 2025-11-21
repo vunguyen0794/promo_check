@@ -245,6 +245,7 @@
                             </div>
                         </div>
 
+                        <div class="form-row">
                         <div class="form-group">
                             <label>🔑 Mã giảm giá (nếu có)</label>
                             <input type="text" name="coupon_code" value="<%= promotion.coupon_code || '' %>">
@@ -473,6 +474,29 @@
                                             }
                                             %>
                 <div class="form-group">
+                    <div class="form-group">
+        <label>🏢 Chi nhánh áp dụng</label>
+        <% 
+           const branchList = ['HCM.BD', 'CP01', 'CP02', 'CP05', 'CP07', 'CP08', 'CP40', 'CP46', 'CP67', 'CP58', 'CP62', 'CP64', 'CP69']; 
+           const currentBranches = promotion.apply_branches || [];
+        %>
+        <select name="apply_branches[]" multiple class="multi-select" style="height: 100px;">
+            <% branchList.forEach(br => { %>
+                <option value="<%= br %>" <%= currentBranches.includes(br) ? 'selected' : '' %>><%= br %></option>
+            <% }) %>
+        </select>
+        <small class="hint" style="font-size:11px; color:#666">Giữ Ctrl/Cmd để chọn nhiều.</small>
+    </div>
+
+    <div class="form-group">
+        <label>⚙️ Tùy chọn hiển thị</label>
+        <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-weight: normal; cursor: pointer;">
+            <input type="checkbox" name="show_multiple_in_group" style="width:auto;"
+                   <%= promotion.show_multiple_in_group ? 'checked' : '' %>>
+            <span>Hiển thị cùng các CTKM khác trong nhóm?</span>
+        </label>
+    </div>
+</div>
                     <label>Áp dụng cho</label>
                     <select name="apply_to_type" id="applyToTypeSelect" onchange="toggleScopeFields()">
                         <option value="all" <%= promotion.apply_to_all_skus ? 'selected' : '' %>>Tất cả sản phẩm</option>
@@ -504,6 +528,20 @@
                     <label>SKU loại trừ (luôn áp dụng, tùy chọn)</label>
                     <textarea name="excluded_skus" rows="3" placeholder="Nhập SKU, cách nhau bởi dấu phẩy hoặc xuống dòng"><%= (promotion.promotion_excluded_skus || []).map(x=> x.sku).join(', ') %></textarea>
                 </div>
+                <div class="form-row">
+    <div class="form-group">
+        <label>Brand loại trừ</label>
+        <input type="text" name="exclude_brands" 
+               value="<%= (promotion.exclude_brands || []).join(', ') %>" 
+               placeholder="VD: Apple, Dell (cách nhau dấu phẩy)">
+    </div>
+    <div class="form-group">
+        <label>Subcat loại trừ</label>
+        <input type="text" name="exclude_subcats" 
+               value="<%= (promotion.exclude_subcats || []).join(', ') %>" 
+               placeholder="VD: NH01-01, NH02 (cách nhau dấu phẩy)">
+    </div>
+</div>
             </div>
             
             <div class="form-section">
@@ -511,6 +549,7 @@
                 <% const grouped = {}; (allPromosForCompat || []).forEach(p=>{ const g = p.group_name || 'Khác'; (grouped[g] = grouped[g] || []).push(p); }); const groupNames = Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'vi'));
                 %>
                 <div class="form-group">
+                    <div class="form-row">
                     <label>Áp dụng cùng CTKM</label>
                     <div style="display:flex; gap:8px; margin-bottom:6px;">
                         <select id="applyWithGroupPicker" style="flex:1; padding:8px 10px; border:1px solid #dee2e6; border-radius:8px;">

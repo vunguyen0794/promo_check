@@ -234,6 +234,62 @@
     overflow: visible !important; /* Buộc hiển thị nội dung bị tràn */
     height: auto !important; /* Buộc chiều cao phải tự động co giãn */
 }
+/* --- CSS MỚI CHO PHẦN PHẠM VI ÁP DỤNG --- */
+.scope-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.scope-row {
+    display: flex;
+    align-items: baseline; /* Căn chân chữ cho thẳng */
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.scope-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+    min-width: 60px; /* Độ rộng cố định để thẳng hàng */
+    flex-shrink: 0;
+}
+
+.scope-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-right: 6px;
+    margin-bottom: 4px;
+}
+
+/* Màu sắc cho Áp dụng */
+.badge-brand { background-color: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+.badge-cat   { background-color: #fae8ff; color: #86198f; border: 1px solid #f0abfc; }
+.badge-sub   { background-color: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
+.badge-sku   { background-color: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+
+/* Màu sắc cho Loại trừ */
+.exclude-container {
+    background-color: #fef2f2;
+    border: 1px dashed #fca5a5;
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 4px;
+}
+.exclude-header {
+    color: #dc2626; 
+    font-weight: 700; 
+    font-size: 13px; 
+    margin-bottom: 8px; 
+    display:flex; 
+    align-items:center; 
+    gap:6px;
+}
+.badge-exclude { background-color: #fff; color: #b91c1c; border: 1px solid #fecaca; }
   </style>
 
 
@@ -247,7 +303,16 @@
       </div>
       <% } %>
 
-        <div class="headline">Chi tiết CTKM</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <div class="headline" style="margin: 0;">Chi tiết CTKM</div>
+    
+    <% if (typeof currentUser !== 'undefined' && (currentUser.role === 'manager' || currentUser.role === 'admin')) { %>
+        <a href="/edit-promotion/<%= promotion.id %>" 
+           style="background-color: #f59e0b; color: #000; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;">
+            ✏️ Sửa CTKM
+        </a>
+    <% } %>
+</div>
 
         <% if (promotion) { %>
 
@@ -261,123 +326,124 @@
                 <col />
               </colgroup>
               <tbody>
-                <tr>
-                  <th>Cập nhật lần cuối</th>
-                  <td>
-                    <%= promotion.updated_at ? new Date(promotion.updated_at).toLocaleString('vi-VN') : '-' %>
-                  </td>
-                </tr>
+    <tr>
+        <th>Cập nhật lần cuối</th>
+        <td><%= promotion.updated_at ? new Date(promotion.updated_at).toLocaleString('vi-VN') : '-' %></td>
+    </tr>
 
-                <tr>
-                  <th>Tên CTKM</th>
-                  <td><strong>
-                      <%= promotion.name || promotion.promo_name || 'CTKM' %>
-                    </strong></td>
-                </tr>
-                <tr>
-                  <th>Mô tả</th>
-                  <td>
-                    <%= promotion.description || '' %>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Thời gian</th>
-                  <td>
-                    <%= promotion.start_date ? new Date(promotion.start_date).toLocaleDateString('vi-VN') : '...' %>
-                      &nbsp;-&nbsp;
-                      <%= promotion.end_date ? new Date(promotion.end_date).toLocaleDateString('vi-VN') : '...' %>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Channel</th>
-                  <td>
-                    <%= promotion.channel || 'All' %>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Loại CTKM</th>
-                  <td>
-                    <%= promotion.promo_type || '...' %>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Mã giảm giá</th>
-                  <td>
-    <% if (promotion.coupon_list && promotion.coupon_list.length > 1) { %>
-        <button type="button" class="code-badge" 
-                onclick="showCouponListModal(this)"
-                data-promo-name="<%= promotion.name %>"
-                data-coupons='<%- JSON.stringify(promotion.coupon_list) %>'>
-            📜 Danh sách coupon (Bấm để xem)
-        </button>
-
-    <% } else if (promotion.coupon_list && promotion.coupon_list.length === 1) { %>
-        <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promotion.coupon_list[0].code %>">
-            🔑 <span><%= promotion.coupon_list[0].code %></span> <small>(Bấm để copy)</small>
-        </button>
-
-    <% } else if (promotion.coupon_code) { %>
-        <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promotion.coupon_code %>">
-            🔑 <span><%= promotion.coupon_code %></span> <small>(Bấm để copy)</small>
-        </button>
-
-    <% } else { %>
-        <span class="muted">Không có</span>
-    <% } %>
-</td>
-                </tr>
-
-                <tr>
-  <th>Giá trị giảm</th>
-  <td>
-    <% if (promotion.max_coupon_discount) { %>
-      Giảm tối đa <strong><%= new Intl.NumberFormat('vi-VN').format(promotion.max_coupon_discount) %> ₫</strong>
+    <tr>
+        <th>Tên CTKM</th>
+        <td><strong><%= promotion.name || promotion.promo_name || 'CTKM' %></strong></td>
+    </tr>
     
-    <% } else if ((promotion.discount_value_type || '').toLowerCase() === 'amount') { %>
-      Giảm tối đa <strong><%= (promotion.discount_value || 0).toLocaleString('vi-VN') %> ₫</strong>
-      <% if (promotion.min_order_value) { %>
-        (đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫)
-      <% } %>
+    <tr>
+        <th>Mô tả</th>
+        <td><%- (promotion.description || '').replace(/\n/g, '<br>') %></td>
+    </tr>
     
-    <% } else if ((promotion.discount_value_type || '').toLowerCase() === 'percent') { %>
-      Giảm tối đa <strong><%= promotion.discount_value %>%</strong>
-      <% if (promotion.max_discount_amount) { %>
-        (tối đa <%= (promotion.max_discount_amount || 0).toLocaleString('vi-VN') %> ₫)
-      <% } %>
-      <% if (promotion.min_order_value) { %>
-        ; đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫
-      <% } %>
-      
-    <% } else { %>
-      -
+    <tr>
+        <th>Thời gian</th>
+        <td>
+            <%= promotion.start_date ? new Date(promotion.start_date).toLocaleDateString('vi-VN') : '...' %>
+            &nbsp;-&nbsp;
+            <%= promotion.end_date ? new Date(promotion.end_date).toLocaleDateString('vi-VN') : '...' %>
+        </td>
+    </tr>
+    
+    <tr>
+        <th>Channel</th>
+        <td><%= promotion.channel || 'All' %></td>
+    </tr>
+
+    <tr>
+        <th>Chi nhánh áp dụng</th>
+        <td>
+            <% if (promotion.apply_branches && promotion.apply_branches.length > 0) { %>
+                <div class="pill-wrap">
+                    <% promotion.apply_branches.forEach(function(br) { %>
+                        <span class="pill" style="background:#e0f2fe; color:#0284c7; font-weight:600;"><%= br %></span>
+                    <% }) %>
+                </div>
+            <% } else { %>
+                <strong>Toàn quốc</strong>
+            <% } %>
+        </td>
+    </tr>
+
+    <tr>
+        <th>Loại CTKM</th>
+        <td><%= promotion.promo_type || '...' %></td>
+    </tr>
+    
+    <tr>
+        <th>Mã giảm giá</th>
+        <td>
+            <% if (promotion.coupon_list && promotion.coupon_list.length > 1) { %>
+                <button type="button" class="code-badge" onclick="showCouponListModal(this)"
+                    data-promo-name="<%= promotion.name %>"
+                    data-coupons='<%- JSON.stringify(promotion.coupon_list) %>'>
+                    📜 Danh sách coupon (Bấm để xem)
+                </button>
+            <% } else if (promotion.coupon_list && promotion.coupon_list.length === 1) { %>
+                <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promotion.coupon_list[0].code %>">
+                    🔑 <span><%= promotion.coupon_list[0].code %></span> <small>(Bấm để copy)</small>
+                </button>
+            <% } else if (promotion.coupon_code) { %>
+                <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promotion.coupon_code %>">
+                    🔑 <span><%= promotion.coupon_code %></span> <small>(Bấm để copy)</small>
+                </button>
+            <% } else { %>
+                <span class="muted">Không có</span>
+            <% } %>
+        </td>
+    </tr>
+
+    <tr>
+        <th>Giá trị giảm</th>
+        <td>
+            <% if (promotion.max_coupon_discount) { %>
+                Giảm tối đa <strong><%= new Intl.NumberFormat('vi-VN').format(promotion.max_coupon_discount) %> ₫</strong>
+            <% } else if ((promotion.discount_value_type || '').toLowerCase() === 'amount') { %>
+                Giảm <strong><%= (promotion.discount_value || 0).toLocaleString('vi-VN') %> ₫</strong>
+                <% if (promotion.min_order_value) { %> (đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫) <% } %>
+            <% } else if ((promotion.discount_value_type || '').toLowerCase() === 'percent') { %>
+                Giảm <strong><%= promotion.discount_value %>%</strong>
+                <% if (promotion.max_discount_amount) { %> (tối đa <%= (promotion.max_discount_amount || 0).toLocaleString('vi-VN') %> ₫) <% } %>
+            <% } else { %>
+                -
+            <% } %>
+        </td>
+    </tr>
+
+    <% if (promotion.group_name) { %>
+        <tr>
+            <th>Nhóm</th>
+            <td>
+                <span class="badge badge-blue"><%= promotion.group_name %></span>
+                <% if (promotion.show_multiple_in_group) { %>
+                    <div style="margin-top:4px; font-size:12px; color:#166534;">
+                        ✅ Cho phép hiển thị cùng các CTKM khác trong nhóm
+                    </div>
+                <% } else { %>
+                    <div style="margin-top:4px; font-size:12px; color:#64748b;">
+                        ⚡️ Chỉ lấy CTKM tốt nhất trong nhóm
+                    </div>
+                <% } %>
+            </td>
+        </tr>
     <% } %>
-  </td>
-</tr>
 
-
-
-
-                <% if (promotion.group_name) { %>
-                  <tr>
-                    <th>Nhóm</th>
-                    <td><span class="badge badge-blue">
-                        <%= promotion.group_name %>
-                      </span></td>
-                  </tr>
-                  <% } %>
-                    <tr>
-                      <th>Trạng thái</th>
-                      <td>
-                        <% if ((promotion.status || 'active' )==='active' ) { %>
-                          <span class="badge badge-green">Active</span>
-                          <% } else { %>
-                            <span class="badge badge-gray">
-                              <%= promotion.status %>
-                            </span>
-                            <% } %>
-                      </td>
-                    </tr>
-              </tbody>
+    <tr>
+        <th>Trạng thái</th>
+        <td>
+            <% if ((promotion.status || 'active') === 'active') { %>
+                <span class="badge badge-green">Active</span>
+            <% } else { %>
+                <span class="badge badge-gray"><%= promotion.status %></span>
+            <% } %>
+        </td>
+    </tr>
+</tbody>
             </table>
             </div>
           </div>
@@ -418,59 +484,129 @@
             %>
             <div class="section-card">
     <h3 class="section-title">Phạm vi áp dụng</h3>
-    <table class="detail-grid">
-        <tbody>
-            <tr>
-                <th>Áp dụng cho</th>
-                <td>
-                    <% if (promotion.apply_to_all_skus) { %>
-                        <strong>Tất cả sản phẩm</strong>
+    <tbody>
+    <tr>
+        <th style="vertical-align: middle;">✅ Áp dụng cho</th>
+        <td>
+            <div class="scope-container">
+                <% if (promotion.apply_to_all_skus) { %>
+                    <span class="status-badge active" style="font-size:14px; padding:6px 12px;">
+                        🌍 Tất cả sản phẩm
+                    </span>
 
-                        <% } else if (promotion.apply_brand_subcats && promotion.apply_brand_subcats.length > 0) { %>
-                        <strong>Theo Brand + Subcat:</strong>
-                        <div class="pill-wrap" style="margin-top: 8px;">
-                            <% 
-                            /* Tách riêng Brand và Subcat từ dữ liệu */
-                            const brands = [...new Set(promotion.apply_brand_subcats.map(r => r.brand))];
-                            const subcats = [...new Set(promotion.apply_brand_subcats.map(r => r.subcat_id))];
-                            %>
-                            <p style="font-size: 13px; color: #334155; margin: 0 0 8px 0;"><strong>Brand:</strong> <%= brands.join(', ') %></p>
-                            <p style="font-size: 13px; color: #334155; margin: 0;"><strong>Subcat:</strong> <%= subcats.join(', ') %></p>
-                        </div>
-                        <% } else if (promotion.apply_to_brands && promotion.apply_to_brands.length > 0) { %>
-                        <div class="pill-wrap" style="margin-top: 8px;">
-                            <% promotion.apply_to_brands.forEach(function(b) { %>
-                                <span class="pill"><%= b %></span>
+                <% } else if (promotion.apply_brand_subcats && promotion.apply_brand_subcats.length > 0) { %>
+                    <% 
+                        const brands = [...new Set(promotion.apply_brand_subcats.map(r => r.brand))];
+                        const subcats = [...new Set(promotion.apply_brand_subcats.map(r => r.subcat_id))];
+                    %>
+                    <div class="scope-row">
+                        <span class="scope-label">Brand:</span>
+                        <div>
+                            <% brands.forEach(b => { %>
+                                <span class="scope-badge badge-brand"><%= b %></span>
                             <% }) %>
                         </div>
-
-                    <% } else if (promotion.apply_to_categories && promotion.apply_to_categories.length > 0) { %>
-                        <strong>Theo Category:</strong>
-                        <div class="pill-wrap" style="margin-top: 8px;">
-                            <% promotion.apply_to_categories.forEach(function(c) { %>
-                                <span class="pill"><%= c %></span>
+                    </div>
+                    <div class="scope-row">
+                        <span class="scope-label">Subcat:</span>
+                        <div>
+                            <% subcats.forEach(s => { %>
+                                <span class="scope-badge badge-sub"><%= s %></span>
                             <% }) %>
                         </div>
+                    </div>
 
-                    <% } else if (promotion.apply_to_subcats && promotion.apply_to_subcats.length > 0) { %>
-                        <strong>Theo Subcat:</strong>
-                        <div class="pill-wrap" style="margin-top: 8px;">
-                            <% promotion.apply_to_subcats.forEach(function(s) { %>
-                                <span class="pill"><%= s %></span>
+                <% } else if (promotion.apply_to_brands && promotion.apply_to_brands.length > 0) { %>
+                    <div class="scope-row">
+                        <span class="scope-label">Brand:</span>
+                        <div>
+                            <% promotion.apply_to_brands.forEach(b => { %>
+                                <span class="scope-badge badge-brand"><%= b %></span>
                             <% }) %>
                         </div>
+                    </div>
 
-                    <% } else if (promotion.promotion_skus && promotion.promotion_skus.length > 0) { %>
-                        <strong>Theo danh sách SKU chỉ định</strong>
-                    
-                    <% } else { %>
-                        <span class="muted">Chưa xác định</span>
-                    <% } %>
-                </td>
-            </tr>
-        </tbody>
-    </table>
+                <% } else if (promotion.apply_to_categories && promotion.apply_to_categories.length > 0) { %>
+                    <div class="scope-row">
+                        <span class="scope-label">Category:</span>
+                        <div>
+                            <% promotion.apply_to_categories.forEach(c => { %>
+                                <span class="scope-badge badge-cat"><%= c %></span>
+                            <% }) %>
+                        </div>
+                    </div>
 
+                <% } else if (promotion.apply_to_subcats && promotion.apply_to_subcats.length > 0) { %>
+                    <div class="scope-row">
+                        <span class="scope-label">Subcat:</span>
+                        <div>
+                            <% promotion.apply_to_subcats.forEach(s => { %>
+                                <span class="scope-badge badge-sub"><%= s %></span>
+                            <% }) %>
+                        </div>
+                    </div>
+
+                <% } else if (promotion.promotion_skus && promotion.promotion_skus.length > 0) { %>
+                    <div class="scope-row">
+                        <span class="scope-label">Danh sách:</span>
+                        <span class="scope-badge badge-sku">
+                            <%= promotion.promotion_skus.length %> SKU cụ thể
+                        </span>
+                        <small class="muted">(Xem bảng bên dưới)</small>
+                    </div>
+
+                <% } else { %>
+                    <span class="muted">Chưa xác định</span>
+                <% } %>
+            </div>
+        </td>
+    </tr>
+
+    <% if ((promotion.exclude_brands && promotion.exclude_brands.length > 0) || 
+           (promotion.exclude_subcats && promotion.exclude_subcats.length > 0) ||
+           (promotion.promotion_excluded_skus && promotion.promotion_excluded_skus.length > 0)) { %>
+    <tr>
+        <th></th> <td style="padding-top: 0;">
+            <div class="exclude-container">
+                <div class="exclude-header">
+                    ⛔️ Danh sách loại trừ
+                </div>
+                
+                <% if (promotion.exclude_brands && promotion.exclude_brands.length > 0) { %>
+                    <div class="scope-row">
+                        <span class="scope-label">Brand:</span>
+                        <div>
+                            <% promotion.exclude_brands.forEach(b => { %>
+                                <span class="scope-badge badge-exclude"><%= b %></span>
+                            <% }) %>
+                        </div>
+                    </div>
+                <% } %>
+
+                <% if (promotion.exclude_subcats && promotion.exclude_subcats.length > 0) { %>
+                    <div class="scope-row">
+                        <span class="scope-label">Subcat:</span>
+                        <div>
+                            <% promotion.exclude_subcats.forEach(s => { %>
+                                <span class="scope-badge badge-exclude"><%= s %></span>
+                            <% }) %>
+                        </div>
+                    </div>
+                <% } %>
+
+                <% if (promotion.promotion_excluded_skus && promotion.promotion_excluded_skus.length > 0) { %>
+                    <div class="scope-row">
+                        <span class="scope-label">SKU lẻ:</span>
+                        <span style="font-size:13px; color:#b91c1c;">
+                            <%= promotion.promotion_excluded_skus.length %> SKU bị chặn (Xem bảng dưới)
+                        </span>
+                    </div>
+                <% } %>
+            </div>
+        </td>
+    </tr>
+    <% } %>
+</tbody>
     <%# Logic để quyết định có hiển thị bảng SKU áp dụng hay không %>
     <% const isBySkuList = !promotion.apply_to_all_skus && (!promotion.apply_to_brands || promotion.apply_to_brands.length === 0) && (!promotion.apply_to_categories || promotion.apply_to_categories.length === 0) && (!promotion.apply_to_subcats || promotion.apply_to_subcats.length === 0); %>
     

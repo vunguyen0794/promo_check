@@ -33,11 +33,28 @@
 
 <div class="dash-card" id="featured-promos-container">
     <div class="dash-title">CTKM nổi bật</div>
-    <div class="promo-filter-tabs">
-        <a href="/" data-ajax="true" class="<%= selectedGroup === '' ? 'active' : '' %>">Tất cả</a>
-        <% (allGroups || []).forEach(function(group) { %>
-            <a href="/?group=<%= encodeURIComponent(group) %>" data-ajax="true" class="<%= selectedGroup === group ? 'active' : '' %>"><%= group %></a>
-        <% }) %>
+    
+    <div class="promo-filters-bar" style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
+        
+        <div style="flex: 0 0 auto; min-width: 200px;">
+            <select id="promoGroupSelect" class="info-select" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid #e5e7eb; padding: 0 12px; font-weight: 500;">
+                <option value="">📂 Tất cả nhóm</option>
+                <% (allGroups || []).forEach(function(group) { %>
+                    <option value="<%= group %>" <%= selectedGroup === group ? 'selected' : '' %>>
+                        <%= group %>
+                    </option>
+                <% }) %>
+            </select>
+        </div>
+
+        <div style="flex: 1; position: relative;">
+            <input type="text" id="promoSearchInput" 
+                   class="search-input" 
+                   placeholder="🔍 Tìm theo tên, mô tả, SKU áp dụng..." 
+                   value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>"
+                   autocomplete="off"
+                   style="width: 100%; height: 42px; padding: 8px 14px; border-radius: 8px; border: 1px solid #e5e7eb;">
+        </div>
     </div>
     
     <div id="promo-list-content">
@@ -49,44 +66,78 @@
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('featured-promos-container');
     const contentTarget = document.getElementById('promo-list-content');
+    const groupSelect = document.getElementById('promoGroupSelect');
+    const searchInput = document.getElementById('promoSearchInput');
     
-    container.addEventListener('click', async function(e) {
-        const link = e.target.closest('a[data-ajax="true"]');
-        if (!link) return;
+    let debounceTimer;
+    
+    // Hàm gọi API chung
+    async function fetchPromos(pageToLoad = 1, isAppend = false) {
+        // Lấy giá trị hiện tại của cả 2 input
+        const group = groupSelect.value;
+        const q = searchInput.value.trim();
         
-        e.preventDefault(); // Ngăn hành vi mặc định (tải lại trang)
+        // Tạo URL query
+        const params = new URLSearchParams();
+        if (group) params.append('group', group);
+        if (q) params.append('q', q);
+        params.append('page', pageToLoad);
         
-        const url = link.getAttribute('href');
-        const isPagination = link.textContent.includes('Xem thêm');
-        
+        const queryString = params.toString();
+        const url = '/?' + queryString;
+        const apiUrl = '/api/featured-promos?' + queryString;
+
         try {
-            // Thay đổi URL trên thanh địa chỉ
-            history.pushState(null, '', url);
+            if (!isAppend) {
+                contentTarget.style.opacity = '0.5';
+            }
             
-            // Hiển thị trạng thái đang tải (tùy chọn)
-            contentTarget.style.opacity = '0.5';
-            
-            // Gọi API để lấy HTML mới
-            const response = await fetch('/api/featured-promos' + url);
+            // Cập nhật URL trình duyệt (để reload không mất filter)
+            window.history.replaceState(null, '', url);
+
+            const response = await fetch(apiUrl);
             const html = await response.text();
-            
-            // Cập nhật nội dung
-            if (isPagination) {
-                // Nếu là nút "Xem thêm", xóa nút đó và nối thêm nội dung mới
-                link.parentElement.remove();
+
+            if (isAppend) {
                 contentTarget.insertAdjacentHTML('beforeend', html);
             } else {
-                // Nếu là tab lọc, thay thế toàn bộ nội dung
                 contentTarget.innerHTML = html;
             }
-
         } catch (error) {
-            console.error('Lỗi khi tải CTKM:', error);
-            // Nếu lỗi, điều hướng đến link như bình thường
-            window.location.href = url;
+            console.error('Lỗi tải CTKM:', error);
         } finally {
             contentTarget.style.opacity = '1';
         }
+    }
+
+    // 1. Sự kiện thay đổi Nhóm -> Reset về trang 1, giữ nguyên từ khóa tìm kiếm
+    groupSelect.addEventListener('change', function() {
+        fetchPromos(1, false);
+    });
+
+    // 2. Sự kiện gõ tìm kiếm -> Debounce -> Reset về trang 1, giữ nguyên nhóm
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            fetchPromos(1, false);
+        }, 500); // Đợi 500ms sau khi ngừng gõ
+    });
+
+    // 3. Sự kiện phân trang (Nút Xem thêm)
+    container.addEventListener('click', function(e) {
+        const link = e.target.closest('a[data-ajax="true"]');
+        if (!link) return;
+        
+        e.preventDefault();
+        
+        // Lấy page từ link (nếu có)
+        const href = link.getAttribute('href');
+        const urlParams = new URLSearchParams(href.split('?')[1]);
+        const nextPage = urlParams.get('page') || 1;
+
+        // Xóa nút cũ và tải tiếp
+        if (link.parentElement) link.parentElement.remove();
+        fetchPromos(nextPage, true);
     });
 });
 </script>

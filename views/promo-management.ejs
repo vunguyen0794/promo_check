@@ -352,6 +352,8 @@
                             <label>🔑 Mã giảm giá</label>
                             <input type="text" name="coupon_code" placeholder="Nhập mã coupon">
                         </div>
+
+                        <div class="form-row">
                         <div class="form-group">
         <label style="display: flex; align-items: center; gap: 8px; font-weight: normal;">
             <input type="checkbox" name="has_coupon_list" id="createHasCouponListCheckbox" style="width: auto; margin-right: 8px;">
@@ -640,7 +642,26 @@ document.getElementById('promoForm').addEventListener('submit', () => {
 
 
 <h3>🎯 Phạm vi áp dụng</h3>
+<div class="form-row">
+    <div class="form-group">
+        <label>🏢 Chi nhánh áp dụng</label>
+        <% const branchList = ['HCM.BD', 'CP01', 'CP02', 'CP05', 'CP07', 'CP08', 'CP40', 'CP46', 'CP67', 'CP58', 'CP62', 'CP64', 'CP69']; %>
+        <select name="apply_branches[]" multiple class="multi-select" style="height: 100px;">
+            <% branchList.forEach(br => { %>
+                <option value="<%= br %>"><%= br %></option>
+            <% }) %>
+        </select>
+        <small class="hint" style="font-size:11px; color:#666">Giữ Ctrl/Cmd để chọn nhiều. Không chọn = Toàn quốc.</small>
+    </div>
 
+    <div class="form-group">
+        <label>⚙️ Tùy chọn hiển thị</label>
+        <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-weight: normal; cursor: pointer;">
+            <input type="checkbox" name="show_multiple_in_group" style="width:auto;">
+            <span>Hiển thị cùng các CTKM khác trong nhóm?</span>
+        </label>
+    </div>
+</div>
 <div class="form-group">
     <label>Áp dụng cho</label>
     <select name="apply_to_type" id="createApplyToTypeSelect" onchange="toggleCreateScopeFields()">
@@ -673,6 +694,17 @@ document.getElementById('promoForm').addEventListener('submit', () => {
 <div class="form-group">
     <label>SKU loại trừ (tùy chọn)</label>
     <textarea name="excluded_skus" rows="3" placeholder="Các SKU trong danh sách này sẽ không được áp dụng CTKM"></textarea>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label>Brand loại trừ</label>
+        <input type="text" name="exclude_brands" placeholder="VD: Apple, Dell">
+    </div>
+    <div class="form-group">
+        <label>Subcat loại trừ</label>
+        <input type="text" name="exclude_subcats" placeholder="VD: NH01-01">
+    </div>
 </div>
 
 
