@@ -2557,12 +2557,11 @@ app.get('/drive-test', requireAuth, async (req, res) => {
 const CLEARANCE_SHEET_ID = '1uvSNw6PL46896rOo0PIf67hP3BCmR6WnoR1zhthU_ts'; 
 const CLEARANCE_SHEET_TAB = 'Sheet1'; // Tên Tab bạn đã cung cấp
 
-async function getClearanceInfoFromSheet(sku) {
 
+async function getClearanceInfoFromSheet(sku) {
   try {
     const sheets = await getGlobalSheetsClient();
-    // (SỬA LẠI) Đọc từ cột A đến cột S
-    const range = `${CLEARANCE_SHEET_TAB}!A:Y`; 
+    const range = `${CLEARANCE_SHEET_TAB}!A2:Y`; // Đọc từ A2 để bỏ qua Header nếu cần, hoặc xử lý mảng
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: CLEARANCE_SHEET_ID,
@@ -2572,98 +2571,164 @@ async function getClearanceInfoFromSheet(sku) {
     const rows = response.data.values;
     if (!rows || rows.length === 0) return null;
 
-    // (SỬA LẠI) Lấy tất cả các serial cho SKU này
     const results = [];
-    
-    // Bỏ qua header, tìm SKU
-    for (let i = 1; i < rows.length; i++) {
+    // Duyệt qua các dòng
+    for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      // Cột F là SKU (chỉ số 5)
-      if (row[5] && String(row[5]).trim() === String(sku)) {
-        const store_name = row[2] || 'N/A';
-        // Cột I (Serial - chỉ số 9)
-        const serial = row[8] || 'N/A';
-        // (MỚI) Cột J (Link ảnh - chỉ số 9) - TÔI TẠM ĐOÁN LÀ J, VÌ I BỊ TRÙNG
-        const images = (row[24] || '').split(',').map(link => link.trim()).filter(Boolean); 
-        // Cột K (Bảo hành - chỉ số 10)
-        const warrantyEnd = row[10] || 'N/A';
-        // Cột O (Giá - chỉ số 14)
-        const clearancePrice = row[14] || 'N/A';
-        // Cột R (KFI - chỉ số 17)
-        const kfi = row[17] || 'N/A';
-
-        const status = row[18] || 'Không có mô tả';
-
+      // Cột F (index 5) là SKU. So sánh chuỗi.
+      if (row[5] && String(row[5]).trim() === String(sku).trim()) {
+        const images = (row[24] || '').split(',').map(link => link.trim()).filter(Boolean);
+        
         results.push({
-          store_name: store_name,
-          serial: serial,
+          store_name: row[2] || 'N/A',
+          serial: row[8] || 'N/A',
           images: images,
-          warranty_end: warrantyEnd,
-          clearance_price: clearancePrice,
-          kfi: kfi,
-          tinh_trang: status,
+          warranty_end: row[10] || 'N/A',
+          clearance_price: row[14] || '0',
+          kfi: row[17] || 'N/A',
+          tinh_trang: row[18] || 'Không có mô tả',
         });
       }
     }
-    return (results.length > 0) ? results : null; // Trả về mảng kết quả
+    return (results.length > 0) ? results : null;
 
   } catch (err) {
-    console.error(`[Google Sheets] Lỗi khi đọc Sheet Thanh Lý: ${err.message}`);
-    return null; // Trả về null nếu có lỗi
+    console.error(`[Google Sheets] Lỗi đọc chi tiết: ${err.message}`);
+    return null;
+  }
+}
+
+async function getAllClearanceItems() {
+  try {
+    const sheets = await getGlobalSheetsClient();
+    // Đọc toàn bộ sheet
+    const range = `${CLEARANCE_SHEET_TAB}!A:Y`; 
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: CLEARANCE_SHEET_ID,
+      range: range,
+    });
+
+    let rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    const results = rows.map(row => {
+      // Lấy giá trị SKU ở cột F (index 5)
+      const skuVal = String(row[5] || '').trim();
+
+      // --- BỘ LỌC HEADER CHẶT CHẼ HƠN ---
+      // 1. Bỏ qua nếu SKU rỗng
+      if (!skuVal) return null;
+      // 2. Bỏ qua nếu SKU chứa chữ "SKU" (Đây là dòng Header cột)
+      if (skuVal.toUpperCase().includes('SKU')) return null;
+      // 3. Bỏ qua nếu SKU chứa chữ "Timeline" (Đây là dòng Header thời gian)
+      if (skuVal.includes('Timeline')) return null;
+
+      // Xử lý giá tiền
+      const rawPriceString = row[14] || '0';
+      const priceNumber = parseFloat(String(rawPriceString).replace(/[^0-9]/g, '')) || 0;
+
+      return {
+        store_name: row[2] || 'N/A', // Cột C: Tên cửa hàng
+        
+        // [SỬA LỖI 1] Ngành hàng cột E -> Index là 4
+        category: row[4] || 'Khác',  
+        
+        sku: skuVal,                 // Cột F: SKU
+        product_name: row[6] || 'Sản phẩm chưa có tên', // Cột G: Tên SP
+        serial: row[8] || 'N/A',     // Cột I: Serial
+        priceRaw: priceNumber,
+        priceDisplay: new Intl.NumberFormat('vi-VN').format(priceNumber),
+      };
+    }).filter(item => item !== null); // Loại bỏ các dòng null (Header, dòng trống)
+
+    // Sắp xếp giá tăng dần
+    results.sort((a, b) => a.priceRaw - b.priceRaw);
+
+    return results;
+
+  } catch (err) {
+    console.error(`[Google Sheets] Lỗi lấy danh sách All: ${err.message}`);
+    return [];
   }
 }
 
 app.all('/clearance-check', requireAuth, async (req, res) => {
   const skuInput = (req.method === 'POST' ? req.body?.sku : req.query?.sku) || '';
-  if (!skuInput) {
-    return res.render('clearance-check', { title: 'Tra cứu hàng thanh lý', currentPage: 'clearance-check', error: null, product: null, clearanceInfo: null });
+  
+  // 1. QUAN TRỌNG: Luôn tải danh sách "List Sẵn" trước tiên
+  // (Dòng này sẽ làm sáng hàm getAllClearanceItems bị mờ)
+  let allItems = [];
+  try {
+      allItems = await getAllClearanceItems();
+  } catch (e) {
+      console.error("Lỗi lấy danh sách All:", e);
   }
 
-  try {
-    // --- SỬA LOGIC: Chạy song song cả 3 truy vấn ---
+  // 2. Nếu KHÔNG có SKU (Vào trang lần đầu) -> Chỉ hiển thị bảng danh sách
+  if (!skuInput) {
+    return res.render('clearance-check', { 
+        title: 'Tra cứu hàng thanh lý', 
+        currentPage: 'clearance-check', 
+        error: null, 
+        product: null, 
+        clearanceInfo: null,
+        allClearanceItems: allItems // <--- Truyền danh sách vào đây
+    });
+  }
 
+  // 3. Nếu CÓ SKU (Đang tìm kiếm) -> Tìm chi tiết
+  try {
     const userBranch = req.session.user?.branch_code;
     const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Lấy thông tin SKU (từ Supabase)
-    //    (Không báo lỗi nếu không tìm thấy, product sẽ là null)
-    const { data: product } = await supabase.from('skus').select('*').eq('sku', skuInput).single();
+    // Chạy song song 3 tác vụ lấy dữ liệu chi tiết
+    const [productRes, inventoryMap, clearanceInfo] = await Promise.all([
+        supabase.from('skus').select('*').eq('sku', skuInput).single(),
+        getInventoryCounts([skuInput], userBranch, isGlobalAdmin, today),
+        getClearanceInfoFromSheet(skuInput)
+    ]);
 
-    // 2. Lấy tồn kho (từ BigQuery)
-    const inventoryMap = await getInventoryCounts([skuInput], userBranch, isGlobalAdmin, today);
+    const product = productRes.data;
     const inventoryCounts = inventoryMap.get(skuInput)?.get(userBranch); 
 
-    // 3. Lấy thông tin từ Google Sheet (trả về MẢNG hoặc null)
-    const clearanceInfo = await getClearanceInfoFromSheet(skuInput);
-
-    // --- SỬA LOGIC: Chỉ báo lỗi nếu CẢ 2 ĐỀU KHÔNG CÓ ---
-    // Nếu không tìm thấy trong Supabase VÀ cũng không tìm thấy trong Google Sheet
+    // Logic báo lỗi: Chỉ báo nếu KHÔNG tìm thấy ở đâu cả
     if (!product && (!clearanceInfo || clearanceInfo.length === 0)) {
       return res.render('clearance-check', { 
         title: 'Tra cứu hàng thanh lý', 
         currentPage: 'clearance-check', 
         error: `Không tìm thấy SKU: ${skuInput} (Cả trong Supabase và Google Sheet)`, 
         product: null, 
-        clearanceInfo: null 
+        clearanceInfo: null,
+        allClearanceItems: allItems // Vẫn hiển thị list đễ user tra cái khác
       });
     }
     
-    // --- SỬA LOGIC: Render với bất cứ thông tin nào tìm được ---
+    // Render kết quả tìm kiếm
     res.render('clearance-check', {
       title: `Thanh lý: ${skuInput}`,
       currentPage: 'clearance-check',
-      product: product, // Sẽ là null nếu không có, EJS tự xử lý
+      product: product, 
       inventoryMap, 
       inventoryCounts, 
       isGlobalAdmin,
       userBranch,
-      clearanceInfo: clearanceInfo, // Sẽ là null/rỗng nếu không có, EJS tự xử lý
+      clearanceInfo: clearanceInfo, 
+      allClearanceItems: allItems, // <--- Truyền biến allItems đã lấy ở trên
       error: null
     });
 
   } catch (error) {
-    res.render('clearance-check', { title: 'Tra cứu hàng thanh lý', currentPage: 'clearance-check', error: error.message, product: null, clearanceInfo: null });
+    console.error("Lỗi xử lý tìm kiếm:", error);
+    res.render('clearance-check', { 
+        title: 'Tra cứu hàng thanh lý', 
+        currentPage: 'clearance-check', 
+        error: error.message, 
+        product: null, 
+        clearanceInfo: null,
+        allClearanceItems: allItems 
+    });
   }
 });
 

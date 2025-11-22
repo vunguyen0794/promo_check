@@ -150,6 +150,142 @@
         </div>
     </div>
 
+    <% if (typeof allClearanceItems !== 'undefined' && allClearanceItems.length > 0) { %>
+    
+    <% 
+       const uniqueStores = [...new Set(allClearanceItems.map(i => i.store_name))].sort();
+       const uniqueCats = [...new Set(allClearanceItems.map(i => i.category))].sort();
+    %>
+
+    <div class="product-info" style="margin-top: 25px;">
+        <h2 style="border-bottom-color: #3498db;">
+            Danh sách hàng thanh lý đang có (<span id="countDisplay"><%= allClearanceItems.length %></span>)
+        </h2>
+        
+        <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+            
+            <input type="text" id="quickFilter" 
+                   placeholder="Gõ tên SP, SKU..." 
+                   style="flex: 2; min-width: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+            
+            <select id="storeFilter" style="flex: 1; min-width: 150px; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                <option value="">-- Tất cả Cửa hàng --</option>
+                <% uniqueStores.forEach(s => { %>
+                    <option value="<%= s %>"><%= s %></option>
+                <% }) %>
+            </select>
+
+            <select id="catFilter" style="flex: 1; min-width: 150px; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                <option value="">-- Tất cả Ngành hàng --</option>
+                <% uniqueCats.forEach(c => { %>
+                    <option value="<%= c %>"><%= c %></option>
+                <% }) %>
+            </select>
+        </div>
+
+        <div class="table-scroll-wrapper" style="max-height: 600px; overflow-y: auto;">
+            <table class="info-table" id="clearanceTable">
+                <thead style="position: sticky; top: 0; z-index: 10; background: #f8f9fa;">
+                    <tr>
+                        <th style="width: 110px;">SKU</th>
+                        <th>Tên Sản Phẩm</th>
+                        <th style="width: 150px;">Cửa hàng</th>
+                        <th style="width: 120px; text-align: right;">Giá</th>
+                        <th style="width: 90px; text-align: center;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% allClearanceItems.forEach(item => { %>
+                        <tr class="clearance-row" 
+                            data-store="<%= item.store_name %>" 
+                            data-cat="<%= item.category %>">
+                            
+                            <td class="searchable" style="font-weight:bold; color:#555;"><%= item.sku %></td>
+                            
+                            <td class="searchable">
+                                <div style="font-weight: 600; color: #2c3e50;"><%= item.product_name %></div>
+                                <div style="font-size: 11px; color: #888; margin-top:2px;">Serial: <%= item.serial %></div>
+                            </td>
+
+                            <td><%= item.store_name %></td>
+                            
+                            <td style="text-align: right; font-weight: bold; color: #e74c3c;">
+                                <%= item.priceDisplay %> ₫
+                            </td>
+                            
+                            <td style="text-align: center;">
+                                <button type="button" 
+                                        onclick="selectSku('<%= item.sku %>')"
+                                        style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size:13px;">
+                                    Kiểm tra
+                                </button>
+                            </td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="noResult" style="display: none; text-align: center; padding: 20px; color: #666;">
+            Không tìm thấy kết quả phù hợp.
+        </div>
+    </div>
+
+    <script>
+        // HÀM LỌC TỔNG HỢP
+        function filterTable() {
+            const textFilter = document.getElementById('quickFilter').value.toLowerCase();
+            const storeFilter = document.getElementById('storeFilter').value;
+            const catFilter = document.getElementById('catFilter').value;
+            
+            const rows = document.querySelectorAll('.clearance-row');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                // Lấy dữ liệu của dòng
+                const cells = row.querySelectorAll('.searchable');
+                let rowText = "";
+                cells.forEach(c => rowText += c.textContent + " ");
+                const rowStore = row.getAttribute('data-store');
+                const rowCat = row.getAttribute('data-cat');
+
+                // Kiểm tra điều kiện
+                const matchText = rowText.toLowerCase().includes(textFilter);
+                const matchStore = (storeFilter === "") || (rowStore === storeFilter);
+                const matchCat = (catFilter === "") || (rowCat === catFilter);
+
+                if (matchText && matchStore && matchCat) {
+                    row.style.display = "";
+                    visibleCount++;
+                } else {
+                    row.style.display = "none";
+                }
+            });
+
+            // Cập nhật giao diện
+            document.getElementById('countDisplay').textContent = visibleCount;
+            document.getElementById('noResult').style.display = (visibleCount === 0) ? "block" : "none";
+        }
+
+        // Gán sự kiện
+        document.getElementById('quickFilter').addEventListener('keyup', filterTable);
+        document.getElementById('storeFilter').addEventListener('change', filterTable);
+        document.getElementById('catFilter').addEventListener('change', filterTable);
+
+        // Hàm chọn SKU (giữ nguyên)
+        function selectSku(sku) {
+            document.getElementById('skuSearch').value = sku;
+            document.getElementById('searchForm').submit();
+        }
+    </script>
+
+    <style>
+        /* CSS phụ trợ */
+        .badge { display: inline-block; padding: 3px 7px; font-size: 11px; font-weight: 600; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 10px; }
+        .badge-info { color: #fff; background-color: #17a2b8; }
+    </style>
+<% } %>
+
     <% if (typeof product !=='undefined' && product) { %>
         <div class="product-info">
             <h2>Thông tin sản phẩm (Supabase)</h2>
@@ -230,7 +366,7 @@
 
     <% /* === BẮT ĐẦU: KHỐI HIỂN THỊ MỚI === */ %>
     <% if (typeof clearanceInfo !== 'undefined' && clearanceInfo && clearanceInfo.length > 0) { %>
-      <div class="product-info" style="margin-top: 20px;">
+      <div class="product-info" style="margin-top: 20px;" id="result-sheet">
         <h2 style="border-bottom-color: #27ae60;">Thông tin Thanh lý (Google Sheet) - Tìm thấy <%= clearanceInfo.length %> Serial</h2>
         
         <div class="table-scroll-wrapper">
@@ -283,6 +419,109 @@
     <% } %>
 
 </div> <% /* Đóng .promotion-container */ %>
+
+<script>
+    // 1. HÀM LỌC BẢNG
+    function filterTable() {
+        const textFilter = document.getElementById('quickFilter').value.toLowerCase();
+        const storeFilter = document.getElementById('storeFilter').value;
+        const catFilter = document.getElementById('catFilter').value;
+        
+        const rows = document.querySelectorAll('.clearance-row');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('.searchable');
+            let rowText = "";
+            cells.forEach(c => rowText += c.textContent + " ");
+            const rowStore = row.getAttribute('data-store');
+            const rowCat = row.getAttribute('data-cat');
+
+            const matchText = rowText.toLowerCase().includes(textFilter);
+            // Logic: Nếu filter rỗng (chọn tất cả) HOẶC giá trị khớp
+            const matchStore = (storeFilter === "") || (rowStore === storeFilter);
+            const matchCat = (catFilter === "") || (rowCat === catFilter);
+
+            if (matchText && matchStore && matchCat) {
+                row.style.display = "";
+                visibleCount++;
+            } else {
+                row.style.display = "none";
+            }
+        });
+
+        // Cập nhật số lượng hiển thị
+        const countDisplay = document.getElementById('countDisplay');
+        if(countDisplay) countDisplay.textContent = visibleCount;
+        
+        const noResult = document.getElementById('noResult');
+        if(noResult) noResult.style.display = (visibleCount === 0) ? "block" : "none";
+    }
+
+    // 2. HÀM CHỌN SKU ĐỂ KIỂM TRA
+    function selectSku(sku) {
+        document.getElementById('skuSearch').value = sku;
+        document.getElementById('searchForm').submit();
+    }
+
+    // 3. KHỞI TẠO KHI TRANG LOAD XONG
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        // --- A. TỰ ĐỘNG CUỘN (AUTO SCROLL) ---
+        const sheetResult = document.getElementById('result-sheet');
+        const productResult = document.getElementById('result-product');
+        const errorMsg = document.querySelector('.error-message') || document.querySelector('.dash-muted');
+
+        if (sheetResult) {
+            sheetResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (productResult) {
+            productResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (errorMsg) {
+            errorMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // --- B. KHÔI PHỤC BỘ LỌC TỪ LOCALSTORAGE (GIỮ TRẠNG THÁI) ---
+        const savedStore = localStorage.getItem('clearance_store_filter');
+        const savedCat = localStorage.getItem('clearance_cat_filter');
+        
+        const storeSelect = document.getElementById('storeFilter');
+        const catSelect = document.getElementById('catFilter');
+
+        if (storeSelect && savedStore) {
+            storeSelect.value = savedStore;
+        }
+        if (catSelect && savedCat) {
+            catSelect.value = savedCat;
+        }
+
+        // Áp dụng lọc ngay lập tức sau khi khôi phục
+        if (storeSelect || catSelect) {
+            filterTable();
+        }
+    });
+
+    // 4. GÁN SỰ KIỆN & LƯU TRẠNG THÁI KHI THAY ĐỔI
+    const quickInput = document.getElementById('quickFilter');
+    if(quickInput) quickInput.addEventListener('keyup', filterTable);
+
+    const storeSelect = document.getElementById('storeFilter');
+    if(storeSelect) {
+        storeSelect.addEventListener('change', function() {
+            // Lưu vào bộ nhớ trình duyệt
+            localStorage.setItem('clearance_store_filter', this.value);
+            filterTable();
+        });
+    }
+
+    const catSelect = document.getElementById('catFilter');
+    if(catSelect) {
+        catSelect.addEventListener('change', function() {
+            // Lưu vào bộ nhớ trình duyệt
+            localStorage.setItem('clearance_cat_filter', this.value);
+            filterTable();
+        });
+    }
+</script>
 
 <%- include('partials/toast') %>
 <%- include('partials/search-autocomplete') %> 
