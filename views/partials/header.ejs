@@ -18,101 +18,116 @@
   <title><%= title %></title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
+  <style>
+      /* CSS phụ trợ để icon và chữ thẳng hàng đẹp hơn */
+      .dropdown-menu a {
+          display: flex !important; /* Bắt buộc flex để căn chỉnh */
+          align-items: center;
+          gap: 8px; /* Khoảng cách giữa icon và chữ */
+          white-space: nowrap;
+      }
+      .menu-icon {
+          width: 20px; /* Cố định chiều rộng icon để chữ thẳng hàng dọc */
+          text-align: center;
+          font-size: 16px;
+      }
+  </style>
 </head>
 <body>
 
-  <% /* === BƯỚC 1: THÊM WRAPPER MỚI === */ %>
-  <div class="sticky-top-bar">
-
+ <div class="sticky-top-bar">
     <header class="header">
         <div class="container">
             <div class="header-content">
-                <div class="logo">Hệ thống CTKM</div>
-                  <nav class="nav">
-    <a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Trang Chủ</a>
-    <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">FIFO Checking</a>
-    <a href="/newsfeed" class="<%= currentPage === 'newsfeed' ? 'active' : '' %>">Bảng tin</a>
+                <div class="logo">WEB NỘI BỘ</div>
+                <nav class="nav">
+                    <a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">🏠 Trang Chủ</a>
+                    <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">📦 FIFO</a>
+                    <a href="/newsfeed" class="<%= currentPage === 'newsfeed' ? 'active' : '' %>">📰 Bảng tin</a>
     
-    <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
-        <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">Quản lý CTKM</a>
-    <% } %>  
-                    </nav>
+                    <% /* --- [UPDATE] CHỈ HCM.BD MỚI THẤY QUẢN LÝ CTKM --- */ %>
+                    <% if (user && (user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
+                        <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">⚙️ QL CTKM</a>
+                    <% } %>  
+                </nav>
                      
                 <% 
-    // Mảng này chứa TẤT CẢ các trang con thuộc "Tiện ích"
-    const utilityPages = [
-        'pc-builder', 'quote-builder', 'price-battle', 
-        'bom-check', 'bom-dashboard', 'clearance-check',
-        'event-operations', 'event-orders', 'event-settings'
-    ];
-%>
-<div class="dropdown">
-    
-    <a href="#" id="utilitiesDropdownToggle" style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none; padding: 6px 10px;" 
-       class="<%= utilityPages.includes(currentPage) ? 'active' : '' %>">
-        Tiện ích
-        <span style="font-size: 10px;">▼</span>
-    </a>
+                    const utilityPages = [
+                        'pc-builder', 'quote-builder', 'price-battle', 
+                        'bom-check', 'bom-dashboard', 'clearance-check',
+                        'event-operations', 'event-orders', 'event-settings', 'customer-care'
+                    ];
+                %>
+                <div class="dropdown">
+                    <a href="#" id="utilitiesDropdownToggle" style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none; padding: 6px 10px;" 
+                       class="<%= utilityPages.includes(currentPage) ? 'active' : '' %>">
+                        Tiện ích
+                        <span style="font-size: 10px;">▼</span>
+                    </a>
                   
-    <div class="dropdown-menu" id="utilitiesDropdownMenu">
-        <a href="/customer-care" class="<%= currentPage === 'customer-care' ? 'active' : '' %>">
-        📞 Chăm sóc khách hàng
-      </a>
-        <a href="/pc-builder">Build PC (Linh kiện)</a>
-        <a href="/quote-builder">Báo giá nhanh (SKU)</a>
-        <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>">Chiến giá</a>
-        <a href="/bom-check">Check BOM (Tra cứu)</a>
-        <a href="/bom-dashboard">BOM Dashboard (Tổng hợp)</a>
-        
-        <a href="/clearance-check" class="<%= currentPage === 'clearance-check' ? 'active' : '' %>">Tra cứu Hàng thanh lý</a>
+                    <div class="dropdown-menu" id="utilitiesDropdownMenu">
+                        <a href="/customer-care" class="<%= currentPage === 'customer-care' ? 'active' : '' %>">
+                            <span class="menu-icon">📞</span> CSKH
+                        </a>
+                        <a href="/pc-builder">
+                            <span class="menu-icon">🖥️</span> Build PC
+                        </a>
+                        <a href="/quote-builder">
+                            <span class="menu-icon">📄</span> Báo giá nhanh
+                        </a>
+                        
+                        <a href="/clearance-check" class="<%= currentPage === 'clearance-check' ? 'active' : '' %>">
+                            <span class="menu-icon">🏷️</span> Hàng thanh lý
+                        </a>
+                        <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>">
+                            <span class="menu-icon">⚔️</span> Chiến giá
+                        </a>
+                        <a href="/bom-check">
+                            <span class="menu-icon">🔍</span> Check BOM
+                        </a>
+                        <a href="/bom-dashboard">
+                            <span class="menu-icon">📊</span> BOM Dashboard
+                        </a>
+                        <% if (locals.isBranchEventActive) { %>
+                            <div style="border-top: 1px solid #eee; margin: 4px 0;"></div>
+                            <a href="/event-operations" class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>">
+                                <span class="menu-icon">🎉</span> Vận hành Event
+                            </a>
+                        <% } %>
+                        <% /* 2. Cài đặt Event: Chỉ dành cho Admin/Manager thuộc HCM.BD */ %>
+                        <% if (user && (user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
+                            
+                            <% /* Nếu chưa hiện dòng kẻ (do Event ko active) thì hiện dòng kẻ ở đây cho đẹp */ %>
+                            <% if (!locals.isBranchEventActive) { %>
+                                <div style="border-top: 1px solid #eee; margin: 4px 0;"></div>
+                            <% } %>
 
-        <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
-            <a href="/event-operations" class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>">Vận hành Event</a>
-            <a href="/admin/event-settings" class="<%= currentPage === 'event-settings' ? 'active' : '' %>">Cài đặt Event</a>
-        <% } %>
-    </div>
-</div>
+                            <a href="/admin/event-settings" class="<%= currentPage === 'event-settings' ? 'active' : '' %>">
+                                <span class="menu-icon">⚙️</span> Cài đặt Event
+                            </a>
+                        <% } %>
+                    </div>
+                </div>
 
-                    
-                <% /* === BẮT ĐẦU: Chỉ báo User Online === */ %>
-<% if (
-    locals.user && 
-    (user.role === 'manager' || user.role === 'admin') && 
-    locals.onlineUserCount != null 
-) { %>
+                <% /* === Chỉ báo User Online (Giữ nguyên) === */ %>
+                <% if (locals.user && (user.role === 'manager' || user.role === 'admin') && locals.onlineUserCount != null) { %>
+                  <style>
+                    .online-user-indicator {
+                      display: flex; align-items: center; gap: 6px;
+                      color: #2ecc71; font-size: 14px; font-weight: 600;
+                      margin-right: 15px; white-space: nowrap;
+                    }
+                    .online-user-indicator .dot {
+                      width: 10px; height: 10px; background-color: #2ecc71;
+                      border-radius: 50%; animation: pulse 1.5s infinite ease-in-out;
+                    }
+                    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+                  </style>
+                  <div class="online-user-indicator">
+                    <span class="dot"></span> Online: <strong><%= onlineUserCount %></strong>
+                  </div>
+                <% } %>
 
-  <style>
-    /* Thêm CSS này để hiển thị đẹp hơn */
-    .online-user-indicator {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: #2ecc71; /* Màu xanh lá */
-      font-size: 14px;
-      font-weight: 600;
-      margin-right: 15px; /* Điều chỉnh khoảng cách */
-      white-space: nowrap; /* Tránh vỡ dòng */
-    }
-    .online-user-indicator .dot {
-      width: 10px;
-      height: 10px;
-      background-color: #2ecc71;
-      border-radius: 50%;
-      animation: pulse 1.5s infinite ease-in-out;
-    }
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.3; }
-      100% { opacity: 1; }
-    }
-  </style>
-
-  <div class="online-user-indicator">
-    <span class="dot"></span>
-    Online: <strong><%= onlineUserCount %></strong>
-  </div>
-
-<% } %>
                 <% if (user) { %>
                     <div class="user-nav">
                         <div class="user-info">
@@ -121,7 +136,7 @@
                         </div>
                      
                        <% if (user.role === 'manager' || user.role === 'admin') { %>
-                          <button type="button" class="btn btn-warning" id="btnSyncBigQuery" style="padding: 5px 10px; font-size: 0.8rem;">
+                           <button type="button" class="btn btn-warning" id="btnSyncBigQuery" style="padding: 5px 10px; font-size: 0.8rem;">
                             Sync BQ
                           </button>
                         <% } %>
@@ -141,123 +156,70 @@
 
     <% if (globalTickerText) { %>
       <div class="ticker-container">
-        <div class="ticker-content">
-          <%= globalTickerText %>
-        </div>
+        <div class="ticker-content"><%= globalTickerText %></div>
       </div>
     <% } %>
 
   </div> 
-  <% /* === KẾT THÚC WRAPPER MỚI === */ %>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    
-    // Logic for "Tiện ích"
-    const utilsToggleButton = document.getElementById('utilitiesDropdownToggle');
-    const utilsDropdownMenu = document.getElementById('utilitiesDropdownMenu');
-    if (utilsToggleButton && utilsDropdownMenu) {
-        utilsToggleButton.addEventListener('click', function(event) {
-            event.preventDefault(); 
-            utilsDropdownMenu.classList.toggle('open');
-        });
-        document.addEventListener('click', function(event) {
-            const isClickInsideToggle = utilsToggleButton.contains(event.target);
-            const isClickInsideMenu = utilsDropdownMenu.contains(event.target);
-            if (!isClickInsideToggle && !isClickInsideMenu) {
-                utilsDropdownMenu.classList.remove('open');
-            }
-        });
-    }
-    
-    // (MỚI) Logic for "Quản trị"
-    const adminToggleButton = document.getElementById('adminDropdownToggle');
-    const adminDropdownMenu = document.getElementById('adminDropdownMenu');
-    if (adminToggleButton && adminDropdownMenu) {
-        adminToggleButton.addEventListener('click', function(event) {
-            event.preventDefault(); 
-            adminDropdownMenu.classList.toggle('open');
-            
-            // (MỚI) Đóng menu "Tiện ích" nếu nó đang mở
-            if (utilsDropdownMenu) utilsDropdownMenu.classList.remove('open');
-        });
-        document.addEventListener('click', function(event) {
-            const isClickInsideToggle = adminToggleButton.contains(event.target);
-            const isClickInsideMenu = adminDropdownMenu.contains(event.target);
-            if (!isClickInsideToggle && !isClickInsideMenu) {
-                adminDropdownMenu.classList.remove('open');
-            }
-        });
-    }
-    
-    // (MỚI) Đảm bảo 2 dropdown không mở cùng lúc
-    if (utilsToggleButton) {
-      utilsToggleButton.addEventListener('click', () => {
-        if (adminDropdownMenu) adminDropdownMenu.classList.remove('open');
-      });
-    }
-
-});
-</script>
 
   <script>
-    (function tick(){
-      var el = document.getElementById('local-time');
-      if (el) {
-        var now = new Date();
-        el.textContent = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-      }
-      setTimeout(tick, 60 * 1000);
-    })();
+    document.addEventListener('DOMContentLoaded', function() {
+        // Logic dropdown "Tiện ích"
+        const utilsToggleButton = document.getElementById('utilitiesDropdownToggle');
+        const utilsDropdownMenu = document.getElementById('utilitiesDropdownMenu');
+        if (utilsToggleButton && utilsDropdownMenu) {
+            utilsToggleButton.addEventListener('click', function(event) {
+                event.preventDefault(); 
+                utilsDropdownMenu.classList.toggle('open');
+            });
+            document.addEventListener('click', function(event) {
+                const isClickInsideToggle = utilsToggleButton.contains(event.target);
+                const isClickInsideMenu = utilsDropdownMenu.contains(event.target);
+                if (!isClickInsideToggle && !isClickInsideMenu) {
+                    utilsDropdownMenu.classList.remove('open');
+                }
+            });
+        }
+    });
 
-    /* === BƯỚC 3: THÊM JAVASCRIPT ẨN HEADER === */
+    // Logic ẩn header khi cuộn
     document.addEventListener('DOMContentLoaded', () => {
       const stickyBar = document.querySelector('.sticky-top-bar');
       if (stickyBar) {
         let lastScrollTop = 0;
-        const scrollThreshold = 100; // Phải cuộn 100px mới ẩn
-
+        const scrollThreshold = 100; 
         window.addEventListener('scroll', () => {
           let st = window.pageYOffset || document.documentElement.scrollTop;
-
           if (st > lastScrollTop && st > scrollThreshold) {
-            // Cuộn XUỐNG
             stickyBar.classList.add('sticky-top-bar--hidden');
           } else if (st < lastScrollTop) {
-            // Cuộn LÊN
             stickyBar.classList.remove('sticky-top-bar--hidden');
           }
           lastScrollTop = st <= 0 ? 0 : st;
-        }, { passive: true }); // passive: true để cuộn mượt hơn
+        }, { passive: true });
       }
     });
-    /* === HẾT SCRIPT ẨN HEADER === */
 
     const syncButton = document.getElementById('btnSyncBigQuery');
-  if (syncButton) {
-    syncButton.addEventListener('click', async () => {
-      if (!confirm('Bạn có chắc muốn đồng bộ SKUs từ BigQuery?\nViệc này sẽ chèn các SKU mới vào hệ thống.')) {
-        return;
-      }
-      syncButton.disabled = true;
-  syncButton.textContent = 'Đang sync...';
-  try {
-    const res = await fetch('/api/admin/sync-bq-skus', { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Lỗi không xác định');
+    if (syncButton) {
+        syncButton.addEventListener('click', async () => {
+          if (!confirm('Bạn có chắc muốn đồng bộ SKUs từ BigQuery?\nViệc này sẽ chèn các SKU mới vào hệ thống.')) return;
+          
+          syncButton.disabled = true;
+          syncButton.textContent = 'Đang sync...';
+          try {
+            const res = await fetch('/api/admin/sync-bq-skus', { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Lỗi không xác định');
+            alert(`Đồng bộ thành công!\nĐã thêm mới: ${data.new_skus} SKU.`);
+          } catch (err) {
+            alert('Lỗi đồng bộ: ' + err.message);
+          } finally {
+            syncButton.disabled = false;
+            syncButton.textContent = 'Sync BQ';
+          }
+        });
     }
-    alert(`Đồng bộ thành công!\nĐã thêm mới: ${data.new_skus} SKU.`);
-    
-  } catch (err) {
-    alert('Lỗi đồng bộ: ' + err.message);
-  } finally {
-    syncButton.disabled = false;
-    syncButton.textContent = 'Sync BQ';
-  }
-});
-}
   </script>
-
   <main class="main-content">
     <div class="container">

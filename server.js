@@ -255,6 +255,26 @@ const BRANCH_CONFIG = {
 // ======================= MIDDLEWARE LẤY CÀI ĐẶT CHUNG =======================
 // Middleware này sẽ chạy TRƯỚC TẤT CẢ các route (app.get, app.post)
 app.use(async (req, res, next) => {
+  
+  // === [THÊM MỚI] KIỂM TRA TRẠNG THÁI EVENT CỦA CHI NHÁNH ===
+  res.locals.isBranchEventActive = false; // Mặc định là ẩn
+
+  if (res.locals.user && res.locals.user.branch_code) {
+    try {
+      const { data: evStatus } = await supabase
+        .from('branch_event_status')
+        .select('is_event_active')
+        .eq('branch_code', res.locals.user.branch_code)
+        .maybeSingle(); // Dùng maybeSingle để không lỗi nếu chưa cấu hình
+
+      if (evStatus && evStatus.is_event_active) {
+        res.locals.isBranchEventActive = true;
+      }
+    } catch (e) {
+      console.error("Lỗi check event active:", e.message);
+    }
+  }
+  
   // Gắn user (từ code cũ) và thời gian vào res.locals
   res.locals.user = req.session?.user || null;
   res.locals.time = new Date().toLocaleTimeString('vi-VN', {
@@ -264,7 +284,7 @@ app.use(async (req, res, next) => {
 
   // 1. Cập nhật 'last_seen' cho user hiện tại (nếu đã đăng nhập)
   // Chúng ta không 'await' để nó chạy ngầm, không làm chậm request
-
+  
   if (res.locals.user) {
     supabase
       .from('users')
@@ -283,7 +303,7 @@ app.use(async (req, res, next) => {
   res.locals.onlineUserCount = null; // Khởi tạo là null
 
   const isManagerOrAdmin = res.locals.user && (res.locals.user.role === 'manager' || res.locals.user.role === 'admin');
-
+  
   if (isManagerOrAdmin) {
     try {
       // Định nghĩa "online" là 5 phút gần nhất
@@ -320,6 +340,25 @@ app.use(async (req, res, next) => {
     res.locals.globalTickerText = null;
   }
 
+
+  // === [THÊM MỚI] KIỂM TRA TRẠNG THÁI EVENT CỦA CHI NHÁNH ===
+  res.locals.isBranchEventActive = false; // Mặc định là ẩn
+
+  if (res.locals.user && res.locals.user.branch_code) {
+    try {
+      const { data: evStatus } = await supabase
+        .from('branch_event_status')
+        .select('is_event_active')
+        .eq('branch_code', res.locals.user.branch_code)
+        .maybeSingle(); // Dùng maybeSingle để không lỗi nếu chưa cấu hình
+
+      if (evStatus && evStatus.is_event_active) {
+        res.locals.isBranchEventActive = true;
+      }
+    } catch (e) {
+      console.error("Lỗi check event active:", e.message);
+    }
+  }
   // Cho phép request đi tiếp đến các route (ví dụ: app.get('/'))
   next();
 });
