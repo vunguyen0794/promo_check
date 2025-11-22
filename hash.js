@@ -2,7 +2,7 @@
 const bcrypt = require('bcryptjs');
 
 async function createHash() {
-  const password = 'Daikavu@9494';
+  const password = '123';
   const saltRounds = 10; // Giống như trong server.js
 
   try {

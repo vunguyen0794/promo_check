@@ -13,5 +13,6 @@ node_modules/
 dist/
 .DS_Store
 *.pem
-*.key
+*.keyß
 *.txt
+hash.js

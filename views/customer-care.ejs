@@ -1,0 +1,1073 @@
+<%- include('partials/header', {title: 'Chăm sóc khách hàng', currentPage: 'customer-care'}) %>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<style>
+
+
+    /* --- CSS MỚI: WRAPPER CHO DASHBOARD --- */
+    .dashboard-wrapper {
+        background-color: #f0f9ff; /* Màu xanh dương siêu nhạt */
+        border: 1px solid #bae6fd; /* Viền xanh nhạt */
+        border-radius: 16px;       /* Bo góc to */
+        padding: 20px;             /* Khoảng cách bên trong */
+        margin-bottom: 30px;       /* Cách bên dưới */
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Chỉnh lại nền Card thành trắng tinh để nổi bật trên nền xanh */
+    .cskh-card, .matrix-card {
+        background-color: #ffffff !important; 
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03) !important;
+    }
+    /* Matrix Table Styles */
+    .matrix-card { background: white; border-radius: 12px; border: 1px solid #e9ecef; padding: 20px; margin-bottom: 20px; overflow-x: auto; }
+    .matrix-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 800px; }
+    .matrix-table th { background: #f1f5f9; padding: 12px 8px; text-align: center; border: 1px solid #e2e8f0; color: #475569; font-weight: 700; white-space: nowrap; }
+    .matrix-table td { padding: 10px 8px; border: 1px solid #e2e8f0; text-align: center; }
+    
+    .col-branch { background-color: #e0f2fe; font-weight: 700; color: #0369a1; text-align: left !important; }
+    .col-sales { text-align: left !important; font-weight: 600; color: #334155; padding-left: 20px !important; }
+    .col-total { font-weight: 700; background: #f8fafc; }
+    .col-rev { font-weight: 700; color: #16a34a; background: #f0fdf4; }
+    .val-cell { color: #64748b; }
+    .val-cell.has-val { color: #2563eb; font-weight: 600; background: #eff6ff; }
+    
+    /* Sticky Header */
+    .matrix-table thead th { position: sticky; top: 0; z-index: 10; }
+    /* Accordion Table */
+    .parent-row { cursor: pointer; transition: background 0.2s; }
+    .parent-row:hover { background-color: #f1f5f9; }
+    .parent-row.expanded { background-color: #e0f2fe; border-left: 4px solid #2563eb; }
+    
+    .detail-row { display: none; background-color: #f8fafc; }
+    .detail-row.show { display: table-row; animation: fadeIn 0.3s; }
+    
+    .detail-table-inner { margin: 10px 0 10px 50px; width: calc(100% - 50px); border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+    .detail-table-inner th { background: #e2e8f0; font-size: 12px; padding: 8px; }
+    .detail-table-inner td { background: #fff; font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    .toggle-icon { display: inline-block; width: 20px; text-align: center; transition: transform 0.2s; }
+    .expanded .toggle-icon { transform: rotate(90deg); }
+
+
+
+    .filter-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .custom-select {
+        appearance: none; /* Ẩn mũi tên mặc định của trình duyệt */
+        -webkit-appearance: none;
+        background-color: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 32px 8px 12px; /* Padding bên phải rộng để chứa mũi tên */
+        font-size: 13px;
+        font-weight: 500;
+        color: #334155;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.2s ease;
+        
+        /* Tạo mũi tên custom bằng hình ảnh SVG encoded */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        background-size: 14px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        min-width: 140px;
+    }
+
+    .custom-select:hover {
+        border-color: #cbd5e1;
+        background-color: #f8fafc;
+    }
+
+    .custom-select:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Màu riêng cho từng loại filter để dễ phân biệt */
+    .select-status { border-left: 3px solid #2563eb; }
+    .select-tax { border-left: 3px solid #ea580c; }
+    .select-sort { border-left: 3px solid #059669; }
+    /* CSS Select2 */
+    .select2-container .select2-selection--single {
+        height: 42px !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        padding-left: 10px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 40px !important; top: 1px !important; right: 5px !important;
+    }
+    .select2-container { width: 100% !important; max-width: 250px; margin-right: 10px; }
+
+    /* Dashboard & Layout */
+    .cskh-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .cskh-card { background: white; border-radius: 12px; padding: 20px; border: 1px solid #e9ecef; box-shadow: 0 2px 6px rgba(0,0,0,0.04); text-align: center; }
+    .cskh-card h3 { font-size: 24px; color: #2563eb; margin-bottom: 5px; font-weight: 800; }
+    .cskh-card p { color: #64748b; font-size: 14px; font-weight: 600; margin: 0; }
+    
+    /* Search Controls */
+    .search-controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
+    .search-controls select.std-select { width: 160px; padding: 0 12px; border-radius: 8px; border: 1px solid #e5e7eb; height: 42px; }
+    .search-controls input { flex: 1; padding: 0 12px; border-radius: 8px; border: 1px solid #e5e7eb; height: 42px; }
+    .search-controls button { height: 42px; padding: 0 20px; font-weight: 600; }
+
+    /* Table Elements */
+    .prod-detail { font-size: 13px; color: #334155; line-height: 1.5; max-height: 80px; overflow-y: auto; }
+    .status-tag { padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; display: inline-block; }
+    .st-uncared { background: #fee2e2; color: #dc2626; }
+    .st-caring { background: #fef3c7; color: #d97706; }
+    .st-done { background: #dcfce7; color: #16a34a; }
+    .btn-care { background: #fff; border: 1px solid #2563eb; color: #2563eb; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: .2s; }
+    .btn-care:hover { background: #2563eb; color: #fff; }
+
+    /* History Log */
+    .history-item { background: #f8fafc; border-left: 3px solid #cbd5e1; padding: 8px 12px; margin-bottom: 8px; font-size: 13px; }
+    .history-meta { color: #64748b; font-size: 11px; margin-bottom: 4px; }
+    
+    /* Rank Modal Table */
+    #rankModal table tr td { padding: 10px; border-bottom: 1px solid #eee; }
+
+    /* CSS cho Filter Bar Quản trị */
+    .admin-filter-bar {
+        display: flex;
+        gap: 10px;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+        border-bottom: 1px dashed #bae6fd;
+        flex-wrap: wrap;
+        align-items: end;
+    }
+    .filter-item { display: flex; flex-direction: column; gap: 5px; }
+    .filter-item label { font-size: 12px; font-weight: 700; color: #475569; }
+    .filter-input { 
+        height: 38px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 10px; font-size: 13px;
+    }
+    .btn-filter-apply {
+        height: 38px; padding: 0 20px; background: #0f172a; color: #fff; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;
+    }
+    .btn-filter-preset {
+        height: 38px; padding: 0 12px; background: #fff; border: 1px solid #cbd5e1; color: #475569; border-radius: 6px; font-size: 12px; cursor: pointer;
+    }
+    .btn-filter-preset:hover { background: #f1f5f9; }
+</style>
+
+<div class="container">
+    <div class="dashboard-wrapper">
+        <% if (isManager) { %>
+    <form method="GET" action="/customer-care" id="adminFilterForm">
+        <div class="admin-filter-bar">
+            
+            <% if (isGlobalAdmin) { %>
+                <div class="filter-item">
+                    <label>Chi nhánh</label>
+                    <select name="branch" class="filter-input" style="width: 150px;">
+                        <option value="">-- Tất cả --</option>
+                        <% branchList.forEach(br => { %>
+                            <option value="<%= br %>" <%= filters.branch === br ? 'selected' : '' %>><%= br %></option>
+                        <% }) %>
+                    </select>
+                </div>
+            <% } %>
+
+                <div class="filter-item">
+    <label>Nhân viên</label>
+    <select name="emp" class="filter-input" style="width: 180px;">
+        <option value="">-- Tất cả nhân viên --</option>
+        <% if (typeof branchStaffs !== 'undefined' && branchStaffs) { %>
+            <% branchStaffs.forEach(st => { %>
+                <option value="<%= st.id %>" <%= filters.emp === st.id ? 'selected' : '' %>>
+                    <%= st.full_name || st.email %>
+                </option>
+            <% }) %>
+        <% } %>
+    </select>
+</div>
+
+            <div class="filter-item">
+                <label>Từ ngày</label>
+                <input type="date" name="start" class="filter-input" value="<%= filters.start %>">
+            </div>
+            <div class="filter-item">
+                <label>Đến ngày</label>
+                <input type="date" name="end" class="filter-input" value="<%= filters.end %>">
+            </div>
+
+            <button type="submit" class="btn-filter-apply">Lọc dữ liệu</button>
+
+            <div style="display:flex; gap:5px; margin-left:auto;">
+                <button type="button" class="btn-filter-preset" onclick="setPeriod('today')">Hôm nay</button>
+                <button type="button" class="btn-filter-preset" onclick="setPeriod('week')">Tuần này</button>
+                <button type="button" class="btn-filter-preset" onclick="setPeriod('month')">Tháng này</button>
+            </div>
+        </div>
+    </form>
+    <% } %>
+        <div class="cskh-dashboard">
+            <div class="cskh-card">
+                <h3><%= new Intl.NumberFormat('vi-VN').format(dashboard.revenue || 0) %> ₫</h3>
+                <p>Doanh thu</p>
+            </div>
+            <div class="cskh-card">
+                <h3><%= dashboard.cared_count || 0 %></h3>
+                <p>Khách đã Care</p>
+            </div>
+            <div class="cskh-card">
+                <h3><%= dashboard.closed_count || 0 %></h3>
+                <p>Khách đã chốt</p>
+            </div>
+            
+            <% 
+                // Kiểm tra quyền xem BXH
+                const canViewRank = (user.role === 'manager' || user.role === 'admin' || typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin);
+            %>
+            <div class="cskh-card" 
+                 onclick="openRankModal()" 
+                 style="<%= canViewRank ? 'cursor:pointer; border: 2px solid #bfdbfe !important;' : '' %>">
+                <h3 style="color:#e11d48"><%= dashboard.rank || '--' %></h3>
+                <p style="color:#e11d48">Rank (Click xem BXH)</p>
+            </div>
+        </div>
+
+        <% if ((user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD') && dashboard.matrix_data) { %>
+        <div class="matrix-card">
+            <div class="dash-title" style="border-bottom:none; margin-bottom:15px;">
+                📊 Báo cáo hiệu quả làm việc (Tháng này)
+            </div>
+            
+            <div class="table-scroll-wrapper" style="max-height: 400px;">
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 200px; text-align:left; padding-left:15px; z-index:20; left:0; position:sticky;">Nhân sự</th>
+                            <th style="min-width: 80px;">Tổng Care</th>
+                            <th style="min-width: 120px;">Doanh thu Care</th>
+                            <% dashboard.result_columns.forEach(col => { %>
+                                <th><%= col %></th>
+                            <% }) %>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% Object.keys(dashboard.matrix_data).sort().forEach(branch => { %>
+                            <tr style="background:#f1f5f9;">
+                                <td class="col-branch" colspan="<%= 3 + dashboard.result_columns.length %>">
+                                    🏢 <%= branch %>
+                                </td>
+                            </tr>
+                            <% const users = dashboard.matrix_data[branch]; %>
+                            <% Object.values(users).sort((a,b) => b.total_revenue - a.total_revenue).forEach(sale => { %>
+                                <tr>
+                                    <td class="col-sales"><%= sale.name %></td>
+                                    <td class="col-total"><%= sale.total_care %></td>
+                                    <td class="col-rev"><%= new Intl.NumberFormat('vi-VN').format(sale.total_revenue) %></td>
+                                    <% dashboard.result_columns.forEach(col => { %>
+                                        <% const count = sale.results[col] || 0; %>
+                                        <td class="val-cell <%= count > 0 ? 'has-val' : '' %>">
+                                            <%= count > 0 ? count : '-' %>
+                                        </td>
+                                    <% }) %>
+                                </tr>
+                            <% }) %>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <% } %>
+
+    </div> <div id="rankModal" class="modal" style="display:none; z-index: 9999;">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close" onclick="document.getElementById('rankModal').style.display='none'">&times;</span>
+            <h3 style="color:#2563eb; margin-bottom:15px; text-align:center;">🏆 Bảng Xếp Hạng Chi Nhánh</h3>
+            
+            <div style="max-height: 60vh; overflow-y: auto;">
+                <table class="info-table">
+                    <thead style="background:#f1f5f9; position: sticky; top: 0;">
+                        <tr><th>Hạng</th><th>Nhân viên</th><th style="text-align:right">Doanh thu Care</th></tr>
+                    </thead>
+                    <tbody>
+                        <% if (dashboard.ranking_list && dashboard.ranking_list.length > 0) { %>
+                            <% dashboard.ranking_list.forEach((r, index) => { %>
+                                <tr style="<%= r.id === user.id ? 'background:#e0f2fe; font-weight:bold;' : '' %>">
+                                    <td>
+                                        <% if(index === 0) { %> 🥇 <% } else if(index === 1) { %> 🥈 <% } else if(index === 2) { %> 🥉 <% } else { %> #<%= index + 1 %> <% } %>
+                                    </td>
+                                    <td><%= r.name %> <br> <small style="color:#64748b"><%= r.branch %></small></td>
+                                    <td style="text-align:right; color:#16a34a; font-weight:bold;">
+                                        <%= new Intl.NumberFormat('vi-VN').format(r.total) %> ₫
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <tr><td colspan="3" style="text-align:center; padding:20px;">Chưa có dữ liệu xếp hạng</td></tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="dash-card">
+        <div class="dash-title">
+            Tra cứu đơn hàng - Khu vực: 
+            <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin) { %>
+                <span style="color:#d97706; font-weight:800;">TOÀN HỆ THỐNG (HCM.BD)</span>
+            <% } else { %>
+                <span style="color:#2563eb"><%= user.branch_code %></span>
+            <% } %>
+        </div>
+        
+        <div class="search-controls">
+            <select id="searchType" class="std-select">
+                <option value="order_code">Mã đơn hàng</option>
+                <option value="customer_name">Tên khách hàng</option>
+                <option value="tax_code">Mã số thuế</option>
+            </select>
+
+            <% if (user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD') { %>
+                <select id="filterEmail">
+                    <option value="">-- Tất cả nhân viên --</option>
+                    <% if (branchStaffs && branchStaffs.length > 0) { %>
+                        <% branchStaffs.forEach(staff => { %>
+                            <option value="<%= staff.email %>">
+                                <%= staff.full_name || staff.email %> 
+                                <% if(typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin) { %> (<%= staff.branch_code %>) <% } %>
+                            </option>
+                        <% }) %>
+                    <% } %>
+                </select>
+            <% } else { %>
+                <input type="hidden" id="filterEmail" value=""> 
+            <% } %>
+            <input type="text" id="searchInput" placeholder="Nhập từ khóa..." onkeypress="if(event.key==='Enter') performSearch()">
+            <button class="btn btn-primary" onclick="performSearch()">🔍 Tìm</button>
+        </div>
+
+        <div class="table-scroll-wrapper">
+            <table class="info-table" id="resultTable">
+    <thead>
+        <tr>
+            <th style="width: 40px;"></th> 
+            
+            <th style="width: 110px;">Ngày mua</th>
+
+            <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin) { %>
+                <th style="width: 80px;">Branch</th>
+            <% } %>
+
+            <% if (user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD') { %>
+                <th style="width: 200px;">Salesman</th>
+            <% } %>
+
+            <th>Khách hàng</th>
+            <th style="width: 100px; text-align: center;">Số đơn</th>
+            <th style="width: 150px; text-align: right;">Tổng Doanh Thu</th>
+            <th style="width: 120px;">Trạng thái</th>
+            <th style="width: 140px;">Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td colspan="9" style="text-align:center; padding:20px; color:#64748b;">Vui lòng nhập thông tin để tìm kiếm...</td></tr>
+    </tbody>
+</table>
+        </div>
+
+        <div id="searchPagination" style="margin-top:10px; display:none; justify-content:flex-end; gap:10px; align-items:center;">
+            <button class="btn-view-more" onclick="changeSearchPage(-1)">❮ Trước</button>
+            <span style="font-weight:600; font-size:14px; color:#475569;" id="searchPageIndicator">Trang 1</span>
+            <button class="btn-view-more" onclick="changeSearchPage(1)">Sau ❯</button>
+        </div>
+
+    </div>
+
+    <div class="dash-card" style="margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap:15px;">
+    <div class="dash-title" style="margin:0; border-bottom:none; font-size:16px;">
+        📋 Danh sách khách cần chăm sóc
+    </div>
+    
+    <div class="filter-group">
+        <input type="month" id="wlMonth" onchange="loadWorkList(1)" 
+               class="custom-select" 
+               style="border-left: 3px solid #e11d48; padding-right: 12px;"
+               value="<%= new Date().toISOString().slice(0, 7) %>">
+
+        <select id="wlStatus" onchange="loadWorkList(1)" class="custom-select select-status">
+            <option value="all">-- Trạng thái Care --</option>
+            <option value="uncared">🔴 Cần chăm sóc</option>
+            </select>
+
+        <select id="wlTax" onchange="loadWorkList(1)" class="custom-select select-tax">
+            <option value="all">Tất cả KH</option>
+            <option value="has_tax">🏢 Doanh nghiệp</option>
+            <option value="no_tax">👤 Cá nhân</option>
+        </select>
+        
+        <select id="wlSort" onchange="loadWorkList(1)" class="custom-select select-sort">
+            <option value="price_desc">💰 DT Cao nhất</option>
+            <option value="date_desc">📅 Mới nhất</option>
+        </select>
+    </div>
+</div>
+        
+        <div style="margin-bottom:10px; display:flex; justify-content:flex-end; gap:10px; align-items:center;">
+            <button class="btn-view-more" onclick="loadWorkList(currentPage - 1)">❮ Trước</button>
+            <span style="font-weight:600; font-size:14px; color:#475569;" id="pageIndicator">Trang 1</span>
+            <button class="btn-view-more" onclick="loadWorkList(currentPage + 1)">Sau ❯</button>
+        </div>
+
+        <div id="workListContainer">
+            <div style="padding:40px; text-align:center; color:#64748b;">Đang tải dữ liệu...</div>
+        </div>
+    </div>
+</div>
+
+<div id="careModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2 style="margin-bottom:15px; color:#2563eb; font-weight:700;">📞 Cập nhật chăm sóc</h2>
+        
+        <form id="careForm">
+            <input type="hidden" name="order_code" id="m_order_code">
+            <input type="hidden" name="customer_name" id="m_customer_name">
+
+            <div class="promo-form">
+                <div style="background:#f1f5f9; padding:10px; border-radius:8px; margin-bottom:15px;">
+                    <div><strong>Đơn hàng:</strong> <span id="d_order_code"></span></div>
+                    <div><strong>Khách hàng:</strong> <span id="d_customer_name"></span></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>SĐT Khách hàng (*)</label>
+                        <input type="text" name="phone" required placeholder="VD: 0909..." id="m_phone">
+                    </div>
+                    <div class="form-group">
+                        <label>Lần chăm sóc</label>
+                        <select name="care_stage">
+                            <option value="Lần 1">Lần 1</option>
+                            <option value="Lần 2">Lần 2</option>
+                            <option value="Lần 3">Lần 3</option>
+                            <option value="Lần 4+">Lần 4+</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Phương thức</label>
+                        <select name="contact_method">
+                            <option value="Zalo">Zalo</option>
+                            <option value="Phone cá nhân">Phone cá nhân</option>
+                            <option value="Phone công ty">Phone công ty</option>
+                            <option value="Email">Email</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kết quả (*)</label>
+                        <select name="result" id="resultSelect" onchange="toggleRevenue()">
+                            <option value="Chưa nghe máy">Không bắt máy / Thuê bao</option>
+                            <option value="Đã kết nối Zalo OA">Đã kết nối Zalo OA</option>
+                            <option value="Đã báo giá">Đã báo giá qua Zalo</option>
+                            <option value="Chờ phản hồi">Chờ phản hồi</option>
+                            <option value="Liên hệ sau">Liên hệ sau</option>
+                            <option value="Không có nhu cầu">Không có nhu cầu</option>
+                            <option value="Chốt đơn">✅ Chốt đơn (Có doanh thu)</option>
+                            <option value="Khác">Khác</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="revenueBox" style="display:none; background:#f0fdf4; padding:10px; border:1px dashed #16a34a; border-radius:6px;">
+                    <label style="color:#16a34a;">💰 Doanh thu phát sinh thêm (VNĐ):</label>
+                    <input type="number" name="revenue" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Ngày hẹn liên hệ lại</label>
+                    <input type="date" name="next_date">
+                </div>
+
+                <div class="form-group">
+                    <label>Ghi chú chi tiết</label>
+                    <textarea name="note" rows="2" placeholder="Khách quan tâm sản phẩm gì..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" style="width:100%;">Lưu thông tin</button>
+                </div>
+
+                <div style="margin-top:20px; border-top:1px solid #e5e7eb; padding-top:10px;">
+                    <h4 style="font-size:14px; margin-bottom:10px;">Lịch sử chăm sóc đơn này:</h4>
+                    <div id="historyContainer" style="max-height:150px; overflow-y:auto;"></div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<% if (dashboard.ranking_list) { %>
+<div id="rankModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close" onclick="document.getElementById('rankModal').style.display='none'">&times;</span>
+        <h3 style="color:#2563eb; margin-bottom:15px; text-align:center;">🏆 Bảng Xếp Hạng Chi Nhánh</h3>
+        <div style="max-height: 60vh; overflow-y: auto;">
+            <table class="info-table">
+                <thead style="background:#f1f5f9; position: sticky; top: 0;">
+                    <tr><th>Hạng</th><th>Nhân viên</th><th style="text-align:right">Doanh thu Care</th></tr>
+                </thead>
+                <tbody>
+                    <% dashboard.ranking_list.forEach((r, index) => { %>
+                        <tr style="<%= r.id === user.id ? 'background:#e0f2fe; font-weight:bold;' : '' %>">
+                            <td>
+                                <% if(index === 0) { %> 🥇 <% } else if(index === 1) { %> 🥈 <% } else if(index === 2) { %> 🥉 <% } else { %> #<%= index + 1 %> <% } %>
+                            </td>
+                            <td><%= r.name %> <br> <small style="color:#64748b"><%= r.branch %></small></td>
+                            <td style="text-align:right; color:#16a34a; font-weight:bold;">
+                                <%= new Intl.NumberFormat('vi-VN').format(r.total) %> ₫
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<% } %>
+
+<script>
+    // ==============================================================
+    // 1. LOGIC TÌM KIẾM (BLOCK 2)
+    // ==============================================================
+    let currentSearchPage = 1; 
+    let currentData = [];
+
+    async function performSearch(pageOffset = 0) {
+        const type = document.getElementById('searchType').value;
+        const q = document.getElementById('searchInput').value.trim();
+        
+        // Lấy giá trị từ Select2 (nếu có) hoặc input ẩn
+        let filterEmail = '';
+        if ($('#filterEmail').length > 0) {
+            filterEmail = $('#filterEmail').val();
+        } else {
+            filterEmail = document.getElementById('filterEmail') ? document.getElementById('filterEmail').value : '';
+        }
+
+        if(!q && !filterEmail) return alert('Vui lòng nhập từ khóa hoặc chọn nhân viên!');
+
+        let newPage = pageOffset === 0 ? 1 : currentSearchPage + pageOffset;
+        if(newPage < 1) newPage = 1;
+
+        const tbody = document.querySelector('#resultTable tbody');
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
+
+        try {
+            const res = await fetch(`/api/cskh/search?type=${type}&q=${encodeURIComponent(q)}&filterEmail=${encodeURIComponent(filterEmail)}&page=${newPage}`);
+            const json = await res.json();
+            
+            if(json.ok) {
+                if(json.data.length === 0 && newPage > 1) {
+                    alert("Đã hết dữ liệu!");
+                    performSearch(0);
+                    return;
+                }
+
+                currentSearchPage = newPage;
+                currentData = json.data;
+                renderMainTable(currentData); // Hàm render đã được sửa bên dưới
+                
+                document.getElementById('searchPagination').style.display = 'flex';
+                document.getElementById('searchPageIndicator').innerText = `Trang ${currentSearchPage}`;
+                
+                const nextBtn = document.querySelector('#searchPagination button:last-child');
+                if(json.data.length < 10) {
+                    nextBtn.style.opacity = '0.5'; nextBtn.disabled = true;
+                } else {
+                    nextBtn.style.opacity = '1'; nextBtn.disabled = false;
+                }
+
+            } else {
+                alert(json.error || 'Lỗi hệ thống');
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Lỗi tải dữ liệu</td></tr>';
+            }
+        } catch(e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Lỗi kết nối</td></tr>';
+        }
+    }
+
+    function changeSearchPage(offset) {
+        performSearch(offset);
+    }
+
+    // --- HÀM RENDER BẢNG TÌM KIẾM (ĐÃ KHỚP CỘT) ---
+    function renderMainTable(data) {
+        const tbody = document.querySelector('#resultTable tbody');
+        
+        // Lấy quyền user (để ẩn/hiện cột)
+        const isManager = "<%= user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD' %>" === 'true';
+        const isGlobalAdmin = "<%= typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin %>" === 'true';
+
+        if(!data || !data.length) {
+            // Tính tổng số cột để colspan cho đẹp (Cơ bản 6 cột + 3 cột điều kiện)
+            let totalCols = 6 + (isGlobalAdmin ? 1 : 0) + (isManager ? 1 : 0);
+            tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding:20px; color:#64748b;">Không tìm thấy kết quả nào.</td></tr>`;
+            return;
+        }
+
+        let html = '';
+
+        data.forEach((cust, index) => {
+            const totalRev = new Intl.NumberFormat('vi-VN').format(cust.Total_Revenue);
+            const rowId = `search-detail-${index}`;
+            
+            // Badge trạng thái
+            let statusBadge = '';
+            if (cust.Care_Status === 'done') statusBadge = '<span class="status-tag st-done">Đã xong</span>';
+            else if (cust.Care_Status === 'partial') statusBadge = '<span class="status-tag st-caring">Đang care</span>';
+            else statusBadge = '<span class="status-tag st-uncared">Chưa care</span>';
+
+            // Dữ liệu cho nút Care (Lấy đơn mới nhất làm mốc)
+            const latestOrder = (cust.Orders && cust.Orders.length > 0) ? cust.Orders[0] : {};
+            const modalData = {
+                Order_code: latestOrder.Order_code || '',
+                Customer_full_name: cust.Customer_Name
+            };
+
+            // --- XỬ LÝ CÁC Ô (TD) THEO ĐÚNG THỨ TỰ THEAD ---
+            
+            // 1. Mũi tên
+            const tdArrow = `<td><span class="toggle-icon">▶</span></td>`;
+            
+            // 2. Ngày
+            const tdDate = `<td>${cust.Max_Date ? (cust.Max_Date.value || cust.Max_Date) : '-'}</td>`;
+            
+            // 3. Branch (Nếu là Admin)
+            const tdBranch = isGlobalAdmin ? `<td><span class="badge badge-subgroup">${cust.Branch_Code || '-'}</span></td>` : '';
+            
+            // 4. Salesman (Nếu là Manager)
+            const tdSales = isManager ? `<td style="font-size:12px; color:#64748b;">${cust.Sales_Email || 'N/A'}</td>` : '';
+
+            // 5. Khách hàng
+            const tdCustomer = `
+                <td>
+                    <div style="font-weight:700; color:#1e293b; font-size:14px;">${cust.Customer_Name}</div>
+                    ${cust.Tax_Code ? `<div style="font-size:11px; color:#64748b;">MST: ${cust.Tax_Code}</div>` : ''}
+                </td>`;
+
+            // 6. Số đơn
+            const tdCount = `<td style="font-weight:600; color:#2563eb; text-align:center;">${cust.Order_Count} đơn</td>`;
+
+            // 7. Tổng doanh thu
+            const tdRevenue = `<td style="font-weight:700; color:#16a34a; text-align:right;">${totalRev} ₫</td>`;
+
+            // 8. Trạng thái
+            const tdStatus = `<td>${statusBadge}</td>`;
+
+            // 9. Action (Care & Xem)
+            const tdAction = `
+                <td>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn-care" style="background:#2563eb; color:#fff; padding:4px 8px;"
+                            onclick='event.stopPropagation(); openModal(${JSON.stringify(modalData)})'>
+                            📞 Care
+                        </button>
+                        <button class="btn-care" style="background:#fff; color:#2563eb; padding:4px 8px;"
+                            onclick="event.stopPropagation(); toggleDetail('${rowId}', this.closest('tr'))">
+                            👁️ Xem
+                        </button>
+                    </div>
+                </td>`;
+
+            // RENDER DÒNG CHA
+            html += `
+                <tr class="parent-row" onclick="toggleDetail('${rowId}', this)">
+                    ${tdArrow}
+                    ${tdDate}
+                    ${tdBranch}
+                    ${tdSales}
+                    ${tdCustomer}
+                    ${tdCount}
+                    ${tdRevenue}
+                    ${tdStatus}
+                    ${tdAction}
+                </tr>
+            `;
+
+            // --- TÍNH TOÁN COLSPAN CHO DÒNG CON ---
+            // Tổng số cột = 6 cột cứng + số cột điều kiện
+            let colSpanCount = 6; 
+            if (isGlobalAdmin) colSpanCount++;
+            if (isManager) colSpanCount++;
+
+            // RENDER DÒNG CON (CHI TIẾT ĐƠN HÀNG)
+            html += `<tr id="${rowId}" class="detail-row"><td colspan="${colSpanCount}" style="padding:0; border:none;">`;
+            html += `<div class="detail-table-inner">
+                        <table style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th width="100">Ngày mua</th>
+                                    <th width="150">Mã đơn</th>
+                                    <th>Sản phẩm chi tiết</th>
+                                    <th width="120">Giá trị</th>
+                                    <th width="120">Kết quả</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+            
+            const seenOrders = new Set();
+            cust.Orders.forEach(order => {
+                if(seenOrders.has(order.Order_code)) return;
+                seenOrders.add(order.Order_code);
+
+                const orderRev = new Intl.NumberFormat('vi-VN').format(order.Revenue);
+                const orderStatus = order.status === 'Đã chăm sóc' 
+                    ? `<span style="color:#16a34a; font-weight:600; font-size:12px;">${order.result}</span>` 
+                    : '<span style="color:#94a3b8; font-size:12px;">-</span>';
+                
+                    const productDisplay = `
+    <div style="font-size:13px; line-height:1.6;">
+        ${order.Product_Display_Html} 
+    </div>
+`;
+
+                html += `
+                    <tr>
+                        <td>${order.Report_date || '-'}</td>
+                        <td style="color:#2563eb; font-weight:600;">${order.Order_code}</td>
+                        <td>${productDisplay}</td>
+                        <td style="font-weight:700;">${orderRev} ₫</td>
+                        <td>${orderStatus}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div></td></tr>`;
+        });
+
+        tbody.innerHTML = html;
+    }
+    // ==============================================================
+    // 2. LOGIC WORKLIST (BLOCK 3)
+    // ==============================================================
+    let currentPage = 1;
+
+    async function loadWorkList(page) {
+        if (page < 1) return;
+        
+        const sort = document.getElementById('wlSort').value;
+        const tax = document.getElementById('wlTax').value;
+        const status = document.getElementById('wlStatus').value;
+        const month = document.getElementById('wlMonth').value;
+
+        const container = document.getElementById('workListContainer');
+        container.style.opacity = '0.5';
+
+        try {
+            const res = await fetch(`/api/cskh/worklist?page=${page}&sort=${sort}&tax=${tax}&status=${status}&month=${month}`);
+            
+            const contentType = res.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Server Error (Not JSON). Check Terminal.");
+            }
+
+            const json = await res.json();
+
+            if (json.ok) {
+                if (json.data.length === 0 && page > 1) {
+                    alert("Đã hết dữ liệu!");
+                } else {
+                    currentPage = page;
+                    document.getElementById('pageIndicator').innerText = `Trang ${currentPage}`;
+                    renderGroupedTable(json.data);
+                }
+            } else {
+                container.innerHTML = `<div class="no-data" style="color:red; padding:20px;">${json.error}</div>`;
+            }
+        } catch (e) {
+            console.error(e);
+            container.innerHTML = '<div class="no-data" style="padding:20px;">Lỗi tải dữ liệu (Xem Console)</div>';
+        } finally {
+            container.style.opacity = '1';
+        }
+    }
+
+    // --- [UPDATED] RENDER BẢNG WORKLIST (GOM NHÓM - CARE Ở CHA) ---
+    function renderGroupedTable(customers) {
+        const container = document.getElementById('workListContainer');
+        
+        if (!customers || customers.length === 0) {
+            container.innerHTML = '<div class="no-data" style="padding:40px; text-align:center; color:#64748b;">Không có dữ liệu tháng này.</div>';
+            return;
+        }
+
+        let html = `
+            <div class="table-scroll-wrapper">
+            <table class="info-table" style="border-collapse: separate; border-spacing: 0;">
+                <thead>
+                    <tr>
+                        <th style="width:40px"></th>
+                        <th>Khách hàng</th>
+                        <th>Tổng Đơn</th>
+                        <th>Tổng Doanh Thu</th>
+                        <th>Trạng thái Care</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        customers.forEach((cust, index) => {
+            const totalRev = new Intl.NumberFormat('vi-VN').format(cust.Total_Revenue);
+            const rowId = `detail-${index}`;
+            
+            let statusBadge = '';
+            if (cust.Care_Status === 'done') statusBadge = '<span class="status-tag st-done">Đã xong</span>';
+            else if (cust.Care_Status === 'partial') statusBadge = '<span class="status-tag st-caring">Đang care</span>';
+            else statusBadge = '<span class="status-tag st-uncared">Chưa care</span>';
+
+            // Tìm đơn mới nhất để log Care
+            const sortedOrders = (cust.Orders || []).sort((a, b) => new Date(b.Report_date) - new Date(a.Report_date));
+            const latestOrder = sortedOrders.length > 0 ? sortedOrders[0] : {};
+
+            const modalData = {
+                Order_code: latestOrder.Order_code,
+                Customer_full_name: cust.Customer_Name,
+            };
+
+            // DÒNG CHA
+            html += `
+                <tr class="parent-row" onclick="toggleDetail('${rowId}', this)">
+                    <td><span class="toggle-icon">▶</span></td>
+                    <td>
+                        <div style="font-weight:700; color:#1e293b; font-size:14px;">${cust.Customer_Name}</div>
+                        ${cust.Tax_Code ? `<div style="font-size:11px; color:#64748b;">MST: ${cust.Tax_Code}</div>` : ''}
+                    </td>
+                    <td style="font-weight:600; color:#2563eb;">${cust.Order_Count} đơn</td>
+                    <td style="font-weight:700; color:#16a34a;">${totalRev} ₫</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn-care" style="background:#2563eb; color:#fff; padding:4px 8px;"
+                                onclick='event.stopPropagation(); openModal(${JSON.stringify(modalData)})'>
+                                📞 Care
+                            </button>
+                            <button class="btn-care" style="background:#fff; color:#2563eb; padding:4px 8px;"
+                                onclick="event.stopPropagation(); toggleDetail('${rowId}', this.closest('tr'))">
+                                👁️ Xem
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+
+            // DÒNG CON (DETAILS - KHÔNG NÚT CARE)
+            html += `<tr id="${rowId}" class="detail-row"><td colspan="6" style="padding:0; border:none;">`;
+            html += `<div class="detail-table-inner">
+                        <table style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th width="100">Ngày mua</th>
+                                    <th width="150">Mã đơn</th>
+                                    <th>Sản phẩm</th>
+                                    <th width="100">Giá trị</th>
+                                    <th width="100">Kết quả</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+            
+            const seenOrders = new Set();
+            cust.Orders.forEach(order => {
+                if(seenOrders.has(order.Order_code)) return;
+                seenOrders.add(order.Order_code);
+
+                const orderRev = new Intl.NumberFormat('vi-VN').format(order.Revenue);
+                const orderStatus = order.status === 'Đã chăm sóc' 
+                    ? `<span style="color:#16a34a; font-weight:600; font-size:12px;">${order.result}</span>` 
+                    : '<span style="color:#94a3b8; font-size:12px;">-</span>';
+
+                const productDisplay = `
+    <div style="font-size:13px; line-height:1.6;">
+        ${order.Product_Display_Html} 
+    </div>
+`;
+                html += `
+                    <tr>
+                        <td>${order.Report_date || '-'}</td>
+                        <td style="color:#2563eb; font-weight:600;">${order.Order_code}</td>
+                        <td>${productDisplay}</td>
+                        <td style="font-weight:700;">${orderRev} ₫</td>
+                        <td>${orderStatus}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div></td></tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+        container.innerHTML = html;
+    }
+
+    function toggleDetail(rowId, trElement) {
+        const detailRow = document.getElementById(rowId);
+        if (detailRow.classList.contains('show')) {
+            detailRow.classList.remove('show');
+            trElement.classList.remove('expanded');
+        } else {
+            detailRow.classList.add('show');
+            trElement.classList.add('expanded');
+        }
+    }
+
+    // ==============================================================
+    // 3. MODAL & FORM (GIỮ NGUYÊN)
+    // ==============================================================
+    const modal = document.getElementById('careModal');
+    
+    async function openModal(row) {
+        document.getElementById('careForm').reset();
+        document.getElementById('revenueBox').style.display = 'none';
+        document.getElementById('m_order_code').value = row.Order_code;
+        document.getElementById('m_customer_name').value = row.Customer_full_name;
+        document.getElementById('d_order_code').innerText = row.Order_code;
+        document.getElementById('d_customer_name').innerText = row.Customer_full_name;
+
+        const historyDiv = document.getElementById('historyContainer');
+        historyDiv.innerHTML = '<div style="padding:10px; color:#64748b;">Đang tải lịch sử...</div>';
+        modal.style.display = 'flex';
+
+        try {
+            // Gọi API lịch sử (có thể sửa API này để lấy history theo KH nếu cần, hiện tại lấy theo OrderCode)
+            const res = await fetch(`/api/cskh/history/${row.Order_code}`);
+            const json = await res.json();
+            if(json.data && json.data.length) {
+                if(json.data[0].phone_number) document.getElementById('m_phone').value = json.data[0].phone_number;
+                
+                historyDiv.innerHTML = json.data.map(log => `
+                    <div class="history-item">
+                        <div class="history-meta">
+                            <strong>${new Date(log.created_at).toLocaleString('vi-VN')}</strong> 
+                            bởi ${log.users?.full_name || 'Unknown'}
+                        </div>
+                        <div><span style="font-weight:700; color:#2563eb;">[${log.care_stage}]</span> ${log.contact_method} ➔ <strong>${log.result}</strong></div>
+                        <div style="font-style:italic; margin-top:4px;">"${log.sale_note || ''}"</div>
+                    </div>
+                `).join('');
+            } else {
+                historyDiv.innerHTML = '<div style="padding:10px; color:#94a3b8; font-style:italic;">Chưa có lịch sử chăm sóc đơn này.</div>';
+            }
+        } catch(e) { historyDiv.innerHTML = 'Lỗi tải lịch sử'; }
+    }
+
+    function closeModal() { modal.style.display = 'none'; }
+    function toggleRevenue() {
+        const val = document.getElementById('resultSelect').value;
+        document.getElementById('revenueBox').style.display = (val === 'Chốt đơn') ? 'block' : 'none';
+    }
+    function openRankModal() {
+        // Kiểm tra xem modal có tồn tại không
+        const modal = document.getElementById('rankModal');
+        if(modal) {
+            modal.style.display = 'flex';
+        } else {
+            alert("Bạn không có quyền xem Bảng xếp hạng hoặc chưa có dữ liệu.");
+        }
+    }
+    
+    // Đóng modal khi click ra ngoài (thêm vào window.onclick cũ)
+    window.onclick = function(e) {
+        if(e.target == document.getElementById('careModal')) closeModal();
+        if(e.target == document.getElementById('rankModal')) document.getElementById('rankModal').style.display='none';
+    }
+
+    document.getElementById('careForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const payload = Object.fromEntries(formData.entries());
+        const btn = e.target.querySelector('button');
+        btn.disabled = true; btn.innerText = 'Đang lưu...';
+
+        try {
+            const res = await fetch('/api/cskh/log', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if(json.ok) {
+                alert('Lưu thành công!');
+                closeModal();
+                loadWorkList(currentPage); 
+                if(currentData.length > 0) performSearch(0); 
+            } else {
+                alert('Lỗi: ' + json.error);
+            }
+        } catch(err) { alert('Lỗi kết nối'); } 
+        finally { btn.disabled = false; btn.innerText = 'Lưu thông tin'; }
+    });
+
+    // INIT
+    $(document).ready(function() {
+        if($('#filterEmail').length > 0) {
+            $('#filterEmail').select2({ placeholder: "🔍 Tìm nhân viên...", allowClear: true });
+        }
+        loadWorkList(1);
+    });
+
+    window.onclick = function(e) { 
+        if(e.target == modal) closeModal(); 
+        if(e.target == document.getElementById('rankModal')) document.getElementById('rankModal').style.display='none';
+    }
+
+    // --- HÀM XỬ LÝ CHỌN NHANH THỜI GIAN ---
+    function setPeriod(type) {
+        const d = new Date();
+        
+        // Helper: Format YYYY-MM-DD theo giờ địa phương
+        const toLocalISO = (date) => {
+            const offset = date.getTimezoneOffset() * 60000;
+            return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+        }
+
+        let start = new Date();
+        let end = new Date(); // Hôm nay
+
+        if (type === 'today') {
+            // Start = End = Hôm nay
+        } else if (type === 'week') {
+            // Thứ 2 đầu tuần hiện tại
+            const day = d.getDay(); 
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+            start.setDate(diff);
+        } else if (type === 'month') {
+            // Ngày 1 đầu tháng
+            start.setDate(1);
+        }
+
+        // Gán giá trị vào ô input
+        const startInput = document.querySelector('input[name="start"]');
+        const endInput = document.querySelector('input[name="end"]');
+        
+        if(startInput && endInput) {
+            startInput.value = toLocalISO(start);
+            endInput.value = toLocalISO(end);
+            
+            // Tự động Submit form sau khi chọn xong ngày
+            document.getElementById('adminFilterForm').submit();
+        }
+    }
+</script>

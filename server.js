@@ -5574,6 +5574,447 @@ app.post('/api/admin/event-settings/update', requireAuth, requireManager, async 
   }
 });
 
+
+// ============================================================
+// 1. API WORKLIST (ĐÃ FIX: GỘP SKU VÀ TÊN)
+// ============================================================
+app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
+    try {
+        const user = req.session.user;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const pageSize = 20; 
+        const offset = (page - 1) * pageSize;
+        const { sort, tax, status, month } = req.query;
+
+        if (!bigquery) return res.json({ ok: false, error: 'No BigQuery' });
+
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const filterMonth = month || currentMonth;
+
+        let whereClause = 'WHERE 1=1';
+        const params = { limit: pageSize, offset: offset, filterMonth: filterMonth };
+
+        whereClause += ` AND FORMAT_DATE('%Y-%m', Report_date) = @filterMonth`;
+        if (user.branch_code === 'HCM.BD') { /*...*/ } 
+        else if (user.role === 'manager') { whereClause += ` AND Branch_code = @branch`; params.branch = user.branch_code; } 
+        else { whereClause += ` AND LOWER(Email) = LOWER(@email)`; params.email = user.email; }
+
+        if (tax === 'has_tax') whereClause += ` AND Billing_tax_code IS NOT NULL AND Billing_tax_code != ''`;
+        else if (tax === 'no_tax') whereClause += ` AND (Billing_tax_code IS NULL OR Billing_tax_code = '')`;
+
+        let orderBy = 'ORDER BY Total_Revenue DESC';
+        if (sort === 'date_desc') orderBy = 'ORDER BY Max_Date DESC';
+        if (sort === 'price_asc') orderBy = 'ORDER BY Total_Revenue ASC';
+
+        const tableName = '`nimble-volt-459313-b8.sales.raw_sales_orders`';
+        
+        // --- Query dùng CTE để gom nhóm trước ---
+        const query = `
+            WITH OrderSummary AS (
+                SELECT 
+                    Order_code,
+                    MAX(Customer_full_name) as Customer_full_name,
+                    MAX(Billing_tax_code) as Billing_tax_code,
+                    MAX(Report_date) as Report_date,
+                    SUM(Revenue_with_VAT) as Order_Total_Val,
+                    
+                    -- [SỬA LỖI] Gộp SKU + Name + Qty
+                    STRING_AGG(
+                        CONCAT(
+                            '<span style="color:#2563eb; font-weight:700;">', CAST(SKU AS STRING), '</span> - ', 
+                            SKU_name, 
+                            ' <span style="color:#64748b;">(x', CAST(Quantity AS STRING), ')</span>'
+                        ), 
+                        '<br>'
+                    ) as Full_Product_Info
+                    
+                FROM ${tableName}
+                ${whereClause}
+                GROUP BY Order_code
+            )
+            SELECT
+                MAX(Customer_full_name) as Customer_Name,
+                ANY_VALUE(Billing_tax_code) as Tax_Code,
+                COUNT(Order_code) as Order_Count,
+                CAST(SUM(Order_Total_Val) AS FLOAT64) as Total_Revenue,
+                MAX(Report_date) as Max_Date,
+                
+                ARRAY_AGG(STRUCT(
+                    Order_code,
+                    Report_date,
+                    CAST(Order_Total_Val AS FLOAT64) as Revenue,
+                    Full_Product_Info as Product_Display_Html, -- Lấy chuỗi HTML
+                    1 as Quantity
+                )) as Orders
+            FROM OrderSummary
+            GROUP BY Customer_full_name
+            ${orderBy}
+            LIMIT @limit OFFSET @offset
+        `;
+
+        const [rows] = await bigquery.query({ query, params });
+
+        if (rows.length > 0) {
+            let allOrderCodes = [];
+            rows.forEach(row => { row.Orders.forEach(o => allOrderCodes.push(o.Order_code)); });
+
+            const { data: logs } = await supabase
+                .from('customer_care_logs')
+                .select('order_code, result').in('order_code', allOrderCodes).order('created_at', { ascending: false });
+
+            const logMap = new Map();
+            (logs || []).forEach(l => { if (!logMap.has(l.order_code)) logMap.set(l.order_code, l); });
+
+            rows.forEach(customer => {
+                let caredCount = 0;
+                customer.Orders = customer.Orders.map(o => {
+                    let d = o.Report_date;
+                    if (d && d.value) d = d.value;
+                    const log = logMap.get(o.Order_code);
+                    if(log) caredCount++;
+                    return { ...o, Report_date: d, status: log ? 'Đã chăm sóc' : 'Chưa chăm sóc', result: log?.result || '' };
+                });
+                if (caredCount === 0) customer.Care_Status = 'uncared';
+                else if (caredCount < customer.Order_Count) customer.Care_Status = 'partial';
+                else customer.Care_Status = 'done';
+            });
+        }
+
+        res.json({ ok: true, data: rows, page: page, month: filterMonth });
+
+    } catch (e) {
+        console.error('[Worklist Error]', e);
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+// --- ROUTE HIỂN THỊ TRANG CRM (ĐÃ FIX LỖI BIẾN branchStaffs) ---
+app.get('/customer-care', requireAuth, async (req, res) => {
+    try {
+        const user = req.session.user;
+        
+        // 1. XÁC ĐỊNH QUYỀN
+        const isGlobalAdmin = user.branch_code === 'HCM.BD';
+        const isManager = user.role === 'manager' || user.role === 'admin' || isGlobalAdmin;
+
+        // 2. BỘ LỌC THỜI GIAN
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        
+        const startDateRaw = req.query.start || firstDay.toISOString().split('T')[0];
+        const endDateRaw = req.query.end || now.toISOString().split('T')[0];
+
+        const startISO = new Date(startDateRaw).toISOString();
+        const endDateObj = new Date(endDateRaw);
+        endDateObj.setHours(23, 59, 59, 999);
+        const endISO = endDateObj.toISOString();
+
+        // 3. BỘ LỌC ĐỐI TƯỢNG
+        let filterBranch = user.branch_code;
+        let filterEmpId = null;
+
+        if (isGlobalAdmin) filterBranch = req.query.branch || null; 
+        if (isManager) filterEmpId = req.query.emp || null;
+        else filterEmpId = user.id;
+
+        // 4. TRUY VẤN DỮ LIỆU
+        let baseQuery = supabase
+            .from('customer_care_logs')
+            .select(`
+                revenue_at_care, result, order_code, created_at,
+                created_by,
+                users!inner(id, full_name, email, branch_code)
+            `)
+            .gte('created_at', startISO)
+            .lte('created_at', endISO);
+
+        if (filterBranch) baseQuery = baseQuery.eq('users.branch_code', filterBranch);
+        if (filterEmpId) baseQuery = baseQuery.eq('created_by', filterEmpId);
+
+        const { data: rawData, error } = await baseQuery;
+        if (error) throw error;
+
+        // 5. TÍNH TOÁN CHỈ SỐ
+        let totalRevenue = 0;
+        let uniqueOrders = new Set();
+        let closedCount = 0;
+        let matrixData = {}; 
+        let userTotalMap = {}; 
+        let allResultTypes = new Set();
+
+        (rawData || []).forEach(log => {
+            const rev = Number(log.revenue_at_care) || 0;
+            const result = log.result || 'Khác';
+            const u = log.users;
+            
+            totalRevenue += rev;
+            uniqueOrders.add(log.order_code);
+            if (result.toLowerCase().includes('chốt')) closedCount++;
+
+            const branch = u.branch_code || 'Unknown';
+            const uid = u.id;
+
+            // Ranking
+            if (!userTotalMap[uid]) userTotalMap[uid] = { id: uid, name: u.full_name || u.email, branch: branch, total: 0 };
+            userTotalMap[uid].total += rev;
+
+            // Matrix
+            if (!matrixData[branch]) matrixData[branch] = {};
+            if (!matrixData[branch][uid]) matrixData[branch][uid] = { name: u.full_name || u.email, total_care: 0, total_revenue: 0, results: {} };
+            
+            const salesman = matrixData[branch][uid];
+            salesman.total_care += 1;
+            salesman.total_revenue += rev;
+            salesman.results[result] = (salesman.results[result] || 0) + 1;
+            allResultTypes.add(result);
+        });
+
+        const rankingList = Object.values(userTotalMap).sort((a, b) => b.total - a.total);
+        
+        let currentRank = '--';
+        const targetRankId = filterEmpId || user.id;
+        const rankIdx = rankingList.findIndex(x => x.id === targetRankId);
+        if (rankIdx !== -1) currentRank = `#${rankIdx + 1}`;
+
+        const resultColumns = Array.from(allResultTypes).sort((a, b) => {
+            if (a.includes('Chốt')) return -1;
+            return a.localeCompare(b);
+        });
+
+        // 6. LẤY DANH SÁCH NHÂN VIÊN
+        let staffList = [];
+        let branchList = [];
+
+        if (isManager) {
+            if (isGlobalAdmin) {
+                const { data: branches } = await supabase.from('users').select('branch_code').neq('branch_code', null);
+                branchList = [...new Set((branches||[]).map(b=>b.branch_code))].sort();
+            }
+            
+            let staffQuery = supabase.from('users').select('id, email, full_name, branch_code').eq('role', 'staff');
+            if (filterBranch) staffQuery = staffQuery.eq('branch_code', filterBranch);
+            
+            const { data: staffs } = await staffQuery;
+            staffList = staffs || [];
+        }
+
+        // 7. RENDER (SỬA LỖI TẠI ĐÂY: mapping staffList -> branchStaffs)
+        res.render('customer-care', {
+            title: 'Chăm sóc khách hàng',
+            currentPage: 'customer-care',
+            user: user,
+            
+            isGlobalAdmin,
+            isManager,
+            branchList,
+            branchStaffs: staffList, // <--- QUAN TRỌNG: Đổi tên biến này cho khớp với EJS
+            
+            filters: {
+                start: startDateRaw,
+                end: endDateRaw,
+                branch: filterBranch,
+                emp: filterEmpId
+            },
+
+            dashboard: {
+                revenue: totalRevenue,
+                cared_count: uniqueOrders.size,
+                closed_count: closedCount,
+                rank: currentRank,
+                ranking_list: rankingList,
+                matrix_data: matrixData,
+                result_columns: resultColumns
+            }
+        });
+
+    } catch (e) {
+        console.error(e);
+        res.render('customer-care', { 
+            title: 'Lỗi', currentPage: 'customer-care', 
+            user: req.session.user, isGlobalAdmin: false, isManager: false,
+            branchList:[], branchStaffs: [], filters: {}, dashboard: {}, 
+            error: e.message 
+        });
+    }
+});
+// ============================================================
+// 2. API SEARCH (ĐÃ FIX: GỘP SKU VÀ TÊN SẢN PHẨM CHUẨN)
+// ============================================================
+app.get('/api/cskh/search', requireAuth, async (req, res) => {
+    try {
+        const { q, type, filterEmail, page } = req.query;
+        const user = req.session.user;
+        
+        const currentPage = Math.max(1, parseInt(page) || 1);
+        const pageSize = 10;
+        const offset = (currentPage - 1) * pageSize;
+
+        if (!bigquery) return res.json({ ok: false, error: 'Chưa kết nối BigQuery' });
+
+        const isManager = user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD';
+        const isGlobalAdmin = user.branch_code === 'HCM.BD';
+        
+        let permissionClause = '';
+        const params = { 
+            query: type !== 'order_code' ? `%${q || ''}%` : (q || ''),
+            userBranch: user.branch_code,
+            limit: pageSize,
+            offset: offset
+        };
+
+        if (!isGlobalAdmin) permissionClause += ` AND Branch_code = @userBranch`;
+
+        if (isManager) {
+            if (filterEmail && filterEmail.trim() !== '') {
+                permissionClause += ` AND LOWER(Email) = LOWER(@targetEmail)`;
+                params.targetEmail = filterEmail;
+            }
+        } else {
+            permissionClause += ` AND LOWER(Email) = LOWER(@myEmail)`;
+            params.myEmail = user.email;
+        }
+
+        let searchClause = '';
+        if (q) {
+            if (type === 'order_code') searchClause = `AND Order_code = @query`;
+            else if (type === 'tax_code') searchClause = `AND Billing_tax_code = @query`;
+            else searchClause = `AND LOWER(Customer_full_name) LIKE LOWER(@query)`;
+        }
+
+        const tableName = '`nimble-volt-459313-b8.sales.raw_sales_orders`'; 
+        
+        const query = `
+            WITH OrderSummary AS (
+                SELECT 
+                    Order_code,
+                    MAX(Customer_full_name) as Customer_full_name,
+                    MAX(Billing_tax_code) as Billing_tax_code,
+                    MAX(Branch_code) as Branch_code,
+                    MAX(Email) as Email,
+                    MAX(Report_date) as Report_date,
+                    SUM(Revenue_with_VAT) as Order_Total_Val,
+                    
+                    -- [SỬA LỖI TẠI ĐÂY] Gộp SKU và Tên vào chung 1 chuỗi
+                    STRING_AGG(
+                        CONCAT(
+                            '<span style="color:#2563eb; font-weight:700;">', CAST(SKU AS STRING), '</span> - ', 
+                            SKU_name, 
+                            ' <span style="color:#64748b;">(x', CAST(Quantity AS STRING), ')</span>'
+                        ), 
+                        '<br>'
+                    ) as Full_Product_Info
+                    
+                FROM ${tableName}
+                WHERE 1=1
+                ${permissionClause} 
+                ${searchClause}
+                GROUP BY Order_code
+            )
+            SELECT
+                MAX(Customer_full_name) as Customer_Name,
+                ANY_VALUE(Billing_tax_code) as Tax_Code,
+                ANY_VALUE(Branch_code) as Branch_Code,
+                ANY_VALUE(Email) as Sales_Email,
+                COUNT(Order_code) as Order_Count,
+                CAST(SUM(Order_Total_Val) AS FLOAT64) as Total_Revenue,
+                MAX(Report_date) as Max_Date,
+                
+                ARRAY_AGG(STRUCT(
+                    Order_code,
+                    Report_date,
+                    CAST(Order_Total_Val AS FLOAT64) as Revenue,
+                    Full_Product_Info as Product_Display_Html, -- Lấy chuỗi HTML đã gộp
+                    1 as Quantity
+                )) as Orders
+            FROM OrderSummary
+            GROUP BY Customer_full_name
+            ORDER BY Max_Date DESC
+            LIMIT @limit OFFSET @offset
+        `;
+
+        const [rows] = await bigquery.query({ query, params });
+
+        if (rows.length > 0) {
+            let allOrderCodes = [];
+            rows.forEach(row => { row.Orders.forEach(o => allOrderCodes.push(o.Order_code)); });
+
+            const { data: logs } = await supabase
+                .from('customer_care_logs')
+                .select('order_code, result')
+                .in('order_code', allOrderCodes)
+                .order('created_at', { ascending: false });
+
+            const logMap = new Map();
+            (logs || []).forEach(l => { if (!logMap.has(l.order_code)) logMap.set(l.order_code, l); });
+
+            rows.forEach(customer => {
+                let caredCount = 0;
+                customer.Orders = customer.Orders.map(o => {
+                    let d = o.Report_date;
+                    if (d && d.value) d = d.value;
+                    const log = logMap.get(o.Order_code);
+                    if(log) caredCount++;
+                    return { ...o, Report_date: d, status: log ? 'Đã chăm sóc' : 'Chưa chăm sóc', result: log?.result || '' };
+                });
+                if (caredCount === 0) customer.Care_Status = 'uncared';
+                else if (caredCount < customer.Order_Count) customer.Care_Status = 'partial';
+                else customer.Care_Status = 'done';
+            });
+        }
+
+        res.json({ ok: true, data: rows, page: currentPage });
+
+    } catch (e) {
+        console.error('Search Error:', e);
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+// 3. API Lưu log chăm sóc (POST) - Chỉ lưu Supabase
+app.post('/api/cskh/log', requireAuth, async (req, res) => {
+    try {
+        const { 
+            order_code, customer_name, phone, care_stage, 
+            contact_method, result, note, revenue, next_date 
+        } = req.body;
+
+        const { error } = await supabase.from('customer_care_logs').insert({
+            order_code,
+            customer_full_name: customer_name,
+            phone_number: phone,
+            care_stage,
+            contact_method,
+            result,
+            sale_note: note,
+            revenue_at_care: Number(revenue) || 0,
+            next_action_date: next_date || null,
+            created_by: req.session.user.id
+        });
+
+        if (error) throw error;
+        res.json({ ok: true, message: 'Đã lưu thông tin chăm sóc!' });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+// 4. API Lấy lịch sử chăm sóc (GET)
+app.get('/api/cskh/history/:orderCode', requireAuth, async (req, res) => {
+    try {
+        const { data } = await supabase
+            .from('customer_care_logs')
+            .select(`*, users:created_by(full_name)`)
+            .eq('order_code', req.params.orderCode)
+            .order('created_at', { ascending: false });
+        
+        res.json({ ok: true, data: data || [] });
+    } catch(e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {
