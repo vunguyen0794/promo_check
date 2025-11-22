@@ -638,49 +638,57 @@ margin-top:10px;">Lịch sử Serial: <span id="historySerial"></span></h3>
         scanModal.style.display = 'flex';
         
         if (!html5QrcodeScanner) {
-           html5QrcodeScanner = // Dán khối code này thay thế cho khối new Html5QrcodeScanner(...) ở cả 2 nơi
-            // Dán khối code này thay thế cho khối new Html5QrcodeScanner(...) ở sự kiện 'btnScan'
-            // === KHỐI CẤU HÌNH "HYBRID" (Lấy nét gốc + Thêm format) ===
-new Html5QrcodeScanner(
+           html5QrcodeScanner = new Html5QrcodeScanner(
     "qr-reader", 
     { 
-        fps: 10, // Giảm FPS để quét ổn định hơn
+        // 1. Tăng FPS lên 30 để phản hồi nhanh hơn (mặc định của bạn là 10)
+        fps: 30, 
+
+        // 2. Tinh chỉnh vùng quét: Quét mã vạch thường cần vùng rộng ngang, hẹp dọc
         qrbox: (viewfinderWidth, viewfinderHeight) => {
-            let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            // Kích thước khung quét 80%
-            let size = Math.floor(minEdge * 0.8); 
-            return { width: size, height: size };
+            // Lấy 90% chiều rộng để dễ bắt mã dài
+            let width = Math.floor(viewfinderWidth * 0.9);
+            // Chiều cao vừa đủ để người dùng tập trung
+            let height = Math.floor(viewfinderHeight * 0.4); 
+            return { width: width, height: height };
         },
-        rememberLastUsedCamera: true, // Giữ nguyên
+
+        rememberLastUsedCamera: true,
         
-        // GIỮ NGUYÊN danh sách format MỞ RỘNG
+        // 3. Kích hoạt tính năng "Experimental" để dùng API quét native của trình duyệt (Cực nhanh trên Chrome Android)
+        experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+        },
+
         formatsToSupport: [
             Html5QrcodeSupportedFormats.QR_CODE,
             Html5QrcodeSupportedFormats.CODE_128,
             Html5QrcodeSupportedFormats.EAN_13,
             Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_39, // Cần cho mã vạch 1D (ảnh 2)
-            Html5QrcodeSupportedFormats.ITF      // Cần cho mã vạch 1D
+            //Html5QrcodeSupportedFormats.UPC_A,
+            //Html5QrcodeSupportedFormats.UPC_E,
+            //Html5QrcodeSupportedFormats.CODE_39,
+            ///Html5QrcodeSupportedFormats.ITF
         ],
 
-        // QUAY LẠI CẤU HÌNH videoConstraints GỐC TỪ TỆP CỦA BẠN
-        // Đây là yêu cầu "lý tưởng" cho camera di động
+        // 4. Ép độ phân giải cao để Camera nét hơn (Quan trọng cho mã vạch nhỏ/mờ)
         videoConstraints: {
-            facingMode: { 
-                ideal: "environment" // 1. Ưu tiên camera "môi trường" (sau)
-            },
-            focusMode: {
-                ideal: "continuous" // 2. Yêu cầu tự động lấy nét liên tục
-            }
+            facingMode: { ideal: "environment" }, // Camera sau
+            
+            // Yêu cầu độ phân giải HD hoặc Full HD để ảnh nét
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
+            
+            // Tỷ lệ khung hình phù hợp với điện thoại
+            aspectRatio: { ideal: 1.7777777778 }, 
+
+            focusMode: "continuous" // Lấy nét liên tục
         },
         
-        // Ẩn UI chọn camera để quét ngay
         showSelectedCameraDevice: false, 
         showCameraSelection: false
     }
-)
+);
 // === KẾT THÚC KHỐI "HYBRID" ===
         }
         html5QrcodeScanner.render(onScanSuccess, onScanFailure);
@@ -744,49 +752,57 @@ function handleRescan() {
     try {
         // Vì html5QrcodeScanner đã bị set = null, chúng ta phải tạo MỚI
         if (!html5QrcodeScanner) {
-            html5QrcodeScanner = 
-           // === KHỐI CẤU HÌNH TỐI ƯU MỚI ===
-            // === KHỐI CẤU HÌNH "HYBRID" (Lấy nét gốc + Thêm format) ===
-new Html5QrcodeScanner(
+            html5QrcodeScanner = new Html5QrcodeScanner(
     "qr-reader", 
     { 
-        fps: 10, // Giảm FPS để quét ổn định hơn
+        // 1. Tăng FPS lên 30 để phản hồi nhanh hơn (mặc định của bạn là 10)
+        fps: 30, 
+
+        // 2. Tinh chỉnh vùng quét: Quét mã vạch thường cần vùng rộng ngang, hẹp dọc
         qrbox: (viewfinderWidth, viewfinderHeight) => {
-            let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            // Kích thước khung quét 80%
-            let size = Math.floor(minEdge * 0.8); 
-            return { width: size, height: size };
+            // Lấy 90% chiều rộng để dễ bắt mã dài
+            let width = Math.floor(viewfinderWidth * 0.9);
+            // Chiều cao vừa đủ để người dùng tập trung
+            let height = Math.floor(viewfinderHeight * 0.4); 
+            return { width: width, height: height };
         },
-        rememberLastUsedCamera: true, // Giữ nguyên
+
+        rememberLastUsedCamera: true,
         
-        // GIỮ NGUYÊN danh sách format MỞ RỘNG
+        // 3. Kích hoạt tính năng "Experimental" để dùng API quét native của trình duyệt (Cực nhanh trên Chrome Android)
+        experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+        },
+
         formatsToSupport: [
             Html5QrcodeSupportedFormats.QR_CODE,
             Html5QrcodeSupportedFormats.CODE_128,
             Html5QrcodeSupportedFormats.EAN_13,
             Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_39, // Cần cho mã vạch 1D (ảnh 2)
-            Html5QrcodeSupportedFormats.ITF      // Cần cho mã vạch 1D
+            //Html5QrcodeSupportedFormats.UPC_A,
+            //Html5QrcodeSupportedFormats.UPC_E,
+            //Html5QrcodeSupportedFormats.CODE_39,
+            ///Html5QrcodeSupportedFormats.ITF
         ],
 
-        // QUAY LẠI CẤU HÌNH videoConstraints GỐC TỪ TỆP CỦA BẠN
-        // Đây là yêu cầu "lý tưởng" cho camera di động
+        // 4. Ép độ phân giải cao để Camera nét hơn (Quan trọng cho mã vạch nhỏ/mờ)
         videoConstraints: {
-            facingMode: { 
-                ideal: "environment" // 1. Ưu tiên camera "môi trường" (sau)
-            },
-            focusMode: {
-                ideal: "continuous" // 2. Yêu cầu tự động lấy nét liên tục
-            }
+            facingMode: { ideal: "environment" }, // Camera sau
+            
+            // Yêu cầu độ phân giải HD hoặc Full HD để ảnh nét
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
+            
+            // Tỷ lệ khung hình phù hợp với điện thoại
+            aspectRatio: { ideal: 1.7777777778 }, 
+
+            focusMode: "continuous" // Lấy nét liên tục
         },
         
-        // Ẩn UI chọn camera để quét ngay
         showSelectedCameraDevice: false, 
         showCameraSelection: false
     }
-)
+);
 // === KẾT THÚC KHỐI "HYBRID" ===
 
         }
