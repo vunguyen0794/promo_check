@@ -39,7 +39,7 @@
     <header class="header">
         <div class="container">
             <div class="header-content">
-                <div class="logo">WEB NỘI BỘ</div>
+                <div class="logo">Web Miền</div>
                 <nav class="nav">
                     <a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">🏠 Trang Chủ</a>
                     <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">📦 FIFO</a>
@@ -109,8 +109,13 @@
                     </div>
                 </div>
 
-                <% /* === Chỉ báo User Online (Giữ nguyên) === */ %>
-                <% if (locals.user && (user.role === 'manager' || user.role === 'admin') && locals.onlineUserCount != null) { %>
+                <% /* === Chỉ báo User Online: CHỈ Manager/Admin của HCM.BD mới thấy === */ %>
+                <% if (
+                    locals.user && 
+                    (user.role === 'manager' || user.role === 'admin') && 
+                    user.branch_code === 'HCM.BD' &&  /* <--- ĐIỀU KIỆN MỚI */
+                    locals.onlineUserCount != null
+                ) { %>
                   <style>
                     .online-user-indicator {
                       display: flex; align-items: center; gap: 6px;
@@ -127,7 +132,6 @@
                     <span class="dot"></span> Online: <strong><%= onlineUserCount %></strong>
                   </div>
                 <% } %>
-
                 <% if (user) { %>
                     <div class="user-nav">
                         <div class="user-info">
@@ -135,7 +139,7 @@
                             <span><%= user.full_name || user.email %></span>
                         </div>
                      
-                       <% if (user.role === 'manager' || user.role === 'admin') { %>
+                       <% if ((user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
                            <button type="button" class="btn btn-warning" id="btnSyncBigQuery" style="padding: 5px 10px; font-size: 0.8rem;">
                             Sync BQ
                           </button>
