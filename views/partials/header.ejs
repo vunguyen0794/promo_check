@@ -133,23 +133,28 @@
                   </div>
                 <% } %>
                 <% if (user) { %>
-                    <div class="user-nav">
-                        <div class="user-info">
-                            <div class="user-avatar"><%= user.full_name ? user.full_name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() %></div>
-                            <span><%= user.full_name || user.email %></span>
-                        </div>
-                     
-                       <% if ((user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
-                           <button type="button" class="btn btn-warning" id="btnSyncBigQuery" style="padding: 5px 10px; font-size: 0.8rem;">
-                            Sync BQ
-                          </button>
-                        <% } %>
+    <div class="user-nav">
+        <a href="/profile" class="user-info" style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
+            <div class="user-avatar">
+                <%= user.full_name ? user.full_name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() %>
+            </div>
+            <span style="color: white; font-weight: 600;">
+                <%= user.full_name || user.email %>
+            </span>
+        </a>
+        
+        <% /* Nút Sync BQ giữ nguyên */ %>
+        <% if ((user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
+            <button type="button" class="btn btn-warning" id="btnSyncBigQuery" style="padding: 5px 10px; font-size: 0.8rem;">
+            Sync BQ
+            </button>
+        <% } %>
 
-                        <form action="/logout" method="POST" style="display: inline;">
-                            <button type="submit" class="logout-btn">Đăng xuất</button>
-                        </form>
-                    </div>
-                <% } else { %>
+        <form action="/logout" method="POST" style="display: inline;">
+            <button type="submit" class="logout-btn">Đăng xuất</button>
+        </form>
+    </div>
+<% } else { %>
                     <div class="user-nav">
                         <a href="/login" style="color: white; text-decoration: none;">Đăng nhập</a>
                     </div>

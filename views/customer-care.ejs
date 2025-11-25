@@ -164,6 +164,14 @@
         height: 38px; padding: 0 12px; background: #fff; border: 1px solid #cbd5e1; color: #475569; border-radius: 6px; font-size: 12px; cursor: pointer;
     }
     .btn-filter-preset:hover { background: #f1f5f9; }
+    /* Thêm vào thẻ <style> */
+.clickable-row {
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.clickable-row:hover {
+    background-color: #eff6ff; /* Xanh nhạt khi hover */
+}
 </style>
 
 <div class="container">
@@ -321,108 +329,115 @@
         </div>
     </div>
 
-    <div class="dash-card">
-        <div class="dash-title">
-            Tra cứu đơn hàng - Khu vực: 
-            <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin) { %>
-                <span style="color:#d97706; font-weight:800;">TOÀN HỆ THỐNG (HCM.BD)</span>
-            <% } else { %>
-                <span style="color:#2563eb"><%= user.branch_code %></span>
-            <% } %>
-        </div>
+
+    <div id="breakdownModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close" onclick="document.getElementById('breakdownModal').style.display='none'">&times;</span>
         
-        <div class="search-controls">
-            <select id="searchType" class="std-select">
-                <option value="order_code">Mã đơn hàng</option>
-                <option value="customer_name">Tên khách hàng</option>
-                <option value="tax_code">Mã số thuế</option>
-            </select>
-
-            <% if (user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD') { %>
-                <select id="filterEmail">
-                    <option value="">-- Tất cả nhân viên --</option>
-                    <% if (branchStaffs && branchStaffs.length > 0) { %>
-                        <% branchStaffs.forEach(staff => { %>
-                            <option value="<%= staff.email %>">
-                                <%= staff.full_name || staff.email %> 
-                                <% if(typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin) { %> (<%= staff.branch_code %>) <% } %>
-                            </option>
-                        <% }) %>
-                    <% } %>
-                </select>
-            <% } else { %>
-                <input type="hidden" id="filterEmail" value=""> 
-            <% } %>
-            <input type="text" id="searchInput" placeholder="Nhập từ khóa..." onkeypress="if(event.key==='Enter') performSearch()">
-            <button class="btn btn-primary" onclick="performSearch()">🔍 Tìm</button>
-        </div>
-
-        <div class="table-scroll-wrapper">
-            <table class="info-table" id="resultTable">
-    <thead>
-        <tr>
-            <th style="width: 40px;"></th> 
-            
-            <th style="width: 110px;">Ngày mua</th>
-
-            <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin) { %>
-                <th style="width: 80px;">Branch</th>
-            <% } %>
-
-            <% if (user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD') { %>
-                <th style="width: 200px;">Salesman</th>
-            <% } %>
-
-            <th>Khách hàng</th>
-            <th style="width: 100px; text-align: center;">Số đơn</th>
-            <th style="width: 150px; text-align: right;">Tổng Doanh Thu</th>
-            <th style="width: 120px;">Trạng thái</th>
-            <th style="width: 140px;">Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr><td colspan="9" style="text-align:center; padding:20px; color:#64748b;">Vui lòng nhập thông tin để tìm kiếm...</td></tr>
-    </tbody>
-</table>
-        </div>
-
-        <div id="searchPagination" style="margin-top:10px; display:none; justify-content:flex-end; gap:10px; align-items:center;">
-            <button class="btn-view-more" onclick="changeSearchPage(-1)">❮ Trước</button>
-            <span style="font-weight:600; font-size:14px; color:#475569;" id="searchPageIndicator">Trang 1</span>
-            <button class="btn-view-more" onclick="changeSearchPage(1)">Sau ❯</button>
-        </div>
-
-    </div>
-
-    <div class="dash-card" style="margin-top: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap:15px;">
-    <div class="dash-title" style="margin:0; border-bottom:none; font-size:16px;">
-        📋 Danh sách khách cần chăm sóc
-    </div>
-    
-    <div class="filter-group">
-        <input type="month" id="wlMonth" onchange="loadWorkList(1)" 
-               class="custom-select" 
-               style="border-left: 3px solid #e11d48; padding-right: 12px;"
-               value="<%= new Date().toISOString().slice(0, 7) %>">
-
-        <select id="wlStatus" onchange="loadWorkList(1)" class="custom-select select-status">
-            <option value="all">-- Trạng thái Care --</option>
-            <option value="uncared">🔴 Cần chăm sóc</option>
-            </select>
-
-        <select id="wlTax" onchange="loadWorkList(1)" class="custom-select select-tax">
-            <option value="all">Tất cả KH</option>
-            <option value="has_tax">🏢 Doanh nghiệp</option>
-            <option value="no_tax">👤 Cá nhân</option>
-        </select>
+        <h3 style="color:#2563eb; margin-bottom:5px; text-align:center;">📊 Phân bổ đơn hàng</h3>
+        <p id="breakdownCustomerName" style="text-align:center; font-weight:bold; color:#64748b; margin-bottom:15px;"></p>
         
-        <select id="wlSort" onchange="loadWorkList(1)" class="custom-select select-sort">
-            <option value="price_desc">💰 DT Cao nhất</option>
-            <option value="date_desc">📅 Mới nhất</option>
-        </select>
+        <div style="max-height: 60vh; overflow-y: auto;">
+            <div id="breakdownNav" style="display:none; margin-bottom: 10px;">
+    <button class="btn-care" onclick="resetToBranchView()" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;">
+        ⬅ Quay lại danh sách Chi nhánh
+    </button>
+</div>
+            <table class="info-table">
+                <thead style="background:#f1f5f9; position: sticky; top: 0;">
+                    <tr>
+                        <th id="breakdownColName">Tiêu chí</th> <th style="text-align:right">Số lượng</th>
+                        <th style="text-align:right">Tỷ trọng</th>
+                    </tr>
+                </thead>
+                <tbody id="breakdownTableBody">
+                    </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+   <div class="dash-card" style="margin-top: 20px;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap:15px;">
+            <div class="dash-title" style="margin:0; border-bottom:none; font-size:18px; white-space:nowrap;">
+                📋 Danh sách khách hàng
+            </div>
+            
+            <div style="display:flex; gap:10px; flex:1; max-width:600px;">
+                <select id="searchType" class="custom-select" style="width:140px; background-color:#f8fafc;">
+                    <option value="customer_name">Tên khách hàng</option>
+                    <option value="order_code">Mã đơn hàng</option>
+                    <option value="tax_code">Mã số thuế</option>
+                </select>
+                <div style="position:relative; flex:1;">
+                    <input type="text" id="searchInput" 
+                           placeholder="Nhập từ khóa tìm kiếm..." 
+                           style="width:100%; height:38px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px 0 35px;"
+                           onkeypress="if(event.key==='Enter') loadWorkList(1)">
+                    <span style="position:absolute; left:10px; top:9px;">🔍</span>
+                </div>
+                <button class="btn btn-primary" onclick="loadWorkList(1)" style="height:38px; padding:0 20px;">Tìm</button>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; padding-bottom:15px; border-bottom:1px dashed #e2e8f0; margin-bottom:15px;">
+            
+            <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin) { %>
+                <select id="wlBranch" onchange="loadWorkList(1)" class="custom-select" style="border-left: 3px solid #6366f1;">
+                    <option value="all">-- Tất cả CN --</option>
+                    <% if (branchList) { branchList.forEach(br => { %>
+                        <option value="<%= br %>"><%= br %></option>
+                    <% }) } %>
+                </select>
+            <% } else { %>
+                <input type="hidden" id="wlBranch" value="">
+            <% } %>
+
+            <% if (isManager) { %>
+                <div style="width: 200px;">
+                    <select id="filterEmail" class="select2-enable" onchange="loadWorkList(1)">
+    <option value="">-- Lọc theo nhân viên --</option>
+    <% if (typeof branchStaffs !== 'undefined' && branchStaffs) { %>
+        <% branchStaffs.forEach(st => { %>
+            <option value="<%= st.id %>">
+                [<%= st.branch_code %>] <%= st.full_name || st.email %>
+            </option>
+        <% }) %>
+    <% } %>
+</select>
+                </div>
+            <% } else { %>
+                <input type="hidden" id="filterEmail" value="">
+            <% } %>
+
+            <select id="wlMonth" onchange="loadWorkList(1)" class="custom-select" style="border-left: 3px solid #e11d48;">
+                <% const d = new Date(); const currentM = d.toISOString().slice(0, 7); %>
+                <option value="<%= currentM %>">Tháng này (<%= currentM %>)</option>
+                <option value="all">📅 Toàn thời gian</option>
+                <% for(let i=1; i<=11; i++) { d.setMonth(d.getMonth() - 1); const mStr = d.toISOString().slice(0, 7); %>
+                    <option value="<%= mStr %>">Tháng <%= mStr %></option>
+                <% } %>
+            </select>
+
+            <select id="wlStatus" onchange="loadWorkList(1)" class="custom-select select-status">
+                <option value="all">-- Trạng thái --</option>
+                <option value="uncared">🔴 Chưa care</option>
+                <option value="caring">🟡 Đang care</option>
+                <option value="done">🟢 Đã chốt</option>
+            </select>
+
+            <select id="wlTax" onchange="loadWorkList(1)" class="custom-select select-tax">
+                <option value="all">Loại KH</option>
+                <option value="has_tax">🏢 Doanh nghiệp</option>
+                <option value="no_tax">👤 Cá nhân</option>
+            </select>
+            
+            <select id="wlSort" onchange="loadWorkList(1)" class="custom-select select-sort">
+                <option value="price_desc">💰 DT Cao nhất</option>
+                <option value="date_desc">📅 Mới nhất</option>
+            </select>
+        </div>
         
         <div style="margin-bottom:10px; display:flex; justify-content:flex-end; gap:10px; align-items:center;">
             <button class="btn-view-more" onclick="loadWorkList(currentPage - 1)">❮ Trước</button>
@@ -434,7 +449,6 @@
             <div style="padding:40px; text-align:center; color:#64748b;">Đang tải dữ liệu...</div>
         </div>
     </div>
-</div>
 
 <div id="careModal" class="modal">
     <div class="modal-content">
@@ -553,67 +567,9 @@
     // ==============================================================
     // 1. LOGIC TÌM KIẾM (BLOCK 2)
     // ==============================================================
+    let globalWorkListData = [];
     let currentSearchPage = 1; 
     let currentData = [];
-
-    async function performSearch(pageOffset = 0) {
-        const type = document.getElementById('searchType').value;
-        const q = document.getElementById('searchInput').value.trim();
-        
-        // Lấy giá trị từ Select2 (nếu có) hoặc input ẩn
-        let filterEmail = '';
-        if ($('#filterEmail').length > 0) {
-            filterEmail = $('#filterEmail').val();
-        } else {
-            filterEmail = document.getElementById('filterEmail') ? document.getElementById('filterEmail').value : '';
-        }
-
-        if(!q && !filterEmail) return alert('Vui lòng nhập từ khóa hoặc chọn nhân viên!');
-
-        let newPage = pageOffset === 0 ? 1 : currentSearchPage + pageOffset;
-        if(newPage < 1) newPage = 1;
-
-        const tbody = document.querySelector('#resultTable tbody');
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
-
-        try {
-            const res = await fetch(`/api/cskh/search?type=${type}&q=${encodeURIComponent(q)}&filterEmail=${encodeURIComponent(filterEmail)}&page=${newPage}`);
-            const json = await res.json();
-            
-            if(json.ok) {
-                if(json.data.length === 0 && newPage > 1) {
-                    alert("Đã hết dữ liệu!");
-                    performSearch(0);
-                    return;
-                }
-
-                currentSearchPage = newPage;
-                currentData = json.data;
-                renderMainTable(currentData); // Hàm render đã được sửa bên dưới
-                
-                document.getElementById('searchPagination').style.display = 'flex';
-                document.getElementById('searchPageIndicator').innerText = `Trang ${currentSearchPage}`;
-                
-                const nextBtn = document.querySelector('#searchPagination button:last-child');
-                if(json.data.length < 10) {
-                    nextBtn.style.opacity = '0.5'; nextBtn.disabled = true;
-                } else {
-                    nextBtn.style.opacity = '1'; nextBtn.disabled = false;
-                }
-
-            } else {
-                alert(json.error || 'Lỗi hệ thống');
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Lỗi tải dữ liệu</td></tr>';
-            }
-        } catch(e) {
-            console.error(e);
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Lỗi kết nối</td></tr>';
-        }
-    }
-
-    function changeSearchPage(offset) {
-        performSearch(offset);
-    }
 
     // --- HÀM RENDER BẢNG TÌM KIẾM (ĐÃ KHỚP CỘT) ---
     function renderMainTable(data) {
@@ -723,6 +679,8 @@
                                 <tr>
                                     <th width="100">Ngày mua</th>
                                     <th width="150">Mã đơn</th>
+                                    <th width="60">CN</th>     
+                                    <th width="120">NV Bán</th>
                                     <th>Sản phẩm chi tiết</th>
                                     <th width="120">Giá trị</th>
                                     <th width="120">Kết quả</th>
@@ -749,6 +707,11 @@
                 html += `
                     <tr>
                         <td>${order.Report_date || '-'}</td>
+                        <td><span class="badge badge-subgroup">${order.Branch_code || '-'}</span></td>
+        
+        <td style="font-size:11px; color:#64748b;">
+            ${order.Sales_Email ? order.Sales_Email.split('@')[0] : 'N/A'}
+        </td>
                         <td style="color:#2563eb; font-weight:600;">${order.Order_code}</td>
                         <td>${productDisplay}</td>
                         <td style="font-weight:700;">${orderRev} ₫</td>
@@ -767,25 +730,35 @@
     // ==============================================================
     let currentPage = 1;
 
+
+    // --- HÀM LOAD DỮ LIỆU DUY NHẤT ---
     async function loadWorkList(page) {
         if (page < 1) return;
         
+        // Lấy tất cả giá trị từ form gộp
         const sort = document.getElementById('wlSort').value;
         const tax = document.getElementById('wlTax').value;
         const status = document.getElementById('wlStatus').value;
         const month = document.getElementById('wlMonth').value;
+        const branchEl = document.getElementById('wlBranch');
+        const branch = branchEl ? branchEl.value : '';
+        
+        // Lấy search params
+        const q = document.getElementById('searchInput').value.trim();
+        const type = document.getElementById('searchType').value;
+        
+        // Lấy nhân viên (Select2 value)
+        let emp = '';
+        if ($('#filterEmail').length > 0) emp = $('#filterEmail').val();
 
         const container = document.getElementById('workListContainer');
         container.style.opacity = '0.5';
 
         try {
-            const res = await fetch(`/api/cskh/worklist?page=${page}&sort=${sort}&tax=${tax}&status=${status}&month=${month}`);
+            // Gọi API duy nhất
+            const url = `/api/cskh/worklist?page=${page}&sort=${sort}&tax=${tax}&status=${status}&month=${month}&branch=${branch}&q=${encodeURIComponent(q)}&type=${type}&emp=${emp}`;
             
-            const contentType = res.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) {
-                throw new Error("Server Error (Not JSON). Check Terminal.");
-            }
-
+            const res = await fetch(url);
             const json = await res.json();
 
             if (json.ok) {
@@ -794,19 +767,18 @@
                 } else {
                     currentPage = page;
                     document.getElementById('pageIndicator').innerText = `Trang ${currentPage}`;
+                    globalWorkListData = json.data;
                     renderGroupedTable(json.data);
                 }
             } else {
-                container.innerHTML = `<div class="no-data" style="color:red; padding:20px;">${json.error}</div>`;
+                container.innerHTML = `<div class="no-data" style="color:red;">${json.error}</div>`;
             }
         } catch (e) {
             console.error(e);
-            container.innerHTML = '<div class="no-data" style="padding:20px;">Lỗi tải dữ liệu (Xem Console)</div>';
         } finally {
             container.style.opacity = '1';
         }
     }
-
     // --- [UPDATED] RENDER BẢNG WORKLIST (GOM NHÓM - CARE Ở CHA) ---
     function renderGroupedTable(customers) {
         const container = document.getElementById('workListContainer');
@@ -858,7 +830,10 @@
                         <div style="font-weight:700; color:#1e293b; font-size:14px;">${cust.Customer_Name}</div>
                         ${cust.Tax_Code ? `<div style="font-size:11px; color:#64748b;">MST: ${cust.Tax_Code}</div>` : ''}
                     </td>
-                    <td style="font-weight:600; color:#2563eb;">${cust.Order_Count} đơn</td>
+                    <td style="font-weight:600; color:#2563eb; cursor:pointer; text-decoration:underline;" 
+    onclick="event.stopPropagation(); showOrderBreakdown(${index})">
+    ${cust.Order_Count} đơn
+</td>
                     <td style="font-weight:700; color:#16a34a;">${totalRev} ₫</td>
                     <td>${statusBadge}</td>
                     <td>
@@ -883,6 +858,8 @@
                             <thead>
                                 <tr>
                                     <th width="100">Ngày mua</th>
+                                    <th width="60">CN</th>     
+                                    <th width="120">NV Bán</th>
                                     <th width="150">Mã đơn</th>
                                     <th>Sản phẩm</th>
                                     <th width="100">Giá trị</th>
@@ -909,6 +886,10 @@
                 html += `
                     <tr>
                         <td>${order.Report_date || '-'}</td>
+                        <td><span class="badge badge-subgroup">${order.Branch_code || '-'}</span></td>
+                        <td style="font-size:11px; color:#64748b;">
+                            ${order.Sales_Email ? order.Sales_Email.split('@')[0] : 'N/A'}
+                         </td>
                         <td style="color:#2563eb; font-weight:600;">${order.Order_code}</td>
                         <td>${productDisplay}</td>
                         <td style="font-weight:700;">${orderRev} ₫</td>
@@ -1070,4 +1051,123 @@
             document.getElementById('adminFilterForm').submit();
         }
     }
+
+    let currentBreakdownIndex = null; // Lưu index khách hàng đang xem
+
+// 1. HÀM MỞ MODAL (CẤP 1)
+function showOrderBreakdown(index) {
+    currentBreakdownIndex = index;
+    const cust = globalWorkListData[index];
+    if (!cust || !cust.Orders) return;
+
+    // Reset giao diện về cấp 1
+    document.getElementById('breakdownNav').style.display = 'none';
+    document.getElementById('breakdownCustomerName').innerText = `Khách hàng: ${cust.Customer_Name}`;
+
+    const isGlobalAdmin = "<%= typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin %>" === 'true';
+
+    // Nếu là Admin -> Hiện danh sách Branch
+    if (isGlobalAdmin) {
+        renderBreakdownTable(cust.Orders, 'branch');
+    } else {
+        // Nếu là Manager -> Hiện danh sách Sales luôn
+        renderBreakdownTable(cust.Orders, 'sales');
+    }
+
+    document.getElementById('breakdownModal').style.display = 'flex';
+}
+
+// 2. HÀM XEM CHI TIẾT BRANCH (CẤP 2 - Dành cho Admin)
+function showBranchDetail(targetBranch) {
+    const cust = globalWorkListData[currentBreakdownIndex];
+    
+    // Lọc ra các đơn hàng CHỈ thuộc chi nhánh vừa bấm
+    const filteredOrders = cust.Orders.filter(o => o.Branch_code === targetBranch);
+
+    // Hiển thị nút Back
+    document.getElementById('breakdownNav').style.display = 'block';
+    
+    // Render lại bảng theo tiêu chí Sales
+    renderBreakdownTable(filteredOrders, 'sales', targetBranch);
+}
+
+// 3. HÀM QUAY LẠI CẤP 1
+function resetToBranchView() {
+    // Gọi lại hàm gốc để render lại danh sách Branch
+    showOrderBreakdown(currentBreakdownIndex);
+}
+
+// 4. HÀM RENDER CHUNG (CORE LOGIC)
+function renderBreakdownTable(ordersList, mode, branchNameLabel = '') {
+    const tbody = document.getElementById('breakdownTableBody');
+    const titleCol = document.getElementById('breakdownColName');
+    
+    // Config tiêu đề
+    if (mode === 'branch') titleCol.innerText = "Chi Nhánh (Click để xem)";
+    else titleCol.innerText = branchNameLabel ? `Sales (${branchNameLabel})` : "Nhân viên Kinh doanh";
+
+    // Gom nhóm dữ liệu
+    const stats = {};
+    let totalCount = 0;
+
+    ordersList.forEach(order => {
+        let key = 'N/A';
+        if (mode === 'branch') {
+            key = order.Branch_code || 'Chưa xác định';
+        } else {
+            // Lấy tên Sales từ email (trước @)
+            const email = order.Sales_Email || 'N/A';
+            key = email.split('@')[0];
+        }
+        stats[key] = (stats[key] || 0) + 1;
+        totalCount++;
+    });
+
+    // Sort giảm dần
+    const sortedStats = Object.entries(stats)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+
+    // Render HTML
+    let html = '';
+    sortedStats.forEach(item => {
+        const percent = ((item.count / totalCount) * 100).toFixed(1);
+        const barStyle = `background: linear-gradient(90deg, #dbeafe ${percent}%, transparent ${percent}%);`;
+        
+        // Logic Clickable: Chỉ click được nếu đang ở chế độ Branch view
+        const isClickable = (mode === 'branch');
+        const clickAttr = isClickable ? `onclick="showBranchDetail('${item.name}')"` : '';
+        const rowClass = isClickable ? 'clickable-row' : '';
+        const nameStyle = isClickable ? 'color:#2563eb; text-decoration:underline;' : 'color:#334155;';
+
+        html += `
+            <tr class="${rowClass}" style="${barStyle}" ${clickAttr}>
+                <td style="font-weight:600; ${nameStyle}">
+                    ${item.name} 
+                    ${isClickable ? '<span style="float:right; font-size:10px;">👉</span>' : ''}
+                </td>
+                <td style="text-align:right; font-weight:700; color:#2563eb;">${item.count}</td>
+                <td style="text-align:right; color:#64748b; font-size:12px;">${percent}%</td>
+            </tr>
+        `;
+    });
+
+    if (sortedStats.length === 0) {
+        html = '<tr><td colspan="3" style="text-align:center; padding:10px;">Không có dữ liệu</td></tr>';
+    }
+
+    tbody.innerHTML = html;
+
+    // 5. Hiển thị Modal
+    document.getElementById('breakdownModal').style.display = 'flex';
+}
+
+// Đóng modal khi click ra ngoài
+window.addEventListener('click', function(e) {
+    const modal = document.getElementById('breakdownModal');
+    if (e.target == modal) {
+        modal.style.display = "none";
+    }
+});
+    
 </script>

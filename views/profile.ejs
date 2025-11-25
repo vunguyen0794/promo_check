@@ -1,0 +1,287 @@
+<%- include('partials/header', {title: 'Hồ sơ & Hiệu suất', currentPage: 'profile'}) %>
+
+<style>
+    /* --- LAYOUT --- */
+    .profile-top-section { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; margin-bottom: 30px; }
+    .profile-bottom-section { width: 100%; }
+    @media (max-width: 992px) { .profile-top-section { grid-template-columns: 1fr; } }
+
+    /* --- PROFILE CARD --- */
+    .profile-header-card { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; text-align: center; padding: 30px 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(37, 99, 235, 0.2); position: relative; overflow: hidden; }
+    .avatar-large { width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 800; border: 4px solid rgba(255,255,255,0.3); backdrop-filter: blur(5px); }
+    .info-list { margin-top: 20px; background: white; border-radius: 12px; padding: 5px 15px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+    .info-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px dashed #e5e7eb; font-size: 14px; }
+    .info-item:last-child { border-bottom: none; }
+    .info-label { color: #64748b; font-weight: 500; }
+    .info-val { font-weight: 700; color: #1e293b; text-align: right; }
+
+    /* --- KPI CARDS (HIỆU ỨNG & LAYOUT) --- */
+    .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; background: white; padding: 15px 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    
+    /* Style Card mới: Hiệu ứng hover + Border trái màu */
+    .kpi-card { 
+        background: white; padding: 20px; border-radius: 12px; 
+        border: 1px solid #e2e8f0; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03); 
+        display: flex; flex-direction: column; justify-content: center;
+        transition: all 0.2s ease-in-out;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-card:hover { 
+        transform: translateY(-3px); 
+        box-shadow: 0 10px 20px rgba(0,0,0,0.08); 
+        border-color: #bfdbfe;
+    }
+    
+    /* Đường kẻ màu bên trái Card để phân loại */
+    .border-l-blue { border-left: 4px solid #2563eb; }
+    .border-l-orange { border-left: 4px solid #f97316; }
+    .border-l-green { border-left: 4px solid #16a34a; }
+    .border-l-red { border-left: 4px solid #dc2626; }
+    .border-l-cyan { border-left: 4px solid #06b6d4; }
+
+    .kpi-title { font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    /* Value số liệu: Dùng font mono cho số để thẳng hàng, hoặc sans-serif đậm */
+    .kpi-value { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.2; word-break: break-word; }
+    
+    .kpi-sub { font-size: 12px; margin-top: 6px; color: #94a3b8; font-weight: 500; }
+    .val-green { color: #16a34a; } .val-red { color: #dc2626; } .val-blue { color: #2563eb; } .val-orange { color: #d97706; } .val-cyan { color: #0891b2; }
+
+    /* Forecast Card Style */
+    .forecast-card { background: #ecfeff; border: 1px solid #a5f3fc; border-left: 4px solid #06b6d4; }
+    
+    /* --- TABLE --- */
+    .table-section { margin-bottom: 30px; background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    .table-header-title { padding: 15px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; font-size: 15px; font-weight: 800; color: #1e293b; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th { background: #f1f5f9; padding: 12px 15px; text-align: left; color: #475569; font-weight: 700; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+    .data-table td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; color: #334155; font-weight: 500; white-space: nowrap; }
+    .data-table tr:hover td { background: #f8fafc; }
+    
+    .rank-badge { width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; color: #64748b; background: #f1f5f9; }
+    .rank-1 { background: #fef3c7; color: #d97706; } .rank-2 { background: #e0f2fe; color: #0369a1; } .rank-3 { background: #ffedd5; color: #c2410c; }
+    .status-tag { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .st-done { background: #dcfce7; color: #16a34a; } .st-uncared { background: #fee2e2; color: #dc2626; }
+
+    /* --- FILTER --- */
+    .filter-container { display: flex; gap: 10px; flex-wrap: wrap; }
+    .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; color: #334155; background-color: #f8fafc; cursor: pointer; outline: none; }
+    .filter-select:hover { border-color: #2563eb; background: #fff; }
+    /* Input tháng */
+    input[type="month"] { padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; color: #334155; font-family: inherit; font-weight: 600; background: #f8fafc; outline: none; cursor: pointer; }
+</style>
+
+<div class="container">
+    <div class="dashboard-wrapper" style="background: #f8fafc; border:none; box-shadow:none; padding:0;">
+        <% if (locals.error) { %> <div class="error-message" style="margin-bottom: 20px;"><%= error %></div> <% } %>
+
+        <div class="profile-top-section">
+            <div class="left-col">
+                <div class="profile-header-card">
+                    <div class="avatar-large"><%= profile.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U' %></div>
+                    <h2 style="margin:0; font-size:20px; font-weight:800;"><%= profile.full_name %></h2>
+                    <div style="margin-top:8px; display:inline-block; background:rgba(0,0,0,0.2); padding:4px 12px; border-radius:20px; font-size:12px;">
+                        <%= profile.position %> - <%= profile.branch %>
+                    </div>
+                </div>
+                <div class="info-list">
+                    <div class="info-item"><span class="info-label">Mã nhân viên</span><span class="info-val"><%= profile.hrm_id %></span></div>
+                    <div class="info-item"><span class="info-label">Ngày sinh</span><span class="info-val"><%= profile.dob %></span></div>
+                    <div class="info-item"><span class="info-label">Ngày vào làm</span><span class="info-val"><%= profile.join_date %></span></div>
+                    <div class="info-item"><span class="info-label">Online gần nhất</span><span class="info-val" style="color:#2563eb"><%= onlineTime %></span></div>
+                </div>
+            </div>
+
+            <div class="right-col">
+                <div class="dashboard-header">
+                    <h3 class="dash-title" style="margin:0; border:none; font-size:18px;">
+                        📊 Hiệu suất <%= filterBranch ? filterBranch : (role.isGlobalAdmin ? 'Toàn Hệ Thống' : 'Chi Nhánh') %>
+                    </h3>
+                    
+                    <form method="GET" action="/profile" class="filter-container" id="filterForm">
+    <% if(role.isGlobalAdmin) { %>
+        <select name="branch" class="filter-select" onchange="this.form.submit()">
+            <option value="">-- Tất cả Chi Nhánh --</option>
+            <% branchList.forEach(br => { %>
+                <option value="<%= br %>" <%= filterBranch === br ? 'selected' : '' %>><%= br %></option>
+            <% }) %>
+        </select>
+    <% } %>
+
+    <div style="display:flex; gap:5px;">
+        <input type="month" 
+               name="custom_month" 
+               value="<%= period.value.includes('-') ? period.value : '' %>"
+               class="filter-select"
+               style="width: 130px;"
+               onchange="document.getElementById('periodSelect').name=''; this.name='period'; this.form.submit();" 
+               title="Chọn tháng cụ thể">
+
+        <select name="period" id="periodSelect" class="filter-select" onchange="this.form.submit()">
+            <option value="month" <%= period.value === 'month' ? 'selected' : '' %>>Tháng này</option>
+            <option value="today" <%= period.value === 'today' ? 'selected' : '' %>>Hôm nay</option>
+            <option value="week" <%= period.value === 'week' ? 'selected' : '' %>>Tuần này</option>
+            <option value="year" <%= period.value === 'year' ? 'selected' : '' %>>Năm nay</option>
+            
+            <% if(period.value.includes('-')) { %>
+                <option value="<%= period.value %>" selected style="display:none;">Tháng <%= period.value %></option>
+            <% } %>
+        </select>
+    </div>
+</form>
+                </div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-card border-l-blue">
+                        <div class="kpi-title">Tổng đơn hàng</div>
+                        <div class="kpi-value"><%= dashboard.orders %></div>
+                        <div class="kpi-sub">Đã trừ đơn hoàn</div>
+                    </div>
+                    <div class="kpi-card border-l-blue">
+                        <div class="kpi-title">Doanh thu (No VAT)</div>
+                        <div class="kpi-value val-blue" title="<%= new Intl.NumberFormat('vi-VN').format(dashboard.revenue) %> ₫">
+                            <%= formatCompact(dashboard.revenue) %> ₫
+                        </div>
+                    </div>
+                    <div class="kpi-card border-l-orange">
+                        <div class="kpi-title">Tổng điểm KFI</div>
+                        <div class="kpi-value val-orange"><%= new Intl.NumberFormat('vi-VN').format(dashboard.kfi) %></div>
+                    </div>
+
+                    <% if (dashboard.target > 0) { %>
+                        <div class="kpi-card" style="background: #f8fafc;">
+                            <div class="kpi-title">Mục tiêu (Target)</div>
+                            <div class="kpi-value"><%= formatCompact(dashboard.target) %> ₫</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-title">% Hoàn thành</div>
+                            <div class="kpi-value <%= dashboard.percent_completion >= 100 ? 'val-green' : 'val-red' %>">
+                                <%= dashboard.percent_completion %>%
+                            </div>
+                            <div style="height:4px; background:#e2e8f0; margin-top:10px; border-radius:2px; overflow:hidden;">
+                                <div style="width: <%= Math.min(dashboard.percent_completion, 100) %>%; height:100%; background: <%= dashboard.percent_completion >= 100 ? '#16a34a' : '#dc2626' %>;"></div>
+                            </div>
+                        </div>
+                        <div class="kpi-card border-l-red">
+                            <div class="kpi-title">Còn thiếu</div>
+                            <div class="kpi-value val-red"><%= formatCompact(dashboard.missing) %> ₫</div>
+                        </div>
+
+                        <div class="kpi-card forecast-card">
+                            <div class="kpi-title" style="color:#0891b2;">Doanh thu Dự Kiến</div>
+                            <div class="kpi-value val-cyan"><%= formatCompact(dashboard.revenue_forecast) %> ₫</div>
+                            <div class="kpi-sub" style="color:#0e7490;">Dựa trên tốc độ hiện tại</div>
+                        </div>
+                        <div class="kpi-card forecast-card">
+                            <div class="kpi-title" style="color:#0891b2;">% Đạt Dự Kiến</div>
+                            <div class="kpi-value val-cyan"><%= dashboard.percent_forecast %>%</div>
+                        </div>
+
+                        <% if (role.isStaff) { %>
+                            <div class="kpi-card border-l-green" style="grid-column: span 2; background: #f0fdf4;">
+                                <div class="kpi-title" style="color:#166534;">💰 Tổng thưởng (Dự kiến)</div>
+                                <div class="kpi-value val-green"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_total) %> ₫</div>
+                                <div class="kpi-sub">KFI * % HT (Max 120%)</div>
+                            </div>
+                            <div class="kpi-card border-l-orange" style="background: #fffbeb;">
+                                <div class="kpi-title" style="color:#b45309;">🚀 Thưởng vượt 120%</div>
+                                <div class="kpi-value" style="color:#d97706"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_over) %> ₫</div>
+                            </div>
+                        <% } %>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-bottom-section">
+            <% if (role.isGlobalAdmin && !filterBranch && tableBranch && tableBranch.length > 0) { %>
+                <div class="table-section">
+                    <div class="table-header-title">🏢 Hiệu suất Chi Nhánh (Forecast)</div>
+                    <div class="table-scroll-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th width="50" style="text-align:center">Hạng</th>
+                                    <th>Chi Nhánh</th>
+                                    <th style="text-align:right">Target</th>
+                                    <th style="text-align:right">Doanh thu</th>
+                                    <th style="text-align:center">% HT</th>
+                                    <th style="text-align:right">Còn thiếu</th>
+                                    <th style="text-align:right; background:#ecfeff;">Dự kiến đạt</th>
+                                    <th style="text-align:center; background:#ecfeff;">% Dự kiến</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% tableBranch.forEach((row, index) => { %>
+                                    <tr>
+                                        <td style="text-align:center"><span class="rank-badge <%= index < 3 ? 'rank-' + (index+1) : '' %>"><%= index + 1 %></span></td>
+                                        <td style="font-weight:700; color:#0369a1"><%= row.branch %></td>
+                                        <td style="text-align:right; color:#64748b"><%= formatCompact(row.target) %></td>
+                                        <td style="text-align:right; font-weight:700; color:#2563eb"><%= formatCompact(row.revenue) %></td>
+                                        <td style="text-align:center">
+                                            <span class="status-tag <%= row.percent_completion >= 100 ? 'st-done' : 'st-uncared' %>"><%= row.percent_completion %>%</span>
+                                        </td>
+                                        <td style="text-align:right; color:#dc2626"><%= formatCompact(row.missing) %></td>
+                                        <td style="text-align:right; background:#f0fdfa; color:#0e7490; font-weight:600;">
+                                            <%= formatCompact(row.revenue_forecast) %>
+                                        </td>
+                                        <td style="text-align:center; background:#f0fdfa; font-weight:bold; color:<%= row.percent_forecast >= 100 ? '#16a34a' : '#d97706' %>">
+                                            <%= row.percent_forecast %>%
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <% } %>
+
+            <% if ((role.isManager || role.isGlobalAdmin) && tableSales && tableSales.length > 0) { %>
+                <div class="table-section">
+                    <div class="table-header-title">🏆 Bảng xếp hạng Salesman</div>
+                    <div class="table-scroll-wrapper" style="max-height: 600px;">
+                        <table class="data-table">
+                            <thead style="position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th width="50" style="text-align:center">Rank</th>
+                                    <% if(role.isGlobalAdmin && !filterBranch) { %> <th>CN</th> <% } %>
+                                    <th>Nhân viên</th>
+                                    <th>MSNV</th>
+                                    <th style="text-align:right">Target</th>
+                                    <th style="text-align:right">Doanh thu</th>
+                                    <th style="text-align:center">% HT</th>
+                                    <th style="text-align:center">KFI</th>
+                                    <th style="text-align:right">Thưởng</th>
+                                    <th style="text-align:right">Vượt</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% tableSales.forEach((row, index) => { %>
+                                    <tr>
+                                        <td style="text-align:center"><span class="rank-badge <%= index < 3 ? 'rank-' + (index+1) : '' %>"><%= index + 1 %></span></td>
+                                        <% if(role.isGlobalAdmin && !filterBranch) { %> 
+                                            <td><span class="badge badge-subgroup" style="font-size:11px;"><%= row.branch %></span></td> 
+                                        <% } %>
+                                        <td><div style="font-weight:700; color:#1e293b"><%= row.salesman %></div></td>
+                                        <td><%= row.msnv %></td>
+                                        <td style="text-align:right; color:#64748b"><%= formatCompact(row.target) %></td>
+                                        <td style="text-align:right; font-weight:700; color:#2563eb"><%= formatCompact(row.revenue) %></td>
+                                        <td style="text-align:center"><span class="status-tag <%= row.percent_completion >= 100 ? 'st-done' : 'st-uncared' %>"><%= row.percent_completion %>%</span></td>
+                                        <td style="text-align:center; font-weight:600"><%= new Intl.NumberFormat('vi-VN').format(row.kfi) %></td>
+                                        <td style="text-align:right; color:#16a34a; font-weight:600"><%= new Intl.NumberFormat('vi-VN').format(row.bonus_total) %></td>
+                                        <td style="text-align:right; color:#d97706"><%= new Intl.NumberFormat('vi-VN').format(row.bonus_over) %></td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <% } %>
+        </div>
+    </div>
+</div>
+<%- include('partials/footer') %>
