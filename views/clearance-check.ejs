@@ -367,7 +367,7 @@
     <% /* === BẮT ĐẦU: KHỐI HIỂN THỊ MỚI === */ %>
     <% if (typeof clearanceInfo !== 'undefined' && clearanceInfo && clearanceInfo.length > 0) { %>
       <div class="product-info" style="margin-top: 20px;" id="result-sheet">
-        <h2 style="border-bottom-color: #27ae60;">Thông tin Thanh lý (Google Sheet) - Tìm thấy <%= clearanceInfo.length %> Serial</h2>
+        <h2 style="border-bottom-color: #27ae60;">Thông tin Thanh lý - Tìm thấy <%= clearanceInfo.length %> Serial</h2>
         
         <div class="table-scroll-wrapper">
           <table class="info-table" style="min-width: 800px;">
@@ -393,19 +393,20 @@
                     <%= new Intl.NumberFormat('vi-VN').format(Number(String(item.clearance_price).replace(/\D/g,'')) || 0) %>
                   </td>
                   <td><%= item.warranty_end %></td>
-                  <td>
-                    <% if (item.images && item.images.length > 0) { %>
-                      <div style="display:flex; flex-wrap:wrap; gap:10px;">
-                        <% item.images.forEach(imgUrl => { %>
-                          <a href="<%= imgUrl %>" target="_blank">
-                            <img src="<%= imgUrl %>" alt="Hình ảnh thanh lý" style="height: 80px; width: 80px; object-fit: cover; border-radius: 8px;">
-                          </a>
-                        <% }); %>
-                      </div>
-                    <% } else { %>
-                      <span class="dash-muted">N/A</span>
-                    <% } %>
-                  </td>
+                    <td style="text-align: center;">
+  <% if (item.images && item.images.length > 0) { %>
+      <div style="display:flex; flex-direction:column; gap:5px; align-items:center;">
+        <% item.images.forEach((imgUrl, idx) => { %>
+            <a href="<%= imgUrl %>" target="_blank" 
+               style="color: #2563eb; text-decoration: underline; font-size: 13px; font-weight: 600;">
+               Link ảnh <%= idx + 1 %>
+            </a>
+        <% }); %>
+      </div>
+  <% } else { %>
+      <span style="color:#94a3b8; font-size:13px;">Không có ảnh</span>
+  <% } %>
+</td>
                 </tr>
               <% }); %>
             </tbody>

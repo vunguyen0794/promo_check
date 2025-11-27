@@ -27,7 +27,7 @@ const chromium = require('@sparticuz/chromium');
 const puppeteerCore = require('puppeteer-core'); // Đổi tên thành puppeteerCore
 const puppeteer = require('puppeteer'); // Đây là bản đầy đủ cho local
 const { Readable, PassThrough } = require('stream');
-
+const cron = require('node-cron');
 
 const isVercel = !!process.env.VERCEL;
 
@@ -2637,139 +2637,136 @@ async function getClearanceInfoFromSheet(sku) {
   }
 }
 
-async function getAllClearanceItems() {
+
+async function getAllClearanceItems(isSyncMode = false) {
   try {
     const sheets = await getGlobalSheetsClient();
-    // Đọc toàn bộ sheet
     const range = `${CLEARANCE_SHEET_TAB}!A:Y`; 
-    
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: CLEARANCE_SHEET_ID,
-      range: range,
-    });
-
+    const response = await sheets.spreadsheets.values.get({ spreadsheetId: CLEARANCE_SHEET_ID, range });
     let rows = response.data.values;
     if (!rows || rows.length === 0) return [];
 
     const results = rows.map(row => {
-      // Lấy giá trị SKU ở cột F (index 5)
       const skuVal = String(row[5] || '').trim();
+      if (!skuVal || skuVal.toUpperCase().includes('SKU') || skuVal.includes('Timeline')) return null;
 
-      // --- BỘ LỌC HEADER CHẶT CHẼ HƠN ---
-      // 1. Bỏ qua nếu SKU rỗng
-      if (!skuVal) return null;
-      // 2. Bỏ qua nếu SKU chứa chữ "SKU" (Đây là dòng Header cột)
-      if (skuVal.toUpperCase().includes('SKU')) return null;
-      // 3. Bỏ qua nếu SKU chứa chữ "Timeline" (Đây là dòng Header thời gian)
-      if (skuVal.includes('Timeline')) return null;
-
-      // Xử lý giá tiền
       const rawPriceString = row[14] || '0';
       const priceNumber = parseFloat(String(rawPriceString).replace(/[^0-9]/g, '')) || 0;
+      const images = (row[24] || '').split(',').map(link => link.trim()).filter(Boolean);
 
+      // Object trả về khớp với cột trong Supabase 'clearance_items'
       return {
-        store_name: row[2] || 'N/A', // Cột C: Tên cửa hàng
-        
-        // [SỬA LỖI 1] Ngành hàng cột E -> Index là 4
-        category: row[4] || 'Khác',  
-        
-        sku: skuVal,                 // Cột F: SKU
-        product_name: row[6] || 'Sản phẩm chưa có tên', // Cột G: Tên SP
-        serial: row[8] || 'N/A',     // Cột I: Serial
-        priceRaw: priceNumber,
-        priceDisplay: new Intl.NumberFormat('vi-VN').format(priceNumber),
+        store_name: row[2] || 'N/A',
+        category: row[4] || 'Khác',
+        sku: skuVal,
+        product_name: row[6] || 'Sản phẩm chưa có tên',
+        serial: row[8] || 'N/A',
+        price_raw: priceNumber,
+        price_display: new Intl.NumberFormat('vi-VN').format(priceNumber),
+        warranty_end: row[10] || 'N/A',
+        kfi: row[17] || 'N/A',
+        condition: row[18] || '', // Tình trạng
+        images: images
       };
-    }).filter(item => item !== null); // Loại bỏ các dòng null (Header, dòng trống)
-
-    // Sắp xếp giá tăng dần
-    results.sort((a, b) => a.priceRaw - b.priceRaw);
+    }).filter(item => item !== null);
 
     return results;
-
   } catch (err) {
-    console.error(`[Google Sheets] Lỗi lấy danh sách All: ${err.message}`);
+    console.error(`[Google Sheets] Lỗi lấy danh sách: ${err.message}`);
     return [];
   }
 }
 
+
 app.all('/clearance-check', requireAuth, async (req, res) => {
   const skuInput = (req.method === 'POST' ? req.body?.sku : req.query?.sku) || '';
   
-  // 1. QUAN TRỌNG: Luôn tải danh sách "List Sẵn" trước tiên
-  // (Dòng này sẽ làm sáng hàm getAllClearanceItems bị mờ)
   let allItems = [];
+  let clearanceInfo = null; 
+
   try {
-      allItems = await getAllClearanceItems();
+      // --- FETCH ALL DATA (VÒNG LẶP LẤY HẾT > 1000 DÒNG) ---
+      let hasMore = true;
+      let from = 0;
+      const step = 1000; // Lấy mỗi lần 1000 dòng
+
+      while (hasMore) {
+          const { data: dbItems, error } = await supabase
+              .from('clearance_items')
+              .select('*')
+              .order('price_raw', { ascending: true })
+              .range(from, from + step - 1); // Range từ 0-999, 1000-1999...
+          
+          if (error) {
+              console.error("Lỗi fetch Supabase:", error);
+              break;
+          }
+
+          if (dbItems && dbItems.length > 0) {
+              // [FIX] Map dữ liệu khớp với EJS
+              const mappedItems = dbItems.map(item => ({
+                  ...item,
+                  // 1. Map 'condition' trong DB sang 'tinh_trang' cho EJS
+                  tinh_trang: item.condition || 'Chưa cập nhật', 
+                  clearance_price: item.price_raw || 0,
+                  // 2. Xử lý hiển thị giá an toàn
+                  priceDisplay: item.price_display 
+                      ? item.price_display 
+                      : new Intl.NumberFormat('vi-VN').format(item.price_raw || 0) + ' ₫',
+                  
+                  store_name: item.store_name,
+                  product_name: item.product_name
+              }));
+              
+              allItems = allItems.concat(mappedItems);
+              
+              if (dbItems.length < step) hasMore = false;
+              else from += step;
+          }
+          else {
+              hasMore = false;
+          }
+      }
+      
+      console.log(`[DEBUG] Đã tải tổng cộng ${allItems.length} sản phẩm thanh lý.`);
+// 2. Nếu có SKU input, lọc chi tiết
+      if (skuInput) {
+          clearanceInfo = allItems.filter(item => item.sku === skuInput);
+          
+          const userBranch = req.session.user?.branch_code;
+          const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
+          const today = new Date().toISOString().split('T')[0];
+
+          const [productRes, inventoryMap] = await Promise.all([
+              supabase.from('skus').select('*').eq('sku', skuInput).single(),
+              getInventoryCounts([skuInput], userBranch, isGlobalAdmin, today)
+          ]);
+
+          const product = productRes.data;
+          const inventoryCounts = inventoryMap.get(skuInput)?.get(userBranch);
+
+           return res.render('clearance-check', {
+              title: `Thanh lý: ${skuInput}`,
+              currentPage: 'clearance-check',
+              product, inventoryMap, inventoryCounts, isGlobalAdmin, userBranch,
+              clearanceInfo, 
+              allClearanceItems: allItems,
+              error: null
+          });
+      }
+
   } catch (e) {
-      console.error("Lỗi lấy danh sách All:", e);
+      console.error("Lỗi Clearance Check:", e);
   }
 
-  // 2. Nếu KHÔNG có SKU (Vào trang lần đầu) -> Chỉ hiển thị bảng danh sách
-  if (!skuInput) {
-    return res.render('clearance-check', { 
-        title: 'Tra cứu hàng thanh lý', 
-        currentPage: 'clearance-check', 
-        error: null, 
-        product: null, 
-        clearanceInfo: null,
-        allClearanceItems: allItems // <--- Truyền danh sách vào đây
-    });
-  }
-
-  // 3. Nếu CÓ SKU (Đang tìm kiếm) -> Tìm chi tiết
-  try {
-    const userBranch = req.session.user?.branch_code;
-    const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
-    const today = new Date().toISOString().split('T')[0];
-
-    // Chạy song song 3 tác vụ lấy dữ liệu chi tiết
-    const [productRes, inventoryMap, clearanceInfo] = await Promise.all([
-        supabase.from('skus').select('*').eq('sku', skuInput).single(),
-        getInventoryCounts([skuInput], userBranch, isGlobalAdmin, today),
-        getClearanceInfoFromSheet(skuInput)
-    ]);
-
-    const product = productRes.data;
-    const inventoryCounts = inventoryMap.get(skuInput)?.get(userBranch); 
-
-    // Logic báo lỗi: Chỉ báo nếu KHÔNG tìm thấy ở đâu cả
-    if (!product && (!clearanceInfo || clearanceInfo.length === 0)) {
-      return res.render('clearance-check', { 
-        title: 'Tra cứu hàng thanh lý', 
-        currentPage: 'clearance-check', 
-        error: `Không tìm thấy SKU: ${skuInput} (Cả trong Supabase và Google Sheet)`, 
-        product: null, 
-        clearanceInfo: null,
-        allClearanceItems: allItems // Vẫn hiển thị list đễ user tra cái khác
-      });
-    }
-    
-    // Render kết quả tìm kiếm
-    res.render('clearance-check', {
-      title: `Thanh lý: ${skuInput}`,
-      currentPage: 'clearance-check',
-      product: product, 
-      inventoryMap, 
-      inventoryCounts, 
-      isGlobalAdmin,
-      userBranch,
-      clearanceInfo: clearanceInfo, 
-      allClearanceItems: allItems, // <--- Truyền biến allItems đã lấy ở trên
-      error: null
-    });
-
-  } catch (error) {
-    console.error("Lỗi xử lý tìm kiếm:", error);
-    res.render('clearance-check', { 
-        title: 'Tra cứu hàng thanh lý', 
-        currentPage: 'clearance-check', 
-        error: error.message, 
-        product: null, 
-        clearanceInfo: null,
-        allClearanceItems: allItems 
-    });
-  }
+  res.render('clearance-check', { 
+      title: 'Tra cứu hàng thanh lý', 
+      currentPage: 'clearance-check', 
+      error: null, product: null, clearanceInfo: null,
+      allClearanceItems: allItems 
+  });
 });
+
 
 // (THÊM HÀM NÀY VÀO server.js)
 async function getEventStockByBranch(branchCode) {
@@ -5747,6 +5744,7 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
         let orderBy = 'ORDER BY Total_Revenue DESC';
         if (sort === 'date_desc') orderBy = 'ORDER BY Max_Date DESC';
         if (sort === 'price_asc') orderBy = 'ORDER BY Total_Revenue ASC';
+        if (sort === 'date_asc') orderBy = 'ORDER BY Max_Date ASC';
 
         const tableName = '`nimble-volt-459313-b8.sales.raw_sales_orders`';
         
@@ -6604,7 +6602,74 @@ app.get('/profile', requireAuth, async (req, res) => {
 });
 
 
+async function syncClearanceData() {
+    console.log('[CRON] Bắt đầu đồng bộ dữ liệu Thanh lý từ Sheet...');
+    try {
+        // 1. Lấy dữ liệu từ Sheet (Sử dụng hàm getAllClearanceItems cũ nhưng chỉnh lại chút để lấy raw data)
+        const items = await getAllClearanceItems(true); // true = mode sync (raw data)
+        
+        if (!items || items.length === 0) {
+            console.log('[CRON] Không có dữ liệu từ Sheet.');
+            return;
+        }
 
+        // 2. Xóa dữ liệu cũ
+        const { error: delError } = await supabase.from('clearance_items').delete().neq('id', 0); // Xóa hết
+        if (delError) throw delError;
+
+        // 3. Insert dữ liệu mới (Chia batch để tránh lỗi payload quá lớn)
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < items.length; i += BATCH_SIZE) {
+            const batch = items.slice(i, i + BATCH_SIZE);
+            const { error: insError } = await supabase.from('clearance_items').insert(batch);
+            if (insError) throw insError;
+        }
+
+        console.log(`[CRON] Đồng bộ thành công ${items.length} sản phẩm thanh lý vào Supabase lúc ${new Date().toLocaleString()}`);
+    } catch (e) {
+        console.error('[CRON] Lỗi đồng bộ thanh lý:', e.message);
+    }
+}
+
+// --- LÊN LỊCH CRON (8h00 và 14h00 mỗi ngày) ---
+// Format: Phút Giờ Ngày Tháng Thứ
+cron.schedule('0 8 * * *', () => syncClearanceData(), { timezone: "Asia/Ho_Chi_Minh" });
+cron.schedule('0 14 * * *', () => syncClearanceData(), { timezone: "Asia/Ho_Chi_Minh" });
+
+// (Optional) Route để kích hoạt bằng tay nếu cần gấp: /api/admin/sync-clearance
+app.get('/api/admin/sync-clearance', requireAuth, requireManager, async (req, res) => {
+    await syncClearanceData();
+    res.json({ ok: true, message: 'Đã kích hoạt đồng bộ ngầm.' });
+});
+
+// ============================================================
+// ROUTE CRON JOB CHO VERCEL (KHÔNG CẦN LOGIN, CẦN KEY)
+// ============================================================
+app.get('/api/cron/sync-clearance', async (req, res) => {
+    // 1. Bảo mật: Kiểm tra Cron Secret (Cấu hình trong Env Vercel)
+    // Vercel sẽ tự động gửi header 'authorization' chứa CRON_SECRET
+    const authHeader = req.headers['authorization'];
+    const cronSecret = process.env.CRON_SECRET;
+
+    // Nếu chạy test tay thì có thể dùng query param ?key=...
+    const queryKey = req.query.key;
+
+    if (
+        (!authHeader || authHeader !== `Bearer ${cronSecret}`) && 
+        (!queryKey || queryKey !== cronSecret)
+    ) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized Cron Request' });
+    }
+
+    try {
+        console.log('[VERCEL CRON] Bắt đầu đồng bộ Thanh lý...');
+        await syncClearanceData(); // Gọi hàm đồng bộ có sẵn
+        res.json({ ok: true, message: 'Đồng bộ thành công (Vercel Cron)' });
+    } catch (e) {
+        console.error('[VERCEL CRON] Lỗi:', e);
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {
