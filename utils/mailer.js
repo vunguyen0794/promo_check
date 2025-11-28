@@ -4,7 +4,7 @@ const { Resend } = require('resend');
 // Khởi tạo Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3300';
-const fromEmail = 'onboarding@resend.dev'; // Thay bằng email đã xác thực của bạn
+const fromEmail = 'baogia@phongvu-mna.vn'; // Thay bằng email đã xác thực của bạn
 
 /**
  * Tạo Template Email HTML (CHỈ DÙNG CHO BẢNG TIN)

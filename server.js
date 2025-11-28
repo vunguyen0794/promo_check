@@ -4863,35 +4863,48 @@ app.delete('/api/ranking/delete/:id', requireManager, async (req, res) => {
   }
 });
 
-// ===== BẮT ĐẦU: SỬA TOÀN BỘ API BÁO GIÁ (DÙNG BRANCH CONFIG) =====
+
 app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
+  let browser = null;
   try {
-    // 1. Lấy dữ liệu (đã thêm customerPhone)
     const { 
-      buildConfig, customerName, sendEmail, customerEmail, 
-      customerCC, contactInfo, customerPhone, // SĐT Khách
-      isGeneralQuote = false
+      buildConfig, customerName, contactInfo, customerPhone, 
+      // 1. Phân biệt Build PC và Báo giá nhanh
+      isGeneralQuote = false, 
+      templateType = 'consumer', 
+      globalDiscount = { value: 0, type: 'amount' },
+      validityDays = 3
     } = req.body;
 
-    if (!buildConfig || !customerName || !contactInfo || !customerPhone) {
-      return res.status(400).json({ ok: false, error: 'Thiếu thông tin cấu hình, tên, SĐT khách hàng, hoặc SĐT liên hệ của bạn.' });
-    }
-    
-    // 2. Lấy dữ liệu (Items, Tổng tiền)
+    console.log(`[Báo giá] KH: ${customerName} | Mode: ${isGeneralQuote ? 'Báo giá nhanh' : 'Build PC'}`);
+
+    // 2. Tính tiền hàng (Trừ giảm giá từng món item_discount)
     const items = Object.values(buildConfig);
-    let totalPrice = 0;
+    let totalItemsPrice = 0; 
+    
     items.forEach(item => {
       const price = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
-      totalPrice += price * item.quantity;
+      const itemDiscount = item.item_discount || 0; // Giảm giá món
+      const lineTotal = (price - itemDiscount) * item.quantity;
+      totalItemsPrice += lineTotal;
     });
 
-
-    // 3. Lấy CTKM (ĐÃ SỬA: Chỉ tính KM cho PC-Builder) 
-    let appliedPromo = null;
+    // 3. Tính giảm giá toàn đơn (chỉ khi là Báo giá nhanh hoặc tùy ý bạn)
+    let globalDiscountAmt = 0;
+    if (globalDiscount.type === 'percent') {
+        globalDiscountAmt = Math.round(totalItemsPrice * (globalDiscount.value / 100));
+    } else {
+        globalDiscountAmt = Number(globalDiscount.value) || 0;
+    }
+    if (globalDiscountAmt > totalItemsPrice) globalDiscountAmt = totalItemsPrice;
     
-    if (!isGeneralQuote) { 
-      // Chỉ chạy logic KM này nếu cờ isGeneralQuote không có (tức là từ trang Build PC)
-      console.log("[Báo giá] Đây là Build PC, đang kiểm tra KM...");
+    // 4. LOGIC KHUYẾN MÃI BUILD PC (VẪN CÒN ĐÂY)
+    // Logic này chỉ chạy khi isGeneralQuote = false (tức là từ trang Build PC)
+    let appliedPromo = null;
+    let promoDiscount = 0;
+
+    if (!isGeneralQuote) {
+      // Logic cũ: Tặng tiền theo mốc tổng giá trị
       const tiers = [
         { min: 50000000, discount: 1000000, code: 'PVBUILDPC25114' },
         { min: 30000000, discount: 600000,  code: 'PVBUILDPC25113' },
@@ -4899,202 +4912,79 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
         { min: 10000000, discount: 200000,  code: 'PVBUILDPC25111' }
       ];
       for (const tier of tiers) {
-        if (totalPrice >= tier.min) {
+        if (totalItemsPrice >= tier.min) {
           appliedPromo = {
             name: `Build PC - Giảm ${new Intl.NumberFormat('vi-VN').format(tier.discount)} VNĐ`,
             discount_amount: tier.discount,
             coupon: tier.code
           };
-          break; // Tìm thấy tier cao nhất
+          promoDiscount = tier.discount;
+          break; // Lấy mốc cao nhất
         }
       }
     } else {
-      console.log("[Báo giá] Đây là Báo giá nhanh, bỏ qua KM 'Build PC'.");
+        console.log("-> Báo giá nhanh: Bỏ qua Auto Promo của Build PC.");
     }
 
-    // 4. Lấy thông tin Sales & Branch (ĐÃ SỬA)
-    const userFullName = req.session.user?.full_name || 'Nhân viên Phong Vũ';
-    const userEmail = req.session.user?.email || null;
-    const userBranchCode = req.session.user?.branch_code || 'DEFAULT';
+    // 5. Tổng thanh toán cuối cùng
+    // Trừ giảm giá tổng (nhập tay) VÀ trừ khuyến mãi Build PC (tự động)
+    const finalTotal = totalItemsPrice - globalDiscountAmt - promoDiscount;
 
-    // Lấy thông tin chi nhánh từ config
+    // 6. Render & PDF
+    const userFullName = req.session.user?.full_name || 'Nhân viên Phong Vũ';
+    const userBranchCode = req.session.user?.branch_code || 'DEFAULT';
     const branchInfo = BRANCH_CONFIG[userBranchCode] || BRANCH_CONFIG['DEFAULT'];
-    
-    // Helper
-    const formatVND_func = (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + ' VNĐ';
     const todayStr = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const quoteNum = `PV-${Date.now().toString().slice(-6)}`;
-    const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
 
-    // 5. Render EJS template thành HTML
     const htmlString = await ejs.renderFile(
       path.join(__dirname, 'views/quote-template.ejs'),
       {
-        appBaseUrl: appBaseUrl,
-        branchInfo: branchInfo, // Gửi cả cục config
+        branchInfo,
+        salesName: userFullName, salesContact: contactInfo, salesEmail: req.session.user?.email,
+        quoteDate: todayStr, quoteNumber: quoteNum,
+        customerName, customerPhone, customerEmail: '',
+        items, 
         
-        salesName: userFullName,
-        salesEmail: userEmail,
-        salesContact: contactInfo,
+        templateType,
+        totalItemsPrice,    
+        globalDiscountAmt,  
+        appliedPromo,       // Truyền promo xuống EJS để hiển thị
+        finalTotal,         
+        validityDays,
         
-        quoteDate: todayStr,
-        quoteNumber: quoteNum,
-        
-        customerName: customerName,
-        customerEmail: customerEmail,
-        customerPhone: customerPhone,
-        
-        items: items,
-        promo: appliedPromo,
-        
-        formatVND: formatVND_func 
+        formatVND: (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0))
       }
     );
 
-    // 6. Chuyển HTML thành PDF Buffer (ĐÃ SỬA LỖI LOCAL/VERCEL)
-    let browser = null;
-    let pdfBuffer;
+    const puppeteerToUse = isVercel ? puppeteerCore : puppeteer;
+    const launchOptions = isVercel ? {
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+    } : { headless: true };
 
-    try {
-        let launchOptions;
-        let puppeteerToUse; // Biến để chọn đúng thư viện
+    browser = await puppeteerToUse.launch(launchOptions);
+    const page = await browser.newPage();
+    await page.setContent(htmlString, { waitUntil: 'networkidle0' });
+    const pdfBufferRaw = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } });
+    await browser.close();
+    browser = null;
 
-        if (isVercel) {
-            // 1. Cấu hình cho Vercel
-            console.log("[PDF] Đang chạy trên Vercel, sử dụng @sparticuz/chromium.");
-            
-            // SỬA: Thay 'chrome-aws-lambda' bằng '@sparticuz/chromium'
-            const chromium = require('@sparticuz/chromium'); 
-            const puppeteerCore = require('puppeteer-core'); 
+    const safeName = customerName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^a-zA-Z0-9]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="BaoGia_${safeName}.pdf"`);
+    res.send(Buffer.from(pdfBufferRaw));
 
-            puppeteerToUse = puppeteerCore; // Dùng bản core
-            launchOptions = {
-                args: chromium.args,
-                defaultViewport: chromium.defaultViewport,
-                // SỬA: chromium.executablePath là MỘT HÀM ()
-                executablePath: await chromium.executablePath(), 
-                // SỬA: chromium.headless là MỘT BOOLEAN
-                headless: chromium.headless, 
-                ignoreHTTPSErrors: true,
-            };
-        } else {
-            // 2. Cấu hình cho Localhost
-            console.log("[PDF] Đang chạy ở local, sử dụng puppeteer (full).");
-            puppeteerToUse = puppeteer; // Dùng bản đầy đủ
-            launchOptions = {
-                headless: true,
-                // Không cần executablePath, nó sẽ tự tìm
-            };
-        }
-
-        // Khởi chạy bằng đúng thư viện đã chọn
-        browser = await puppeteerToUse.launch(launchOptions); 
-
-        const page = await browser.newPage();
-        
-        // Nạp nội dung HTML (đã render từ EJS) vào
-        await page.setContent(htmlString, { waitUntil: 'networkidle0' });
-        
-        // "In" ra PDF
-        pdfBuffer = await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
-        });
-
-    } catch (pdfError) {
-        console.error("Lỗi tạo PDF (Puppeteer):", pdfError);
-        // Ghi log chi tiết hơn cho lỗi local
-        if (!isVercel && pdfError.message.includes('Could not find expected browser')) {
-            console.error("--- LỖI PUPPETEER LOCAL ---");
-            console.error("Trình duyệt Chromium có thể chưa được tải về.");
-            console.error("Hãy thử chạy lại 'npm uninstall puppeteer && npm install puppeteer'");
-        }
-        throw new Error(`Lỗi Puppeteer: ${pdfError.message}`);
-    } finally {
-        // Luôn đóng trình duyệt sau khi xong
-        if (browser !== null) {
-            await browser.close();
-        }
-    }
-
-    // 7. Xử lý kết quả (ĐÃ SỬA: Tải lên Google Drive, không đính kèm)
-    if (sendEmail && customerEmail) {
-      const pdfFileName = `BaoGia_Quotation_${todayStr}_${customerName.replace(/ /g, '_')}.pdf`;
-      
-      // === SỬA LỖI: TẢI PDF LÊN GOOGLE DRIVE ===
-      let publicPdfUrl = '';
-      try {
-          // Lấy ID thư mục từ .env, nếu không có thì tải lên root My Drive
-          const driveFolderId = process.env.PRICE_BATTLE_DRIVE_FOLDER_ID || null;
-          
-          // Gọi hàm đã có sẵn trong server.js 
-          publicPdfUrl = await uploadBufferToDriveGlobal(
-              pdfBuffer,
-              pdfFileName,
-              'application/pdf',
-              driveFolderId
-          );
-      } catch (storageError) {
-          console.error("[Google Drive] Lỗi tải PDF:", storageError.message);
-          // Nếu tải PDF lên bị lỗi, báo lỗi cho user
-          return res.status(500).json({ ok: false, error: `Lỗi Google Drive: ${storageError.message}` });
-      }
-      // ===========================================
-
-      const mailSubject = `Phongvu ${branchInfo.name} - Bảng báo giá/Quotation - ${todayStr} - ${customerName}`;
-      
-      // === SỬA LỖI: THÊM NÚT DOWNLOAD VÀO EMAIL ===
-      const mailHtml = `
-        <p>Kính gửi ${customerName},</p>
-        <p>Phong Vũ ${branchInfo.name} xin gửi đến Quý Khách hàng bảng báo giá.</p>
-        <p><b>Vui lòng nhấn vào nút bên dưới để tải file PDF.</b></p>
-        <br>
-        <a href="${publicPdfUrl}" style="background-color: #1a73e8; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-          Tải Báo Giá (PDF)
-        </a>
-        <br><br>
-        <p><i>Kindly click the button above to download the PDF file.</i></p>
-        <br>
-        <p>Nếu Quý khách hàng cần thêm hỗ trợ, vui lòng liên hệ với đầu mối sau:</p>
-        <p>
-          &emsp;&emsp;- Hỗ trợ bán hàng: ${userFullName}<br>
-          &emsp;&emsp;- Thông tin liên hệ: ${contactInfo}
-        </p>
-        <br>
-        <p>Xin cảm ơn Quý Khách hàng,</p>
-        <p><i>Thank you and Best regards,</i></p>
-      `;
-      
-      const toEmails = [customerEmail];
-      if (customerCC && customerCC.trim() !== '') {
-        toEmails.push(customerCC.trim());
-      }
-      
-      await sendNewPostEmail(
-        { title: mailSubject, content: mailHtml },
-        toEmails,
-        undefined, // <-- SỬA LỖI: KHÔNG ĐÍNH KÈM FILE (gửi null)
-        userEmail
-      );
-      // ===============================================
-      
-      res.json({ ok: true, message: `Đã gửi báo giá đến ${customerEmail} ${customerCC ? '(CC: ' + customerCC + ')' : ''} thành công.` });
-
-    } else {
-      // 6b. CHO DOWNLOAD PDF (Giữ nguyên)
-      const pdfFileName = `BaoGia_${customerName.replace(/ /g, '_')}.pdf`;
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${pdfFileName}"`);
-      res.send(pdfBuffer);
-    }
-
-} catch (e) {
-    console.error('Lỗi API /api/pc-builder/generate-quote:', e.message);
-    res.status(500).json({ ok: false, error: e.message });
+  } catch (e) {
+    console.error('Lỗi API Báo giá:', e);
+    if (browser) await browser.close();
+    if (!res.headersSent) res.status(500).json({ ok: false, error: e.message });
   }
 });
-// ===== KẾT THÚC: SỬA TOÀN BỘ API BÁO GIÁ =====s
+
 
 // (Trong file server.js)
 app.get('/quote-builder', requireAuth, (req, res) => {

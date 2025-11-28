@@ -109,48 +109,48 @@
     text-align: center;
   }
 
-  /* === CSS CHO MODAL CHỌN LINH KIỆN === */
+  /* === CSS CHO MODAL CHỌN LINH KIỆN (ĐÃ FIX LỆCH NÚT) === */
   .component-item {
     display: flex;
-    flex-direction: column; /* XẾP DỌC: Hàng 1 (Info/Giá) và Hàng 2 (Tồn) */
-    align-items: flex-start;
-    padding: 10px;
+    flex-direction: column; /* Xếp dọc trước */
+    align-items: stretch; /* Kéo giãn ra */
+    padding: 12px;
     border-bottom: 1px solid #f1f5f9;
   }
-  .component-item:hover {
-    background-color: #f8fafc;
-  }
+  .component-item:hover { background-color: #f8fafc; }
+
   .component-item-main-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start; /* Căn trên để tránh nút bị kéo */
     width: 100%;
-    gap: 10px;
+    gap: 15px;
   }
   .component-item-info { 
     font-size: 14px; 
     flex-grow: 1;
+    line-height: 1.5;
   }
   .component-item-info strong { color: #111827; }
   .component-item-info span { color: #64748b; font-size: 12px; }
+  
   .component-item-action {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column; /* Xếp giá và nút dọc */
+    align-items: flex-end; /* Căn phải */
+    gap: 8px;
     flex-shrink: 0;
+    min-width: 100px;
   }
-  .component-item-price { 
-    font-weight: 700; 
-    color: #e53935;
-    text-align: right;
-    min-width: 80px;
-  }
+  .component-item-price { font-weight: 700; color: #e53935; text-align: right; }
+  
   .btn-select-item {
-    padding: 6px 12px;
-    font-size: 12px;
-    background-color: #10b981;
-    color: white; border: none; border-radius: 6px; cursor: pointer;
+    padding: 6px 16px; font-size: 13px; font-weight: 600; 
+    border-radius: 6px; cursor: pointer; white-space: nowrap; 
+    background-color: #10b981; color: white; border: none;
   }
+
+  /* Tồn kho */
   .component-item-stock {
     font-size: 12px;
     color: #475569;
@@ -162,20 +162,9 @@
     scrollbar-width: none;
   }
   .component-item-stock::-webkit-scrollbar { display: none; }
-  .component-item-stock .stock-total {
-    font-weight: 700;
-    color: #059669;
-    padding-right: 5px;
-  }
-  .component-item-stock .stock-branch {
-    color: #475569;
-    padding: 0 5px;
-    border-left: 1px solid #e5e7eb;
-  }
-  .component-item-stock .my-branch {
-    font-weight: 700;
-    color: #2563eb;
-  }
+  .component-item-stock .stock-total { font-weight: 700; color: #059669; padding-right: 5px; }
+  .component-item-stock .stock-branch { color: #475569; padding: 0 5px; border-left: 1px solid #e5e7eb; }
+  .component-item-stock .my-branch { font-weight: 700; color: #2563eb; }
 
   /* === BỐ CỤC 2 CỘT DESKTOP === */
   @media (min-width: 992px) {
@@ -183,35 +172,27 @@
       flex-direction: row;
       align-items: flex-start;
     }
-    .builder-main {
-      flex: 2;
-    }
-    .builder-sidebar {
-      flex: 1;
-    }
+    .builder-main { flex: 2; }
+    .builder-sidebar { flex: 1; }
   }
 
-  /* === BẮT ĐẦU CSS CHO SỬA GIÁ === */
+  /* === CSS CHO SỬA GIÁ === */
   .summary-item-price {
     display: flex;
     align-items: center;
-    justify-content: flex-end; /* Căn phải */
+    justify-content: flex-end; 
   }
-  
   .price-edit-controls {
     display: inline-flex;
     align-items: center;
     gap: 5px;
   }
-  
   .price-edit-controls input {
     width: 100px;
     padding: 5px 8px;
     border: 1px solid #2563eb;
     border-radius: 6px;
   }
-
-  /* Nút Sửa / Lịch sử */
   .btn-price-action {
     background: none;
     border: none;
@@ -220,11 +201,9 @@
     margin-left: 4px;
     opacity: 0.6;
   }
-  .btn-price-action:hover {
-    opacity: 1;
-  }
+  .btn-price-action:hover { opacity: 1; }
 
-  /* === BẮT ĐẦU CSS CHO KHỐI CTKM === */
+  /* === CSS CHO KHỐI CTKM === */
   .promo-item-card {
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -237,158 +216,142 @@
     justify-content: space-between;
     align-items: center;
   }
-  .promo-item-name {
-    font-weight: 700;
-    color: #111827;
-  }
-  .promo-item-discount {
-    font-weight: 800;
-    font-size: 16px;
-    color: #e53935;
-  }
-  .promo-item-desc {
-    font-size: 13px;
-    color: #475569;
-    margin-top: 4px;
+  .promo-item-name { font-weight: 700; color: #111827; }
+  .promo-item-discount { font-weight: 800; font-size: 16px; color: #e53935; }
+  .promo-item-desc { font-size: 13px; color: #475569; margin-top: 4px; }
+  .code-badge {
+      background: #fff; border: 1px dashed #10b981; color: #065f46;
+      padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;
   }
 </style>
 
 <div class="pc-builder-layout">
   
   <div class="builder-main">
-  <div class="dash-card">
-    <div class="dash-title">Chọn linh kiện</div>
-    
-    <div class="component-list">
-  
-  <div class="component-slot" id="slot-cpu">
-    <div class="component-info">
-      <div class="component-name" data-original-title="1. Bộ vi xử lý (CPU)">
-        <strong>1. Bộ vi xử lý (CPU):</strong>
-        <span class="placeholder">Chưa chọn</span>
-      </div>
-      <div class="component-price-display"></div>
-    </div>
-    <button class="btn btn-primary btn-choose" data-type="cpu" data-subcat="NH03-01-01-01">Chọn</button>
-  </div>
+    <div class="dash-card">
+      <div class="dash-title">Chọn linh kiện</div>
+      
+      <div class="component-list">
+        <div class="component-slot" id="slot-cpu">
+          <div class="component-info">
+            <div class="component-name" data-original-title="1. Bộ vi xử lý (CPU)">
+              <strong>1. Bộ vi xử lý (CPU):</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="cpu" data-subcat="NH03-01-01-01">Chọn</button>
+        </div>
 
-  <div class="component-slot" id="slot-mainboard">
-    <div class="component-info">
-      <div class="component-name" data-original-title="2. Bo mạch chủ (Mainboard)">
-        <strong>2. Bo mạch chủ (Mainboard):</strong>
-        <span class="placeholder">Chưa chọn</span>
-      </div>
-      <div class="component-price-display"></div>
-    </div>
-    <button class="btn btn-primary btn-choose" data-type="mainboard" data-subcat="NH03-01-02-01">Chọn</button>
-  </div>
+        <div class="component-slot" id="slot-mainboard">
+          <div class="component-info">
+            <div class="component-name" data-original-title="2. Bo mạch chủ (Mainboard)">
+              <strong>2. Bo mạch chủ (Mainboard):</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="mainboard" data-subcat="NH03-01-02-01">Chọn</button>
+        </div>
 
-  <div class="component-slot" id="slot-ram">
-    <div class="component-info">
-      <div class="component-name" data-original-title="3. Bộ nhớ trong (RAM)">
-        <strong>3. Bộ nhớ trong (RAM):</strong>
-        <span class="placeholder">Chưa chọn</span>
-      </div>
-      <div class="component-price-display"></div>
-    </div>
-    <button class="btn btn-primary btn-choose" data-type="ram" data-subcat="NH03-01-04-01">Chọn</button>
-  </div>
+        <div class="component-slot" id="slot-ram">
+          <div class="component-info">
+            <div class="component-name" data-original-title="3. Bộ nhớ trong (RAM)">
+              <strong>3. Bộ nhớ trong (RAM):</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="ram" data-subcat="NH03-01-04-01">Chọn</button>
+        </div>
 
-  <div class="component-slot" id="slot-vga">
-    <div class="component-info">
-      <div class="component-name" data-original-title="4. Card màn hình (VGA)">
-        <strong>4. Card màn hình (VGA):</strong>
-        <span class="placeholder">Chưa chọn</span>
-      </div>
-      <div class="component-price-display"></div>
-    </div>
-    <button class="btn btn-primary btn-choose" data-type="vga" data-subcat="NH03-01-03-01">Chọn</button>
-  </div>
+        <div class="component-slot" id="slot-vga">
+          <div class="component-info">
+            <div class="component-name" data-original-title="4. Card màn hình (VGA)">
+              <strong>4. Card màn hình (VGA):</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="vga" data-subcat="NH03-01-03-01">Chọn</button>
+        </div>
 
-  <div class="component-slot" id="slot-ssd">
-    <div class="component-info">
-      <div class="component-name" data-original-title="5. Ổ cứng SSD">
-        <strong>5. Ổ cứng SSD:</strong>
-        <span class="placeholder">Chưa chọn</span>
-      </div>
-      <div class="component-price-display"></div>
-    </div>
-    <button class="btn btn-primary btn-choose" data-type="ssd" data-subcat="NH03-01-05-01">Chọn</button>
-  </div>
-  
-  <div class="component-slot" id="slot-hdd">
-    <div class="component-info">
-      <div class="component-name" data-original-title="6. Ổ cứng HDD">
-        <strong>6. Ổ cứng HDD:</strong>
-        <span class="placeholder">Chưa chọn</span>
-      </div>
-      <div class="component-price-display"></div>
-    </div>
-    <button class="btn btn-primary btn-choose" data-type="hdd" data-subcat="NH03-01-05-02">Chọn</button>
-  </div>
+        <div class="component-slot" id="slot-ssd">
+          <div class="component-info">
+            <div class="component-name" data-original-title="5. Ổ cứng SSD">
+              <strong>5. Ổ cứng SSD:</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="ssd" data-subcat="NH03-01-05-01">Chọn</button>
+        </div>
+        
+        <div class="component-slot" id="slot-hdd">
+          <div class="component-info">
+            <div class="component-name" data-original-title="6. Ổ cứng HDD">
+              <strong>6. Ổ cứng HDD:</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="hdd" data-subcat="NH03-01-05-02">Chọn</button>
+        </div>
 
-  <div class="component-slot" id="slot-psu">
-    <div class="component-info">
-      <div class="component-name" data-original-title="7. Nguồn máy tính (PSU)">
-        <strong>7. Nguồn máy tính (PSU):</strong>
-        <span class="placeholder">Chưa chọn</span>
-      </div>
-      <div class="component-price-display"></div>
-    </div>
-    <button class="btn btn-primary btn-choose" data-type="psu" data-subcat="NH03-01-07-01">Chọn</button>
-  </div>
+        <div class="component-slot" id="slot-psu">
+          <div class="component-info">
+            <div class="component-name" data-original-title="7. Nguồn máy tính (PSU)">
+              <strong>7. Nguồn máy tính (PSU):</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="psu" data-subcat="NH03-01-07-01">Chọn</button>
+        </div>
 
-  <div class="component-slot" id="slot-case">
-    <div class="component-info">
-      <div class="component-name" data-original-title="8. Thùng máy (Case)">
-        <strong>8. Thùng máy (Case):</strong>
-        <span class="placeholder">Chưa chọn</span>
-      </div>
-      <div class="component-price-display"></div>
-    </div>
-    <button class="btn btn-primary btn-choose" data-type="case" data-subcat="NH03-01-06-01">Chọn</button>
-  </div>
-  
-  <div class="component-slot" id="slot-cpu-fan">
-    <div class="component-info">
-      <div class="component-name" data-original-title="9. Quạt CPU">
-        <strong>9. Quạt CPU:</strong>
-        <span class="placeholder">Chưa chọn</span>
-      </div>
-      <div class="component-price-display"></div>
-    </div>
-    <button class="btn btn-primary btn-choose" data-type="cpu-fan" data-subcat="NH03-01-08-01">Chọn</button>
-  </div>
+        <div class="component-slot" id="slot-case">
+          <div class="component-info">
+            <div class="component-name" data-original-title="8. Thùng máy (Case)">
+              <strong>8. Thùng máy (Case):</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="case" data-subcat="NH03-01-06-01">Chọn</button>
+        </div>
+        
+        <div class="component-slot" id="slot-cpu-fan">
+          <div class="component-info">
+            <div class="component-name" data-original-title="9. Quạt CPU">
+              <strong>9. Quạt CPU:</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="cpu-fan" data-subcat="NH03-01-08-01">Chọn</button>
+        </div>
 
-  <div class="component-slot" id="slot-case-fan">
-    <div class="component-info">
-      <div class="component-name" data-original-title="10. Quạt case">
-        <strong>10. Quạt case:</strong>
-        <span class="placeholder">Chưa chọn</span>
+        <div class="component-slot" id="slot-case-fan">
+          <div class="component-info">
+            <div class="component-name" data-original-title="10. Quạt case">
+              <strong>10. Quạt case:</strong><span class="placeholder">Chưa chọn</span>
+            </div>
+            <div class="component-price-display"></div>
+          </div>
+          <button class="btn btn-primary btn-choose" data-type="case-fan" data-subcat="NH03-01-09-01">Chọn</button>
+        </div>
       </div>
-      <div class="component-price-display"></div>
     </div>
-    <button class="btn btn-primary btn-choose" data-type="case-fan" data-subcat="NH03-01-09-01">Chọn</button>
+
+    <div class="dash-card" id="promo-results-container" style="display: none; margin-top: 20px;">
+        <div class="dash-title">Khuyến mãi áp dụng</div>
+        <div id="promo-results-list"></div>
+    </div>
   </div>
   
-  </div>
-
   <div class="builder-sidebar">
     <div class="dash-card price-summary-sticky">
       <div class="dash-title">Tổng chi phí (tạm tính)</div>
       
       <div id="summary-list">
-        <div class="dash-muted" style="text-align: center; padding: 20px 0;">
-          Vui lòng chọn linh kiện
-        </div>
+        <div class="dash-muted" style="text-align: center; padding: 20px 0;">Vui lòng chọn linh kiện</div>
       </div>
 
       <div style="border-top: 2px solid #f1f5f9; margin-top: 15px; padding-top: 15px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-weight: 800; font-size: 18px;">Tổng cộng:</span>
-          <span style="font-weight: 800; font-size: 22px; color: #e53935;" id="total-price">
-            0 VNĐ
-          </span>
+          <span style="font-weight: 800; font-size: 22px; color: #e53935;" id="total-price">0 VNĐ</span>
         </div>
         <button class="btn btn-primary" style="width: 100%; margin-top: 15px; padding: 12px;">
           Lưu cấu hình & Báo giá
@@ -397,70 +360,101 @@
       
     </div>
   </div>
-  </div> <div class="builder-main" id="promo-results-container" style="display: none; width: 100%;">
-    <div class="dash-card">
-      <div class="dash-title">Khuyến mãi áp dụng</div>
-      <div id="promo-results-list">
-        </div>
-    </div>
-  </div>
-  </div>
 </div>
-
-
 
 <div class="modal" id="componentModal" style="display: none;">
   <div class="modal-content" style="max-width: 800px;">
     <span class="close" id="componentModalClose">&times;</span>
     <h3 id="componentModalTitle" style="margin-top: 0;">Chọn linh kiện</h3>
     
-    <input type="text" id="componentSearch" class="search-input" 
-           placeholder="Tìm theo tên hoặc SKU..." 
-           style="width: 100%; margin-bottom: 15px;">
+    <input type="text" id="componentSearch" class="search-input" placeholder="Tìm theo tên hoặc SKU..." style="width: 100%; margin-bottom: 15px;">
     
     <div id="componentModalList" style="max-height: 60vh; overflow-y: auto;">
       <div class="dash-muted" style="text-align: center; padding: 20px;">Đang tải...</div>
     </div>
   </div>
 </div>
-<style>
-  .component-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid #f1f5f9;
-  }
-  .component-item:hover {
-    background-color: #f8fafc;
-  }
-  .component-item-info { font-size: 14px; }
-  .component-item-info strong { color: #111827; }
-  .component-item-info span { color: #64748b; font-size: 12px; }
-  .component-item-price { font-weight: 700; color: #e53935; }
-  .btn-select-item {
-    padding: 6px 12px;
-    font-size: 12px;
-    background-color: #10b981; /* xanh lá */
-    color: white; border: none; border-radius: 6px; cursor: pointer;
-  }
-</style>
+
+<div id="priceHistoryModal" class="modal" style="display:none">
+  <div class="modal-content" style="max-width: 600px;">
+    <span id="phClose" class="close">&times;</span>
+    <h3>Lịch sử sửa giá (SKU: <span id="phSku"></span>)</h3>
+    <table class="detail-table" id="phTable" style="width: 100%; margin-top: 15px;">
+      <thead>
+        <tr><th>Thời gian</th><th>Giá cũ</th><th>Giá mới</th><th>Người sửa</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="quoteModal" class="modal" style="display:none">
+  <div class="modal-content" style="max-width: 500px;">
+    <span id="quoteClose" class="close">&times;</span>
+    <h3>Thông tin báo giá</h3>
+    
+    <form id="quoteForm">
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>Tên Khách hàng / Công ty:</label>
+        <input type="text" id="quoteCustomerName" class="info-input" placeholder="Kính gửi..." required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>SĐT Khách hàng:</label>
+        <input type="text" id="quoteCustomerPhone" class="info-input" placeholder="SĐT khách" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>Thông tin liên hệ của bạn (SĐT/Zalo):</label>
+        <input type="text" id="quoteContactInfo" class="info-input" placeholder="090..." required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+
+      <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span style="font-size: 13px; font-weight: 600; color: #475569;">Hiệu lực báo giá:</span>
+              <div style="display:flex; align-items:center; gap:5px;">
+                  <input type="number" id="quoteValidity" value="3" min="1" style="width: 50px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px;">
+                  <span style="font-size: 13px;">ngày</span>
+              </div>
+          </div>
+
+          <div style="border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+              <span style="font-size: 13px; font-weight: 600; color: #475569; display: block; margin-bottom: 5px;">Chọn mẫu in:</span>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+                      <input type="radio" name="printTemplate" value="consumer" checked>
+                      <span><b>Khách lẻ:</b> Giá gộp VAT (Gọn)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+                      <input type="radio" name="printTemplate" value="b2b">
+                      <span><b>Công ty (B2B):</b> Tách VAT & Giảm giá</span>
+                  </label>
+              </div>
+          </div>
+      </div>
+      
+      <button type="button" id="btnDownloadPDF" class="btn btn-primary" style="width: 100%; padding: 12px; font-weight: 700;">
+        <i class="fas fa-file-pdf"></i> Xác nhận & Tải PDF
+      </button>
+      
+      <div id="downloadError" style="color: red; text-align: center; margin-top: 10px; display: none;"></div>
+      <div id="quoteLoading" class="dash-muted" style="text-align: center; padding: 20px; display: none;">
+        Đang tạo file PDF...
+      </div>
+    </form>
+  </div>
+</div>
+<%- include('partials/toast') %>
 
 <script>
-  // ===== BẮT ĐẦU CODE JAVASCRIPT BUILD PC (ĐÃ SỬA LỖI CẤU TRÚC) =====
   document.addEventListener('DOMContentLoaded', function() {
-  // Lấy thông tin user từ EJS
   const currentUser = {
     role: "<%= user ? user.role : 'guest' %>",
     branch: "<%= user ? user.branch_code : '' %>"
   };
-
-  // ----- BIẾN TOÀN CỤC -----
+  
   let currentBuildConfig = {}; 
   let currentSlotType = null;
   let allComponentsCache = [];
 
-  // ----- LẤY CÁC ELEMENT -----
   const modal = document.getElementById('componentModal');
   const modalClose = document.getElementById('componentModalClose');
   const modalTitle = document.getElementById('componentModalTitle');
@@ -472,7 +466,6 @@
   const promoContainer = document.getElementById('promo-results-container');
   const promoList = document.getElementById('promo-results-list');
   
-  // (MỚI) Elements cho Modal Lịch sử
   const priceHistoryModal = document.getElementById('priceHistoryModal');
   const phClose = document.getElementById('phClose');
   const phTbody = document.querySelector('#phTable tbody');
@@ -480,14 +473,9 @@
   const quoteModal = document.getElementById('quoteModal');
   const quoteClose = document.getElementById('quoteClose');
   const quoteForm = document.getElementById('quoteForm');
-  const quoteSendEmail = document.getElementById('quoteSendEmail');
-  const quoteEmailGroup = document.getElementById('quoteEmailGroup');
-  const quoteCustomerEmail = document.getElementById('quoteCustomerEmail');
-  const quoteSubmitButton = document.getElementById('quoteSubmitButton');
   const quoteLoading = document.getElementById('quoteLoading');
-  const mainQuoteButton = document.querySelector('.builder-sidebar .btn-primary'); // Nút "Lưu cấu hình & Báo giá"
+  const mainQuoteButton = document.querySelector('.builder-sidebar .btn-primary');
 
-  // ----- HÀM HỖ TRỢ -----
   function formatVND(n) {
     return new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + ' VNĐ';
   }
@@ -523,16 +511,13 @@
     return html;
   }
 
-  // ===== HÀM MỚI: GỌI API KIỂM TRA CTKM (CÓ CẢNH BÁO) =====
+  // GỌI API KIỂM TRA CTKM
   async function checkPromotions() {
     const totalPrice = Object.values(currentBuildConfig).reduce((sum, item) => {
       const price = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
       return sum + (price * item.quantity);
     }, 0);
-
-    // Luôn hiển thị card
     promoContainer.style.display = 'block';
-
     if (totalPrice === 0) {
       promoList.innerHTML = `<div class="dash-muted" style="padding: 10px;">Vui lòng chọn linh kiện để kiểm tra KM.</div>`;
       return;
@@ -549,9 +534,7 @@
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
-
       if (data.success) {
-        // THÀNH CÔNG: Hiển thị CTKM và nút copy
         const p = data.promo;
         promoList.innerHTML = `
           <div class="promo-item-card" style="background: #ecfdf5; border-color: #10b981;">
@@ -560,14 +543,12 @@
               <span class="promo-item-discount" style="color: #10b981;">-${formatVND(p.discount_amount)}</span>
             </div>
             <div class="promo-item-desc" style="color: #065f46; margin-top: 5px;">${p.description}</div>
-            
             <button type="button" class="code-badge" onclick="copyCode(this)" data-code="${p.coupon}" style="margin-top: 10px;">
               🔑 <span>${p.coupon}</span> <small>(Bấm để copy)</small>
             </button>
           </div>
         `;
       } else {
-        // THẤT BẠI: Hiển thị lý do (Cảnh báo)
         promoList.innerHTML = `
           <div class="promo-item-card" style="background: #fffbeb; border-color: #f59e0b;">
             <div class="promo-item-header">
@@ -579,7 +560,6 @@
           </div>
         `;
       }
-
     } catch (err) {
       console.error("Lỗi khi check CTKM:", err.message);
       promoList.innerHTML = `<div class="error-message">Lỗi tải CTKM: ${err.message}</div>`;
@@ -595,9 +575,7 @@
     for (const type of orderedKeys) {
       const item = currentBuildConfig[type];
       if (item) {
-        if (!item.quantity || item.quantity < 1) {
-            item.quantity = 1;
-        }
+        if (!item.quantity || item.quantity < 1) item.quantity = 1;
         const currentPrice = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
         const itemPrice = currentPrice * (item.quantity);
         totalPrice += itemPrice;
@@ -609,8 +587,7 @@
               <input type="number" value="${currentPrice}" id="price-input-${type}" style="width: 100px;">
               <button class="btn-price-action" data-type="${type}" data-action="save-price">✔️</button>
               <button class="btn-price-action" data-type="${type}" data-action="cancel-price">✖️</button>
-            </div>
-          `;
+            </div>`;
         } else {
           let priceDisplay = formatVND(currentPrice);
           if (item.edited_price !== undefined && item.edited_price !== item.list_price) {
@@ -627,9 +604,7 @@
           <div class="summary-item">
             <div class="summary-item-info">
               <span class="summary-item-name">${item.product_name}</span>
-              <span style="font-size: 12px; color: #64748b; margin-top: 2px; display: block;">
-                SKU: ${item.sku}
-              </span>
+              <span style="font-size: 12px; color: #64748b; margin-top: 2px; display: block;">SKU: ${item.sku}</span>
               <div class="quantity-controls">
                 <button class="qty-btn" data-type="${type}" data-action="decrease" ${item.quantity <= 1 ? 'disabled' : ''}>-</button>
                 <span class="qty-display">${item.quantity}</span>
@@ -653,21 +628,17 @@
     checkPromotions();
   }
 
-  // HÀM XỬ LÝ TĂNG/GIẢM SỐ LƯỢNG
   function changeQuantity(type, action) {
     const item = currentBuildConfig[type];
     if (!item) return;
     if (action === 'increase') {
       item.quantity += 1;
     } else if (action === 'decrease') {
-      if (item.quantity > 1) {
-        item.quantity -= 1;
-      }
+      if (item.quantity > 1) item.quantity -= 1;
     }
     updateSummaryAndTotal();
   }
 
-  // HÀM VẼ DANH SÁCH LINH KIỆN TRONG MODAL
   function renderComponentList(components) {
     if (components.length === 0) {
       modalList.innerHTML = '<div class="dash-muted" style="text-align: center; padding: 20px;">Không tìm thấy linh kiện nào.</div>';
@@ -687,15 +658,12 @@
             <button class="btn-select-item" data-sku="${item.sku}">Chọn</button>
           </div>
         </div>
-        <div class="component-item-stock">
-          ${stockHtml}
-        </div>
+        <div class="component-item-stock">${stockHtml}</div>
       </div>
       `;
     }).join('');
   }
   
-  // HÀM HIỂN THỊ MODAL LỊCH SỬ GIÁ
   async function showPriceHistoryModal(sku) {
     phSku.textContent = sku;
     phTbody.innerHTML = '<tr><td colspan="4">Đang tải...</td></tr>';
@@ -718,31 +686,21 @@
     }
   }
 
-  // ----- GẮN CÁC BỘ LẮNG NGHE SỰ KIỆN -----
-
-  // 1. SỰ KIỆN CHO CÁC SLOT (NÚT CHỌN / XÓA)
+  // ----- EVENTS -----
   mainComponentList.addEventListener('click', async (e) => {
-    // A. BẤM NÚT "CHỌN"
+    // CHỌN SLOT
     if (e.target.classList.contains('btn-choose')) {
       const btn = e.target;
-      
-      // === SỬA LỖI THEO Ý BẠN (Lấy 3 phần đầu) ===
-      let subcat = btn.dataset.subcat; // Ví dụ: 'NH03-01-02-01'
-      // Tách 3 phần đầu ('NH03', '01', '02') rồi join lại
+      let subcat = btn.dataset.subcat; 
       const subcatPrefix = subcat.split('-').slice(0, 3).join('-'); 
-      // subcatPrefix giờ là 'NH03-01-02'
-      // ========================================
-
       currentSlotType = btn.dataset.type;
       const slotNameEl = btn.closest('.component-slot').querySelector('.component-name');
       const slotName = slotNameEl.dataset.originalTitle;
       modalTitle.textContent = `Chọn - ${slotName}`;
- 
       modal.style.display = 'flex';
       componentSearch.value = '';
       modalList.innerHTML = '<div class="dash-muted" style="text-align: center; padding: 20px;">Đang tải...</div>';
       try {
-        // Gửi ID đã được rút gọn (3 phần)
         const res = await fetch(`/api/components?subcat=${subcatPrefix}`); 
         const data = await res.json();
         if (!data.ok) throw new Error(data.error);
@@ -753,7 +711,7 @@
       }
     }
     
-    // B. BẤM NÚT "XÓA"
+    // XÓA SLOT
     if (e.target.classList.contains('btn-remove')) {
       const btn = e.target;
       const slotType = btn.dataset.type;
@@ -763,8 +721,7 @@
       const originalTitle = infoEl.querySelector('.component-name').dataset.originalTitle;
       infoEl.innerHTML = `
         <div class="component-name" data-original-title="${originalTitle}">
-          <strong>${originalTitle}:</strong>
-          <span class="placeholder">Chưa chọn</span>
+          <strong>${originalTitle}:</strong><span class="placeholder">Chưa chọn</span>
         </div>
         <div class="component-price-display"></div>
       `;
@@ -775,100 +732,69 @@
     }
   });
 
-  // 2. SỰ KIỆN CHO CỘT TÓM TẮT (NÚT +/- VÀ SỬA GIÁ)
+  // EVENTS SIDEBAR
   summaryList.addEventListener('click', async (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
-
     const type = btn.dataset.type;
     const action = btn.dataset.action;
     
-    // A. BẤM NÚT +/-
-    if (action === 'increase' || action === 'decrease') {
-      changeQuantity(type, action);
-    }
-    
-    // B. BẤM NÚT SỬA GIÁ (✏️)
+    if (action === 'increase' || action === 'decrease') changeQuantity(type, action);
     if (btn.classList.contains('btn-edit-price')) {
       const item = currentBuildConfig[type];
       if (item) {
         item.isEditingPrice = true;
         updateSummaryAndTotal();
-        document.getElementById(`price-input-${type}`).focus();
+        setTimeout(() => document.getElementById(`price-input-${type}`).focus(), 50);
       }
     }
-    
-    // C. BẤM NÚT LỊCH SỬ (🕘)
     if (btn.classList.contains('btn-history-price')) {
       const sku = btn.dataset.sku;
       showPriceHistoryModal(sku);
     }
-    
-    // D. BẤM NÚT LƯU GIÁ (✔️)
     if (action === 'save-price') {
       const item = currentBuildConfig[type];
       const inputEl = document.getElementById(`price-input-${type}`);
       const newPrice = Number(inputEl.value);
-      
-      if (!item || newPrice < 0) {
-         alert('Giá không hợp lệ');
-         return;
-      }
+      if (!item || newPrice < 0) return alert('Giá không hợp lệ');
       
       btn.disabled = true;
-      
       try {
         const res = await fetch(`/api/sku/${item.sku}/price`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ new_price: newPrice })
         });
         const js = await res.json();
         if (!js.ok) throw new Error(js.error || 'Cập nhật giá thất bại');
-        
         item.edited_price = newPrice;
         item.isEditingPrice = false;
-        showToast('Đã lưu giá mới thành công!', 'success'); // Gọi hàm toast
-        
+        showToast('Đã lưu giá mới thành công!', 'success');
       } catch (err) {
         alert('Lỗi lưu giá: ' + err.message);
         btn.disabled = false;
       }
-      
       updateSummaryAndTotal();
     }
-    
-    // E. BẤM NÚT HỦY SỬA GIÁ (✖️)
     if (action === 'cancel-price') {
       const item = currentBuildConfig[type];
-      if (item) {
-        item.isEditingPrice = false;
-        updateSummaryAndTotal();
-      }
+      if (item) { item.isEditingPrice = false; updateSummaryAndTotal(); }
     }
   });
 
-  // 3. SỰ KIỆN KHI CHỌN 1 MÓN TRONG MODAL
   modalList.addEventListener('click', (e) => {
     if (e.target.classList.contains('btn-select-item')) {
       const sku = e.target.dataset.sku;
       const selectedItem = allComponentsCache.find(c => c.sku === sku);
       if (selectedItem && currentSlotType) {
-        currentBuildConfig[currentSlotType] = { 
-          ...selectedItem, 
-          quantity: 1 
-        };
+        currentBuildConfig[currentSlotType] = { ...selectedItem, quantity: 1 };
         const slotEl = document.getElementById(`slot-${currentSlotType}`);
         const infoEl = slotEl.querySelector('.component-info');
         const originalTitle = infoEl.querySelector('.component-name').dataset.originalTitle;
         infoEl.innerHTML = `
           <div class="component-name" data-original-title="${originalTitle}">
-            <strong>${originalTitle}:</strong>
-            <span style="font-weight: 400; margin-left: 5px;">${selectedItem.product_name}</span>
+            <strong>${originalTitle}:</strong><span style="font-weight: 400; margin-left: 5px;">${selectedItem.product_name}</span>
           </div>
-          <div class="component-price-display">
-            ${formatVND(selectedItem.list_price)}
-          </div>
+          <div class="component-price-display">${formatVND(selectedItem.list_price)}</div>
         `;
         const btnEl = slotEl.querySelector('button');
         btnEl.textContent = 'Xóa';
@@ -881,217 +807,115 @@
     }
   });
 
-  // 4. SỰ KIỆN TÌM KIẾM TRONG MODAL
   componentSearch.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase().trim();
-    const filtered = allComponentsCache.filter(c => 
-      c.product_name.toLowerCase().includes(query) ||
-      c.sku.toLowerCase().includes(query)
-    );
+    const filtered = allComponentsCache.filter(c => c.product_name.toLowerCase().includes(query) || c.sku.toLowerCase().includes(query));
     renderComponentList(filtered);
   });
 
-  // 5. SỰ KIỆN ĐÓNG MODAL (NÂNG CẤP)
   modalClose.onclick = () => { modal.style.display = 'none'; };
-  // Kiểm tra phClose có tồn tại không
-  if (phClose) {
-    phClose.onclick = () => { priceHistoryModal.style.display = 'none'; };
-  }
+  if (phClose) phClose.onclick = () => { priceHistoryModal.style.display = 'none'; };
   window.onclick = (e) => {
-    if (e.target == modal) {
-      modal.style.display = 'none';
-    }
-    // Kiểm tra priceHistoryModal có tồn tại không
-    if (priceHistoryModal && e.target == priceHistoryModal) {
-      priceHistoryModal.style.display = 'none';
-    }
+    if (e.target == modal) modal.style.display = 'none';
+    if (priceHistoryModal && e.target == priceHistoryModal) priceHistoryModal.style.display = 'none';
+    if (quoteModal && e.target == quoteModal) quoteModal.style.display = 'none';
   };
 
   mainQuoteButton.addEventListener('click', (e) => {
-    e.preventDefault(); // Ngăn form submit
-    
-    // Kiểm tra xem có SP nào không
+    e.preventDefault();
     if (Object.keys(currentBuildConfig).length === 0) {
       showToast('Vui lòng chọn ít nhất 1 linh kiện', 'warn');
       return;
     }
-    
-    // Mở modal báo giá
     quoteModal.style.display = 'flex';
     quoteLoading.style.display = 'none';
-    quoteSubmitButton.style.display = 'block';
-    quoteSubmitButton.disabled = false;
+    // Đảm bảo nút tải hiển thị lại khi mở modal
+    const btnDownload = document.getElementById('btnDownloadPDF');
+    if (btnDownload) { btnDownload.style.display = 'block'; btnDownload.disabled = false; }
+    document.getElementById('downloadError').style.display = 'none';
   });
 
-  // 2. Bấm tick vào checkbox "Gửi email"
-quoteSendEmail.addEventListener('change', (e) => {
-    if (e.target.checked) {
-      quoteEmailGroup.style.display = 'block';
-      quoteCCGroup.style.display = 'block'; // <-- THÊM DÒNG NÀY
-      quoteCustomerEmail.required = true; 
-    } else {
-      quoteEmailGroup.style.display = 'none';
-      quoteCCGroup.style.display = 'none'; // <-- THÊM DÒNG NÀY
-      quoteCustomerEmail.required = false;
-    }
-  });
-
-  // 3. Bấm nút "Xác nhận & Tạo báo giá" (bên trong modal)
-  quoteForm.addEventListener('submit', async (e) => {
-    e.preventDefault(); 
-    
-    quoteLoading.style.display = 'block';
-    quoteSubmitButton.style.display = 'none';
-    quoteSubmitButton.disabled = true;
-
-    // Lấy dữ liệu
-    const customerName = document.getElementById('quoteCustomerName').value.trim();
-    const sendEmail = quoteSendEmail.checked;
-    const customerEmail = document.getElementById('quoteCustomerEmail').value.trim();
-    const contactInfo = document.getElementById('quoteContactInfo').value.trim();
-    const customerCC = document.getElementById('quoteCCEmail').value.trim();
-    const customerPhone = document.getElementById('quoteCustomerPhone').value.trim();
-    if (!customerName || !contactInfo || !customerPhone) {
-      alert('Vui lòng nhập đủ Tên khách hàng, SĐT khách hàng, và SĐT liên hệ của bạn.');
-      return; // Dừng lại, không gửi
-    }
-    
-    if (sendEmail && !customerEmail) {
-      alert('Vui lòng nhập Email của khách hàng để gửi.');
-      return; // Dừng lại, không gửi
-    }
-    try {
-      const res = await fetch('/api/pc-builder/generate-quote', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          buildConfig: currentBuildConfig,
-          customerName,
-          sendEmail,
-
-          customerEmail,
-          contactInfo,
-          customerCC,
-          customerPhone: customerPhone,
-        })
-      });
-
-      if (!res.ok) {
-        // Lỗi (ví dụ 500)
-        const errData = await res.json();
-        throw new Error(errData.error || `Lỗi server: ${res.statusText}`);
-      }
-
-      if (sendEmail) {
-        // 1. NẾU GỬI MAIL THÀNH CÔNG
-        const data = await res.json();
-        showToast(data.message || 'Gửi email thành công!', 'success');
-        quoteModal.style.display = 'none';
-      } else {
-        // 2. NẾU DOWNLOAD PDF
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `BaoGia_${customerName.replace(/ /g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+  // --- XỬ LÝ NÚT TẢI PDF (FIXED WITH EVENT DELEGATION) ---
+  document.addEventListener('click', async (e) => {
+    if (e.target && e.target.id === 'btnDownloadPDF') {
+        const btnDownload = e.target;
         
-        showToast('Đang tải file PDF...', 'success');
-        quoteModal.style.display = 'none';
-      }
-      
-    } catch (err) {
-      alert('Lỗi tạo báo giá: ' + err.message);
-    } finally {
-      // Luôn reset lại nút
-      quoteLoading.style.display = 'none';
-      quoteSubmitButton.style.display = 'block';
-      quoteSubmitButton.disabled = false;
+        const name = document.getElementById('quoteCustomerName').value.trim();
+        const phone = document.getElementById('quoteCustomerPhone').value.trim();
+        const contact = document.getElementById('quoteContactInfo').value.trim();
+        
+        if (!name || !phone || !contact) {
+            alert('Vui lòng nhập đủ thông tin khách hàng và liên hệ!');
+            return;
+        }
+
+        btnDownload.style.display = 'none';
+        quoteLoading.style.display = 'block';
+        document.getElementById('downloadError').style.display = 'none';
+
+        // Lấy tham số mới
+        const validityDays = Number(document.getElementById('quoteValidity').value) || 3;
+        let templateType = 'consumer';
+        const checkedRadio = document.querySelector('input[name="printTemplate"]:checked');
+        if (checkedRadio) templateType = checkedRadio.value;
+
+        try {
+          const res = await fetch('/api/pc-builder/generate-quote', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              buildConfig: currentBuildConfig,
+              customerName: name,
+              customerPhone: phone,
+              contactInfo: contact,
+              sendEmail: false, 
+              isGeneralQuote: false, // Build PC -> Có KM
+              
+              // Gửi option mới
+              validityDays: validityDays,
+              templateType: templateType,
+              globalDiscount: { value: 0, type: 'amount' } 
+            })
+          });
+          
+          if (!res.ok) {
+              const errJson = await res.json();
+              throw new Error(errJson.error || 'Lỗi server');
+          }
+
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none'; a.href = url;
+          const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g, '_');
+          a.download = `BaoGia_${safeName}.pdf`;
+          
+          document.body.appendChild(a); a.click();
+          
+          window.URL.revokeObjectURL(url);
+          setTimeout(() => document.body.removeChild(a), 100);
+          
+          document.getElementById('quoteModal').style.display = 'none';
+          if(typeof showToast === 'function') showToast('Đã tải báo giá thành công!', 'success');
+
+        } catch (err) {
+          console.error("Lỗi tải PDF:", err);
+          const errorDiv = document.getElementById('downloadError');
+          if (errorDiv) {
+              errorDiv.innerText = 'Lỗi: ' + err.message;
+              errorDiv.style.display = 'block';
+          } else {
+              alert('Lỗi: ' + err.message);
+          }
+        } finally {
+          btnDownload.style.display = 'block';
+          quoteLoading.style.display = 'none';
+        }
     }
   });
-  // 4. Đóng modal báo giá
-  quoteClose.onclick = () => { quoteModal.style.display = 'none'; };
-  
-  // 5. Cập nhật hàm đóng modal chung
-  window.onclick = (e) => {
-    if (e.target == modal) {
-      modal.style.display = 'none';
-    }
-    if (priceHistoryModal && e.target == priceHistoryModal) {
-      priceHistoryModal.style.display = 'none';
-    }
-    // (MỚI)
-    if (quoteModal && e.target == quoteModal) {
-      quoteModal.style.display = 'none';
-    }
-  };
 
-  // 6. KHỞI TẠO TÓM TẮT LẦN ĐẦU
   updateSummaryAndTotal();
 });
-  // ===== KẾT THÚC CODE JAVASCRIPT =====
 </script>
 
-<div id="priceHistoryModal" class="modal" style="display:none">
-  <div class="modal-content" style="max-width: 600px;">
-    <span id="phClose" class="close">&times;</span>
-    <h3>Lịch sử sửa giá (SKU: <span id="phSku"></span>)</h3>
-    <table class="detail-table" id="phTable" style="width: 100%; margin-top: 15px;">
-      <thead>
-        <tr><th>Thời gian</th><th>Giá cũ</th><th>Giá mới</th><th>Người sửa</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</div>
-
-
-<div id="quoteModal" class="modal" style="display:none">
-  <div class="modal-content" style="max-width: 500px;">
-    <span id="quoteClose" class="close">&times;</span>
-    <h3>Thông tin báo giá</h3>
-    
-    <form id="quoteForm">
-      <div class="form-group" style="margin-bottom: 15px;">
-        <label>Tên Khách hàng / Công ty:</label>
-        <input type="text" id="quoteCustomerName" class="info-input" placeholder="Kính gửi..." required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
-      </div>
-      <div class="form-group" style="margin-bottom: 15px;">
-        <label>SĐT Khách hàng:</label>
-        <input type="text" id="quoteCustomerPhone" class="info-input" placeholder="SĐT của khách hàng" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
-      </div>
-      <div class="form-group" style="margin-bottom: 15px;">
-        <label>Thông tin liên hệ của bạn (SĐT/Zalo):</label>
-        <input type="text" id="quoteContactInfo" class="info-input" placeholder="090..." required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
-      </div>
-      <div class="form-group" style="margin-bottom: 15px;">
-        <label style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="quoteSendEmail" style="width: 18px; height: 18px;">
-          Gửi email báo giá
-        </label>
-      </div>
-      
-      <div class="form-group" id="quoteEmailGroup" style="display: none; margin-bottom: 20px;">
-        <label>Email nhận báo giá:</label>
-        <input type="email" id="quoteCustomerEmail" class="info-input" placeholder="example@gmail.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
-      </div>
-      <div class="form-group" id="quoteCCGroup" style="display: none; margin-bottom: 20px;">
-        <label>CC (Email phụ, tùy chọn):</label>
-        <input type="email" id="quoteCCEmail" class="info-input" placeholder="cc@example.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
-      </div>
-      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;" id="quoteSubmitButton">
-        Xác nhận & Tạo báo giá
-      </button>
-      <div id="quoteLoading" class="dash-muted" style="text-align: center; padding: 20px; display: none;">
-        Đang tạo PDF, vui lòng chờ...
-      </div>
-    </form>
-    
-  </div>
-</div>
-<%- include('partials/toast') %>
 <%- include('partials/footer') %>
