@@ -1785,7 +1785,28 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
         if (p.apply_to_categories && p.apply_to_categories.map(c=>c.toLowerCase()).includes(pCategory)) return true;
         if (p.apply_to_subcats && p.apply_to_subcats.map(s=>s.toLowerCase()).includes(pSubcat)) return true;
         if ((p.promotion_skus || []).some(ps => ps.sku === product.sku)) return true;
-
+        // [MỚI] Check xem SKU có nằm trong cấu hình Combo/Gift (detail_fields) không
+        if (p.detail_fields) {
+            // Check Combo
+            if (p.detail_fields.combos) {
+                const combos = typeof p.detail_fields.combos === 'object' ? Object.values(p.detail_fields.combos) : [];
+                for (const c of combos) {
+                    if (c.skus && Array.isArray(c.skus)) {
+                        // Nếu SKU đang tìm nằm trong mảng skus của combo -> Lấy CTKM này
+                        if (c.skus.includes(product.sku)) return true;
+                    }
+                }
+            }
+            // Check Gift (nếu muốn tìm "SKU này có được tặng không" thì bật logic này)
+            if (p.detail_fields.gift_options) {
+                const gifts = typeof p.detail_fields.gift_options === 'object' ? Object.values(p.detail_fields.gift_options) : [];
+                for (const g of gifts) {
+                    if (g.skus && Array.isArray(g.skus)) {
+                        if (g.skus.includes(product.sku)) return true;
+                    }
+                }
+            }
+        }
         return false;
     });
 
@@ -1811,76 +1832,188 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     }
 
     // 5) Tính toán giá trị giảm
-    let availablePromos = (regularPromos || []).map(p => {
+    //let availablePromos = (regularPromos || []).map(p => {
+        //const ruleDiscount = calcDiscountAmt(p, price);
+        //const couponDiscount = getMaxCouponDiscount(p);
+        //const bestDiscount = Math.max(ruleDiscount, couponDiscount);
+        //return { ...p, discount_amount_calc: bestDiscount };
+
+    // [MỚI] Logic lấy thông tin phụ cho Gift/Combo (Tên & Tồn kho)
+    let extraSkuInfoMap = {}; // Biến này sẽ được truyền xuống view
+    let extraSkusToFetch = new Set();
+
+    // Duyệt qua các CTKM đã lọc để gom tất cả SKU phụ (quà tặng, món trong combo)
+    regularPromos.forEach(p => {
+        if (p.detail_fields) {
+            if (p.detail_fields.gift_options) {
+                Object.values(p.detail_fields.gift_options).forEach(g => {
+                    if(Array.isArray(g.skus)) g.skus.forEach(s => extraSkusToFetch.add(s));
+                });
+            }
+            if (p.detail_fields.combos) {
+                Object.values(p.detail_fields.combos).forEach(c => {
+                    if(Array.isArray(c.skus)) c.skus.forEach(s => extraSkusToFetch.add(s));
+                });
+            }
+            if (p.detail_fields.next_order_target_skus) {
+                // Dùng hàm parseSkus (hoặc split string) để tách chuỗi thành mảng
+                const list = String(p.detail_fields.next_order_target_skus)
+                             .split(/[,\n\r\s]+/)
+                             .map(s => s.trim())
+                             .filter(Boolean);
+                
+                list.forEach(s => extraSkusToFetch.add(s));
+            }
+        }
+    });
+
+    // Nếu có SKU phụ, gọi DB lấy Tên và BigQuery lấy Tồn
+    if (extraSkusToFetch.size > 0) {
+        const skuArray = Array.from(extraSkusToFetch);
+        
+        // 1. Lấy Tên sản phẩm từ Supabase
+        const { data: extraInfos } = await supabase.from('skus').select('sku, product_name').in('sku', skuArray);
+        (extraInfos || []).forEach(item => {
+            if (!extraSkuInfoMap[item.sku]) extraSkuInfoMap[item.sku] = { name: item.product_name, stock: 0 };
+        });
+
+        // 2. Lấy Tồn kho từ BigQuery (Nếu có cấu hình)
+        if (bigquery && userBranch) {
+            try {
+                // Tái sử dụng hàm getInventoryCounts có sẵn trong server.js
+                // Hàm này trả về Map<SKU, Map<Branch, Counts>>
+              const extraInventoryMap = await getInventoryCounts(skuArray, userBranch, isGlobalAdmin, new Date().toISOString().split('T')[0]);
+        
+        skuArray.forEach(sku => {
+            const branchMap = extraInventoryMap.get(sku);
+            
+            let totalStock = 0;
+
+            if (branchMap) {
+                if (isGlobalAdmin) {
+                    // Nếu là Admin: Cộng tổng tồn kho của TẤT CẢ chi nhánh
+                    branchMap.forEach((counts, bId) => {
+                        // Chỉ tính hàng bán mới (hoặc tùy logic bạn muốn cộng thêm)
+                        totalStock += (counts.hang_ban_moi || 0) + (counts.trung_bay_chi_dinh || 0); 
+                    });
+                } else {
+                    // Nếu là User thường: Chỉ lấy tồn kho của chi nhánh user
+                    const counts = branchMap.get(userBranch);
+                    if (counts) {
+                        totalStock = (counts.hang_ban_moi || 0) + (counts.trung_bay_chi_dinh || 0);
+                    }
+                }
+            }
+
+            if (extraSkuInfoMap[sku]) {
+                extraSkuInfoMap[sku].stock = totalStock;
+            }
+        });
+            } catch (e) { console.error("Lỗi lấy tồn kho quà tặng:", e.message); }
+        }
+    }
+// 5) Tính toán giá trị giảm cho TẤT CẢ các CTKM hợp lệ ban đầu
+    let candidates = (regularPromos || []).map(p => {
         const ruleDiscount = calcDiscountAmt(p, price);
         const couponDiscount = getMaxCouponDiscount(p);
         const bestDiscount = Math.max(ruleDiscount, couponDiscount);
         return { ...p, discount_amount_calc: bestDiscount };
     });
 
+    // Lọc theo giá tối thiểu đơn hàng
     if (price > 0) {
-        availablePromos = availablePromos.filter(p => Number(p.min_order_value || 0) <= price);
+        candidates = candidates.filter(p => Number(p.min_order_value || 0) <= price);
     }
-    console.log(`[DEBUG] Bước 4: Sau khi lọc min_order_value, còn lại ${availablePromos.length} CTKM.`);
 
-    // --- LOGIC GỘP NHÓM & DEBUG ---
-    const bestByGroup = {};
-    const listFinal = [];
+    // --- BƯỚC QUAN TRỌNG: GỘP NHÓM & TÌM BEST DEAL (LOGIC CŨ CỦA BẠN) ---
+    const bestByGroup = {}; 
+    const finalDisplayList = []; // Danh sách cuối cùng sẽ được hiển thị
 
-    console.log("--- [DEBUG CHI TIẾT GỘP NHÓM] ---");
-    for (const p of availablePromos) {
-        // (Đã check isVisibleToUser ở trên rồi, nhưng check lại cho chắc nếu logic thay đổi)
-        if (!isVisibleToUser(p)) continue;
-
-        const groupKey = p.group_name || `__no_group_${p.id}__`;
-        const discountVal = p.discount_amount_calc || 0;
-
-        console.log(` >> Xét CTKM ID:${p.id} | Tên: ${p.name} | Nhóm: ${p.group_name} | Giảm: ${discountVal}`);
-        console.log(`    Option 'Show Multiple': ${p.show_multiple_in_group}`);
-
+    for (const p of candidates) {
+        // Nếu user tick "Hiển thị cùng các CTKM khác trong nhóm" -> Lấy luôn
         if (p.show_multiple_in_group) {
-            listFinal.push(p);
-            console.log(`    => ✅ LẤY LUÔN (Do có tick hiển thị cùng nhóm)`);
+            finalDisplayList.push(p);
+            continue;
+        }
+
+        // Nếu không, thực hiện so sánh trong nhóm
+        const groupKey = p.group_name || `__no_group_${p.id}__`;
+        
+        if (!bestByGroup[groupKey]) {
+            // Chưa có ai trong nhóm này, tạm giữ ông này
+            bestByGroup[groupKey] = p;
         } else {
-            if (!bestByGroup[groupKey]) {
-                bestByGroup[groupKey] = p;
-                console.log(`    => 🔵 Tạm giữ (Là CTKM đầu tiên của nhóm này)`);
-            } else {
-                const currentBest = bestByGroup[groupKey];
-                if (discountVal > currentBest.discount_amount_calc) {
-                    console.log(`    => 🟢 Thay thế CTKM ID:${currentBest.id} (Vì giảm ${discountVal} > ${currentBest.discount_amount_calc})`);
-                    bestByGroup[groupKey] = p;
-                } else {
-                    console.log(`    => 🔴 Bỏ qua (Thua CTKM ID:${currentBest.id} đang giữ)`);
-                }
+            // Đã có, so sánh xem ai ngon hơn
+            const currentBest = bestByGroup[groupKey];
+            if (p.discount_amount_calc > currentBest.discount_amount_calc) {
+                bestByGroup[groupKey] = p; // Ông mới ngon hơn, thay thế
             }
+            // Nếu bằng hoặc thua thì bỏ qua ông mới
         }
     }
 
-    Object.values(bestByGroup).forEach(p => {
-        listFinal.push(p);
-    });
-    console.log("-----------------------------------");
+    // Đẩy những ông "vô địch" của từng nhóm vào danh sách hiển thị
+    Object.values(bestByGroup).forEach(p => finalDisplayList.push(p));
 
-    // Gán vào biến promotions để render
-    promotions = listFinal.sort((a, b) => b.discount_amount_calc - a.discount_amount_calc);
+    // --- BƯỚC PHÂN LOẠI UI (HOT, PAYMENT, FUTURE...) ---
+    const promoGroups = {
+        hot: [],        // Ưu đãi HOT (Trừ tiền trực tiếp)
+        future: [],     // Tặng mã giảm đơn sau
+        payment: [],    // Ưu đãi thanh toán
+        installment: [],// Trả góp
+        other: []       // Quà tặng hiện vật, combo...
+    };
+
+    finalDisplayList.forEach(p => {
+        const type = p.promo_type || '';
+        
+        // [FIX] ƯU TIÊN 1: Nếu là Combo hoặc Gift -> Đẩy thẳng vào nhóm Other (để hiển thị tách biệt)
+        if (type === 'Combo' || type === 'Gift' || type === 'Quà tặng (Gift)') {
+            promoGroups.other.push(p);
+        }
+        // ƯU TIÊN 2: Phân loại Tặng mã đơn sau
+        else if (type === 'Tặng mã giảm đơn hàng sau') {
+            promoGroups.future.push(p);
+        }
+        // ƯU TIÊN 3: Phân loại Thanh toán
+        else if (type === 'Ưu đãi thanh toán') {
+            promoGroups.payment.push(p);
+        }
+        // ƯU TIÊN 4: Phân loại Trả góp
+        else if (type.includes('Trả góp')) {
+            promoGroups.installment.push(p);
+        }
+        // ƯU TIÊN 5: Phân loại HOT (Các loại giảm tiền/%, Coupon trực tiếp còn lại)
+        else if (p.discount_value_type === 'amount' || p.discount_value_type === 'percent' || type === 'Coupon' || type === 'Voucher') {
+             promoGroups.hot.push(p);
+        }
+        // Còn lại
+        else {
+            promoGroups.other.push(p);
+        }
+    });
+
+    // Sắp xếp lại nhóm HOT: Giảm nhiều nhất lên đầu
+    promoGroups.hot.sort((a, b) => b.discount_amount_calc - a.discount_amount_calc);
+
+    // --- TÍNH TỔNG TIỀN GIẢM (CHỈ CỘNG NHÓM HOT) ---
+    // Tìm các CTKM trong nhóm HOT có thể cộng dồn với nhau (logic pickStackable cũ)
+    const chosenHotPromos = pickStackable(promoGroups.hot);
     
-    // Tính toán Stackable (cộng dồn)
-    chosenPromos = pickStackable(promotions);
-    totalDiscount = chosenPromos.reduce((s, p) => s + Number(p.discount_amount_calc || 0), 0);
+    totalDiscount = chosenHotPromos.reduce((s, p) => s + Number(p.discount_amount_calc || 0), 0);
     finalPrice = Math.max(0, price - totalDiscount);
 
-    try {
-      const cmp = await supabase.from('price_comparisons').select('*', { count: 'exact', head: true }).eq('sku', product.sku);
-      comparisonCount = cmp?.count || 0;
-    } catch { }
-
-    console.log(`--- [DEBUG] KẾT THÚC TÌM KIẾM ---`);
+    // Gộp lại để tương thích ngược nếu file view cũ cần biến 'promotions'
+    promotions = finalDisplayList;
 
     return res.render('promotion', {
       title: 'CTKM theo SKU', currentPage: 'promotion',
-      query: skuInput, product, promotions,
-      internalContest, chosenPromos, totalDiscount, finalPrice, comparisonCount, error: null,
+      query: skuInput, product, 
+      promotions, // List tổng (để backup)
+      promoGroups, // <--- BIẾN MỚI DÙNG ĐỂ RENDER
+      extraSkuInfoMap,
+      internalContest, chosenPromos: chosenHotPromos, 
+      totalDiscount, finalPrice, comparisonCount, error: null,
       inventoryCounts, inventoryMap, userBranch, isGlobalAdmin, oldestSerials,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
@@ -2125,20 +2258,49 @@ app.get('/promo-management', requireAuth, requireManager, async (req, res) => {
 });
 
 
-// Thay thế toàn bộ route app.post('/create-promotion', ...) bằng code này
-
 // [MỚI] Route Tạo CTKM (Đã bao gồm Branch, Exclude Mở Rộng, Show Multiple)
 app.post('/create-promotion', requireAuth, async (req, res) => {
     try {
         const {
-            name, description, start_date, end_date, channel, promo_type, coupon_code,
-            group_name, apply_to_type, apply_brands, apply_categories, apply_subcats,
-            skus, excluded_skus, has_coupon_list, coupons, detail
-        } = req.body;
+      name, description, start_date, end_date, channel, promo_type, coupon_code,
+      group_name, apply_to_type, apply_brands, apply_categories, apply_subcats,
+      skus, excluded_skus, has_coupon_list, coupons, 
+      // LƯU Ý: Lấy trực tiếp biến detail từ body, Express đã tự parse thành Object
+      detail 
+    } = req.body;
 
-        const apply_with = req.body['apply_with[]'];
-        const exclude_with = req.body['exclude_with[]'];
+    if (typeof detail === 'string') {
+    try {
+        detail = JSON.parse(detail);
+    } catch(e) {
+        detail = {}; // Parse lỗi thì để rỗng
+    }
+}
+      let cleanedDetail = {};
+    if (detail && typeof detail === 'object') {
+        Object.keys(detail).forEach(key => {
+            const val = detail[key];
+            // Nếu là Gift/Combo (Object/Array), giữ nguyên nếu có dữ liệu
+            if (typeof val === 'object' && val !== null) {
+                // Kiểm tra sơ bộ nếu object rỗng
+                if (Object.keys(val).length > 0) cleanedDetail[key] = val;
+            } 
+            // Nếu là String (HTML RTE), giữ lại nếu không rỗng
+            else if (typeof val === 'string' && val.trim() !== '') {
+                cleanedDetail[key] = val.trim();
+            }
+        });
+    }
+       // const apply_with = req.body['apply_with[]'];
+        //const exclude_with = req.body['exclude_with[]'];
+        const getArrayParams = (source, key) => {
+            let val = source[key] || source[key + '[]'];
+            if (!val) return [];
+            return Array.isArray(val) ? val : [val];
+        };
 
+        const apply_with = getArrayParams(req.body, 'apply_with');
+        const exclude_with = getArrayParams(req.body, 'exclude_with');
         // --- HELPER ---
         const parseList = (str) => String(str || '').split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
         const uniq = arr => [...new Set(arr)];
@@ -2194,7 +2356,7 @@ app.post('/create-promotion', requireAuth, async (req, res) => {
             created_by: req.session.user?.id,
             detail_fields: detail || {},
             discount_value_type, discount_value, max_discount_amount, min_order_value,
-
+            detail_fields: cleanedDetail,
             // --- CÁC TRƯỜNG MỚI ---
             show_multiple_in_group: req.body.show_multiple_in_group === 'on',
             apply_branches: applyBranches,
@@ -6560,6 +6722,76 @@ app.get('/api/cron/sync-clearance', async (req, res) => {
         res.status(500).json({ ok: false, error: e.message });
     }
 });
+
+app.get('/api/admin/search-sku-stock', requireAuth, async (req, res) => {
+  try {
+    const skuQuery = (req.query.q || '').trim();
+    if (!skuQuery) return res.json({ ok: true, results: [] });
+
+    // 1. Tìm thông tin sản phẩm trong Supabase
+    const { data: products, error } = await supabase
+      .from('skus')
+      .select('sku, product_name, list_price')
+      .or(`sku.ilike.%${skuQuery}%,product_name.ilike.%${skuQuery}%`)
+      .limit(10); // Lấy 10 kết quả
+
+    if (error) throw error;
+    if (!products || products.length === 0) return res.json({ ok: true, results: [] });
+
+    // 2. Chuẩn bị tham số lấy tồn kho
+    const skuList = products.map(p => p.sku);
+    const userBranch = req.session.user?.branch_code;
+    // Nếu là Admin hoặc HCM.BD thì coi là Global Admin (lấy tồn all chi nhánh)
+    const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
+    const today = new Date().toISOString().split('T')[0];
+
+    // 3. Gọi hàm lấy tồn kho CHUẨN (đã có trong server.js)
+    let inventoryMap = new Map();
+    try {
+        if (bigquery) {
+            inventoryMap = await getInventoryCounts(skuList, userBranch, isGlobalAdmin, today);
+        }
+    } catch (bqError) {
+        console.warn("Lỗi BigQuery:", bqError.message);
+    }
+
+    // 4. Ghép dữ liệu & Tính tổng tồn
+    const results = products.map(p => {
+        let totalStock = 0;
+        const branchMap = inventoryMap.get(p.sku);
+
+        if (branchMap) {
+            // Duyệt qua tất cả chi nhánh trả về để cộng dồn
+            branchMap.forEach((counts) => {
+                // Chỉ tính hàng bán được: Bán mới + Trưng bày chỉ định
+                totalStock += (counts.hang_ban_moi || 0) + (counts.trung_bay_chi_dinh || 0);
+            });
+        }
+
+        return {
+            sku: p.sku,
+            product_name: p.product_name,
+            list_price: p.list_price,
+            stock: totalStock
+        };
+    });
+
+    // Sắp xếp: Ưu tiên khớp chính xác SKU -> Tồn nhiều
+    results.sort((a, b) => {
+        if (a.sku === skuQuery) return -1;
+        if (b.sku === skuQuery) return 1;
+        return b.stock - a.stock;
+    });
+
+    res.json({ ok: true, results });
+
+  } catch (e) {
+    console.error('Lỗi API /api/admin/search-sku-stock:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {

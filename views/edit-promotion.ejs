@@ -1,588 +1,424 @@
 <%- include('partials/header', {title: 'Sửa CTKM' , currentPage: 'edit-promotion' , time: time}) %>
 
-    <style>
-        .edit-promotion-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #f8f9fa;
-            min-height: 100vh;
-        }
-
-        .page-header {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .page-header h1 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-
-        .back-button {
-            background: #6c757d;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            text-decoration: none;
-            display: inline-block;
-            margin-bottom: 20px;
-        }
-
-        .promo-form {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-section {
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .form-section h3 {
-            color: #2c3e50;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #3498db;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #495057;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #dee2e6;
-            border-radius: 6px;
-            font-size: 16px;
-            background: white;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .checkbox-group {
-            margin-bottom: 15px;
-        }
-
-        .checkbox-group label {
-            display: flex;
-            align-items: center;
-            font-weight: normal;
-        }
-
-        .checkbox-group input {
-            width: auto;
-            margin-right: 10px;
-        }
-
-        .dynamic-item {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr auto;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
-        }
-
-        .add-item {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .remove-item {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 15px;
-            justify-content: flex-end;
-            margin-top: 30px;
-        }
-
-        .btn-primary {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            border: 1px solid #f5c6cb;
-        }
-    </style>
-
-    <div class="edit-promotion-container">
-        <a href="/promo-management" class="back-button">← Quay lại</a>
-
-        <div class="page-header">
-            <h1>✏️ Sửa CTKM: <%= promotion.name %>
-            </h1>
-            <p>ID: <%= promotion.id %>
-            </p>
-        </div>
-
-        <% if (typeof error !=='undefined' && error) { %>
-            <div class="error-message">
-                ⚠️ <%= error %>
-            </div>
-            <% } %>
-
-                <form action="/edit-promotion/<%= promotion.id %>" method="POST" class="promo-form" id="promoForm">
-                    <div class="form-section">
-                        <h3>📋 Thông tin cơ bản</h3>
-
-                        <div class="form-group">
-                            <label>Tên CTKM *</label>
-                            <input type="text" name="name" value="<%= promotion.name || '' %>" required>
-                            <input type="hidden" name="subgroup_name" value="<%= promotion.name || '' %>">
-                        </div>
-                        <div class="form-group">
-                            <label>Mô tả</label>
-                            <textarea name="description" rows="3"><%= promotion.description || '' %></textarea>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>📅 Ngày bắt đầu *</label>
-                                <input type="date" name="start_date" value="<%= promotion.start_date %>" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label>📅 Ngày kết thúc *</label>
-                                <input type="date" name="end_date" value="<%= promotion.end_date %>" required>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>🔄 Channel áp dụng</label>
-                                <select name="channel">
-                                    <option value="All" <%=promotion.channel==='All' ? 'selected' : '' %>>Tất cả
-                                    </option>
-                                    <option value="Online" <%=promotion.channel==='Online' ? 'selected' : '' %>>Online
-                                    </option>
-                                    <option value="Offline" <%=promotion.channel==='Offline' ? 'selected' : '' %>
-                                        >Offline</option>
-                                </select>
-                            </div>
-                                
-                            <div class="form-group">
-                                <label>🎁 Loại CTKM *</label>
-                                <select name="promo_type" required>
-                                    <option value="Không có mã" <%=promotion.promo_type==='Không có mã' ? 'selected'
-                                        : '' %>>Không có mã</option>
-                                    <option value="Coupon" <%=promotion.promo_type==='Coupon' ? 'selected' : '' %>
-                                        >Coupon</option>
-                                    <option value="Voucher" <%=promotion.promo_type==='Voucher' ? 'selected' : '' %>
-                                        >Voucher</option>
-                                    <option value="Ưu đãi thanh toán" <%=promotion.promo_type==='Ưu đãi thanh toán'
-                                        ? 'selected' : '' %>>Ưu đãi thanh toán</option>
-                                    <option value="Gift" <%=promotion.promo_type==='Gift' ? 'selected' : '' %>>Quà tặng
-                                        (Gift)</option>
-                                    <option value="Combo" <%=promotion.promo_type==='Combo' ? 'selected' : '' %>>Combo</option>
-    <option value="Trả góp 0%" <%=promotion.promo_type==='Trả góp 0%' ? 'selected' : '' %>>Trả góp 0%</option>
-                                    <option value="Trả góp 0%" <%=promotion.promo_type==='Trả góp 0%' ? 'selected' : '' %>>Trả góp 0%</option>
-<option value="Thi đua nội bộ" <%=promotion.promo_type==='Thi đua nội bộ' ? 'selected' : '' %>>Thi đua nội bộ (Banner)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                        <div class="form-group">
-                            <label>🔑 Mã giảm giá (nếu có)</label>
-                            <input type="text" name="coupon_code" value="<%= promotion.coupon_code || '' %>">
-                        </div>
-
-
-                        <div class="form-group">
-    <label style="display: flex; align-items: center; gap: 8px;">
-        <input type="checkbox" name="has_coupon_list" id="hasCouponListCheckbox" style="width: auto;">
-        Hiển thị dưới dạng danh sách coupon/voucher
-    </label>
-</div>
-
-<div class="form-section" id="couponListBuilder" style="display: none;">
-    <h3>📝 Danh sách Coupon</h3>
-    <div id="couponListContainer">
-        </div>
-    <button type="button" class="btn btn-secondary" id="addCouponRowBtn" style="margin-top: 10px;">+ Thêm dòng</button>
-</div>
-
-                    <div class="form-group">
-  <label>Giá trị giảm</label>
-  <div class="grid-2">
-    <div>
-      <select name="discount_value_type" id="discount_value_type" onchange="toggleDiscountInputs()">
-        <option value="">-- Chọn kiểu --</option>
-        <option value="amount">Giảm tiền (₫)</option>
-        <option value="percent">Giảm theo %</option>
-      </select>
-    </div>
-    <div id="amountBox" style="display:none;">
-      <input type="number" name="discount_amount" placeholder="Số tiền giảm (₫)" min="0" step="1000">
-    </div>
-    <div id="percentBox" style="display:none;">
-      <input type="number" name="discount_percent" placeholder="% giảm (0–100)" min="0" max="100" step="0.1">
-    </div>
-    <div id="capBox" style="display:none;">
-      <input type="number" name="max_discount_amount" placeholder="Giảm tối đa (₫)" min="0" step="1000">
-    </div>
-    <div>
-      <input type="number" name="min_order_value" placeholder="Đơn tối thiểu (₫, để trống = 0)" min="0" step="1000">
-    </div>
-  </div>
-  <small class="hint">Chọn “Giảm tiền” → nhập “Số tiền giảm”. Chọn “%” → nhập “% giảm” + “Giảm tối đa”.</small>
-</div>
-
-<script>
-  function toggleDiscountInputs(){
-    const t = document.getElementById('discount_value_type').value;
-    document.getElementById('amountBox').style.display  = (t==='amount') ? 'block' : 'none';
-    document.getElementById('percentBox').style.display = (t==='percent') ? 'block' : 'none';
-    document.getElementById('capBox').style.display     = (t==='percent') ? 'block' : 'none';
-  }
-  document.addEventListener('DOMContentLoaded', toggleDiscountInputs);
-</script>
-
 <style>
-  .grid-2{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
-  .hint{ color:#64748b; font-size:12px; }
+    /* === CSS CHUNG CHO TRANG ADMIN === */
+    .edit-promotion-container { max-width: 1100px; margin: 0 auto; padding: 20px; background: #f3f4f6; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    
+    .page-header { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+    .page-header h1 { margin: 0; font-size: 20px; color: #111827; }
+    .page-header p { margin: 5px 0 0; color: #6b7280; font-size: 13px; }
+    .back-button { color: #4b5563; text-decoration: none; font-size: 14px; display: inline-flex; align-items: center; margin-bottom: 15px; font-weight: 500; }
+    .back-button:hover { color: #111827; }
+
+    /* === FORM STYLES === */
+    .promo-form { display: flex; flex-direction: column; gap: 20px; }
+    .form-section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .form-section h3 { margin-top: 0; margin-bottom: 20px; font-size: 16px; font-weight: 700; color: #111827; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 13px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; color: #111827; background-color: #fff; transition: border-color 0.15s ease; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6; }
+    .hint { font-size: 12px; color: #6b7280; margin-top: 4px; display: block; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    
+    .form-actions { position: sticky; bottom: 0; z-index: 10; background: #fff; padding: 15px 24px; border-top: 1px solid #e5e7eb; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; justify-content: flex-end; gap: 12px; margin: 0 -20px -20px -20px; }
+    .btn-primary { background: #111827; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    .btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; padding: 10px 20px; border-radius: 6px; font-weight: 500; cursor: pointer; text-decoration: none; }
+
+    /* RTE Toolbar */
+    .rte-toolbar { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; background: #f9fafb; padding: 8px; border-radius: 6px; border: 1px solid #e5e7eb; }
+    .rte-btn { padding: 4px 10px; border: 1px solid #d1d5db; background: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; color: #374151; }
+    .rte-field { min-height: 100px; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; }
+
+    /* Table trong form */
+    .detail-grid { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+    .detail-grid th { background: #f8fafc; padding: 16px; text-align: left; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; width: 220px; min-width: 220px; color: #334155; font-weight: 600; font-size: 14px; vertical-align: top; line-height: 1.5; }
+    .detail-grid td { padding: 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; background: #fff; }
+    .detail-grid tr:last-child th, .detail-grid tr:last-child td { border-bottom: none; }
+    
+    /* CSS CHO CÁC BLOCK NHẬP LIỆU ĐẶC BIỆT */
+    .special-block { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-top: 10px; }
+    .special-title { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 10px; text-transform: uppercase; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px; }
+    
+    .sku-link-row { display: grid; grid-template-columns: 100px 2fr 1fr; gap: 10px; align-items: center; margin-bottom: 5px; font-size: 13px; }
+    .sku-link-row input { font-size: 13px; padding: 6px; }
+    .sku-info-display { color: #059669; font-weight: 500; font-size: 12px; }
+    
+    .combo-row, .gift-option { border: 1px solid #e5e7eb; background: #fff; padding: 10px; border-radius: 6px; margin-bottom: 10px; position: relative; }
+    .remove-row-btn { position: absolute; top: 5px; right: 5px; color: #ef4444; cursor: pointer; font-size: 16px; font-weight: bold; }
+    
+    .add-btn-dashed { width: 100%; border: 1px dashed #3b82f6; color: #3b82f6; background: #eff6ff; padding: 8px; text-align: center; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-top: 5px; }
+    .add-btn-dashed:hover { background: #dbeafe; }
+
+    @media (max-width: 768px) {
+        .form-row { grid-template-columns: 1fr; }
+        .sku-link-row { grid-template-columns: 1fr; }
+        .detail-grid { display: block; overflow-x: auto; }
+    }
 </style>
 
+<div class="edit-promotion-container">
+    <a href="/promo-management" class="back-button">← Quay lại danh sách</a>
 
+    <div class="page-header">
+        <div>
+            <h1>Sửa Chương Trình Khuyến Mãi</h1>
+            <p>ID: <%= promotion.id %></p>
+        </div>
+    </div>
 
-                    <h3>🧩 Nhóm hiển thị</h3>
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>Nhóm CTKM (ví dụ: ĐỔI ĐIỂM THI)</label>
-                            <input name="group_name" placeholder="Nhập nhóm" value="<%= promotion.group_name || '' %>">
-                        </div>
-
-                    </div>
-
-
-                    </div>
-
-                    <h3>📋 Bảng chi tiết (chỉ để hiển thị)</h3>
-
-                    <style>
-                        .rte-toolbar {
-                            display: flex;
-                            gap: 6px;
-                            flex-wrap: wrap;
-                            margin: 6px 0 10px;
-                            align-items: center;
-                        }
-
-                        .rte-btn {
-                            padding: 6px 10px;
-                            border: 1px solid #e5e7eb;
-                            background: #fff;
-                            border-radius: 8px;
-                            font-size: 12px;
-                            cursor: pointer;
-                        }
-
-                        .rte-color {
-                            width: 26px;
-                            height: 26px;
-                            padding: 0;
-                        }
-
-                        .detail-grid {
-                            width: 100%;
-                            border: 1px solid #e5e7eb;
-                            border-radius: 12px;
-                            border-collapse: separate;
-                            border-spacing: 0;
-                            table-layout: fixed;
-                        }
-
-                        .detail-grid colgroup col:first-child {
-                            width: 34%;
-                        }
-
-                        /* tiêu đề */
-                        .detail-grid colgroup col:last-child {
-                            width: 66%;
-                        }
-
-                        /* ô nhập */
-                        .detail-grid th,
-                        .detail-grid td {
-                            padding: 10px 12px;
-                            border-bottom: 1px solid #eef2f7;
-                            vertical-align: top;
-                        }
-
-                        .detail-grid th {
-                            background: #f8fafc;
-                            font-weight: 600;
-                            color: #0f172a;
-                            text-align: left;
-                        }
-
-                        .detail-grid tr:last-child th,
-                        .detail-grid tr:last-child td {
-                            border-bottom: none;
-                        }
-
-                        .rte-field {
-                            display: block;
-                            width: 100%;
-                            min-height: 90px;
-                            padding: 10px;
-                            border: 1px solid #e5e7eb;
-                            border-radius: 10px;
-                            background: #fff;
-                            overflow: auto;
-                        }
-
-                        .rte-field:focus {
-                            outline: 2px solid #93c5fd;
-                            outline-offset: 2px;
-                        }
-
-                        .rte-field:empty:before {
-                            content: attr(data-placeholder);
-                            color: #94a3b8;
-                        }
-
-                        textarea[hidden] {
-                            display: none !important;
-                        }
-
-                        @media (max-width: 768px) {
-                            .detail-grid colgroup col:first-child {
-                                width: 42%;
-                            }
-
-                            .detail-grid colgroup col:last-child {
-                                width: 58%;
-                            }
-
-                            .rte-field {
-                                min-height: 72px;
-                            }
-                        }
-                    </style>
-
-
-                    <div class="rte-toolbar" id="rteToolbar" aria-label="Định dạng">
-                        <button type="button" class="rte-btn" data-cmd="bold"><b>B</b></button>
-                        <button type="button" class="rte-btn" data-cmd="italic"><i>I</i></button>
-                        <button type="button" class="rte-btn" data-cmd="underline"><u>U</u></button>
-                        <input type="color" class="rte-btn rte-color" id="rteColor">
-                        <button type="button" class="rte-btn" id="rteEmoji">😊</button>
-                        <button type="button" class="rte-btn" id="rteLink">🔗 Link</button>
-                        <small class="muted">Chọn ô cần nhập, rồi bấm các nút để định dạng.</small>
-                    </div>
-                    <% // BẢNG CHI TIẾT – đã bỏ các trường trùng với “Thông tin cơ bản” const
-                        DETAIL_ROWS=[ 'Nội dung / Link báo cáo/ Luồng vận hành' , 'Đối tượng loại trừ'
-                        , 'Đối tượng áp dụng' , 'Giới hạn lượt áp dụng' , 'Yêu cầu đặc biệt' , 'Trả trước (Trả góp)'
-                        , 'Giá trị giảm (% hoặc tiền)' , 'Giá trị giảm tối đa (Nếu là %)' , 'Giá trị tối thiểu'
-                        , 'Giới hạn số lượng coupon' , 'SKU quà tặng (Có thể chọn theo option và chỉ chọn được 1)'
-                        , 'Áp dụng cùng CTKM khác ?' , 'Không áp dụng cùng CTKM' , 'Link nội bộ/ báo cáo' ]; %>
-
-                        <table class="detail-grid">
-                            <colgroup>
-                                <col />
-                                <col />
-                            </colgroup>
-                            <tbody>
-                                <% DETAIL_ROWS.forEach(function(label, idx){ %>
-                                    <tr>
-                                        <th>
-                                            <%= label %>
-                                        </th>
-                                        <td>
-                                            <div class="rte-field" contenteditable="true"
-                                            data-name="detail[<%= label %>]" data-index="<%= idx %>">
-                                            <%- (promotion.detail_fields && promotion.detail_fields[label]) ? promotion.detail_fields[label] : '' %>
-                                            </div>
-                                            <textarea name="detail[<%= label %>]" hidden></textarea>
-                                        </td>
-                                    </tr>
-                                    <% }); %>
-                            </tbody>
-                        </table>
-
-                        <div class="form-section">
-                <h3>🎯 Phạm vi áp dụng</h3>
-                                            <% let bs_brands=[];
-                                            let bs_subcats=[]; if (promotion.apply_brand_subcats && promotion.apply_brand_subcats.length> 0) {
-                                            bs_brands = Array.from(new Set((promotion.apply_brand_subcats || []).map(x => x.brand)));
-                                            bs_subcats = Array.from(new Set((promotion.apply_brand_subcats || []).map(x => x.subcat_id)));
-                                            }
-                                            %>
+    <% if (typeof error !=='undefined' && error) { %>
+        <div style="background:#fef2f2; color:#991b1b; padding:12px; border-radius:6px; margin-bottom:20px; border:1px solid #fecaca;">
+            ⚠️ <%= error %>
+        </div>
+    <% } %>
+    <form action="/edit-promotion/<%= promotion.id %>" method="POST" class="promo-form" id="promoForm">
+        
+        <div class="form-section">
+            <h3>1. Thông tin chung & Phạm vi</h3>
+            <div class="form-group">
+                <label>Tên chương trình khuyến mãi *</label>
+                <input type="text" name="name" value="<%= promotion.name %>" required>
+                <input type="hidden" name="subgroup_name" value="<%= promotion.name %>"> 
+            </div>
+            <div class="form-group">
+                <label>Mô tả ngắn (Hiển thị dưới tên CTKM)</label>
+                <textarea name="description" rows="2" placeholder="VD: Áp dụng cho các sản phẩm Apple chính hãng..." style="resize: vertical;"><%= promotion.description || '' %></textarea>
+            </div>
+            <div class="form-row">
                 <div class="form-group">
-                    <div class="form-group">
-        <label>🏢 Chi nhánh áp dụng</label>
-        <% 
-           const branchList = ['HCM.BD', 'CP01', 'CP02', 'CP05', 'CP07', 'CP08', 'CP40', 'CP46', 'CP67', 'CP58', 'CP62', 'CP64', 'CP69']; 
-           const currentBranches = promotion.apply_branches || [];
-        %>
-        <select name="apply_branches[]" multiple class="multi-select" style="height: 100px;">
-            <% branchList.forEach(br => { %>
-                <option value="<%= br %>" <%= currentBranches.includes(br) ? 'selected' : '' %>><%= br %></option>
-            <% }) %>
-        </select>
-        <small class="hint" style="font-size:11px; color:#666">Giữ Ctrl/Cmd để chọn nhiều.</small>
-    </div>
-
-    <div class="form-group">
-        <label>⚙️ Tùy chọn hiển thị</label>
-        <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-weight: normal; cursor: pointer;">
-            <input type="checkbox" name="show_multiple_in_group" style="width:auto;"
-                   <%= promotion.show_multiple_in_group ? 'checked' : '' %>>
-            <span>Hiển thị cùng các CTKM khác trong nhóm?</span>
-        </label>
-    </div>
-</div>
-                    <label>Áp dụng cho</label>
-                    <select name="apply_to_type" id="applyToTypeSelect" onchange="toggleScopeFields()">
-                        <option value="all" <%= promotion.apply_to_all_skus ? 'selected' : '' %>>Tất cả sản phẩm</option>
-                        <option value="sku" <%= promotion.promotion_skus && promotion.promotion_skus.length > 0 && !promotion.apply_to_all_skus ? 'selected' : '' %>>Theo danh sách SKU</option>
-                        <option value="brand" <%= promotion.apply_to_brands && promotion.apply_to_brands.length > 0 ? 'selected' : '' %>>Theo Brand</option>
-                        <option value="category" <%= promotion.apply_to_categories && promotion.apply_to_categories.length > 0 ? 'selected' : '' %>>Theo Category</option>
-                        <option value="subcat" <%= promotion.apply_to_subcats && promotion.apply_to_subcats.length > 0 ? 'selected' : '' %>>Theo Subcat</option>
-                        <option value="brand_subcat" <%= (promotion.apply_brand_subcats && promotion.apply_brand_subcats.length > 0) ? 'selected' : '' %>>Theo Brand + Subcat</option>
-
+                    <label>Loại CTKM (Quyết định form nhập liệu) *</label>
+                    <select name="promo_type" id="promoTypeSelect" required onchange="handlePromoTypeChange()">
+                        <option value="Không có mã" <%= promotion.promo_type === 'Không có mã' ? 'selected' : '' %>>Không có mã</option>
+                        <option value="Coupon" <%= promotion.promo_type === 'Coupon' ? 'selected' : '' %>>Coupon (Nhập mã)</option>
+                        <option value="Voucher" <%= promotion.promo_type === 'Voucher' ? 'selected' : '' %>>Voucher (Tự động)</option>
+                        <option value="Tặng mã giảm đơn hàng sau" <%= promotion.promo_type === 'Tặng mã giảm đơn hàng sau' ? 'selected' : '' %>>Tặng mã giảm đơn hàng sau</option>
+                        <option value="Ưu đãi thanh toán" <%= promotion.promo_type === 'Ưu đãi thanh toán' ? 'selected' : '' %>>Ưu đãi thanh toán</option>
+                        <option value="Trả góp" <%= (promotion.promo_type || '').includes('Trả góp') ? 'selected' : '' %>>Ưu đãi trả góp</option>
+                        <option value="Gift" <%= promotion.promo_type === 'Gift' ? 'selected' : '' %>>Quà tặng (Gift)</option>
+                        <option value="Combo" <%= promotion.promo_type === 'Combo' ? 'selected' : '' %>>Combo</option>
+                        <option value="Thi đua nội bộ" <%= promotion.promo_type === 'Thi đua nội bộ' ? 'selected' : '' %>>Thi đua nội bộ</option>
                     </select>
                 </div>
-                <div class="form-group scope-field" id="skuField" style="display:none;">
-                    <label>SKU áp dụng (cách nhau bởi dấu phẩy hoặc xuống dòng)</label>
-                    <textarea name="skus" rows="4"><%= (promotion.promotion_skus || []).map(x => x.sku).join(', ') %></textarea>
-                </div>
-                <div class="form-group scope-field" id="brandField" style="display:none;">
-                    <label>Brand áp dụng (cách nhau bởi dấu phẩy)</label>
-                    <input type="text" name="apply_brands" value="<%= (promotion.apply_to_brands || bs_brands).join(', ') %>" placeholder="VD: Apple, Samsung, Dell">
-                </div>
-                <div class="form-group scope-field" id="categoryField" style="display:none;">
-                    <label>Category áp dụng (cách nhau bởi dấu phẩy)</label>
-                    <input type="text" name="apply_categories" value="<%= (promotion.apply_to_categories || []).join(', ') %>" placeholder="VD: NH01, NH02">
-                </div>
-                <div class="form-group scope-field" id="subcatField" style="display:none;">
-                    <label>Subcat áp dụng (cách nhau bởi dấu phẩy)</label>
-                    <input type="text" name="apply_subcats" value="<%= (promotion.apply_to_subcats || bs_subcats).join(', ') %>" placeholder="VD: NH01-01-98-05">
-                </div>
                 <div class="form-group">
-                    <label>SKU loại trừ (luôn áp dụng, tùy chọn)</label>
-                    <textarea name="excluded_skus" rows="3" placeholder="Nhập SKU, cách nhau bởi dấu phẩy hoặc xuống dòng"><%= (promotion.promotion_excluded_skus || []).map(x=> x.sku).join(', ') %></textarea>
+                    <label>Nhóm (Group)</label>
+                    <input type="text" name="group_name" value="<%= promotion.group_name || '' %>" placeholder="VD: BACK_TO_SCHOOL">
                 </div>
-                <div class="form-row">
-    <div class="form-group">
-        <label>Brand loại trừ</label>
-        <input type="text" name="exclude_brands" 
-               value="<%= (promotion.exclude_brands || []).join(', ') %>" 
-               placeholder="VD: Apple, Dell (cách nhau dấu phẩy)">
-    </div>
-    <div class="form-group">
-        <label>Subcat loại trừ</label>
-        <input type="text" name="exclude_subcats" 
-               value="<%= (promotion.exclude_subcats || []).join(', ') %>" 
-               placeholder="VD: NH01-01, NH02 (cách nhau dấu phẩy)">
-    </div>
-</div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Ngày bắt đầu</label><input type="date" name="start_date" value="<%= promotion.start_date %>" required></div>
+                <div class="form-group"><label>Ngày kết thúc</label><input type="date" name="end_date" value="<%= promotion.end_date %>" required></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Channel</label>
+                    <select name="channel">
+                        <option value="All" <%= promotion.channel === 'All' ? 'selected' : '' %>>Tất cả</option>
+                        <option value="Online" <%= promotion.channel === 'Online' ? 'selected' : '' %>>Online</option>
+                        <option value="Offline" <%= promotion.channel === 'Offline' ? 'selected' : '' %>>Offline</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>🏢 Chi nhánh áp dụng</label>
+                    <% const branchList = ['HCM.BD', 'CP01', 'CP02', 'CP05', 'CP07', 'CP08', 'CP40', 'CP46', 'CP67', 'CP58', 'CP62', 'CP64', 'CP69']; %>
+                    <% const currentBranches = promotion.apply_branches || []; %>
+                    <select name="apply_branches[]" multiple class="multi-select" style="height: 100px;">
+                        <% branchList.forEach(br => { %>
+                            <option value="<%= br %>" <%= currentBranches.includes(br) ? 'selected' : '' %>><%= br %></option>
+                        <% }) %>
+                    </select>
+                    <small class="hint">Giữ Ctrl/Cmd để chọn nhiều. Không chọn = Toàn quốc.</small>
+                </div>
             </div>
             
-            <div class="form-section">
-                <h3>🔗 Quan hệ với CTKM khác</h3>
-                <% const grouped = {}; (allPromosForCompat || []).forEach(p=>{ const g = p.group_name || 'Khác'; (grouped[g] = grouped[g] || []).push(p); }); const groupNames = Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'vi'));
-                %>
+            <div class="form-group" style="margin-top: 10px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:normal;">
+                    <input type="checkbox" name="show_multiple_in_group" style="width:auto;" <%= promotion.show_multiple_in_group ? 'checked' : '' %>>
+                    <span>Luôn hiển thị (Không ẩn dù có CTKM tốt hơn trong cùng nhóm)</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-section" id="valueSection">
+            <h3>2. Giá trị & Mã giảm giá</h3>
+            
+            <div id="blockBasicValue">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Kiểu giảm giá</label>
+                        <select name="discount_value_type" id="discount_value_type" onchange="toggleDiscountInputs()">
+                            <option value="">-- Không giảm tiền trực tiếp --</option>
+                            <option value="amount">Giảm số tiền cố định (VNĐ)</option>
+                            <option value="percent">Giảm theo phần trăm (%)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="amountBox" style="display:none;">
+                        <label>Số tiền giảm (VNĐ)</label>
+                        <input type="number" name="discount_amount" placeholder="VD: 500000">
+                    </div>
+                    <div class="form-group" id="percentBox" style="display:none;">
+                        <label>% Giảm</label>
+                        <input type="number" name="discount_percent" placeholder="VD: 10">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Đơn tối thiểu (VNĐ)</label>
+                        <input type="number" name="min_order_value" value="<%= promotion.min_order_value %>" placeholder="0">
+                    </div>
+                    <div class="form-group" id="capBox" style="display:none;">
+                        <label>Giảm tối đa (VNĐ)</label>
+                        <input type="number" name="max_discount_amount" placeholder="Nếu giảm %, tối đa bao nhiêu?">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 15px; border-top: 1px dashed #e5e7eb; padding-top: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #b45309; cursor: pointer;">
+                        <input type="checkbox" name="has_coupon_list" id="hasCouponListCheckbox" style="width: auto;" 
+                        <%= (promotion.coupon_list && promotion.coupon_list.length > 0) ? 'checked' : '' %> 
+                        onchange="toggleCouponBuilder()">
+                        <span>Sử dụng danh sách Coupon/Voucher (Nhiều mã)</span>
+                    </label>
+                </div>
+
+                <div class="form-group" id="couponCodeInput">
+                    <label>Mã Coupon (Mã đơn)</label>
+                    <input type="text" name="coupon_code" value="<%= promotion.coupon_code || '' %>" placeholder="VD: SUMMER2025">
+                </div>
+
+                <div id="couponListBuilder" style="display: none; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 15px; margin-top: 10px;">
+                    <div class="special-title" style="color: #b45309; border-bottom-color: #fcd34d;">📝 Danh sách mã giảm giá</div>
+                    <div id="couponListContainer"></div>
+                    <div class="add-btn-dashed" onclick="addCouponRow()" style="color:#b45309; border-color:#b45309; background:#fff; margin-top: 10px;">+ Thêm dòng mã</div>
+                </div>
+            </div>
+
+            <div id="blockNextOrder" class="special-block" style="display:none;">
+                <div class="special-title">🎫 Cấu hình Mã tặng đơn sau</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Mã giảm đơn sau (Nếu có)</label>
+                        <input type="text" name="detail[next_order_code]" class="rte-field-input" placeholder="VD: THANKYOU">
+                    </div>
+                    <div class="form-group">
+                        <label>Cách thức nhận mã</label>
+                        <select name="detail[receive_method]" class="rte-field-input">
+                            <option value="Mã cố định">Mã cố định (Chung)</option>
+                            <option value="Qua App Consumer">Qua App Consumer (Voucher kho)</option>
+                            <option value="SMS">Gửi qua SMS</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="form-group">
-                    <div class="form-row">
-                    <label>Áp dụng cùng CTKM</label>
+                    <label>Giá trị giảm (Mô tả)</label>
+                    <input type="text" name="detail[next_order_value]" class="rte-field-input" placeholder="VD: Giảm 100k cho đơn từ 1 triệu">
+                </div>
+                
+                <div class="form-group" style="margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
+                    <label>Danh sách SKU áp dụng mã giảm này (List SKU):</label>
+                    <textarea name="detail[next_order_target_skus]" rows="3" class="rte-field-input" 
+                        placeholder="Paste danh sách SKU vào đây (cách nhau bởi dấu phẩy hoặc xuống dòng)..."></textarea>
+                    <small class="hint">Ví dụ: 2401001, 2401002 (Để trống nếu áp dụng toàn bộ)</small>
+                </div>
+            </div>
+
+            <div id="blockInstallment" class="special-block" style="display:none;">
+                <div class="special-title">🏦 Cấu hình Trả góp</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Loại trả góp</label>
+                        <select name="detail[installment_type]" class="rte-field-input">
+                            <option value="Thẻ tín dụng">Qua thẻ tín dụng</option>
+                            <option value="Công ty tài chính">Qua công ty tài chính</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Đối tác</label>
+                        <select name="detail[installment_partner]" class="rte-field-input">
+                            <option value="">-- Chọn --</option>
+                            <option value="Vnpay">Vnpay</option>
+                            <option value="Payoo">Payoo</option>
+                            <option value="ACS">ACS</option>
+                            <option value="HD SAISON">HD SAISON</option>
+                            <option value="Home Credit">Home Credit</option>
+                            <option value="Mcredit">Mcredit</option>
+                            
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Trả trước (%)</label>
+                        <input type="text" name="detail[installment_prepay]" class="rte-field-input" placeholder="VD: 0% hoặc 20%">
+                    </div>
+                    <div class="form-group">
+                        <label>Lãi suất (%)</label>
+                        <input type="text" name="detail[installment_interest]" class="rte-field-input" placeholder="VD: 0%">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Phí (Nếu có)</label>
+                    <input type="text" name="detail[installment_fee]" class="rte-field-input" placeholder="VD: 0đ hoặc Theo quy định">
+                </div>
+            </div>
+
+            <div id="blockGift" class="special-block" style="display:none;">
+                <div class="special-title">🎁 Cấu hình Quà tặng (Options)</div>
+                <div id="giftContainer"></div>
+                <div class="add-btn-dashed" onclick="addGiftOption()">+ Thêm Option quà tặng</div>
+            </div>
+
+            <div id="blockCombo" class="special-block" style="display:none;">
+                <div class="special-title">🧩 Cấu hình Combo</div>
+                <p class="hint">Các SKU trong combo sẽ tự động được thêm vào phạm vi tìm kiếm.</p>
+                <div id="comboContainer"></div>
+                <div class="add-btn-dashed" onclick="addComboRow()">+ Thêm bộ Combo</div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>3. Nội dung & Quy định</h3>
+            <div class="rte-toolbar" id="rteToolbar">
+                <button type="button" class="rte-btn" data-cmd="bold"><b>B</b></button>
+                <button type="button" class="rte-btn" data-cmd="italic"><i>I</i></button>
+                <button type="button" class="rte-btn" data-cmd="underline"><u>U</u></button>
+                <input type="color" class="rte-btn" id="rteColor" style="width:30px; padding:0; height:26px;">
+                <button type="button" class="rte-btn" id="rteLink">🔗 Link</button>
+            </div>
+            <% const CONTENT_ROWS = ['Nội dung', 'Đối tượng khách hàng áp dụng', 'Đối tượng khách hàng loại trừ', 'Giới hạn lượt áp dụng', 'Yêu cầu đặc biệt', 'Giới hạn số lượng coupon', 'Link nội bộ/ báo cáo']; %>
+            <table class="detail-grid">
+                <tbody>
+                    <% CONTENT_ROWS.forEach(function(label, idx){ %>
+                        <tr>
+                            <th><%= label %></th>
+                            <td>
+                                <div class="rte-field" contenteditable="true" data-name="detail[<%= label %>]" data-index="<%= idx %>">
+                                    <%- (promotion.detail_fields && promotion.detail_fields[label]) ? promotion.detail_fields[label] : '' %>
+                                </div>
+                                <textarea name="detail[<%= label %>]" hidden></textarea>
+                            </td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-section">
+            <h3>4. Phạm vi sản phẩm áp dụng</h3>
+            <div class="form-group">
+                <label>Áp dụng cho:</label>
+                <% 
+                    // Logic ưu tiên lấy apply_to_type từ DB
+                    let currentScope = promotion.apply_to_type;
+
+                    // Fallback cho data cũ (nếu DB chưa có field apply_to_type)
+                    if (!currentScope) {
+                        if (promotion.apply_to_all_skus) currentScope = 'all';
+                        else if (promotion.promotion_skus && promotion.promotion_skus.length > 0) currentScope = 'sku';
+                        else if (promotion.apply_brand_subcats && promotion.apply_brand_subcats.length > 0) currentScope = 'brand_subcat';
+                        else if (promotion.apply_to_brands && promotion.apply_to_brands.length > 0) currentScope = 'brand';
+                        else if (promotion.apply_to_categories && promotion.apply_to_categories.length > 0) currentScope = 'category';
+                        else if (promotion.apply_to_subcats && promotion.apply_to_subcats.length > 0) currentScope = 'subcat';
+                        else currentScope = 'all'; // Mặc định
+                    }
+                %>
+                <select name="apply_to_type" id="applyToTypeSelect" onchange="toggleScopeFields()">
+                    <option value="all" <%= currentScope === 'all' ? 'selected' : '' %>>Tất cả sản phẩm</option>
+                    <option value="sku" <%= currentScope === 'sku' ? 'selected' : '' %>>Theo danh sách SKU</option>
+                    <option value="brand" <%= currentScope === 'brand' ? 'selected' : '' %>>Theo Brand</option>
+                    <option value="category" <%= currentScope === 'category' ? 'selected' : '' %>>Theo Category</option>
+                    <option value="subcat" <%= currentScope === 'subcat' ? 'selected' : '' %>>Theo Subcat</option>
+                    <option value="brand_subcat" <%= currentScope === 'brand_subcat' ? 'selected' : '' %>>Theo Brand + Subcat</option>
+                </select>
+            </div>
+
+            <div id="skuField" style="display:none;" class="form-group">
+                <label>Nhập SKU (cách nhau dấu phẩy hoặc xuống dòng)</label>
+                <textarea name="skus" id="mainSkuTextarea" rows="5"><%= (promotion.promotion_skus || []).map(x => x.sku).join(', ') %></textarea>
+                <p class="hint">Nếu chọn loại Combo/Quà tặng, SKU nhập ở trên sẽ tự động thêm vào đây.</p>
+            </div>
+            <div id="brandField" style="display:none;" class="form-group">
+                <label>Nhập Brand (VD: Apple, Samsung)</label>
+                <input type="text" name="apply_brands" value="<%= (promotion.apply_to_brands || []).join(', ') %>">
+            </div>
+            <div id="categoryField" style="display:none;" class="form-group">
+                <label>Nhập Category (VD: NH01)</label>
+                <input type="text" name="apply_categories" value="<%= (promotion.apply_to_categories || []).join(', ') %>">
+            </div>
+            <div id="subcatField" style="display:none;" class="form-group">
+                <label>Nhập Subcat (VD: NH01-01)</label>
+                <input type="text" name="apply_subcats" value="<%= (promotion.apply_to_subcats || []).join(', ') %>">
+            </div>
+
+            <hr style="border:0; border-top:1px dashed #e5e7eb; margin: 20px 0;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Loại trừ Brand</label>
+                    <input type="text" name="exclude_brands" value="<%= (promotion.exclude_brands || []).join(', ') %>">
+                </div>
+                <div class="form-group">
+                    <label>Loại trừ Subcat</label>
+                    <input type="text" name="exclude_subcats" value="<%= (promotion.exclude_subcats || []).join(', ') %>">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Loại trừ SKU cụ thể</label>
+                <textarea name="excluded_skus" rows="2" placeholder="SKU bị chặn..."><%= (promotion.promotion_excluded_skus || []).map(x=> x.sku).join(', ') %></textarea>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>5. Quan hệ với CTKM khác</h3>
+            <% 
+               const grouped = {};
+               (allPromosForCompat || []).forEach(p => { 
+                   const g = p.group_name || 'Khác'; 
+                   (grouped[g] = grouped[g] || []).push(p); 
+               });
+               const groupNames = Object.keys(grouped).sort((a,b) => a.localeCompare(b,'vi'));
+            %>
+            <div class="form-row">
+                <div class="form-group">
+                    <label style="color:#059669;">✅ Áp dụng cùng (Cộng dồn)</label>
                     <div style="display:flex; gap:8px; margin-bottom:6px;">
-                        <select id="applyWithGroupPicker" style="flex:1; padding:8px 10px; border:1px solid #dee2e6; border-radius:8px;">
+                        <select id="applyWithGroupPicker" style="flex:1;">
+                            <option value="">-- Chọn nhóm nhanh --</option>
                             <% groupNames.forEach(g => { %><option value="<%= g %>"><%= g %></option><% }) %>
                         </select>
-                        <button type="button" class="btn btn-primary" id="btnSelectGroupAW" style="padding: 8px 12px;">Chọn</button>
-                        <button type="button" class="btn btn-secondary" id="btnUnselectGroupAW" style="padding: 8px 12px;">Bỏ chọn</button>
+                        <button type="button" class="btn-secondary" id="btnSelectGroupAW" style="padding:4px 10px;">Chọn</button>
+                        <button type="button" class="btn-secondary" id="btnUnselectGroupAW" style="padding:4px 10px;">Bỏ</button>
                     </div>
-                    <select name="apply_with[]" multiple class="multi-select" id="applyWithSelect">
+                    <select name="apply_with[]" multiple class="multi-select" id="applyWithSelect" style="height:150px;">
                         <% groupNames.forEach(g => { %>
                             <optgroup label="<%= g %>">
-                                <% grouped[g].forEach(function(p){ var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name;
+                                <% grouped[g].forEach(function(p){ 
+                                    var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name;
                                 %>
                                     <option data-group="<%= g %>" value="<%= p.id %>" <%= (compatAllowIds||[]).includes(String(p.id)) ? 'selected' : '' %>><%= label %></option>
                                 <% }) %>
                             </optgroup>
                         <% }) %>
                     </select>
-                    <div class="hint">Giữ Ctrl/Command để chọn thêm CTKM; hoặc dùng “Chọn nhóm”.</div>
                 </div>
+
                 <div class="form-group">
-                    <label>Không áp dụng cùng CTKM</label>
-                     <div style="display:flex; gap:8px; margin-bottom:6px;">
-                        <select id="excludeWithGroupPicker" style="flex:1; padding:8px 10px; border:1px solid #dee2e6; border-radius:8px;">
+                    <label style="color:#dc2626;">⛔ Không áp dụng cùng (Loại trừ)</label>
+                    <div style="display:flex; gap:8px; margin-bottom:6px;">
+                        <select id="excludeWithGroupPicker" style="flex:1;">
+                            <option value="">-- Chọn nhóm nhanh --</option>
                             <% groupNames.forEach(g => { %><option value="<%= g %>"><%= g %></option><% }) %>
                         </select>
-                        <button type="button" class="btn btn-primary" id="btnSelectGroupEX" style="padding: 8px 12px;">Chọn</button>
-                        <button type="button" class="btn btn-secondary" id="btnUnselectGroupEX" style="padding: 8px 12px;">Bỏ chọn</button>
+                        <button type="button" class="btn-secondary" id="btnSelectGroupEX" style="padding:4px 10px;">Chọn</button>
+                        <button type="button" class="btn-secondary" id="btnUnselectGroupEX" style="padding:4px 10px;">Bỏ</button>
                     </div>
-                    <select name="exclude_with[]" multiple class="multi-select" id="excludeWithSelect">
+                    <select name="exclude_with[]" multiple class="multi-select" id="excludeWithSelect" style="height:150px;">
                         <% groupNames.forEach(g => { %>
                             <optgroup label="<%= g %>">
-                                <% grouped[g].forEach(function(p){ var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name;
+                                <% grouped[g].forEach(function(p){ 
+                                    var label = p.group_name ? (p.group_name + ' — ' + (p.subgroup_name || p.name)) : p.name;
                                 %>
                                     <option data-group="<%= g %>" value="<%= p.id %>" <%= (compatExclIds||[]).includes(String(p.id)) ? 'selected' : '' %>><%= label %></option>
                                 <% }) %>
@@ -591,290 +427,388 @@
                     </select>
                 </div>
             </div>
+        </div>
 
+        <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="window.location.href='/promo-management'">Hủy bỏ</button>
+            <button type="submit" class="btn-primary">Lưu thay đổi</button>
+        </div>
+    </form>
 
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- 1. [FIX] CHỌN NHÓM NHANH (APPLY/EXCLUDE) ---
+    
+    // Hàm xử lý logic chọn
+    window.handleGroupSelection = function(selectId, pickerId, isSelect) {
+        const groupPicker = document.getElementById(pickerId);
+        const groupName = groupPicker ? groupPicker.value : '';
+        
+        if (!groupName) {
+            alert('Vui lòng chọn một nhóm trong danh sách xổ xuống trước!');
+            return;
+        }
+  
+        const selectBox = document.getElementById(selectId);
+        if (!selectBox) return;
 
-    <script>
-    function toggleScopeFields() {
-    const typeSelect = document.getElementById('applyToTypeSelect');
-    if (!typeSelect) return; // Thêm kiểm tra
-
-    const selectedType = typeSelect.value;
-    const fields = {
-        sku: document.getElementById('skuField'),
-        brand: document.getElementById('brandField'),
-        category: document.getElementById('categoryField'),
-        subcat: document.getElementById('subcatField')
+        let count = 0;
+        Array.from(selectBox.options).forEach(option => {
+            // So sánh data-group của option với nhóm đang chọn
+            if (option.getAttribute('data-group') === groupName) {
+                option.selected = isSelect;
+                count++;
+            }
+        });
+        
+        if(count === 0) {
+            alert(`Không tìm thấy CTKM nào thuộc nhóm "${groupName}" trong danh sách.`);
+        }
     };
-    // Ẩn tất cả trước
-    for (const key in fields) {
-        if (fields[key]) fields[key].style.display = 'none';
+
+    // Gắn sự kiện Click cho các nút (QUAN TRỌNG: Phần này bị thiếu ở code cũ)
+    
+    // Nút cho phần Áp dụng cùng (Apply With)
+    const btnSelectAW = document.getElementById('btnSelectGroupAW');
+    const btnUnselectAW = document.getElementById('btnUnselectGroupAW');
+    if(btnSelectAW) {
+        btnSelectAW.onclick = function() { window.handleGroupSelection('applyWithSelect', 'applyWithGroupPicker', true); };
+    }
+    if(btnUnselectAW) {
+        btnUnselectAW.onclick = function() { window.handleGroupSelection('applyWithSelect', 'applyWithGroupPicker', false); };
     }
 
-    // Hiển thị dựa trên lựa chọn
-    if (selectedType === 'brand_subcat') { 
-        if (fields.brand) fields.brand.style.display = 'block';
-        if (fields.subcat) fields.subcat.style.display = 'block';
-    } else if (fields[selectedType]) {
-        fields[selectedType].style.display = 'block';
+    // Nút cho phần Loại trừ (Exclude With)
+    const btnSelectEX = document.getElementById('btnSelectGroupEX');
+    const btnUnselectEX = document.getElementById('btnUnselectGroupEX');
+    if(btnSelectEX) {
+        btnSelectEX.onclick = function() { window.handleGroupSelection('excludeWithSelect', 'excludeWithGroupPicker', true); };
     }
-}
+    if(btnUnselectEX) {
+        btnUnselectEX.onclick = function() { window.handleGroupSelection('excludeWithSelect', 'excludeWithGroupPicker', false); };
+    }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // ---- Script 1: Ẩn/hiện các trường Phạm vi áp dụng ----
-        toggleScopeFields();
 
-        // ---- Script 1b: Xử lý Checkbox Coupon List (FIXED) ----
-        try {
-            const couponCheckbox = document.getElementById('hasCouponListCheckbox');
-            const couponBuilder = document.getElementById('couponListBuilder');
-            // Lấy dữ liệu promotion đã được truyền vào từ EJS
-            const promoData = <%- JSON.stringify(promotion) %>;
-
-            // Hàm để bật/tắt
-            function toggleCouponBuilder() {
-                if (couponCheckbox && couponBuilder) {
-                    couponBuilder.style.display = couponCheckbox.checked ? 'block' : 'none';
-                }
+    // --- 2. RTE & COLOR PICKER (Giữ nguyên) ---
+    (function() {
+        let savedRange = null; 
+        function saveSelection() {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) savedRange = sel.getRangeAt(0);
+        }
+      
+        function restoreSelection() {
+            if (savedRange) {
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(savedRange);
             }
-
-            // 1. Đặt trạng thái ban đầu khi tải trang
-            // Nếu promotion có coupon_list, tự động tick vào ô checkbox
-            if (couponCheckbox && promoData && promoData.coupon_list && promoData.coupon_list.length > 0) {
-                couponCheckbox.checked = true;
-            }
-
-            // 2. Thêm sự kiện 'change' để bật/tắt builder khi click
-            if (couponCheckbox) {
-                couponCheckbox.addEventListener('change', toggleCouponBuilder);
-            }
-
-            // 3. Chạy hàm này 1 lần khi tải trang để ẩn/hiện chính xác
-            toggleCouponBuilder();
-
-        } catch (e) {
-            console.error("Lỗi khởi tạo Coupon Builder Checkbox:", e);
         }
 
-        // ---- Script 2: Helper cho việc chọn nhóm CTKM tương thích ----
-        function selectByGroup(selectEl, group, on = true) {
-            if (!selectEl) return;
-            [...selectEl.options].forEach(o => {
-                if (o.dataset.group === group) { o.selected = !!on; }
+        document.addEventListener('selectionchange', () => {
+            const activeEl = document.activeElement;
+            if (activeEl && activeEl.classList.contains('rte-field')) {
+                saveSelection();
+            }
+        });
+
+        document.querySelectorAll('.rte-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (btn.id === 'rteColor') return;
+                e.preventDefault();
+                restoreSelection();
+                
+                if (btn.id === 'rteLink') {
+                    const url = prompt('Nhập URL:', 'https://');
+                    if (url) document.execCommand('createLink', false, url);
+                } else {
+                    document.execCommand(btn.dataset.cmd, false, null);
+                }
+            });
+        });
+
+        const colorInput = document.getElementById('rteColor');
+        if (colorInput) {
+            colorInput.addEventListener('input', (e) => {
+                restoreSelection();
+                document.execCommand('styleWithCSS', false, true);
+                document.execCommand('foreColor', false, e.target.value);
+            });
+            colorInput.addEventListener('click', () => restoreSelection());
+        }
+    })();
+
+    // --- 3. HÀM CHECK SKU ---
+    window.checkSkuInfo = async function(inputEl, displayEl) {
+        const sku = inputEl.value.trim();
+        if(!sku) { displayEl.innerHTML = ''; return; }
+        
+        displayEl.innerHTML = '<span style="color:#94a3b8; font-size:11px;">⏳ Đang kiểm tra...</span>';
+        try {
+            const res = await fetch(`/api/admin/search-sku-stock?q=${encodeURIComponent(sku)}`);
+            const json = await res.json();
+            
+            if(json.ok && json.results && json.results.length > 0) {
+                const found = json.results.find(i => i.sku == sku) || json.results[0];
+                const priceStr = new Intl.NumberFormat('vi-VN').format(found.list_price || 0);
+                const stockColor = found.stock > 0 ? '#16a34a' : '#dc2626';
+                displayEl.innerHTML = `
+                    <div style="line-height: 1.3; margin-top:2px;">
+                        <div style="color:#0f172a; font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:350px;">
+                            ${found.product_name}
+                        </div>
+                        <div style="font-size:11px;">
+                            <span style="color:#64748b;">Giá: ${priceStr}đ</span> 
+                            <span style="margin:0 4px; color:#cbd5e1;">|</span> 
+                            <span style="color:${stockColor}; font-weight:700;">Tồn kho: ${found.stock}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                displayEl.innerHTML = `<span style="color:#dc2626; font-size:12px;">❌ Không tìm thấy SKU này</span>`;
+            }
+        } catch(e) { 
+            console.error(e);
+            displayEl.innerHTML = `<span style="color:#dc2626; font-size:12px;">⚠️ Lỗi kết nối</span>`; 
+        }
+    };
+
+    // --- 4. CÁC HÀM TOGGLE & DYNAMIC KHÁC ---
+    window.handlePromoTypeChange = function() {
+        const type = document.getElementById('promoTypeSelect').value;
+        const blocks = ['blockBasicValue', 'blockNextOrder', 'blockInstallment', 'blockGift', 'blockCombo'];
+        blocks.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.display = 'none';
+        });
+        if (type === 'Tặng mã giảm đơn hàng sau') document.getElementById('blockNextOrder').style.display = 'block';
+        else if ((type || '').includes('Trả góp')) document.getElementById('blockInstallment').style.display = 'block';
+        else if (type === 'Gift' || type === 'Quà tặng (Gift)') {
+            document.getElementById('blockGift').style.display = 'block';
+            if(!window.isEditModeLoading && document.getElementById('giftContainer').children.length === 0) addGiftOption();
+        }
+        else if (type === 'Combo') {
+            document.getElementById('blockCombo').style.display = 'block';
+            if(!window.isEditModeLoading && document.getElementById('comboContainer').children.length === 0) addComboRow();
+        }
+        else {
+            document.getElementById('blockBasicValue').style.display = 'block';
+        }
+    };
+
+    window.toggleDiscountInputs = function() {
+        const t = document.getElementById('discount_value_type').value;
+        ['amountBox', 'percentBox', 'capBox'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.display = 'none';
+        });
+        if (t === 'amount') document.getElementById('amountBox').style.display = 'block';
+        else if (t === 'percent') {
+            document.getElementById('percentBox').style.display = 'block';
+            document.getElementById('capBox').style.display = 'block';
+        }
+    };
+
+    window.toggleScopeFields = function() {
+        const typeSelect = document.getElementById('applyToTypeSelect');
+        if(!typeSelect) return;
+        const type = typeSelect.value;
+        const fields = { sku: 'skuField', brand: 'brandField', category: 'categoryField', subcat: 'subcatField' };
+        for (let k in fields) document.getElementById(fields[k]).style.display = 'none';
+        
+        if (type === 'brand_subcat') {
+            document.getElementById('brandField').style.display = 'block';
+            document.getElementById('subcatField').style.display = 'block';
+        } else if (fields[type]) {
+            document.getElementById(fields[type]).style.display = 'block';
+        }
+    };
+
+    let giftIndex = 0; let comboIndex = 0; let couponIndex = 0;
+    window.isEditModeLoading = false;
+
+    window.addSkuInputToGroup = function(containerId, fieldNameBase, value = '') {
+        const container = document.getElementById(containerId);
+        if(!container) return;
+        const div = document.createElement('div');
+        div.className = 'sku-link-row';
+        div.innerHTML = `
+            <input type="text" class="auto-sku-input" name="${fieldNameBase}[]" placeholder="Nhập SKU" value="${value}" onblur="checkSkuInfo(this, this.nextElementSibling)">
+            <div class="sku-info-display" style="min-width:150px;"></div>
+            <button type="button" onclick="this.parentElement.remove()" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold;">×</button>
+        `;
+        container.appendChild(div);
+        if(value) { checkSkuInfo(div.querySelector('input'), div.querySelector('.sku-info-display')); }
+    };
+
+    window.addGiftOption = function(data = {}) {
+        const container = document.getElementById('giftContainer');
+        const idx = giftIndex++;
+        const skuContainerId = `gift-skus-${idx}`;
+        const codeVal = data.code || data.name || '';
+        
+        const div = document.createElement('div');
+        div.className = 'gift-option';
+        div.innerHTML = `
+            <div class="remove-row-btn" onclick="this.parentElement.remove()">×</div>
+            <div style="font-weight:bold; margin-bottom:5px; color:#b45309">Option (ID: ${idx})</div>
+            <div class="form-group">
+                <input type="text" name="detail[gift_options][${idx}][code]" placeholder="Tên gói quà / Mã (nếu có)" value="${codeVal}">
+            </div>
+            <label style="font-size:12px; font-weight:600;">Danh sách sản phẩm quà tặng:</label>
+            <div id="${skuContainerId}" style="margin-bottom:5px;"></div>
+            <button type="button" class="add-btn-dashed" style="width:auto; padding:4px 10px; font-size:12px;"
+            onclick="addSkuInputToGroup('${skuContainerId}', 'detail[gift_options][${idx}][skus]')">+ Thêm SKU quà</button>
+        `;
+        container.appendChild(div);
+        if (data.skus && Array.isArray(data.skus)) {
+            data.skus.forEach(s => addSkuInputToGroup(skuContainerId, `detail[gift_options][${idx}][skus]`, s));
+        } else if (!data.skus && !window.isEditModeLoading) {
+            addSkuInputToGroup(skuContainerId, `detail[gift_options][${idx}][skus]`);
+        }
+    };
+
+    window.addComboRow = function(data = {}) {
+        const container = document.getElementById('comboContainer');
+        const idx = comboIndex++;
+        const skuContainerId = `combo-skus-${idx}`;
+        const discVal = data.discount_val || '';
+        const discType = data.discount_type || 'amount';
+        const div = document.createElement('div');
+        div.className = 'combo-row';
+        div.innerHTML = `
+            <div class="remove-row-btn" onclick="this.parentElement.remove()">×</div>
+            <div style="font-weight:bold; margin-bottom:5px; color:#4338ca">Bộ Combo (ID: ${idx})</div>
+            <label style="font-size:12px; font-weight:600;">Các sản phẩm trong Combo:</label>
+            <div id="${skuContainerId}" style="margin-bottom:8px;"></div>
+            <button type="button" class="add-btn-dashed" style="width:auto; padding:4px 10px; font-size:12px;"
+            onclick="addSkuInputToGroup('${skuContainerId}', 'detail[combos][${idx}][skus]')">+ Thêm SKU vào combo</button>
+            <div class="form-row" style="margin-top:10px; border-top:1px dashed #e5e7eb; padding-top:8px;">
+                <input type="number" name="detail[combos][${idx}][discount_val]" placeholder="Giá trị giảm" value="${discVal}">
+                <select name="detail[combos][${idx}][discount_type]">
+                    <option value="amount" ${discType === 'amount' ? 'selected' : ''}>Giảm tiền</option>
+                    <option value="percent" ${discType === 'percent' ? 'selected' : ''}>Giảm %</option>
+                </select>
+            </div>
+        `;
+        container.appendChild(div);
+        if (data.skus && Array.isArray(data.skus)) {
+            data.skus.forEach(s => addSkuInputToGroup(skuContainerId, `detail[combos][${idx}][skus]`, s));
+        } else if (!data.skus && !window.isEditModeLoading) {
+            addSkuInputToGroup(skuContainerId, `detail[combos][${idx}][skus]`);
+            addSkuInputToGroup(skuContainerId, `detail[combos][${idx}][skus]`);
+        }
+    };
+
+    window.addCouponRow = function(data = {}) {
+        const container = document.getElementById('couponListContainer');
+        const idx = couponIndex++;
+        const div = document.createElement('div');
+        div.style.cssText = 'display:grid; grid-template-columns: 1fr 1fr 1fr 1fr 40px; gap:8px; margin-bottom:5px; align-items:center;';
+        div.innerHTML = `
+            <input type="text" name="coupons[${idx}][name]" placeholder="Tên/Nhóm" value="${data.name || ''}">
+            <input type="text" name="coupons[${idx}][code]" placeholder="Mã Code" value="${data.code || ''}" required style="font-weight:bold; color:#b45309;">
+            <input type="text" name="coupons[${idx}][discount]" placeholder="Mức giảm" value="${data.discount || ''}">
+            <input type="text" name="coupons[${idx}][note]" placeholder="Ghi chú" value="${data.note || ''}">
+            <button type="button" onclick="this.parentElement.remove()" style="color:red; border:none; background:none; cursor:pointer; font-weight:bold; font-size:18px;">×</button>
+        `;
+        container.appendChild(div);
+    };
+
+    window.toggleCouponBuilder = function() {
+        const checkbox = document.getElementById('hasCouponListCheckbox');
+        if(!checkbox) return;
+        const checked = checkbox.checked;
+        document.getElementById('couponListBuilder').style.display = checked ? 'block' : 'none';
+        document.getElementById('couponCodeInput').style.display = checked ? 'none' : 'block';
+        if (checked && document.getElementById('couponListContainer').children.length === 0 && !window.isEditModeLoading) {
+            addCouponRow();
+        }
+    };
+
+    // --- 5. KHÔI PHỤC DỮ LIỆU ---
+    (function() {
+        window.isEditModeLoading = true;
+        let promo = null;
+        try { promo = <%- JSON.stringify(promotion) %>; } catch(e) {}
+        
+        if (!promo) { console.error("No promo data"); return; }
+
+        // Restore Discount
+        if (promo.discount_value_type) {
+            const el = document.getElementById('discount_value_type');
+            if(el) el.value = promo.discount_value_type;
+            
+            if (promo.discount_value_type === 'amount') {
+                const inp = document.querySelector('input[name="discount_amount"]');
+                if(inp) inp.value = promo.discount_value;
+            } else if (promo.discount_value_type === 'percent') {
+                const inp = document.querySelector('input[name="discount_percent"]');
+                if(inp) inp.value = promo.discount_value;
+            }
+        }
+        if (promo.max_discount_amount) {
+            const inp = document.querySelector('input[name="max_discount_amount"]');
+            if(inp) inp.value = promo.max_discount_amount;
+        }
+
+        // Restore Coupon List
+        if (promo.coupon_list && Array.isArray(promo.coupon_list) && promo.coupon_list.length > 0) {
+            promo.coupon_list.forEach(c => addCouponRow(c));
+            const cb = document.getElementById('hasCouponListCheckbox');
+            if(cb) { cb.checked = true; toggleCouponBuilder(); }
+        }
+
+        // Restore Detail Fields
+        if(promo.detail_fields) {
+            if(promo.detail_fields.gift_options) {
+                const gifts = typeof promo.detail_fields.gift_options === 'object' ? Object.values(promo.detail_fields.gift_options) : [];
+                gifts.forEach(g => addGiftOption(g));
+            }
+            if(promo.detail_fields.combos) {
+                const combos = typeof promo.detail_fields.combos === 'object' ? Object.values(promo.detail_fields.combos) : [];
+                combos.forEach(c => addComboRow(c));
+            }
+            
+            document.querySelectorAll('[name^="detail["]').forEach(inp => {
+                const match = inp.getAttribute('name').match(/detail\[(.*?)\]/);
+                if(match && match[1]) {
+                    const key = match[1];
+                    if(!key.includes('gift_options') && !key.includes('combos') && promo.detail_fields[key]) {
+                        inp.value = promo.detail_fields[key];
+                    }
+                }
+            });
+
+            document.querySelectorAll('.rte-field').forEach(div => {
+                const nameAttr = div.getAttribute('data-name');
+                const match = nameAttr.match(/detail\[(.*?)\]/);
+                if(match && match[1] && promo.detail_fields[match[1]]) {
+                    div.innerHTML = promo.detail_fields[match[1]];
+                }
             });
         }
-        document.getElementById('btnSelectGroupAW').onclick = () => selectByGroup(document.getElementById('applyWithSelect'), document.getElementById('applyWithGroupPicker').value, true);
-        document.getElementById('btnUnselectGroupAW').onclick = () => selectByGroup(document.getElementById('applyWithSelect'), document.getElementById('applyWithGroupPicker').value, false);
-        document.getElementById('btnSelectGroupEX').onclick = () => selectByGroup(document.getElementById('excludeWithSelect'), document.getElementById('excludeWithGroupPicker').value, true);
-        document.getElementById('btnUnselectGroupEX').onclick = () => selectByGroup(document.getElementById('excludeWithSelect'), document.getElementById('excludeWithGroupPicker').value, false);
 
-        // ---- Script 3: Script cho Rich Text Editor (KHỐI TRÙNG LẶP ĐÃ BỊ XÓA) ----
-        // Khối mã từ đến đã được xóa
-       
-        (function() {
-            const promo = <%- JSON.stringify(promotion) %>;
-            if (!promo) return;
+        toggleDiscountInputs();
+        toggleScopeFields();
+        handlePromoTypeChange();
+        setTimeout(() => { window.isEditModeLoading = false; }, 500);
+    })();
 
-            const type = promo.discount_value_type;
-            const value = promo.discount_value;
-            const max = promo.max_discount_amount;
-            const min = promo.min_order_value;
-
-            const typeSelect = document.querySelector('select[name="discount_value_type"]');
-            const amountInput = document.querySelector('input[name="discount_amount"]');
-            const percentInput = document.querySelector('input[name="discount_percent"]');
-            const maxInput = document.querySelector('input[name="max_discount_amount"]');
-            const minInput = document.querySelector('input[name="min_order_value"]');
-
-            if (type && typeSelect) {
-                typeSelect.value = type;
-            }
-            if (type === 'amount' && value && amountInput) {
-                amountInput.value = value;
-            }
-            if (type === 'percent' && value && percentInput) {
-                percentInput.value = value;
-            }
-            if (max && maxInput) {
-                maxInput.value = max;
-            }
-            if (min && minInput) {
-                minInput.value = min;
-            }
-            
-            // Quan trọng: Gọi lại hàm toggle để hiện/ẩn đúng ô input
-            if (typeof toggleDiscountInputs === 'function') {
-                toggleDiscountInputs();
-            }
-        })();
-
-        // ---- Script 4: Xử lý Thêm/Xóa/Tải Coupon List (FIXED) ----
-        try {
-            const container = document.getElementById('couponListContainer');
-            const addBtn = document.getElementById('addCouponRowBtn');
-            // Lấy dữ liệu promotion đã được truyền vào từ EJS
-            const promoData = <%- JSON.stringify(promotion) %>;
-            let couponIdx = 0; // Bộ đếm để đảm bảo tên input là duy nhất
-
-            // Hàm tạo 1 dòng HTML
-            function createCouponRow(data = {}) {
-                const idx = couponIdx++; // Tăng bộ đếm
-                const row = document.createElement('div');
-                // Sử dụng class 'dynamic-item' đã có style
-                row.className = 'dynamic-item'; 
-                
-                // Cần 4 ô input + 1 nút xóa.
-                // Chúng ta sẽ tự định nghĩa style grid ở đây để khớp với 4 cột + nút xóa
-                row.style.display = 'grid';
-                // 1.5fr 1fr 1fr 1fr auto
-                row.style.gridTemplateColumns = '1.5fr 1fr 1fr 1fr auto';
-                row.style.gap = '10px';
-                row.style.marginBottom = '10px';
-
-                // Dùng .replace(/"/g, '&quot;') để tránh lỗi HTML nếu tên/mã có dấu nháy kép
-                row.innerHTML = `
-                    <input type="text" name="coupons[${idx}][name]" 
-                           placeholder="Tên/Nhóm SP (ví dụ: iPhone 15)" 
-                           value="${(data.name || '').replace(/"/g, '&quot;')}">
-                    <input type="text" name="coupons[${idx}][code]" 
-                           placeholder="Mã coupon *" 
-                           value="${(data.code || '').replace(/"/g, '&quot;')}" required>
-                    <input type="text" name="coupons[${idx}][discount]" 
-                           placeholder="Mức giảm (ví dụ: 500000)" 
-                           value="${data.discount || ''}">
-                    <input type="text" name="coupons[${idx}][note]" 
-                           placeholder="Điều kiện (nếu có)" 
-                           value="${(data.note || '').replace(/"/g, '&quot;')}">
-                    <button type="button" class="remove-item" 
-                            onclick="this.parentElement.remove()">Xóa</button>
-                `;
-                
-                if (container) {
-                    container.appendChild(row);
-                }
-            }
-
-            // 1. Tải các coupon đã có khi tải trang
-            if (promoData && promoData.coupon_list && Array.isArray(promoData.coupon_list)) {
-                promoData.coupon_list.forEach(item => {
-                    createCouponRow(item);
-                });
-            }
-
-            // 2. Xử lý nút "+ Thêm dòng"
-            if (addBtn) {
-                addBtn.addEventListener('click', function() {
-                    createCouponRow(); // Thêm dòng mới
-                });
-            }
-
-        } catch (e) {
-            console.error("Lỗi khởi tạo Coupon List Add/Remove:", e);
-        }
-
-    }); // <-- Đóng thẻ document.addEventListener('DOMContentLoaded')
-
-    // Dán mã này vào <script> trong file edit-promotion.ejs
-(function () {
-    let activeField = null;
-
-    // Bắt focus để biết đang chỉnh ô nào
-    document.querySelectorAll('.rte-field').forEach(el => {
-        el.addEventListener('focus', () => activeField = el);
-    });
-
-    // Toolbar: bold/italic/underline
-    const rteToolbar = document.getElementById('rteToolbar');
-    if (rteToolbar) {
-        rteToolbar.addEventListener('click', (e) => {
-            const btn = e.target.closest('.rte-btn');
-            if (!btn) return;
-            const cmd = btn.dataset.cmd;
-            if (!cmd) return;
-            document.execCommand(cmd, false, null);
-        });
-    }
-
-    // Xử lý nút LINK (ĐÃ SỬA)
-    const rteLinkBtn = document.getElementById('rteLink');
-    if (rteLinkBtn) {
-        rteLinkBtn.addEventListener('click', () => {
-            if (!activeField) { 
-                alert('Lỗi: Bạn phải bấm vào một ô nội dung TRƯỚC KHI bấm nút "Link".');
-                return;
-            }
-
-            const url = prompt('Nhập URL (có thể link rút gọn):', 'https://');
-            if (!url) return; // Dừng nếu user bấm "Hủy"
-
-            // Đảm bảo focus
-            activeField.focus();
-            
-            // SỬ DỤNG LỆNH GỐC 'createLink'
-            // Lệnh này tự động sử dụng văn bản đang được bôi đen.
-            document.execCommand('createLink', false, url);
-        });
-    }
-    // Đổi màu chữ
-    const rteColorInput = document.getElementById('rteColor');
-    if (rteColorInput) {
-        rteColorInput.addEventListener('input', (e) => {
-            if (!activeField) return; // Thêm kiểm tra
-            activeField.focus();
-            document.execCommand('foreColor', false, e.target.value);
-        });
-    }
-
-    // Emoji đơn giản
-    const rteEmojiBtn = document.getElementById('rteEmoji');
-    if (rteEmojiBtn) {
-        rteEmojiBtn.addEventListener('click', () => {
-            if (!activeField) {
-                alert('Lỗi: Bạn phải bấm vào một ô nội dung TRƯỚC KHI bấm nút "Emoji".');
-                return;
-            }
-            const emoji = prompt('Nhập emoji / icon:', '🔥');
-            if (emoji) {
-                activeField.focus();
-                document.execCommand('insertText', false, emoji);
-            }
-        });
-    }
-
-    // Trước khi submit: copy innerHTML => textarea ẩn
-    // Đảm bảo form của bạn có id="promoForm" (nếu là trang Sửa)
-    const promoForm = document.getElementById('promoForm'); 
+    // --- 6. SUBMIT ---
+    const promoForm = document.getElementById('promoForm');
     if (promoForm) {
         promoForm.addEventListener('submit', () => {
             document.querySelectorAll('.rte-field').forEach((div) => {
                 const name = div.getAttribute('data-name');
-                const ta = div.parentElement.querySelector('textarea[name="' + name + '"]');
-                if (ta) ta.value = div.innerHTML;  // lưu HTML
+                const ta = document.querySelector(`textarea[name="${name}"]`);
+                if (ta) ta.value = div.innerHTML;
             });
-            
-            // Vô hiệu hóa các input coupon nếu checkbox không được chọn
-            const couponCheckbox = document.getElementById('hasCouponListCheckbox');
-            const couponBuilder = document.getElementById('couponListBuilder');
-            if (couponCheckbox && couponBuilder && !couponCheckbox.checked) {
-                couponBuilder.querySelectorAll('input, select, textarea').forEach(el => {
-                    el.disabled = true;
-                });
-            }
         });
     }
-})();
-    </script>                                 
+});
+</script>
 
-                                    <div class="form-actions">
-                                        <button type="submit" class="btn-primary">💾 Lưu thay đổi</button>
-                                        <a href="/promo-management" class="btn-secondary">❌ Hủy</a>
-                                    </div>
-                </form>
-    </div>
-
-    <script>
-
-
-
-    
-    <%- include('partials/footer') %>
+<%- include('partials/footer') %>

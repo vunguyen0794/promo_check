@@ -1,1195 +1,1279 @@
-<%- include('partials/header', { title: 'Chi tiết CTKM' , currentPage: 'promotion-detail' , time: time }) %>
+<%- include('partials/header', { title: 'Chi tiết CTKM', currentPage: 'promotion-detail', time: time }) %>
 
-  <style>
-    .promotion-page {
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-
-    .promotion-card {
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 2px 10px rgba(15, 23, 42, .06);
-      padding: 18px;
-    }
-
-    .headline {
-      font-size: 20px;
-      font-weight: 800;
-      margin: 0 0 12px 0;
-      letter-spacing: .2px;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      margin: 0 6px 8px 0;
-    }
-
-    .badge-blue {
-      background: #e0f2fe;
-      color: #0369a1;
-    }
-
-    .badge-gray {
-      background: #eef2f7;
-      color: #475569;
-    }
-
-    .badge-green {
-      background: #dcfce7;
-      color: #166534;
-      font-weight: 700;
-    }
-
-    .section-title {
-      font-size: 15px;
-      font-weight: 700;
-      margin: 18px 0 10px 0;
-      color: #0f172a;
-    }
-
-    .detail-grid {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      overflow: hidden;
-    }
-
-    .detail-grid th,
-    .detail-grid td {
-      padding: 10px 12px;
-      vertical-align: top;
-      border-bottom: 1px solid #eef2f7;
-    }
-
-    .detail-grid th {
-      width: 30%;
-      background: #f8fafc;
-      font-weight: 600;
-      color: #0f172a;
-      text-align: left;
-    }
-
-    .detail-grid tr:nth-child(even) td {
-      background: #fcfcfd;
-    }
-
-    .kv {
-      display: grid;
-      grid-template-columns: 180px 1fr;
-      gap: 10px;
-      margin: 8px 0;
-    }
-
-    .pill {
-      display: inline-block;
-      background: #eef2f7;
-      color: #334155;
-      padding: 4px 8px;
-      border-radius: 999px;
-      font-size: 12px;
-      margin: 2px 6px 2px 0;
-    }
-
-    .divider {
-      height: 1px;
-      background: linear-gradient(90deg, #e5e7eb, transparent);
-      margin: 16px 0;
-    }
-
-    .empty {
-      color: #94a3b8;
-      font-style: italic;
-    }
-  </style>
-  <style>
-    /* Làm nổi card phía trên */
-    .promotion-card.hero {
-      background: #ffffff;
-      border: 1px solid #dbe3f0;
-      border-radius: 16px;
-      box-shadow: 0 10px 24px rgba(2, 6, 23, .08);
-      padding: 18px;
-    }
-
-    .headline {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: .2px;
-    }
-
-
-    /* Làm nhẹ phần bảng chi tiết */
-    /* ĐÚNG */
-    .detail-card {
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-      padding: 0;
-      margin-top: 10px;
-    }
-
-    .detail-grid {
-      border: 1px solid #f1f5f9;
-      border-radius: 12px;
-      table-layout: fixed;
-    }
-
-    .detail-grid colgroup col:first-child {
-      width: 30%;
-    }
-
-    .detail-grid colgroup col:last-child {
-      width: 70%;
-    }
-
-    .detail-grid th {
-      background: #f8fafc;
-      color: #0f172a;
-    }
-
-    .detail-grid tr:nth-child(even) td {
-      background: #fcfcfd;
-    }
-
-    .divider {
-      height: 1px;
-      background: linear-gradient(90deg, #e5e7eb, transparent);
-      margin: 14px 0;
-    }
-
-    /* Badge trạng thái nổi bật */
-    .badge.badge-green {
-      background: #dcfce7;
-      color: #166534;
-      font-weight: 700;
-    }
-
-    /* Mobile tinh chỉnh */
-    @media (max-width: 768px) {
-      .detail-grid colgroup col:first-child {
-        width: 42%;
-      }
-
-      .detail-grid colgroup col:last-child {
-        width: 58%;
-      }
-    }
-
-    .section-card {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 14px;
-      box-shadow: 0 2px 10px rgba(15, 23, 42, .04);
-      padding: 14px;
-      margin: 14px 0;
-    }
-
-    .section-card .detail-grid {
-      margin-top: 6px;
-    }
-
-    .detail-grid td {
-    height: auto !important; /* Cho phép chiều cao tự động co giãn */
-    overflow: visible !important; /* Hiển thị toàn bộ nội dung, không ẩn đi */
-    display: table-cell !important; /* Trả về hiển thị mặc định của ô trong bảng */
-    -webkit-line-clamp: unset !important; /* Tắt giới hạn số dòng (nếu có) */
-    line-clamp: unset !important;
-    white-space: normal !important; /* Cho phép chữ tự xuống dòng */
-    word-break: break-word; /* Bẻ chữ nếu cần để không vỡ layout */
-}
-
-.table-scroll-wrapper {
-    overflow-x: auto; /* Tự động thêm thanh trượt ngang khi cần */
-    -webkit-overflow-scrolling: touch; /* Cuộn mượt trên iOS */
-    border: 1px solid #f1f5f9; /* Di chuyển border từ table ra div bọc ngoài */
-    border-radius: 12px; /* Di chuyển bo góc ra div bọc ngoài */
-}
-
-.table-scroll-wrapper .detail-grid {
-    width: auto; /* Cho phép bảng có chiều rộng tự nhiên của nó */
-    min-width: 100%; /* Đảm bảo bảng luôn rộng ít nhất bằng div bọc ngoài */
-    border: none; /* Xóa border của table vì đã có ở div bọc ngoài */
-    border-radius: 0;
-    table-layout: auto; /* Để chiều rộng cột tự điều chỉnh theo nội dung */
-}
-
-.table-scroll-wrapper .detail-grid {
-    width: auto; /* Cho phép bảng có chiều rộng tự nhiên của nó */
-    min-width: 100%; /* Đảm bảo bảng luôn rộng ít nhất bằng div bọc ngoài */
-    border: none; /* Xóa border của table vì đã có ở div bọc ngoài */
-    border-radius: 0;
-    table-layout: auto; /* Để chiều rộng cột tự điều chỉnh theo nội dung */
-}
-
-.section-card {
-    overflow: visible !important; /* Buộc hiển thị nội dung bị tràn */
-    height: auto !important; /* Buộc chiều cao phải tự động co giãn */
-}
-/* --- CSS MỚI CHO PHẦN PHẠM VI ÁP DỤNG --- */
-.scope-container {
+<style>
+    /* --- VOUCHER TICKET STYLE (BLUE THEME) --- */
+.voucher-ticket {
+    background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); /* Xanh rất nhạt sang trắng */
+    border: 1px solid #3b82f6; /* Viền xanh dương chuẩn */
+    border-radius: 12px;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
     display: flex;
     flex-direction: column;
-    gap: 10px;
 }
 
-.scope-row {
+/* Dải màu trang trí bên trái - Xanh đậm */
+.voucher-ticket::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 100%;
+    background: #2563eb; 
+}
+
+.voucher-header {
+    background: #dbeafe; /* Xanh nhạt (Header) */
+    padding: 10px 15px;
+    border-bottom: 1px dashed #93c5fd;
     display: flex;
-    align-items: baseline; /* Căn chân chữ cho thẳng */
+    align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
-}
-
-.scope-label {
-    font-size: 13px;
+    color: #1e40af; /* Chữ xanh đậm */
     font-weight: 700;
-    color: #475569;
-    min-width: 60px; /* Độ rộng cố định để thẳng hàng */
-    flex-shrink: 0;
-}
-
-.scope-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 6px;
     font-size: 13px;
+    text-transform: uppercase;
+}
+
+.voucher-body {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.voucher-value-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.voucher-label {
+    font-size: 12px;
+    color: #64748b; /* Màu xám trung tính */
+    margin-bottom: 2px;
     font-weight: 500;
-    margin-right: 6px;
-    margin-bottom: 4px;
 }
 
-/* Màu sắc cho Áp dụng */
-.badge-brand { background-color: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
-.badge-cat   { background-color: #fae8ff; color: #86198f; border: 1px solid #f0abfc; }
-.badge-sub   { background-color: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
-.badge-sku   { background-color: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+.voucher-big-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1d4ed8; /* Màu xanh giá trị (đậm hơn border) */
+    font-family: 'Segoe UI', sans-serif;
+    letter-spacing: -0.5px;
+}
 
-/* Màu sắc cho Loại trừ */
-.exclude-container {
-    background-color: #fef2f2;
-    border: 1px dashed #fca5a5;
+.voucher-code-box {
+    background: #f0f9ff; /* Nền xanh siêu nhạt */
+    border: 2px dashed #60a5fa; /* Viền nét đứt xanh sáng */
     border-radius: 8px;
-    padding: 10px;
-    margin-top: 4px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
-.exclude-header {
-    color: #dc2626; 
-    font-weight: 700; 
-    font-size: 13px; 
-    margin-bottom: 8px; 
-    display:flex; 
-    align-items:center; 
-    gap:6px;
+
+.voucher-code-text {
+    font-family: monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e3a8a; /* Mã code màu xanh tối */
+    letter-spacing: 1px;
 }
-.badge-exclude { background-color: #fff; color: #b91c1c; border: 1px solid #fecaca; }
-  </style>
+
+.voucher-method {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #334155;
+    background: #f8fafc;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
 
 
-  <div class="promotion-page">
-    <% if (typeof error !=='undefined' && error) { %>
-      <div class="promotion-card" style="border-left:4px solid #ef4444;">
-        <div class="headline" style="color:#ef4444;">Lỗi hệ thống</div>
-        <div>
-          <%= error %>
+
+
+    /* --- HIERARCHY TREE STYLE (PHÂN CẤP RÕ RÀNG) --- */
+    .tree-group {
+        margin-bottom: 15px;
+    }
+    
+    /* 1. Tên Nhóm (Parent) */
+    .tree-group-label {
+        font-size: 13px;
+        font-weight: 800; /* Rất đậm */
+        color: #1e293b;
+        background: #f1f5f9;
+        padding: 4px 10px;
+        border-radius: 6px;
+        display: inline-block;
+        margin-bottom: 8px;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* 2. Khung chứa danh sách con (Có đường kẻ dọc bên trái) */
+    .tree-children {
+        margin-left: 10px;          /* Thụt vào so với lề trái */
+        padding-left: 15px;         /* Khoảng cách từ đường kẻ đến chữ */
+        border-left: 2px solid #e2e8f0; /* Đường kẻ dọc định hướng */
+    }
+
+    /* 3. Từng mục con (Child Item) */
+    .tree-item {
+        font-size: 13px;
+        color: #334155;
+        margin-bottom: 8px;
+        position: relative;
+        line-height: 1.5;
+    }
+
+    /* Tạo dấu chấm tròn ở đầu mỗi mục con */
+    .tree-item::before {
+        content: "";
+        position: absolute;
+        top: 8px;
+        left: -20px; /* Đẩy dấu chấm nằm đè lên đường kẻ dọc */
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #cbd5e1;
+        border: 2px solid #fff; /* Viền trắng để cắt đường kẻ dọc */
+    }
+
+    /* --- CSS CHO COMBO/GIFT CHI TIẾT --- */
+    .combo-item-row {
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        background: #fff; 
+        border: 1px solid #cbd5e1; 
+        padding: 6px 10px; 
+        border-radius: 6px; 
+        margin-top: 5px; 
+        font-size: 13px;
+    }
+    .combo-sku-name {
+        flex: 1;
+        font-weight: 500;
+        color: #334155;
+        display: flex; flex-direction: column;
+    }
+    .combo-stock-badge {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 12px;
+        white-space: nowrap;
+        margin-left: 10px;
+    }
+    .stock-has { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .stock-zero { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+
+
+
+    /* --- MINIMALIST STYLE (TRẮNG ĐEN) --- */
+    .detail-minimal-list {
+        display: flex; 
+        flex-direction: column;
+    }
+    
+    .detail-item {
+        padding: 20px 0;
+        border-bottom: 1px solid #e2e8f0; /* Đường kẻ xám nhạt */
+    }
+    
+    .detail-item:first-child { padding-top: 0; }
+    .detail-item:last-child { border-bottom: none; }
+
+    /* Tiêu đề mục: Đậm, màu xám đen, KHÔNG màu mè */
+    .detail-item-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #334155; /* Xám đậm (Slate-700) */
+        margin-bottom: 8px;
+        text-transform: uppercase; /* Viết hoa để phân biệt rõ đầu mục */
+        letter-spacing: 0.5px;
+    }
+
+    /* Nội dung: Màu đen dịu, dễ đọc */
+    .detail-item-content {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #0f172a; /* Gần như đen (Slate-900) */
+    }
+
+    /* Ẩn các thẻ p rỗng do bộ soạn thảo sinh ra thừa */
+    .detail-item-content p:empty {
+        display: none;
+    }
+    
+    /* Xử lý ảnh trong nội dung nếu có */
+    .detail-item-content img { max-width: 100%; height: auto; }
+
+    :root {
+        --primary-color: #0f172a;
+        --secondary-color: #475569;
+        --bg-page: #f8fafc;
+        --bg-card: #ffffff;
+        --border-color: #e2e8f0;
+    }
+
+    body { background-color: var(--bg-page); color: var(--primary-color); }
+    .promo-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+    /* --- COMMON CARDS --- */
+    .modern-card {
+        background: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        padding: 20px; margin-bottom: 20px;
+    }
+    .card-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);
+    }
+    .card-title { font-size: 16px; font-weight: 700; color: var(--primary-color); display: flex; align-items: center; gap: 8px; }
+
+    /* --- HERO & GRID --- */
+    .hero-section { display: flex; flex-direction: column; gap: 8px; }
+    .promo-title { font-size: 24px; font-weight: 800; line-height: 1.3; color: #1e293b; }
+    .promo-meta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; color: var(--secondary-color); }
+    
+    .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 992px) { .details-grid { grid-template-columns: 1fr; } }
+
+    /* --- INFO ROWS --- */
+    .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--border-color); font-size: 14px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--secondary-color); font-weight: 500; }
+    .info-value { font-weight: 600; text-align: right; max-width: 60%; }
+
+    /* --- CONFIG BLOCKS --- */
+    .config-block { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+    .config-block.gift { background: #fff7ed; border-color: #fdba74; }
+    .config-block.combo { background: #eff6ff; border-color: #93c5fd; }
+    .config-block.coupon { background: #f0fdf4; border-color: #86efac; }
+    .config-block.installment { background: #faf5ff; border-color: #d8b4fe; }
+    
+    .config-title { font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px dashed rgba(0,0,0,0.1); }
+    .config-title.gift { color: #c2410c; } .config-title.combo { color: #1e40af; }
+
+    /* --- CONTENT BOX --- */
+    .content-box { font-size: 14px; line-height: 1.6; color: #334155; overflow-wrap: break-word; }
+    .content-box img { max-width: 100%; height: auto; border-radius: 8px; }
+    .content-box ul { padding-left: 20px; }
+
+    /* --- SKU TABLE --- */
+    .sku-table-wrapper { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+    .sku-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .sku-table th { background: #f1f5f9; padding: 10px; text-align: left; font-weight: 700; white-space: nowrap; }
+    .sku-table td { padding: 10px; border-top: 1px solid var(--border-color); }
+    .sku-table tr:hover { background: #f8fafc; }
+
+    /* --- PILLS & BADGES --- */
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-right: 4px; margin-bottom: 4px; border: 1px solid transparent; }
+    .pill-sku { background: #fff; border-color: #cbd5e1; color: #334155; font-family: monospace; }
+    .pill-brand { background: #e0e7ff; color: #3730a3; }
+    .pill-cat { background: #fae8ff; color: #86198f; }
+
+    .status-badge { padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+    .status-active { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .status-expired { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    /* --- BUTTONS --- */
+    .btn-action { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; text-decoration: none; transition: all 0.2s; }
+    .btn-edit { background: #f59e0b; color: #000; }
+    .btn-edit:hover { background: #d97706; }
+    
+    .copy-btn { background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 11px; color: #475569; display: inline-flex; align-items: center; gap: 4px; }
+    .copy-btn:hover { background: #f1f5f9; color: #0f172a; border-color: #94a3b8; }
+    
+    .inventory-cell { text-align: center; font-weight: 700; }
+    .inventory-zero { color: #cbd5e1; font-weight: 400; }
+    .inventory-has { color: #166534; }
+</style>
+
+<div class="promo-container">
+
+    <% if (typeof error !== 'undefined' && error) { %>
+        <div class="modern-card" style="border-left: 5px solid #ef4444; background: #fef2f2;">
+            <div style="color: #991b1b; font-weight: 700; margin-bottom: 5px;">⚠️ Lỗi hệ thống</div>
+            <div style="color: #b91c1c; font-size: 14px;"><%= error %></div>
         </div>
-      </div>
-      <% } %>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-    <div class="headline" style="margin: 0;">Chi tiết CTKM</div>
-    
-    <% if (typeof currentUser !== 'undefined' && (currentUser.role === 'manager' || currentUser.role === 'admin')) { %>
-        <a href="/edit-promotion/<%= promotion.id %>" 
-           style="background-color: #f59e0b; color: #000; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;">
-            ✏️ Sửa CTKM
-        </a>
-    <% } %>
-</div>
-
-        <% if (promotion) { %>
-
-          <!-- ========== 1) Thông tin cơ bản (bảng) ========== -->
-          <div class="section-card">
-            <h3 class="section-title">Thông tin cơ bản</h3>
-            <div class="table-scroll-wrapper">
-            <table class="detail-grid">
-              <colgroup>
-                <col />
-                <col />
-              </colgroup>
-              <tbody>
-    <tr>
-        <th>Cập nhật lần cuối</th>
-        <td><%= promotion.updated_at ? new Date(promotion.updated_at).toLocaleString('vi-VN') : '-' %></td>
-    </tr>
-
-    <tr>
-        <th>Tên CTKM</th>
-        <td><strong><%= promotion.name || promotion.promo_name || 'CTKM' %></strong></td>
-    </tr>
-    
-    <tr>
-        <th>Mô tả</th>
-        <td><%- (promotion.description || '').replace(/\n/g, '<br>') %></td>
-    </tr>
-    
-    <tr>
-        <th>Thời gian</th>
-        <td>
-            <%= promotion.start_date ? new Date(promotion.start_date).toLocaleDateString('vi-VN') : '...' %>
-            &nbsp;-&nbsp;
-            <%= promotion.end_date ? new Date(promotion.end_date).toLocaleDateString('vi-VN') : '...' %>
-        </td>
-    </tr>
-    
-    <tr>
-        <th>Channel</th>
-        <td><%= promotion.channel || 'All' %></td>
-    </tr>
-
-    <tr>
-        <th>Chi nhánh áp dụng</th>
-        <td>
-            <% if (promotion.apply_branches && promotion.apply_branches.length > 0) { %>
-                <div class="pill-wrap">
-                    <% promotion.apply_branches.forEach(function(br) { %>
-                        <span class="pill" style="background:#e0f2fe; color:#0284c7; font-weight:600;"><%= br %></span>
-                    <% }) %>
-                </div>
-            <% } else { %>
-                <strong>Toàn quốc</strong>
-            <% } %>
-        </td>
-    </tr>
-
-    <tr>
-        <th>Loại CTKM</th>
-        <td><%= promotion.promo_type || '...' %></td>
-    </tr>
-    
-    <tr>
-        <th>Mã giảm giá</th>
-        <td>
-            <% if (promotion.coupon_list && promotion.coupon_list.length > 1) { %>
-                <button type="button" class="code-badge" onclick="showCouponListModal(this)"
-                    data-promo-name="<%= promotion.name %>"
-                    data-coupons='<%- JSON.stringify(promotion.coupon_list) %>'>
-                    📜 Danh sách coupon (Bấm để xem)
-                </button>
-            <% } else if (promotion.coupon_list && promotion.coupon_list.length === 1) { %>
-                <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promotion.coupon_list[0].code %>">
-                    🔑 <span><%= promotion.coupon_list[0].code %></span> <small>(Bấm để copy)</small>
-                </button>
-            <% } else if (promotion.coupon_code) { %>
-                <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promotion.coupon_code %>">
-                    🔑 <span><%= promotion.coupon_code %></span> <small>(Bấm để copy)</small>
-                </button>
-            <% } else { %>
-                <span class="muted">Không có</span>
-            <% } %>
-        </td>
-    </tr>
-
-    <tr>
-        <th>Giá trị giảm</th>
-        <td>
-            <% if (promotion.max_coupon_discount) { %>
-                Giảm tối đa <strong><%= new Intl.NumberFormat('vi-VN').format(promotion.max_coupon_discount) %> ₫</strong>
-            <% } else if ((promotion.discount_value_type || '').toLowerCase() === 'amount') { %>
-                Giảm <strong><%= (promotion.discount_value || 0).toLocaleString('vi-VN') %> ₫</strong>
-                <% if (promotion.min_order_value) { %> (đơn tối thiểu <%= (promotion.min_order_value || 0).toLocaleString('vi-VN') %> ₫) <% } %>
-            <% } else if ((promotion.discount_value_type || '').toLowerCase() === 'percent') { %>
-                Giảm <strong><%= promotion.discount_value %>%</strong>
-                <% if (promotion.max_discount_amount) { %> (tối đa <%= (promotion.max_discount_amount || 0).toLocaleString('vi-VN') %> ₫) <% } %>
-            <% } else { %>
-                -
-            <% } %>
-        </td>
-    </tr>
-
-    <% if (promotion.group_name) { %>
-        <tr>
-            <th>Nhóm</th>
-            <td>
-                <span class="badge badge-blue"><%= promotion.group_name %></span>
-                <% if (promotion.show_multiple_in_group) { %>
-                    <div style="margin-top:4px; font-size:12px; color:#166534;">
-                        ✅ Cho phép hiển thị cùng các CTKM khác trong nhóm
-                    </div>
-                <% } else { %>
-                    <div style="margin-top:4px; font-size:12px; color:#64748b;">
-                        ⚡️ Chỉ lấy CTKM tốt nhất trong nhóm
-                    </div>
-                <% } %>
-            </td>
-        </tr>
     <% } %>
 
-    <tr>
-        <th>Trạng thái</th>
-        <td>
-            <% if ((promotion.status || 'active') === 'active') { %>
-                <span class="badge badge-green">Active</span>
-            <% } else { %>
-                <span class="badge badge-gray"><%= promotion.status %></span>
-            <% } %>
-        </td>
-    </tr>
-</tbody>
-            </table>
-            </div>
-          </div>
+    <% if (promotion) { %>
 
-          <!-- ========== 2) Bảng chi tiết (hiển thị) ========== -->
-          <div class="section-card">
-  <h3 class="section-title">Bảng chi tiết (hiển thị)</h3>
-  <% if (promotion.detail_fields && Object.keys(promotion.detail_fields).length) { %>
-    <div class="table-scroll-wrapper">
-    <table class="detail-grid">
-      <colgroup>
-        <col />
-        <col />
-      </colgroup>
-      <tbody>
-        <% Object.keys(promotion.detail_fields).forEach(function(k){ 
-             const v = (promotion.detail_fields || {})[k]; 
-             if (!v || String(v).trim() === '') return; // Bỏ qua nếu giá trị rỗng
-        %>
-          <tr>
-            <th><%= k %></th>
-            
-            <td><%- v %></td>
-
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-    </div>
-  <% } else { %>
-    <div class="empty">Chưa có trường chi tiết nào.</div>
-  <% } %>
-</div>
-          <!-- ========== 3) Phạm vi áp dụng (bảng) ========== -->
-          <% const included=(promotion.promotion_skus || []).map(x=> x.sku);
-            const excluded = (promotion.promotion_excluded_skus || []).map(x => x.sku);
-            function pillList(list){ return (list||[]).map(s=>`<span class="pill">${s}</span>`).join(''); }
-            %>
-            <div class="section-card">
-    <h3 class="section-title">Phạm vi áp dụng</h3>
-    <tbody>
-    <tr>
-        <th style="vertical-align: middle;">✅ Áp dụng cho</th>
-        <td>
-            <div class="scope-container">
-                <% if (promotion.apply_to_all_skus) { %>
-                    <span class="status-badge active" style="font-size:14px; padding:6px 12px;">
-                        🌍 Tất cả sản phẩm
-                    </span>
-
-                <% } else if (promotion.apply_brand_subcats && promotion.apply_brand_subcats.length > 0) { %>
+    <div class="modern-card">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div class="hero-section">
+                <div class="promo-meta">
+                    <span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">ID: #<%= promotion.id %></span>
                     <% 
-                        const brands = [...new Set(promotion.apply_brand_subcats.map(r => r.brand))];
-                        const subcats = [...new Set(promotion.apply_brand_subcats.map(r => r.subcat_id))];
+                        const endDate = new Date(promotion.end_date);
+                        const isActive = (promotion.status === 'active' && endDate >= new Date());
+                        const statusClass = isActive ? 'status-active' : 'status-expired';
+                        const statusLabel = isActive ? 'Đang hoạt động' : 'Hết hiệu lực / Đã tắt';
                     %>
-                    <div class="scope-row">
-                        <span class="scope-label">Brand:</span>
-                        <div>
-                            <% brands.forEach(b => { %>
-                                <span class="scope-badge badge-brand"><%= b %></span>
-                            <% }) %>
-                        </div>
-                    </div>
-                    <div class="scope-row">
-                        <span class="scope-label">Subcat:</span>
-                        <div>
-                            <% subcats.forEach(s => { %>
-                                <span class="scope-badge badge-sub"><%= s %></span>
-                            <% }) %>
-                        </div>
-                    </div>
-
-                <% } else if (promotion.apply_to_brands && promotion.apply_to_brands.length > 0) { %>
-                    <div class="scope-row">
-                        <span class="scope-label">Brand:</span>
-                        <div>
-                            <% promotion.apply_to_brands.forEach(b => { %>
-                                <span class="scope-badge badge-brand"><%= b %></span>
-                            <% }) %>
-                        </div>
-                    </div>
-
-                <% } else if (promotion.apply_to_categories && promotion.apply_to_categories.length > 0) { %>
-                    <div class="scope-row">
-                        <span class="scope-label">Category:</span>
-                        <div>
-                            <% promotion.apply_to_categories.forEach(c => { %>
-                                <span class="scope-badge badge-cat"><%= c %></span>
-                            <% }) %>
-                        </div>
-                    </div>
-
-                <% } else if (promotion.apply_to_subcats && promotion.apply_to_subcats.length > 0) { %>
-                    <div class="scope-row">
-                        <span class="scope-label">Subcat:</span>
-                        <div>
-                            <% promotion.apply_to_subcats.forEach(s => { %>
-                                <span class="scope-badge badge-sub"><%= s %></span>
-                            <% }) %>
-                        </div>
-                    </div>
-
-                <% } else if (promotion.promotion_skus && promotion.promotion_skus.length > 0) { %>
-                    <div class="scope-row">
-                        <span class="scope-label">Danh sách:</span>
-                        <span class="scope-badge badge-sku">
-                            <%= promotion.promotion_skus.length %> SKU cụ thể
-                        </span>
-                        <small class="muted">(Xem bảng bên dưới)</small>
-                    </div>
-
-                <% } else { %>
-                    <span class="muted">Chưa xác định</span>
-                <% } %>
+                    <span class="status-badge <%= statusClass %>"><%= statusLabel %></span>
+                    <span>|</span>
+                    <span>Cập nhật: <%= promotion.updated_at ? new Date(promotion.updated_at).toLocaleString('vi-VN') : '-' %></span>
+                </div>
+                <h1 class="promo-title"><%= promotion.name %></h1>
+                <div class="promo-meta">
+                    <% if (promotion.group_name) { %>
+                        <span class="pill pill-brand">Group: <%= promotion.group_name %></span>
+                    <% } %>
+                    <% if (promotion.show_multiple_in_group) { %>
+                        <span style="color: #166534; font-weight: 600;">✅ Cho phép hiển thị trùng trong nhóm</span>
+                    <% } else { %>
+                        <span style="color: #b45309; font-weight: 600;">⚡ Lấy ưu đãi tốt nhất nhóm</span>
+                    <% } %>
+                </div>
             </div>
-        </td>
-    </tr>
 
-    <% if ((promotion.exclude_brands && promotion.exclude_brands.length > 0) || 
-           (promotion.exclude_subcats && promotion.exclude_subcats.length > 0) ||
-           (promotion.promotion_excluded_skus && promotion.promotion_excluded_skus.length > 0)) { %>
-    <tr>
-        <th></th> <td style="padding-top: 0;">
-            <div class="exclude-container">
-                <div class="exclude-header">
-                    ⛔️ Danh sách loại trừ
+            <% if (typeof currentUser !== 'undefined' && (currentUser.role === 'manager' || currentUser.role === 'admin')) { %>
+                <a href="/edit-promotion/<%= promotion.id %>" class="btn-action btn-edit">
+                    ✏️ Sửa CTKM
+                </a>
+            <% } %>
+        </div>
+    </div>
+
+    <div class="details-grid">
+        
+        <div class="col-left">
+            <div class="modern-card">
+                <div class="card-header">
+                    <div class="card-title">ℹ️ Thông tin chung</div>
                 </div>
                 
-                <% if (promotion.exclude_brands && promotion.exclude_brands.length > 0) { %>
-                    <div class="scope-row">
-                        <span class="scope-label">Brand:</span>
-                        <div>
-                            <% promotion.exclude_brands.forEach(b => { %>
-                                <span class="scope-badge badge-exclude"><%= b %></span>
+                <div class="info-row">
+                    <span class="info-label">Mô tả ngắn</span>
+                    <span class="info-value"><%= promotion.description || '-' %></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Thời gian áp dụng</span>
+                    <span class="info-value">
+                        <%= new Date(promotion.start_date).toLocaleDateString('vi-VN') %> 
+                        <span style="color:#94a3b8">→</span> 
+                        <%= new Date(promotion.end_date).toLocaleDateString('vi-VN') %>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Kênh bán (Channel)</span>
+                    <span class="info-value"><%= promotion.channel || 'All' %></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Loại CTKM</span>
+                    <span class="info-value"><%= promotion.promo_type %></span>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <span class="info-label" style="display:block; margin-bottom:5px;">🏢 Chi nhánh áp dụng:</span>
+                    <% if (promotion.apply_branches && promotion.apply_branches.length > 0) { %>
+                        <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                            <% promotion.apply_branches.forEach(br => { %>
+                                <span style="background:#f1f5f9; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600;"><%= br %></span>
                             <% }) %>
                         </div>
-                    </div>
-                <% } %>
-
-                <% if (promotion.exclude_subcats && promotion.exclude_subcats.length > 0) { %>
-                    <div class="scope-row">
-                        <span class="scope-label">Subcat:</span>
-                        <div>
-                            <% promotion.exclude_subcats.forEach(s => { %>
-                                <span class="scope-badge badge-exclude"><%= s %></span>
-                            <% }) %>
-                        </div>
-                    </div>
-                <% } %>
-
-                <% if (promotion.promotion_excluded_skus && promotion.promotion_excluded_skus.length > 0) { %>
-                    <div class="scope-row">
-                        <span class="scope-label">SKU lẻ:</span>
-                        <span style="font-size:13px; color:#b91c1c;">
-                            <%= promotion.promotion_excluded_skus.length %> SKU bị chặn (Xem bảng dưới)
-                        </span>
-                    </div>
-                <% } %>
-            </div>
-        </td>
-    </tr>
-    <% } %>
-</tbody>
-    <%# Logic để quyết định có hiển thị bảng SKU áp dụng hay không %>
-    <% const isBySkuList = !promotion.apply_to_all_skus && (!promotion.apply_to_brands || promotion.apply_to_brands.length === 0) && (!promotion.apply_to_categories || promotion.apply_to_categories.length === 0) && (!promotion.apply_to_subcats || promotion.apply_to_subcats.length === 0); %>
-    
-    <% if (isBySkuList && includedSkuDetails && includedSkuDetails.length > 0) { %>
-        <div class="sku-table-block" id="includedSkuBlock" data-initial="10">
-            <div class="sku-table-header">
-                <div class="sku-table-title">SKU áp dụng</div>
-                <input type="search" class="sku-search" placeholder="Tìm trong danh sách..." oninput="filterSkuTable('includedSkuBlock')">
-            </div>
-            <table class="sku-table">
-                <thead><tr><th>SKU</th><th>Tên SP</th><th>Brand</th><th>Giá</th>
-                <%# === CỘT TỒN KHO MỚI (HỖ TRỢ ADMIN) === %>
-                    <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && allBranchNames && allBranchNames.length > 0) { %>
-                        <%# Admin: Hiển thị NHIỀU CỘT theo allBranchNames %>
-                        <% (allBranchNames || []).forEach(branchName => { %>
-                            <th style="text-align: center;">Tồn <%= branchName %> (Mới)</th>
-                        <% }); %>
-                    <% } else if (typeof userBranch !== 'undefined' && userBranch && !isGlobalAdmin) { %>
-                        <%# User thường: Hiển thị 1 CỘT %>
-                        <th style="text-align: center;">Tồn <%= userBranch %> (Mới)</th>
+                    <% } else { %>
+                        <span style="font-weight:700; color:#0369a1;">🌍 Toàn quốc</span>
                     <% } %>
-                    <%# === KẾT THÚC === %>
-                </tr></thead>
-                <tbody>
-                    <% includedSkuDetails.forEach(function(r){ %>
-                        <tr class="sku-row">
-                            <td><%= r.sku %></td>
-                            <td><%= r.product_name || '-' %></td>
-                            <td><%= r.brand || '-' %></td>
-                            <td><%= (r.list_price != null) ? r.list_price.toLocaleString('vi-VN') : '-' %></td>
-                            <%# === DỮ LIỆU TỒN KHO MỚI (HỖ TRỢ ADMIN) === %>
-                        <%
-                            // r.inventory là Map<Branch, Counts> hoặc null
-                            const inventoryForSku = r.inventory || new Map();
-                        %>
+                </div>
 
-                          <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && allBranchNames && allBranchNames.length > 0) { %>
-                            <%# Admin: Lặp qua các cột branch... %>
-<% (allBranchNames || []).forEach(branchName => { %>
-    <% const counts = inventoryForSku.get(branchName); %>
-    <% const ton_moi = (counts ? counts.hang_ban_moi : 0); %>
-    <td style="text-align: center; font-weight: 700;" class="<%= ton_moi === 0 ? 'zero-muted' : '' %>">
-        <%= ton_moi %>
-    </td>
-<% }); %>
-<% } else if (typeof userBranch !== 'undefined' && userBranch && !isGlobalAdmin) { %>
-    <%# User thường: Chỉ lấy 1 cột... %>
-    <% const counts = inventoryForSku.get(userBranch); %>
-    <% const ton_moi = (counts ? counts.hang_ban_moi : 0); %>
-    <td style="text-align: center; font-weight: 700;" class="<%= ton_moi === 0 ? 'zero-muted' : '' %>">
-        <%= ton_moi %>
-    </td>
-<% } %>
-                            
-                        <%# === KẾT THÚC === %>
-                        </tr>
-                    <% }) %>
-                </tbody>
-            </table>
-            <div class="notfound empty" style="display:none;">Không tìm thấy kết quả phù hợp</div>
-            <% if (includedSkuDetails.length > 10) { %>
-                <button type="button" class="btn-more" onclick="toggleMore('includedSkuBlock')">Xem thêm…</button>
-            <% } %>
-        </div>
-    <% } %>
+                <div style="margin-top: 15px; padding-top:15px; border-top:1px solid #e2e8f0;">
+                    <div class="info-label" style="margin-bottom:8px;">🎯 Phạm vi sản phẩm:</div>
+                    
+                    <% if (promotion.apply_to_all_skus) { %>
+                        <div class="status-badge status-active" style="display:inline-block;">Tất cả sản phẩm</div>
+                    <% } else { %>
+                        <% if(promotion.apply_to_brands && promotion.apply_to_brands.length > 0) { %>
+                            <div style="margin-bottom:5px;">
+                                <small>Brand:</small> 
+                                <% promotion.apply_to_brands.forEach(b => { %><span class="pill pill-brand"><%= b %></span><% }) %>
+                            </div>
+                        <% } %>
+                        <% if(promotion.apply_to_categories && promotion.apply_to_categories.length > 0) { %>
+                            <div style="margin-bottom:5px;">
+                                <small>Cat:</small> 
+                                <% promotion.apply_to_categories.forEach(c => { %><span class="pill pill-cat"><%= c %></span><% }) %>
+                            </div>
+                        <% } %>
+                         <% if(promotion.apply_to_subcats && promotion.apply_to_subcats.length > 0) { %>
+                            <div style="margin-bottom:5px;">
+                                <small>Subcat:</small> 
+                                <% promotion.apply_to_subcats.forEach(s => { %>
+                                    <span class="pill pill-cat" style="background:#f0f9ff; color:#0369a1; border-color:#bae6fd;"><%= s %></span>
+                                <% }) %>
+                            </div>
+                        <% } %>   
 
-    <% if (excludedSkuDetails && excludedSkuDetails.length > 0) { %>
-        <div class="sku-table-block" id="excludedSkuBlock" data-initial="10">
-            <div class="sku-table-header">
-                <div class="sku-table-title">SKU loại trừ</div>
-                <input type="search" class="sku-search" placeholder="Tìm trong danh sách..." oninput="filterSkuTable('excludedSkuBlock')">
+                        <% if(promotion.apply_brand_subcats && promotion.apply_brand_subcats.length > 0) { %>
+                             <div style="margin-bottom:5px;">
+                                <small>Brand + Subcat:</small><br>
+                                <% promotion.apply_brand_subcats.forEach(item => { %>
+                                    <span class="pill pill-brand"><%= item.brand %></span>+<span class="pill pill-cat"><%= item.subcat_id %></span> &nbsp;
+                                <% }) %>
+                             </div>
+                        <% } %>
+                        <% if(promotion.promotion_skus && promotion.promotion_skus.length > 0) { %>
+                             <div>
+                                <small>SKU:</small> 
+                                <span class="pill pill-sku"><%= promotion.promotion_skus.length %> SKU cụ thể</span>
+                                <a href="#skuTableSection" style="font-size:12px; margin-left:5px;">(Xem dưới)</a>
+                             </div>
+                        <% } %>
+                    <% } %>
+
+                    <% if ((promotion.exclude_brands && promotion.exclude_brands.length) || (promotion.promotion_excluded_skus && promotion.promotion_excluded_skus.length)) { %>
+                        <div style="margin-top:10px; background:#fff1f2; padding:8px; border-radius:6px; border:1px dashed #fca5a5;">
+                            <div style="font-weight:700; color:#991b1b; font-size:12px; margin-bottom:4px;">⛔ Loại trừ:</div>
+                            <% if (promotion.exclude_brands) { %>
+                                <% promotion.exclude_brands.forEach(b => { %><span class="pill" style="background:#fff; border-color:#fca5a5; color:#991b1b;"><%= b %></span><% }) %>
+                            <% } %>
+                            <% if (promotion.promotion_excluded_skus && promotion.promotion_excluded_skus.length) { %>
+                                <span class="pill" style="background:#fff; border-color:#fca5a5; color:#991b1b;"><%= promotion.promotion_excluded_skus.length %> SKU</span>
+                            <% } %>
+                        </div>
+                    <% } %>
+                </div>
             </div>
-            <div class="table-scroll-wrapper"></div>
-            <table class="sku-table">
-                <thead><tr><th>SKU</th><th>Tên SP</th><th>Brand</th><th>Giá</th></tr></thead>
-                <tbody>
-                    <% excludedSkuDetails.forEach(function(r){ %>
-                        <tr class="sku-row">
-                            <td><%= r.sku %></td>
-                            <td><%= r.product_name || '-' %></td>
-                            <td><%= r.brand || '-' %></td>
-                            <td><%= (r.list_price != null) ? r.list_price.toLocaleString('vi-VN') : '-' %></td>
-                        </tr>
-                    <% }) %>
-                </tbody>
-            </table>
-            </div>
-             <div class="notfound empty" style="display:none;">Không tìm thấy kết quả phù hợp</div>
-            <% if (excludedSkuDetails.length > 10) { %>
-                <button type="button" class="btn-more" onclick="toggleMore('excludedSkuBlock')">Xem thêm…</button>
-            <% } %>
         </div>
-    <% } %>
-</div>
-            <!-- Quan hệ với CTKM khác -->
-<div class="section-card">
-  <h3 class="section-title">Quan hệ với CTKM khác</h3>
 
-<%
-const norm = s => (s || '').trim().toLowerCase();
-const SG_NONE = '__none__';
+        <div class="col-right">
+            
+            <div class="modern-card">
+                <div class="card-header">
+                    <div class="card-title" style="color:#0f172a;">💰 Giá trị giảm & Ưu đãi</div>
+                </div>
 
-// subgroup hợp lệ: khác rỗng, khác tên CTKM, khác tên group
-function getSubgroupKey(p) {
-  const s = (p.subgroup_name || '').trim();
-  if (!s) return SG_NONE;
-  if (norm(s) === norm(p.name)) return SG_NONE;
-  if (norm(s) === norm(p.group_name)) return SG_NONE;
-  return s;
-}
-
-function buildHierarchy(items) {
-  const groups = {};
-  (items || []).forEach(p => {
-    const g = p.group_name || 'Khác';
-    const sg = getSubgroupKey(p);
-    groups[g] ||= {};
-    groups[g][sg] ||= [];
-    // dedupe theo id
-    if (!groups[g][sg].some(x => x.id === p.id)) groups[g][sg].push(p);
-  });
-  return groups;
-}
+                      <% 
+    // [FIX] Kiểm tra nếu là Combo hoặc Gift thì KHÔNG hiển thị khối giá trị cơ bản này
+    // Vì Combo/Gift đã có khối hiển thị chi tiết riêng bên dưới rồi.
+    const isSpecialType = [
+        'Combo', 
+        'Gift', 
+        'Quà tặng (Gift)', 
+        'Tặng mã giảm đơn hàng sau' 
+    ].includes(promotion.promo_type);
 %>
 
-<div class="card">
-  <div class="card-title">Áp dụng cùng (theo nhóm)</div>
+<% if ((promotion.discount_value_type || promotion.coupon_list) && !isSpecialType) { %>
+    <div class="config-block coupon">
+                        <div class="config-title" style="color:#15803d;">💰 Giá trị giảm & Coupon</div>
+                        
+                        <div style="font-size:16px; font-weight:700; color:#166534; margin-bottom:8px;">
+                            <% if (promotion.discount_value_type === 'amount') { %>
+                                Giảm <%= new Intl.NumberFormat('vi-VN').format(promotion.discount_value) %> đ
+                            <% } else if (promotion.discount_value_type === 'percent') { %>
+                                Giảm <%= promotion.discount_value %>% 
+                                <% if(promotion.max_discount_amount) { %>
+                                    <span style="font-size:13px; font-weight:400; color:#15803d;">(Tối đa <%= new Intl.NumberFormat('vi-VN').format(promotion.max_discount_amount) %>)</span>
+                                <% } %>
+                            <% } else if (promotion.max_coupon_discount) { %>
+                                Giảm tới <%= new Intl.NumberFormat('vi-VN').format(promotion.max_coupon_discount) %> đ
+                            <% } else { %>
+                                (Cấu hình trong danh sách mã)
+                            <% } %>
+                        </div>
 
-  <%
-    const allows = promotion.compat_allows || [];
-    if (!allows.length) {
-  %>
-    <div class="empty">Không có.</div>
-  <% } else { 
-      const grouped = buildHierarchy(allows);
-      const groupNames = Object.keys(grouped).sort();
-  %>
-    <% groupNames.forEach(g => { 
-         const submap = grouped[g];
-         const subNames = Object.keys(submap);
-         const onlyOne = (subNames.length === 1);
-         const onlyKey = onlyOne ? subNames[0] : null;
-         const onlyList = onlyOne ? submap[onlyKey] : null;
-    %>
-      <div class="group-box">
-        <div class="group-title"><span class="dot"></span><%= g %></div>
+                        <% if (promotion.min_order_value) { %>
+                             <div style="font-size:13px;">🛒 Đơn tối thiểu: <strong><%= new Intl.NumberFormat('vi-VN').format(promotion.min_order_value) %> đ</strong></div>
+                        <% } %>
 
-        <% // Nếu chỉ có 1 “bucket” và (bucket đó là NONE hoặc chỉ có 1 item) => flatten, không in tiêu đề subgroup %>
-        <% if (onlyOne && (onlyKey === SG_NONE || (onlyList && onlyList.length === 1))) { %>
-          <div class="group-items">
-            <% (onlyList || []).forEach(item => { if (item.id !== promotion.id) { %>
-              <span class="pill"><%= item.name %></span>
-            <% } }) %>
-          </div>
-        <% } else { %>
-          <% // In từng subgroup; bucket NONE in như 1 nhóm không tiêu đề %>
-          <% subNames.sort().forEach(sg => { 
-               const items = submap[sg] || []; 
-               const showTitle = (sg !== SG_NONE);
-          %>
-            <div class="subgroup-box">
-              <% if (showTitle) { %>
-                <div class="subgroup-title">• <%= sg %></div>
-              <% } %>
-              <div class="group-items">
-                <% items.forEach(item => { if (item.id !== promotion.id) { %>
-                  <span class="pill"><%= item.name %></span>
-                <% } }) %>
-              </div>
-            </div>
-          <% }) %>
-        <% } %>
-      </div>
-    <% }) %>
-  <% } %>
-</div>
-
-<div class="card">
-  <div class="card-title">Không áp dụng cùng (theo nhóm)</div>
-
-  <%
-    const excludes = promotion.compat_excludes || [];
-    if (!excludes.length) {
-  %>
-    <div class="empty">Không có.</div>
-  <% } else { 
-      const groupedX = buildHierarchy(excludes);
-      const groupNamesX = Object.keys(groupedX).sort();
-  %>
-    <% groupNamesX.forEach(g => { 
-         const submap = groupedX[g];
-         const subNames = Object.keys(submap);
-         const onlyOne = (subNames.length === 1);
-         const onlyKey = onlyOne ? subNames[0] : null;
-         const onlyList = onlyOne ? submap[onlyKey] : null;
-    %>
-      <div class="group-box warn">
-        <div class="group-title"><span class="dot"></span><%= g %></div>
-
-        <% if (onlyOne && (onlyKey === SG_NONE || (onlyList && onlyList.length === 1))) { %>
-          <div class="group-items">
-            <% (onlyList || []).forEach(item => { if (item.id !== promotion.id) { %>
-              <span class="pill pill-warn"><%= item.name %></span>
-            <% } }) %>
-          </div>
-        <% } else { %>
-          <% subNames.sort().forEach(sg => { 
-               const items = submap[sg] || []; 
-               const showTitle = (sg !== SG_NONE);
-          %>
-            <div class="subgroup-box">
-              <% if (showTitle) { %>
-                <div class="subgroup-title">• <%= sg %></div>
-              <% } %>
-              <div class="group-items">
-                <% items.forEach(item => { if (item.id !== promotion.id) { %>
-                  <span class="pill pill-warn"><%= item.name %></span>
-                <% } }) %>
-              </div>
-            </div>
-          <% }) %>
-        <% } %>
-      </div>
-    <% }) %>
-  <% } %>
-</div>
-
-
-
-                </tbody>
-              </table>
-            </div>
-
-
-
-            <% var _revs=(typeof revisions==='undefined' || !Array.isArray(revisions)) ? [] : revisions; %>
-              <!-- Lịch sử cập nhật -->
-              <div class="section-card">
-                <h3 class="section-title">Lịch sử cập nhật</h3>
-
-                <% if (!_revs || _revs.length===0) { %>
-                  <div class="empty">Chưa có lịch sử.</div>
-                  <% } else { %>
-                    <table class="detail-grid">
-                      <colgroup>
-                        <col style="width:220px">
-                        <col style="width:120px">
-                        <col>
-                      </colgroup>
-                      <thead>
-                        <tr>
-                          <th>Thời gian</th>
-                          <th>Hành động</th>
-                          <th>Thay đổi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <% _revs.forEach(function(rv){ %>
-                          <tr>
-                            <td>
-                              <%= new Date(rv.created_at).toLocaleString('vi-VN') %>
-                            </td>
-                            <td>
-                              <%= rv.action==='create' ? 'Tạo' : 'Cập nhật' %>
-                            </td>
-                            <td>
-                              <% var d=rv.diff || {}; var keys=Object.keys(d); %>
-                                <% if (keys.length===0) { %>
-                                  <span class="empty">Không có thay đổi</span>
-                                  <% } else { %>
-                                    <ul class="change-list">
-  <% keys.forEach(function(k){ %>
-    <li>
-      <strong><%= k %></strong>:
-      <% if (k === 'detail_fields') { %>
-        <div style="padding-left: 15px;">
-          <% const detailFrom = d[k].from || {}; %>
-          <% const detailTo = d[k].to || {}; %>
-          <% const allDetailKeys = [...new Set([...Object.keys(detailFrom), ...Object.keys(detailTo)])]; %>
-          
-          <% allDetailKeys.forEach(dk => { %>
-            <% const fromValue = detailFrom[dk] || ''; %>
-            <% const toValue = detailTo[dk] || ''; %>
-            <% if (fromValue !== toValue) { %>
-              <div style="margin-top: 5px;">
-                <em style="color: #64748b;"><%= dk %>:</em>
-                <div><span class="muted">từ</span> <code><%- fromValue || '(trống)' %></code></div>
-                <div><span class="muted">→</span> <code><%- toValue || '(trống)' %></code></div>
-              </div>
-            <% } %>
-          <% }); %>
-        </div>
-      <% } else { %>
-        <span class="muted">từ</span>
-        <code><%- JSON.stringify(d[k].from) %></code>
-        <span class="muted">→</span>
-        <code><%- JSON.stringify(d[k].to) %></code>
-      <% } %>
-    </li>
-  <% }) %>
-</ul>
-                                    <% } %>
-                            </td>
-                          </tr>
-                          <% }) %>
-                      </tbody>
-                    </table>
-                    <% } %>
-              </div>
-
-              <style>
-                .change-list {
-                  margin: 0;
-                  padding-left: 18px;
-                }
-
-                .change-list li {
-                  margin: 4px 0;
-                }
-
-                .muted {
-                  color: #64748b;
-                }
-
-                code {
-                  background: #f8fafc;
-                  border: 1px solid #e5e7eb;
-                  border-radius: 6px;
-                  padding: 1px 4px;
-                }
-              </style>
-
-              <% } else { %>
-                <div class="empty">Không tìm thấy CTKM.</div>
+                        <% if (promotion.coupon_list && promotion.coupon_list.length > 0) { %>
+                            <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #86efac;">
+                                <div style="font-size:12px; font-weight:600; margin-bottom:5px;">Mã áp dụng:</div>
+                                <% if (promotion.coupon_list.length === 1) { %>
+                                    <div style="display:flex; align-items:center; gap:5px;">
+                                        <code style="background:#fff; padding:4px 8px; border-radius:4px; border:1px solid #bbf7d0; font-weight:700;"><%= promotion.coupon_list[0].code %></code>
+                                        <button class="copy-btn" onclick="copyCode(this)" data-code="<%= promotion.coupon_list[0].code %>">📋 Copy</button>
+                                    </div>
+                                <% } else { %>
+                                    <button onclick="showCouponListModal(this)" data-coupons='<%- JSON.stringify(promotion.coupon_list) %>' class="btn-action" style="background:#fff; border:1px solid #166534; color:#166534; padding:4px 10px; font-size:12px;">
+                                        📜 Xem <%= promotion.coupon_list.length %> mã coupon
+                                    </button>
+                                <% } %>
+                            </div>
+                        <% } else if (promotion.coupon_code) { %>
+                             <div style="margin-top:8px; display:flex; align-items:center; gap:5px;">
+                                 Code: <strong><%= promotion.coupon_code %></strong>
+                                 <button class="copy-btn" onclick="copyCode(this)" data-code="<%= promotion.coupon_code %>">📋 Copy</button>
+                             </div>
+                        <% } %>
+                    </div>
                 <% } %>
 
-  </div>
+                <% if (promotion.promo_type === 'Gift' && promotion.detail_fields && promotion.detail_fields.gift_options) { %>
+                    <div class="config-block gift">
+                        <div class="config-title gift">🎁 Quà tặng (Options)</div>
+                        <% Object.values(promotion.detail_fields.gift_options).forEach((opt, idx) => { %>
+                            <div style="background:#fff; border:1px dashed #fdba74; padding:10px; border-radius:6px; margin-bottom:8px;">
+                                <div style="font-weight:700; color:#c2410c; font-size:13px;">Lựa chọn <%= idx + 1 %></div>
+                                <% if(opt.code) { %> 
+                                    <div style="font-size:12px; margin-bottom:2px;">
+                                        Code: <code><%= opt.code %></code>
+                                        <button class="copy-btn" onclick="copyCode(this)" data-code="<%= opt.code %>" style="font-size:10px; padding:1px 4px;">Copy</button>
+                                    </div> 
+                                <% } %>
+                                <div style="margin-top:4px;">
+                                    <% if(opt.skus) { %>
+                                        <% (Array.isArray(opt.skus) ? opt.skus : [opt.skus]).forEach(s => { %>
+                                            <span class="pill pill-sku"><%= s %></span>
+                                        <% }) %>
+                                    <% } %>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } %>
 
-  <style>
-    .sku-table-block {
-      margin-top: 14px;
-      overflow-x: auto;
-    }
+                <% if (promotion.promo_type === 'Combo' && promotion.detail_fields && promotion.detail_fields.combos) { %>
+                    <div class="config-block combo">
+                        <div class="config-title combo">🧩 Combo ưu đãi</div>
+                        
+                        <% Object.values(promotion.detail_fields.combos).forEach((combo, idx) => { %>
+                            <div style="background:#fff; border:1px dashed #93c5fd; padding:10px; border-radius:6px; margin-bottom:8px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom: 8px; border-bottom: 1px solid #eff6ff; padding-bottom: 5px;">
+                                    <span style="font-weight:700; color:#1e40af; font-size:13px;">
+                                        <%= combo.name || ('Combo ' + (idx + 1)) %>
+                                    </span>
+                                    <span style="font-weight:700; color:#dc2626;">
+                                        Giảm <%= new Intl.NumberFormat('vi-VN').format(combo.discount_val) %> <%= combo.discount_type=='percent'?'%':'đ' %>
+                                    </span>
+                                </div>
 
-    .sku-table-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-      margin: 8px 0 6px;
-    }
+                                <div style="margin-top:4px;">
+                                    <% if(combo.skus) { %>
+                                        <% (Array.isArray(combo.skus) ? combo.skus : [combo.skus]).forEach(skuCode => { %>
+                                            <div class="combo-item-row js-combo-item" data-sku="<%= skuCode %>">
+                                                <div class="combo-sku-name">
+                                                    <span style="font-size: 11px; color:#64748b; font-family: monospace;">SKU: <%= skuCode %></span>
+                                                    <span class="js-name" style="font-size:13px; color:#94a3b8;">
+                                                        <span class="spinner-border">⏳</span> Đang tải...
+                                                    </span>
+                                                </div>
+                                                <span class="combo-stock-badge stock-zero js-stock">
+                                                    --
+                                                </span>
+                                            </div>
+                                        <% }) %>
+                                    <% } %>
+                                </div>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } %>
+                
+                <% 
+                   const isInstallment = (promotion.promo_type || '').toLowerCase().includes('trả góp');
+                   if (isInstallment && promotion.detail_fields && promotion.detail_fields.installment_type) { 
+                %>
+                    <div class="config-block installment">
+                         <div class="config-title" style="color:#7e22ce;">🏦 Trả góp</div>
+                         <div class="info-row">
+                             <span class="info-label">Hình thức:</span>
+                             <strong><%= promotion.detail_fields.installment_type %></strong>
+                         </div>
+                         <div class="info-row">
+                             <span class="info-label">Đối tác:</span>
+                             <strong><%= promotion.detail_fields.installment_partner || 'Tất cả' %></strong>
+                         </div>
+                         <div style="margin-top:5px; font-size:13px;">
+                             <% if(promotion.detail_fields.installment_prepay) { %>Trả trước: <b><%= promotion.detail_fields.installment_prepay %></b> | <% } %>
+                             <% if(promotion.detail_fields.installment_interest) { %>Lãi suất: <b><%= promotion.detail_fields.installment_interest %></b><% } %>
+                         </div>
+                    </div>
+                <% } %>
+                   <% if (promotion.promo_type === 'Tặng mã giảm đơn hàng sau' && promotion.detail_fields) { %>
+                    <div class="config-block" style="background: transparent; border: none; padding: 0;">
+                        <div class="voucher-ticket">
+                            <div class="voucher-header">
+                                <span>🎫</span> MÃ TẶNG ĐƠN SAU
+                            </div>
 
-    .sku-table-title {
-      font-weight: 700;
-    }
+                            <div class="voucher-body">
+                                <div class="voucher-value-row">
+                                    <div>
+                                        <div class="voucher-label">Giá trị ưu đãi</div>
+                                        <div class="voucher-big-value">
+                                            <% 
+                                                let rawVal = promotion.detail_fields.next_order_value;
+                                                let displayVal = rawVal;
+                                                if (rawVal && !isNaN(String(rawVal).replace(/\D/g, ''))) {
+                                                    displayVal = new Intl.NumberFormat('vi-VN').format(Number(String(rawVal).replace(/\D/g, ''))) + ' đ';
+                                                }
+                                            %>
+                                            <%= displayVal || '---' %>
+                                        </div>
+                                    </div>
+                                </div>
 
-    .sku-search {
-      flex: 1;
-      max-width: 360px;
-      padding: 8px 10px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-    }
+                                <div>
+                                    <div class="voucher-label">Mã Coupon</div>
+                                    <div class="voucher-code-box">
+                                        <% if (promotion.detail_fields.next_order_code) { %>
+                                            <span class="voucher-code-text"><%= promotion.detail_fields.next_order_code %></span>
+                                            <button type="button" onclick="window.forceCopy('<%= promotion.detail_fields.next_order_code %>', this)" style="border:none; background:#2563eb; color:white; padding:6px 14px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600;">Copy</button>
+                                        <% } else { %>
+                                            <span style="font-style: italic; color: #64748b; font-size: 13px;">(Mã ngẫu nhiên / Hệ thống tự gửi)</span>
+                                        <% } %>
+                                    </div>
+                                </div>
+                                <% if(promotion.detail_fields.receive_method) { %>
+                                <div class="voucher-method">
+                                    <span style="font-size:16px;">📲</span>
+                                    <div><span style="font-weight:600; color: #475569;">Nhận qua:</span> <%= promotion.detail_fields.receive_method %></div>
+                                </div>
+                                <% } %>
+                                <% 
+                                    let targetSkusStr = promotion.detail_fields.next_order_target_skus || '';
+                                    let targetSkus = targetSkusStr.split(/[,\n\r\s]+/).map(s => s.trim()).filter(Boolean);
+                                %>
+                                <% if (targetSkus.length > 0) { %>
+                                    <div style="margin-top: 5px;">
+                                        <div class="voucher-label" style="margin-bottom: 5px;">🔥 Áp dụng cho các sản phẩm:</div>
+                                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                                        <% targetSkus.forEach(skuCode => { %>
+                                            <div class="gift-row-compact js-combo-item" data-sku="<%= skuCode %>" 
+                                                 style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 6px;">
+                                                
+                                                <span style="flex: 1; font-size: 12px; color: #334155; line-height: 1.5;">
+                                                    <strong style="color: #0f172a; white-space: nowrap;"><%= skuCode %></strong> - 
+                                                    <span class="js-name" style="color:#94a3b8;">⏳ Đang tải...</span>
+                                                </span>
+                                                
+                                                <span class="stock-badge zero js-stock" 
+                                                      style="font-size: 11px; font-weight: 600; padding: 4px 8px; line-height: 1; white-space: nowrap; border-radius: 20px; display: flex; align-items: center; height: fit-content; flex-shrink: 0;">
+                                                    --
+                                                </span>
+                                            </div>
+                                        <% }) %>
+                                    </div>
+                                    </div>
+                                <% } %>
 
-    .sku-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      overflow: hidden;
-    }
+                                
+                            </div>
+                        </div>
+                    </div>
+                <% } %>
+                
+                <% 
+                    const hasConfig = promotion.discount_value_type || promotion.coupon_list || 
+                                     (promotion.detail_fields && Object.keys(promotion.detail_fields).length > 0);
+                %>
+                <% if(!hasConfig) { %>
+                    <div style="text-align:center; padding:20px; color:#94a3b8; font-style:italic;">
+                        Không có cấu hình chi tiết
+                    </div>
+                <% } %>
+            </div>
+        </div> 
+    </div> 
 
-    .sku-table thead th {
-      background: #f8fafc;
-      font-size: 13px;
-      font-weight: 700;
-      text-align: left;
-      padding: 10px;
-      border-bottom: 1px solid #e5e7eb;
-    }
+  <% 
+        // Danh sách các mục cần hiển thị
+        const plainFields = [
+            'Nội dung',
+            'Đối tượng khách hàng áp dụng', 
+            'Đối tượng khách hàng loại trừ', 
+            'Giới hạn lượt áp dụng', 
+            'Yêu cầu đặc biệt', 
+            'Giới hạn số lượng coupon'
+        ];
 
-    .sku-table tbody td {
-      padding: 10px;
-      border-bottom: 1px solid #f1f5f9;
-      font-size: 13px;
-    }
+        // Hàm kiểm tra nhanh: Có dữ liệu thực sự hay không?
+        // (Loại bỏ trường hợp chỉ có dấu cách hoặc null)
+        const hasRealData = (val) => val && typeof val === 'string' && val.trim().length > 0;
 
-    .sku-table tbody tr:last-child td {
-      border-bottom: none;
-    }
+        // Kiểm tra xem có ít nhất 1 trường nào có dữ liệu không để hiện khung
+        const showCard = promotion.detail_fields && (
+    plainFields.some(key => hasRealData(promotion.detail_fields[key])) ||
+    hasRealData(promotion.detail_fields['Link nội bộ/ báo cáo'])
+);
+    %>
 
-    .is-hidden {
-      display: none;
-    }
+    <% if (showCard) { %>
+        <div class="modern-card">
+            <div class="card-header">
+                <div class="card-title" style="color:#0f172a;">📝 Chi tiết & Quy định</div>
+            </div>
+            
+            <div class="detail-minimal-list">
+                <% plainFields.forEach(function(key) { %>
+                    <% 
+                       // Lấy giá trị
+                       const content = promotion.detail_fields[key]; 
+                    %>
+                    
+                    <% if (hasRealData(content)) { %>
+                        <div class="detail-item">
+                            <div class="detail-item-title"><%= key %></div>
+                            
+                            <div class="detail-item-content">
+                                <%- content %>
+                            </div>
+                        </div>
+                    <% } %>
+                <% }); %>
 
-    .btn-more {
-      margin-top: 8px;
-      padding: 8px 12px;
-      border: 1px solid #cbd5e1;
-      background: #fff;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-  </style>
+                <% if (promotion.detail_fields && hasRealData(promotion.detail_fields['Link nội bộ/ báo cáo'])) { %>
+                    <div class="detail-item">
+                        <div class="detail-item-title">LINK BÁO CÁO / NỘI BỘ</div>
+                        <div class="detail-item-content">
+    <% 
+        let linkVal = promotion.detail_fields['Link nội bộ/ báo cáo'] || '';
+        // Loại bỏ thẻ HTML thừa nếu user chỉ paste link trần (để lấy URL sạch)
+        let rawUrl = linkVal.replace(/<[^>]*>?/gm, '').trim(); 
+    %>
+    
+    <% if (rawUrl.startsWith('http')) { %>
+        <a href="<%= rawUrl %>" target="_blank" style="display:inline-flex; align-items:center; gap:5px; background:#eff6ff; color:#2563eb; padding:8px 12px; border-radius:6px; text-decoration:none; font-weight:600; border:1px solid #dbeafe;">
+            🔗 Xem báo cáo chi tiết ↗
+        </a>
+    <% } else { %>
+        <%- linkVal %>
+    <% } %>
+</div>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    <% } %>
+    
+    <% 
+        const isBySkuList = !promotion.apply_to_all_skus && 
+                            (!promotion.apply_to_brands || promotion.apply_to_brands.length === 0) && 
+                            (!promotion.apply_to_categories || promotion.apply_to_categories.length === 0);
+    %>
+    
+    <% 
+           const hasAllows = promotion.compat_allows && promotion.compat_allows.length > 0;
+           const hasExcludes = promotion.compat_excludes && promotion.compat_excludes.length > 0;
 
-  <script>
-    // Bỏ dấu tiếng Việt + lowercase để so khớp ổn định
-    function _norm(s) {
-      return (s || '')
-        .toString()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove diacritics
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-    }
+           // Hàm helper: Gom nhóm
+           const groupByGroup = (list) => {
+               if (!list) return {};
+               return list.reduce((groups, item) => {
+                   const gName = item.group_name || 'Khác';
+                   if (!groups[gName]) groups[gName] = [];
+                   groups[gName].push(item);
+                   return groups;
+               }, {});
+           };
+        %>
 
-    // Debounce cho input (tránh lọc quá dày)
-    function _debounce(fn, wait = 120) {
-      let t; return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
-    }
+        <% if (hasAllows || hasExcludes) { %>
+            <div class="modern-card">
+                <div class="card-header">
+                    <div class="card-title" style="color:#0f172a;">🔗 Quan hệ CTKM</div>
+                </div>
+                
+                <div class="detail-minimal-list" style="padding-top:10px;">
+                    
+                    <% if (hasAllows) { %>
+                        <div class="detail-item" style="border:none; padding-bottom:0;">
+                            <div class="detail-item-title" style="color:#166534; margin-bottom:15px;">
+                                ✅ Áp dụng cùng (Cộng dồn)
+                            </div>
+                            
+                            <% 
+                               const groupedAllows = groupByGroup(promotion.compat_allows);
+                               Object.keys(groupedAllows).sort().forEach(gName => { 
+                            %>
+                                <div class="tree-group">
+                                    <div class="tree-group-label"><%= gName %></div>
+                                    
+                                    <div class="tree-children">
+                                        <% groupedAllows[gName].forEach(p => { %>
+                                            <div class="tree-item">
+                                                <%= p.name %>
+                                            </div>
+                                        <% }) %>
+                                    </div>
+                                </div>
+                            <% }) %>
+                        </div>
+                    <% } %>
 
-    function filterSkuTable(blockId) {
-      const block = document.getElementById(blockId);
-      if (!block) return;
+                    <% if (hasAllows && hasExcludes) { %><hr style="border:0; border-top:1px dashed #e2e8f0; margin: 10px 0 20px 0;"><% } %>
 
-      const qRaw = block.querySelector('.sku-search')?.value || '';
-      const q = _norm(qRaw);
-      const terms = q ? q.split(' ') : [];
-      const rows = Array.from(block.querySelectorAll('tbody .sku-row'));
-      const moreBtn = block.querySelector('.btn-more');
-      const notfound = block.querySelector('.notfound');
-      const N = Number(block.dataset.initial || 10);
+                    <% if (hasExcludes) { %>
+                        <div class="detail-item" style="border:none; padding-top:0;">
+                            <div class="detail-item-title" style="color:#991b1b; margin-bottom:15px;">
+                                ⛔ Không áp dụng cùng (Loại trừ)
+                            </div>
+                            
+                            <% 
+                               const groupedExcludes = groupByGroup(promotion.compat_excludes);
+                               Object.keys(groupedExcludes).sort().forEach(gName => { 
+                            %>
+                                <div class="tree-group">
+                                    <div class="tree-group-label" style="background:#fff1f2; color:#991b1b; border-color:#fecaca;">
+                                        <%= gName %>
+                                    </div>
+                                    <div class="tree-children" style="border-left-color:#fecaca;">
+                                        <% groupedExcludes[gName].forEach(p => { %>
+                                            <div class="tree-item" style="color:#7f1d1d;">
+                                                <%= p.name %>
+                                            </div>
+                                        <% }) %>
+                                    </div>
+                                </div>
+                            <% }) %>
+                        </div>
+                    <% } %>
+                    
+                </div>
+            </div>
+        <% } %>
 
-      let matched = 0;
+    <% if (isBySkuList && includedSkuDetails && includedSkuDetails.length > 0) { %>
+    <div class="modern-card" id="skuTableSection">
+        <div class="card-header">
+            <div class="card-title">
+                📦 Danh sách SKU & Tồn kho 
+                <span style="background:#e2e8f0; font-size:12px; padding:2px 8px; border-radius:10px; margin-left:8px;">
+                    <%= includedSkuDetails.length %>
+                </span>
+            </div>
+            <input type="text" id="skuSearchInput" placeholder="🔍 Tìm SKU / Tên..." style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; width:200px;">
+        </div>
 
-      rows.forEach((tr, idx) => {
-        // text nguồn để so khớp (SKU + tên + brand + giá)
-        const txt = _norm(tr.innerText);
-        const ok = !q || terms.every(t => txt.includes(t));
+        <div class="sku-table-wrapper">
+            <table class="sku-table" id="skuTableMain">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Tên sản phẩm</th>
+                        <th>Giá niêm yết</th>
+                        
+                        <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && allBranchNames && allBranchNames.length > 0) { %>
+                            <% allBranchNames.forEach(branchName => { %>
+                                <th style="text-align: center;"><%= branchName %></th>
+                            <% }); %>
+                        <% } else if (typeof userBranch !== 'undefined' && userBranch && !isGlobalAdmin) { %>
+                            <th style="text-align: center;">Tồn <%= userBranch %></th>
+                        <% } %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% includedSkuDetails.forEach(function(r) { %>
+                        <tr>
+                            <td><span class="pill pill-sku"><%= r.sku %></span></td>
+                            <td><%= r.product_name || '-' %></td>
+                            <td><%= (r.list_price != null) ? new Intl.NumberFormat('vi-VN').format(r.list_price) : '-' %></td>
+                            
+                            <% 
+                                const inventoryForSku = r.inventory || new Map();
+                            %>
+                            
+                            <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && allBranchNames && allBranchNames.length > 0) { %>
+                                <% allBranchNames.forEach(branchName => { 
+                                    const counts = inventoryForSku.get(branchName);
+                                    const ton_moi = (counts ? counts.hang_ban_moi : 0);
+                                %>
+                                    <td class="inventory-cell <%= ton_moi > 0 ? 'inventory-has' : 'inventory-zero' %>"><%= ton_moi %></td>
+                                <% }); %>
+                            <% } else if (typeof userBranch !== 'undefined' && userBranch && !isGlobalAdmin) { 
+                                const counts = inventoryForSku.get(userBranch);
+                                const ton_moi = (counts ? counts.hang_ban_moi : 0);
+                            %>
+                                <td class="inventory-cell <%= ton_moi > 0 ? 'inventory-has' : 'inventory-zero' %>"><%= ton_moi %></td>
+                            <% } %>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <% } %>
 
-        // Khi có query: hiện đúng dòng match, ẩn dòng không match
-        // Khi rỗng: tạm ẩn các dòng > N (giới hạn ban đầu)
-        if (q) {
-          tr.style.display = ok ? '' : 'none';
-        } else {
-          tr.style.display = (idx < N) ? '' : 'none';
+
+    <div class="modern-card">
+        <div class="card-header">
+            <div class="card-title">🕒 Lịch sử thay đổi</div>
+        </div>
+        <% var _revs=(typeof revisions==='undefined' || !Array.isArray(revisions)) ? [] : revisions; %>
+        
+        <% if (_revs.length === 0) { %>
+            <div style="color:#94a3b8; font-style:italic;">Chưa có lịch sử cập nhật.</div>
+        <% } else { %>
+            <div style="max-height: 300px; overflow-y: auto;">
+                <table class="sku-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 150px;">Thời gian</th>
+                            <th style="width: 100px;">Hành động</th>
+                            <th>Chi tiết</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% _revs.forEach(function(rv){ %>
+                            <tr>
+                                <td style="color:#64748b; font-size:12px;">
+                                    <%= new Date(rv.created_at).toLocaleString('vi-VN') %>
+                                </td>
+                                <td>
+                                    <% if(rv.action==='create') { %> <span class="status-badge status-active">Tạo mới</span>
+                                    <% } else { %> <span class="status-badge" style="background:#e0f2fe; color:#0284c7;">Cập nhật</span> <% } %>
+                                </td>
+                                <td style="font-size:12px;">
+                                    <% var d=rv.diff || {}; var keys=Object.keys(d); %>
+                                    <% if (keys.length===0) { %> 
+                                        <span>Không có thay đổi</span>
+                                    <% } else { %>
+                                        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                            <% keys.forEach(k => { %>
+                                                <span style="background:#f8fafc; border:1px solid #e2e8f0; padding:2px 6px; border-radius:4px;">
+                                                    <b><%= k %></b>: 
+                                                    <% if (k === 'detail_fields') { %>
+                                                        (Chi tiết cấu hình)
+                                                    <% } else { %>
+                                                        <% 
+                                                            var valFrom = JSON.stringify(d[k].from);
+                                                            if (valFrom === undefined) valFrom = '';
+                                                            var valTo = JSON.stringify(d[k].to);
+                                                            if (valTo === undefined) valTo = '';
+                                                        %>
+                                                        <code style="color:#dc2626;"><%= valFrom.substring(0,20) %>...</code> 
+                                                        → 
+                                                        <code style="color:#166534;"><%= valTo.substring(0,20) %>...</code>
+                                                    <% } %>
+                                                </span>
+                                            <% }) %>
+                                        </div>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        <% } %>
+    </div>
+
+    <% } else { %>
+        <div class="modern-card" style="text-align:center; padding:40px;">
+            <h3>📭 Không tìm thấy CTKM</h3>
+            <a href="/promo-management" class="btn-action btn-edit" style="margin-top:10px;">Quay lại danh sách</a>
+        </div>
+    <% } %>
+
+</div>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        // --- 1. XỬ LÝ ĐÓNG MODAL ---
+        const couponModal = document.getElementById('couponListModal');
+        const historyModal = document.getElementById('priceHistoryModal');
+
+        // Hàm đóng chung
+        function closeModal(modal) {
+            if (modal) modal.style.display = 'none';
         }
 
-        if (ok) matched++;
-      });
+        // Bắt sự kiện click vào nút đóng (class .close-modal-btn)
+        document.querySelectorAll('.close-modal-btn, .close').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const modal = this.closest('.modal');
+                closeModal(modal);
+            });
+        });
 
-      // Xử lý nút "Xem thêm"
-      if (moreBtn) {
-        if (q) {
-          // Khi đang tìm kiếm: bỏ nút Xem thêm
-          moreBtn.style.display = 'none';
-          moreBtn.dataset.expanded = '1';
-          moreBtn.textContent = 'Thu gọn';
-        } else {
-          // Khôi phục trạng thái ban đầu
-          const total = rows.length;
-          moreBtn.style.display = (total > N) ? 'inline-block' : 'none';
-          moreBtn.dataset.expanded = '0';
-          moreBtn.textContent = 'Xem thêm…';
+        // Bắt sự kiện click ra vùng tối (Backdrop)
+        window.addEventListener('click', function(e) {
+            if (e.target === couponModal) closeModal(couponModal);
+            if (e.target === historyModal) closeModal(historyModal);
+        });
+
+        // Expose hàm đóng ra window để dùng nếu cần
+        window.closeCouponModal = function() { closeModal(couponModal); };
+
+        // --- 2. XỬ LÝ COPY CODE (Hỗ trợ cả trong Modal) ---
+        window.copyCode = function(btn) {
+            const code = btn.getAttribute('data-code');
+            if (!code) return;
+
+            const onCopySuccess = () => {
+                const originalContent = btn.innerHTML;
+                
+                // Hiệu ứng phản hồi
+                if (btn.tagName === 'BUTTON' && (btn.innerHTML.includes('📋') || btn.title === 'Copy mã')) {
+                    btn.innerHTML = '<span style="color:#16a34a; font-weight:bold;">✔</span>';
+                } else {
+                    btn.innerHTML = '✅ Đã copy';
+                }
+
+                // Trả lại trạng thái cũ sau 1.5s
+                setTimeout(() => { 
+                    btn.innerHTML = originalContent; 
+                }, 1500);
+            };
+
+            // Ưu tiên API Clipboard hiện đại
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(code).then(onCopySuccess).catch(() => fallbackCopy(code, onCopySuccess));
+            } else {
+                fallbackCopy(code, onCopySuccess);
+            }
+        };
+
+        function fallbackCopy(text, onSuccess) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // Style để ẩn khỏi mắt người dùng nhưng vẫn tương tác được
+            textArea.style.position = "fixed"; 
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) onSuccess();
+                else alert('Không thể copy mã này (Trình duyệt chặn).');
+            } catch (err) {
+                console.error('Copy failed', err);
+            }
+            document.body.removeChild(textArea);
         }
-      }
 
-      // Hiện/ẩn thông báo không tìm thấy
-      if (notfound) {
-        notfound.style.display = (q && matched === 0) ? 'block' : 'none';
-      }
-    }
+        // --- 3. HIỂN THỊ MODAL COUPON ---
+       window.showCouponListModal = function(button) {
+    const modal = document.getElementById('uniqueCouponModal');
+    const titleEl = document.getElementById('uniqueModalTitle');
+    const container = document.getElementById('uniqueModalContent');
+    
+    if (!modal || !titleEl || !container) return;
 
-    const filterSkuTableDebounced = _debounce(filterSkuTable, 120);
+    // Lấy dữ liệu
+    const promoName = (button.dataset && button.dataset.promoName) ? button.dataset.promoName : '';
+    let coupons = [];
+    try { 
+        coupons = JSON.parse(button.dataset.coupons || '[]');
+    } catch (e) { coupons = []; }
 
-    function toggleMore(blockId) {
-      const block = document.getElementById(blockId);
-      const rows = Array.from(block.querySelectorAll('tbody .sku-row'));
-      const btn = block.querySelector('.btn-more');
-      const expanded = btn.dataset.expanded === '1';
-      const N = Number(block.dataset.initial || 10);
-
-      if (!expanded) {
-        rows.forEach(tr => tr.style.display = ''); // show all
-        btn.dataset.expanded = '1';
-        btn.textContent = 'Thu gọn';
-      } else {
-        rows.forEach((tr, idx) => tr.style.display = (idx < N) ? '' : 'none');
-        btn.dataset.expanded = '0';
-        btn.textContent = 'Xem thêm…';
-      }
-    }
-
-    // Gán handler khi trang load (để gõ là lọc ngay)
-    document.addEventListener('DOMContentLoaded', () => {
-      ['includedSkuBlock', 'excludedSkuBlock'].forEach(id => {
-        const block = document.getElementById(id);
-        if (!block) return;
-        const input = block.querySelector('.sku-search');
-        if (input) {
-          input.addEventListener('input', () => filterSkuTableDebounced(id));
-          // Khởi tạo trạng thái ban đầu (giới hạn N dòng)
-          filterSkuTable(id);
-        }
-      });
+    const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n);
+    
+    // Sắp xếp giảm dần
+    const sorted = coupons.slice().sort((a, b) => {
+        const valA = parseFloat(String(a.discount).replace(/\D/g,'')) || 0;
+        const valB = parseFloat(String(b.discount).replace(/\D/g,'')) || 0;
+        return valB - valA;
     });
-  </script>
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div style="padding:20px; text-align:center;">Không có coupon nào.</div>';
+    } else {
+        const rows = sorted.map(c => {
+            const disc = parseFloat(String(c.discount).replace(/\D/g,'')) || 0;
+            // Nút copy dùng onclick inline để chắc chắn bắt được sự kiện
+            return `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:12px 15px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <code style="font-weight:700; color:#c2410c; background:#fff7ed; padding:4px 8px; border-radius:4px; border:1px solid #ffedd5; user-select: text;">${c.code||'-'}</code>
+                            <button type="button" onclick="window.forceCopy('${c.code||''}', this)" 
+                                style="border:1px solid #cbd5e1; background:#fff; cursor:pointer; padding:2px 6px; border-radius:4px; font-size:12px;" 
+                                title="Copy">
+                                📋 Copy
+                            </button>
+                        </div>
+                    </td>
+                    <td style="padding:12px 15px; color:#334155;">${c.name||'-'}</td>
+                    <td style="padding:12px 15px; color:#16a34a; font-weight:700;">${disc ? fmt(disc)+'đ' : '-'}</td>
+                    <td style="padding:12px 15px; color:#64748b;">${c.note||''}</td>
+                </tr>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                <thead style="background:#f8fafc; color:#475569; position:sticky; top:0; z-index:1;">
+                    <tr>
+                        <th style="padding:12px 15px; text-align:left;">Mã</th>
+                        <th style="padding:12px 15px; text-align:left;">Tên</th>
+                        <th style="padding:12px 15px; text-align:left;">Giảm</th>
+                        <th style="padding:12px 15px; text-align:left;">Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
+    }
+
+    titleEl.textContent = promoName ? `Coupon: ${promoName}` : 'Danh sách Coupon';
+    
+    // Ép hiển thị flex để đè các style ẩn khác
+    modal.style.display = 'flex';
+};
+
+        // --- 4. LOGIC TỒN KHO COMBO/GIFT (Giữ nguyên) ---
+        const comboItems = document.querySelectorAll('.js-combo-item');
+        if (comboItems.length > 0) {
+            comboItems.forEach(async (el) => {
+                const sku = el.getAttribute('data-sku');
+                const nameEl = el.querySelector('.js-name');
+                const stockEl = el.querySelector('.js-stock');
+                if (!sku) return;
+
+                try {
+                    const res = await fetch(`/api/admin/search-sku-stock?q=${encodeURIComponent(sku)}`);
+                    const json = await res.json();
+                    
+                    if (json.ok && json.results && json.results.length > 0) {
+                        const product = json.results.find(p => p.sku == sku) || json.results[0];
+                        nameEl.style.color = '#334155';
+                        nameEl.textContent = product.product_name;
+                        
+                        const stock = product.stock || 0;
+                        stockEl.textContent = `Tồn: ${stock}`;
+                        if (stock > 0) {
+                            stockEl.className = 'combo-stock-badge stock-has js-stock';
+                        } else {
+                            stockEl.className = 'combo-stock-badge stock-zero js-stock';
+                        }
+                    } else {
+                        nameEl.textContent = '❌ Không tìm thấy SP';
+                        nameEl.style.color = '#ef4444';
+                    }
+                } catch (e) {
+                    console.error(e);
+                    nameEl.textContent = '⚠️ Lỗi tải';
+                }
+            });
+        }
+
+        // --- 5. LOGIC LỊCH SỬ GIÁ (Giữ nguyên phần gọi API) ---
+        const btnHistory = document.getElementById('btnHistoryPrice');
+        const historyTbody = document.querySelector('#phTable tbody');
+        const searchInput = document.getElementById('skuSearchInput'); // ID input tìm kiếm ở trên bảng SKU
+        // Nếu trang này ko có input id đó thì lấy từ biến logic khác, ở đây tôi giả định logic cũ
+        
+        if (btnHistory) {
+            btnHistory.onclick = async (e) => {
+                e.preventDefault();
+                // Logic lấy SKU từ ngữ cảnh trang edit, nhưng ở trang detail này thường ko có nút này. 
+                // Tôi giữ lại structure để tránh lỗi JS nếu bạn copy paste từ trang edit sang.
+            };
+        }
+    });
 
 
-<div id="couponListModal" class="modal" style="display:none; z-index: 1001;">
-    <div class="modal-content">
-        <span class="close" onclick="this.parentElement.parentElement.style.display='none'">&times;</span>
-        <h2 id="couponModalTitle" style="margin-top: 0;"></h2>
-        <div id="couponModalTableContainer" style="overflow-x: auto;"></div>
+
+    window.forceCloseModal = function() {
+    const modal = document.getElementById('uniqueCouponModal');
+    if (modal) modal.style.display = 'none';
+};
+
+// Đóng khi click ra ngoài vùng đen (Backdrop)
+window.onclick = function(event) {
+    const modal = document.getElementById('uniqueCouponModal');
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+};
+
+// Hàm copy độc lập
+window.forceCopy = function(text, btn) {
+    if (!text) return;
+    
+    // Tạo textarea tạm để copy
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        // Hiệu ứng nút
+        const oldText = btn.innerHTML;
+        btn.innerHTML = '✔ Đã chép';
+        btn.style.color = 'green';
+        setTimeout(() => {
+            btn.innerHTML = oldText;
+            btn.style.color = '';
+        }, 1500);
+    } catch (err) {
+        alert('Không copy được: ' + text);
+    }
+    document.body.removeChild(textArea);
+};
+
+// --- 7. LOGIC TÌM KIẾM TRONG BẢNG SKU (Client-side) ---
+    const tableSearchInput = document.getElementById('skuSearchInput');
+    const skuTable = document.getElementById('skuTableMain');
+
+    if (tableSearchInput && skuTable) {
+        tableSearchInput.addEventListener('input', function() {
+            const filter = this.value.toLowerCase().trim();
+            const rows = skuTable.querySelectorAll('tbody tr');
+
+            rows.forEach(row => {
+                // Lấy nội dung của SKU (cột 1) và Tên sản phẩm (cột 2)
+                // Hoặc đơn giản là lấy toàn bộ text của dòng đó
+                const textContent = row.textContent.toLowerCase();
+                
+                // Nếu tìm thấy từ khóa -> Hiện, ngược lại -> Ẩn
+                if (textContent.includes(filter)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    }
+</script>
+
+
+<div id="couponListModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:99999; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:90%; max-width:700px; padding:0; border-radius:12px; position:relative; max-height:85vh; display:flex; flex-direction:column; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow:hidden;">
+        
+        <div style="padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+            <h3 id="couponModalTitle" style="margin:0; font-size:16px; font-weight:700; color:#0f172a;">Danh sách Coupon</h3>
+            <span class="close-modal-btn" style="cursor:pointer; font-size:24px; color:#64748b; line-height: 1; padding: 0 5px;">&times;</span>
+        </div>
+        
+        <div id="couponModalTableContainer" style="overflow-y:auto; flex:1; padding: 0;">
+            </div>
+
+        <div style="padding: 10px 20px; border-top: 1px solid #e2e8f0; text-align: right; background: #fff;">
+            <button class="close-modal-btn" style="background: #e2e8f0; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; color: #475569; cursor: pointer;">Đóng</button>
+        </div>
     </div>
 </div>
 
-<script>
+<div id="uniqueCouponModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:2147483647; align-items:center; justify-content:center; pointer-events: auto;">
+    
+    <div style="background:#fff; width:90%; max-width:700px; max-height:85vh; border-radius:12px; display:flex; flex-direction:column; box-shadow: 0 20px 50px rgba(0,0,0,0.5); pointer-events: auto !important; position: relative;">
+        
+        <div style="padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 12px 12px 0 0;">
+            <h3 id="uniqueModalTitle" style="margin:0; font-size:16px; font-weight:700; color:#0f172a;">Danh sách Coupon</h3>
+            <div onclick="window.forceCloseModal()" style="cursor:pointer; padding: 5px 10px; font-size: 24px; color: #64748b; font-weight: bold;">&times;</div>
+        </div>
+        
+        <div id="uniqueModalContent" style="overflow-y:auto; flex:1; padding: 0; background: #fff; user-select: text !important; -webkit-user-select: text !important;">
+            </div>
 
-window.showCouponListModal = function (button) {
-  var modal     = document.getElementById('couponListModal');
-  var titleEl   = document.getElementById('couponModalTitle');
-  var container = document.getElementById('couponModalTableContainer');
-  if (!modal || !titleEl || !container) return;
-
-  var promoName = (button && button.dataset && button.dataset.promoName) ? button.dataset.promoName : '—';
-
-  // Parse JSON an toàn
-  var coupons = [];
-  try {
-    coupons = JSON.parse((button && button.dataset && button.dataset.coupons) ? button.dataset.coupons : '[]');
-  } catch (e) {
-    console.warn('data-coupons không phải JSON hợp lệ:', e);
-    coupons = [];
-  }
-
-  function toNumber(v) {
-    if (typeof v === 'number') return v;
-    if (v == null || v === '') return 0;
-    return parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0;
-  }
-  function fmt(n) {
-    return new Intl.NumberFormat('vi-VN').format(toNumber(n));
-  }
-  function esc(s) { return (s == null ? '' : String(s)); }
-
-  // Sắp xếp GIẢM DẦN theo discount
-  var sorted = coupons.slice().sort(function(a, b) {
-    return toNumber(b && b.discount) - toNumber(a && a.discount);
-  });
-
-  // Render bảng (không dùng backtick)
-  var rows = '';
-  sorted.forEach(function(c) {
-    rows += '<tr>'
-      + '<td>' + (esc(c && c.name) || '-') + '</td>'
-      + '<td><button class="code-badge" onclick="copyCode(this)" data-code="' + (esc(c && c.code) || '') + '">'
-      + '<span>' + (esc(c && c.code) || '') + '</span> <small>(copy)</small>'
-      + '</button></td>'
-      + '<td>' + (toNumber(c && c.discount) ? fmt(c.discount) : '-') + '</td>'
-      + '<td>' + (esc(c && c.note) || '-') + '</td>'
-      + '</tr>';
-  });
-
-  titleEl.textContent = 'Danh sách coupon cho: ' + promoName;
-  container.innerHTML =
-      '<div class="table-scroll-wrapper">'
-    +   '<table class="info-table" style="margin-top:15px">'
-    +     '<thead>'
-    +       '<tr>'
-    +         '<th>Tên/Nhóm SP</th>'
-    +         '<th>Mã Voucher</th>'
-    +         '<th>Mức giảm</th>'
-    +         '<th>Điều kiện</th>'
-    +       '</tr>'
-    +     '</thead>'
-    +     '<tbody>' + rows + '</tbody>'
-    +   '</table>'
-    + '</div>';
-
-  modal.style.display = 'block';
-};
-</script>
+        <div style="padding: 10px 20px; border-top: 1px solid #e2e8f0; text-align: right; background: #fff; border-radius: 0 0 12px 12px;">
+            <button onclick="window.forceCloseModal()" style="background: #e2e8f0; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; font-weight: 600; color: #475569; cursor: pointer;">Đóng lại</button>
+        </div>
+    </div>
+</div>
 <%- include('partials/toast') %>
 <%- include('partials/footer') %>

@@ -1,779 +1,966 @@
 <%- include('partials/header', {title: 'CTKM theo SKU' , currentPage: 'promotion' , time: time}) %>
 
-    <style>
-        .promotion-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #f8f9fa;
-            min-height: 100vh;
-        }
-
-        .search-section {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border: 1px solid #e9ecef;
-        }
-
-        .search-section h1 {
-            color: #2c3e50;
-            margin-bottom: 20px;
-            font-size: 28px;
-            font-weight: 700;
-            text-align: center;
-        }
-
-        .search-form {
-            display: flex;
-            gap: 15px;
-            align-items: end;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .form-group {
-            flex: 1;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #495057;
-            font-size: 14px;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            font-size: 16px;
-            background: white;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        }
-
-        .btn-search {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 14px 30px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            height: 50px;
-        }
-
-        .btn-search:hover {
-            background: #c0392b;
-            transform: translateY(-2px);
-        }
-
-        .product-info {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border: 1px solid #e9ecef;
-        }
-
-        .product-info h2 {
-            color: #2c3e50;
-            margin-bottom: 25px;
-            font-size: 22px;
-            font-weight: 700;
-            padding-bottom: 15px;
-            border-bottom: 3px solid #e74c3c;
-        }
-
-        .info-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-
-        .info-table th {
-            background: #f8f9fa;
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-            color: #495057;
-            border: 1px solid #dee2e6;
-            width: 150px;
-        }
-
-        .info-table td {
-            padding: 15px;
-            border: 1px solid #dee2e6;
-            font-weight: 500;
-            color: #2c3e50;
-            background: white;
-        }
-
-        .info-table tr:nth-child(even) td {
-            background: #f8f9fa;
-        }
-
-        .promotions-section {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border: 1px solid #e9ecef;
-        }
-
-        .promotions-section h2 {
-            color: #2c3e50;
-            margin-bottom: 25px;
-            font-size: 22px;
-            font-weight: 700;
-            padding-bottom: 15px;
-            border-bottom: 3px solid #27ae60;
-        }
-
-        .promotion-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-
-        .promotion-table th {
-            background: #27ae60;
-            color: white;
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-            border: 1px solid #229954;
-        }
-
-        .promotion-table td {
-            padding: 15px;
-            border: 1px solid #dee2e6;
-            vertical-align: top;
-        }
-
-        .promotion-table tr:nth-child(even) {
-            background: #f8f9fa;
-        }
-
-        .promo-name {
-            font-weight: 600;
-            color: #2c3e50;
-            font-size: 16px;
-        }
-
-        .promo-detail {
-            color: #6c757d;
-            margin-bottom: 5px;
-            font-size: 14px;
-        }
-
-        .promo-detail strong {
-            color: #495057;
-        }
-
-        .discount-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .discount-item {
-            background: #e8f5e8;
-            padding: 10px;
-            border-radius: 6px;
-            border-left: 4px solid #27ae60;
-        }
-
-        .discount-item strong {
-            color: #27ae60;
-        }
-
-        .price-summary {
-            background: #fff3cd;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 25px;
-            border: 2px solid #ffc107;
-        }
-
-        .price-summary h3 {
-            color: #856404;
-            margin-bottom: 15px;
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .summary-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #ffeaa7;
-        }
-
-        .summary-item:last-child {
-            border-bottom: none;
-        }
-
-        .summary-item strong {
-            color: #856404;
-        }
-
-        .final-price {
-            font-size: 20px;
-            font-weight: 700;
-            color: #e74c3c;
-        }
-
-        .no-data {
-            text-align: center;
-            padding: 50px 20px;
-            color: #6c757d;
-        }
-
-        .no-data i {
-            font-size: 64px;
-            margin-bottom: 20px;
-            display: block;
-            color: #adb5bd;
-        }
-
-        .no-data p {
-            font-size: 18px;
-            margin-bottom: 10px;
-        }
-
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #f5c6cb;
-            text-align: center;
-        }
-
-        .btn-detail {
-            background: #3498db;
-            color: white;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: inline-block;
-            margin-top: 10px;
-        }
-
-        .btn-detail:hover {
-            background: #2980b9;
-            transform: translateY(-1px);
-        }
-
-        /* === BỔ SUNG CSS RESPONSIVE CHO BẢNG === */
-        @media (max-width: 768px) {
-
-            .promo-table .code-badge {
-    white-space: normal; /* Cho phép nút tự xuống dòng */
-    word-break: break-all; /* Bẻ gãy chữ nếu cần */
-    line-height: 1.4;
-    padding: 6px 10px; /* Thu nhỏ nút một chút */
+<style>
+/* --- VOUCHER TICKET CARD (SEARCH PAGE) --- */
+.voucher-tear {
+    background: linear-gradient(to right, #eff6ff, #f0f9ff);
+    border: 1px dashed #60a5fa;
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-top: 10px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    /* Tạo khoảng cách an toàn 2 bên để không bị cắt chữ */
+    margin-left: 6px;
+    margin-right: 6px;
 }
-            /* Ẩn tiêu đề ngang của bảng */
-            .promo-table thead {
-                display: none;
-            }
 
-            /* Chuyển <td> thành block để xếp dọc */
-            .promo-table,
-            .promo-table tbody,
-            .promo-table tr,
-            .promo-table td {
-                display: block;
-                width: 100%;
-            }
+/* Tạo hiệu ứng lõm tròn (Xé) bên trái */
+.voucher-tear::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -7px; /* Đẩy ra mép trái */
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: #fff; /* Màu trùng với nền card mẹ */
+    border-radius: 50%;
+    border-right: 1px dashed #60a5fa; /* Viền trùng với voucher */
+    box-shadow: inset -1px 0 2px rgba(0,0,0,0.05);
+}
 
-            /* Mỗi <tr> sẽ là một "card" riêng */
-            .promo-table tr {
-                margin-bottom: 15px;
-                border: 1px solid #dee2e6;
-                border-radius: 8px;
-                overflow: hidden; /* Giúp bo góc */
-            }
+/* Tạo hiệu ứng lõm tròn (Xé) bên phải */
+.voucher-tear::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -7px; /* Đẩy ra mép phải */
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    border-left: 1px dashed #60a5fa;
+    box-shadow: inset 1px 0 2px rgba(0,0,0,0.05);
+}
 
-            .promo-table td {
-                border: none;
-                border-bottom: 1px solid #f1f5f9;
-                padding-left: 15px;
-                padding-right: 15px;
-                position: relative;
-            }
+.vt-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #64748b;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
 
-            .promo-table td:last-child {
-                border-bottom: none;
-            }
+.vt-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: #2563eb;
+    line-height: 1.2;
+}
 
-            /* Hiển thị tiêu đề (data-label) bên trên nội dung */
-            .promo-table td::before {
-                content: attr(data-label); /* Lấy nội dung từ data-label="" */
-                display: block;
-                font-size: 12px;
-                font-weight: 600;
-                color: #6c757d;
-                margin-bottom: 4px;
-                padding-top: 5px; /* Thêm khoảng cách cho <td> đầu tiên */
-            }
-            
-            /* Tinh chỉnh cho <td> đầu tiên */
-            .promo-table td:first-child {
-                 padding-top: 15px;
-            }
-            .promo-table td:first-child::before {
-                 padding-top: 0;
-            }
-        }
-
-    </style>
-
-    <div class="promotion-container">
-        <% if (typeof error !=='undefined' && error) { %>
-            <div class="error-message">
-                ⚠️ <%= error %>
-            </div>
-            <% } %>
-                
-            
-            
-            <div class="page-search">
-                    <div class="search-section">
-                        <h1>CTKM theo SKU</h1>
-                       <form action="/search-promotion" method="POST" class="search-form" id="searchForm">
-  <div class="form-group">
-    <label for="skuSearch">Nhập SKU hoặc CTKM</label>
-    <div class="autocomplete-container">
-      <!-- đổi id="sku" -> id="skuSearch" -->
-      <input type="text" id="skuSearch" name="sku" autocomplete="off"
-             placeholder="Ví dụ: 244994124"
-             value="<%= typeof product !== 'undefined' && product ? product.sku : '' %>">
-      <!-- đổi id="skuAutocomplete" -> id="autocompleteResults" -->
-      <div class="autocomplete-results" id="autocompleteResults"></div>
-    </div>
-                   
-  </div>
-  <button type="submit" class="btn-search">🔍 Tìm kiếm</button>
-</form>
+.vt-code {
+    font-family: monospace;
+    background: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    font-weight: 700;
+    font-size: 12px;
+}
 
 
 
-                    </div>
-     <%# === KHỐI THI ĐUA NỘI BỘ MỚI === %>
-        <% if (internalContest) { %>
-          <div class="internal-contest-card">
-            <div class="contest-icon">🏆</div>
-            <div class="contest-content">
-              <div class="contest-title"><%= internalContest.name %></div>
-              <% if (internalContest.description) { %>
-                <p class="contest-desc"><%= internalContest.description %></p>
-              <% } %>
-              <div class="contest-expiry">
-                Hạn: <%= new Date(internalContest.end_date).toLocaleDateString('vi-VN') %>
-              </div>
-            </div>
-            <a href="/promotion-detail/<%= internalContest.id %>" class="contest-link">Xem</a>
-          </div>
-        <% } %>
+
+    /* --- CSS MỚI CHO GIFT/COMBO GROUP --- */
+.promo-extras-container {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Khoảng cách giữa các Option */
+}
+
+.option-group {
+    border: 1px dashed #cbd5e1;
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 8px 10px;
+    position: relative;
+}
+
+.option-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.option-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #fff;
+    text-transform: uppercase;
+}
+.badge-gift { background: #f97316; }   /* Màu cam cho Quà */
+.badge-combo { background: #7c3aed; }  /* Màu tím cho Combo */
+
+.gift-row-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    color: #334155;
+    margin-top: 4px;
+}/* --- CSS MỚI CHO GIFT/COMBO GROUP --- */
+.promo-extras-container {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Khoảng cách giữa các Option */
+}
+
+.option-group {
+    border: 1px dashed #cbd5e1;
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 8px 10px;
+    position: relative;
+}
+
+.option-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.option-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #fff;
+    text-transform: uppercase;
+}
+.badge-gift { background: #f97316; }   /* Màu cam cho Quà */
+.badge-combo { background: #7c3aed; }  /* Màu tím cho Combo */
+
+.gift-row-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    color: #334155;
+    margin-top: 4px;
+}
+
+    /* --- [MỚI] MODERN COMPACT SEARCH BAR --- */
+    .modern-search-wrapper {
+        background: #fff;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+    }
+    .ms-title {
+        font-size: 16px; font-weight: 700; color: #1e293b;
+        white-space: nowrap; margin: 0;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .ms-form {
+        flex-grow: 1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0; /* Override cũ */
+    }
+    .ms-input-group {
+        flex-grow: 1;
+        position: relative;
+    }
+    .ms-input {
+        width: 100%;
+        padding: 10px 15px 10px 40px; /* Chừa chỗ cho icon */
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 15px;
+        transition: all 0.2s;
+        outline: none;
+        background: #f8fafc;
+    }
+    .ms-input:focus {
+        border-color: #3b82f6;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .ms-icon {
+        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+        color: #64748b; font-size: 16px;
+    }
+    .ms-btn {
+        background: #2563eb; color: #fff;
+        border: none; padding: 10px 20px;
+        border-radius: 8px; font-weight: 600; font-size: 14px;
+        cursor: pointer; transition: background 0.2s;
+        white-space: nowrap;
+        height: 42px; /* Đồng bộ chiều cao */
+    }
+    .ms-btn:hover { background: #1d4ed8; }
+
+    @media (max-width: 768px) {
+        .modern-search-wrapper { flex-direction: column; align-items: stretch; gap: 15px; }
+        .ms-form { width: 100%; }
+    }
 
 
-                
-
-                <% if (typeof product !=='undefined' && product) { %>
-                    <div class="product-info">
-                        <h2>Thông tin sản phẩm</h2>
-                        <table class="product-table">
-                            <tr>
-                                <th>SKU</th>
-                                <td>
-                                    <%= product.sku %>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Tên sản phẩm</th>
-                                <td>
-                                    <%= product.product_name %>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Brand</th>
-                                <td>
-                                    <%= product.brand %>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Subcat</th>
-                                <td>
-                                    <%= product.subcat %>
-                                </td>
-                            </tr>
-                            <tr>
-  <th>Giá niêm yết</th>
-  <td>
-    <span id="priceView"><strong><%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' VNĐ' : 'N/A' %></strong></span>
-    <button id="btnEditPrice" type="button" title="Sửa giá" style="margin-left:8px;">✏️</button>
-    <button id="btnHistoryPrice" type="button" title="Lịch sử giá">🕘</button>
-
-    <span id="priceEdit" style="display:none;margin-left:8px;">
-      <input id="priceInput" type="text" inputmode="numeric" 
-       value="<%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) : '0' %>" 
-       style="width:140px; text-align: right;">
-      <button id="btnSavePrice" type="button">Lưu</button>
-      <button id="btnCancelPrice" type="button">Huỷ</button>
-    </span>
-  </td>
-</tr>
-
-                        </table>
-                        <%# === KHỐI TỒN KHO MỚI (HỖ TRỢ ADMIN) === %>
-                        <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && inventoryMap && inventoryMap.get(product.sku)) { %>
-                            <%# --- Giao diện ADMIN (HCM.BD) --- %>
-                            <h3 style="font-size: 16px; font-weight: 700; margin-top: 20px; margin-bottom: 10px;">
-                                Tồn kho BigQuery (Tất cả chi nhánh)
-                            </h3>
-                            <p style="font-size: 13px; color: #6c757d; margin-top: -8px; margin-bottom: 10px;">
-                                (Đã trừ các serial được tick "Đã xuất" trong ngày)
-                            </p>
-                            <div class="table-scroll-wrapper">
-                                <table class="info-table" style="margin-top: 0;">
-                                    <thead>
-                                        <tr>
-                                            <th>Chi nhánh</th>
-                                            <th style="text-align: right;">Hàng bán mới</th>
-                                            <th style="text-align: right;">Trưng bày CĐ</th>
-                                            <th style="text-align: right;">Lưu kho TL</th>
-                                            <th style="text-align: right;">Trưng bày TL</th>
-                                            <th style="text-align: right;">Tồn khác</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <% const branchMap = inventoryMap.get(product.sku); %>
-                                        <% if (branchMap && branchMap.size > 0) { %>
-                                            <% [...branchMap.keys()].sort().forEach(branchId => { %>
-                                                <% const counts = branchMap.get(branchId); %>
-                                                <tr>
-                                                    <th><%= branchId %></th>
-                                                    <%# [YÊU CẦU 1.2] Thêm class 'zero-muted' nếu tồn = 0 %>
-<td style="text-align: right;" class="<%= counts.hang_ban_moi === 0 ? 'zero-muted' : '' %>">
-    <strong><%= counts.hang_ban_moi %></strong>
-</td>
-<td style="text-align: right;" class="<%= counts.trung_bay_chi_dinh === 0 ? 'zero-muted' : '' %>">
-    <strong><%= counts.trung_bay_chi_dinh %></strong>
-</td>
-<td style="text-align: right;" class="<%= counts.luu_kho_tl === 0 ? 'zero-muted' : '' %>">
-    <strong><%= counts.luu_kho_tl %></strong>
-</td>
-<td style="text-align: right;" class="<%= counts.trung_bay_tl === 0 ? 'zero-muted' : '' %>">
-    <strong><%= counts.trung_bay_tl %></strong>
-</td>
-<td style="text-align: right;" class="<%= counts.ton_khac === 0 ? 'zero-muted' : '' %>">
-    <strong><%= counts.ton_khac %></strong>
-</td>
-                                                </tr>
-                                            <% }); %>
-                                        <% } else { %>
-                                            <tr>
-                                                <td colspan="6" style="text-align: center; color: #6c757d;">
-                                                    Không có dữ liệu tồn kho BigQuery cho SKU này.
-                                                </td>
-                                            </tr>
-                                        <% } %>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                        <% } else if (typeof inventoryCounts !== 'undefined' && inventoryCounts && userBranch) { %>
-                            <%# --- Giao diện USER THƯỜNG --- %>
-                            <h3 style="font-size: 16px; font-weight: 700; margin-top: 20px; margin-bottom: 10px;">
-                                Tồn kho (BigQuery) - Chi nhánh: <%= userBranch %>
-                            </h3>
-                            <p style="font-size: 13px; color: #6c757d; margin-top: -8px; margin-bottom: 10px;">
-                                (Đã trừ các serial được tick "Đã xuất" trong ngày)
-                            </p><table class="info-table" style="margin-top: 0;">
-                                <tbody>
-                                    <tr>
-                                        <th style="width: 150px;">Hàng bán mới</th>
-                                        <td class="<%= inventoryCounts.hang_ban_moi === 0 ? 'zero-muted' : '' %>">
-                                            <strong>
-                                                <%= inventoryCounts.hang_ban_moi %>
-                                            </strong>
-                                            <span style="font-size: 12px; color: #6c757d;">(Trưng bày + Lưu kho)</span>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>Trưng bày chỉ định</th>
-                                        <td class="<%= inventoryCounts.trung_bay_chi_dinh === 0 ? 'zero-muted' : '' %>">
-                                            <strong>
-                                                <%= inventoryCounts.trung_bay_chi_dinh %>
-                                            </strong>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>Lưu kho TL</th>
-                                        <td class="<%= inventoryCounts.luu_kho_tl === 0 ? 'zero-muted' : '' %>">
-                                            <strong>
-                                                <%= inventoryCounts.luu_kho_tl %>
-                                            </strong>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>Trưng bày TL</th>
-                                        <td class="<%= inventoryCounts.trung_bay_tl === 0 ? 'zero-muted' : '' %>">
-                                            <strong>
-                                                <%= inventoryCounts.trung_bay_tl %>
-                                            </strong>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>Tồn khác</th>
-                                        <td class="<%= inventoryCounts.ton_khac === 0 ? 'zero-muted' : '' %>">
-                                            <strong>
-                                                <%= inventoryCounts.ton_khac %>
-                                            </strong>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        <% } else if (typeof userBranch !== 'undefined' && userBranch) { %>
-                            <%# --- Thông báo rỗng (cho user thường VÀ admin không có data) --- %>
-                            <div style="padding: 15px; text-align: center; color: #6c757d; font-style: italic;">
-                                Không có dữ liệu tồn kho BigQuery cho SKU này
-                                <% if (!isGlobalAdmin) { %> tại chi nhánh <%= userBranch %> <% } %>.
-                            </div>
-                        <% } %>
-                        <%# === KẾT THÚC KHỐI TỒN KHO === %>
-                    </div>
-                    
-
-                    <% if (typeof oldestSerials !== 'undefined' && oldestSerials && oldestSerials.length > 0) { %>
-                        <div class="product-info" style="margin-top: 15px;">
-                            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 10px 0;">
-                                5 Serials tồn kho lâu nhất (Chưa xuất)
-                            </h3>
-                            <div class="table-scroll-wrapper">
-                                <table class="info-table" style="margin-top: 0;">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 40%;">Serial</th>
-                                            <th style="width: 40%;">Location</th>
-                                            <th style="width: 20%; text-align: right;">Số ngày tồn</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <% oldestSerials.forEach(serial => { %>
-                                            <tr>
-                                                <td><%= serial.serial %></td>
-                                                <td><%= serial.bin_zone %></td>
-                                                <td style="text-align: right; font-weight: 700;">
-                                                    <%= serial.days_old %>
-                                                </td>
-                                            </tr>
-                                        <% }); %>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    <% } %>
-                    <%# === KẾT THÚC YÊU CẦU 3 === %>
-
-                    <p style="margin-top:12px">
-                        🔎 Lịch sử so sánh giá:
-                        <strong>
-                            <%= comparisonCount || 0 %> lần
-                        </strong>
-                        · <a href="/price-battle?sku=<%= product.sku %>">Xem chi tiết</a>
-                    </p>
-
-                    <div class="promotions-section">
-                        <h2>CTKM khả dụng</h2>
-
-                        <% if (typeof promotions !=='undefined' && promotions.length> 0) { %>
-                            <table class="promo-table">
-                                <thead>
-                                    <tr>
-                                        <th>CTKM</th>
-                                        <th>Chi tiết</th>
-                                        <th>Áp dụng cùng</th>
-                                        <th>Loại trừ</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% promotions.forEach(promo=> { %>
-                                        <tr class="<%= (product.list_price || 0) < (promo.min_order_value || 0) ? 'promo-inactive' : '' %>">
-                                            <td data-label="CTKM">
-                                                <div class="promo-name">
-                                                    <%= promo.name %>
-                                                </div>
-                                                <div class="promo-detail">
-                                                    <strong>📅:</strong>
-                                                    <%= promo.start_date ? new
-                                                        Date(promo.start_date).toLocaleDateString('vi-VN') : 'N/A' %> -
-                                                        <%= promo.end_date ? new
-                                                            Date(promo.end_date).toLocaleDateString('vi-VN') : 'N/A' %>
-                                                </div>
-                                                <div class="promo-detail"><strong>🎯:</strong>
-                                                    <%= promo.promo_type %>
-                                                </div>
-                                            </td>
-
-                                            <td data-label="Chi tiết">
-                                                <% if (promo.description) { %>
-                                                    <div class="promo-detail">
-                                                        <%= promo.description %>
-                                                    </div>
-                                                    <% } %>
-                                                        <% if (promo.coupon_list && Array.isArray(promo.coupon_list) && promo.coupon_list.length > 0) { %>
-    <button type="button" class="code-badge" 
-            onclick="showCouponListModal(this)"
-            data-promo-name="<%= promo.name %>"
-            data-coupons='<%- JSON.stringify(promo.coupon_list) %>'>
-        📜 Danh sách coupon (Bấm để xem)
-    </button>
-
-<% } else if (promo.coupon_code) { %>
-    <button type="button" class="code-badge" onclick="copyCode(this)" data-code="<%= promo.coupon_code %>">
-        🔑 <span><%= promo.coupon_code %></span> <small>(Bấm để copy)</small>
-    </button>
-<% } %>
-
-                                                                <% if (promo.special_promotion_rules &&
-                                                                    promo.special_promotion_rules.length> 0) { %>
-                                                                    <div class="discount-grid">
-                                                                        <% promo.special_promotion_rules.forEach(rule=>
-                                                                            { %>
-                                                                            <div class="discount-item">
-                                                                                <strong>
-                                                                                    <%= rule.brand || 'Tất cả' %> - <%=
-                                                                                            rule.subcat || 'Tất cả' %>
-                                                                                </strong><br>
-                                                                                Giảm: <%= new
-                                                                                    Intl.NumberFormat('vi-VN').format(rule.discount_value)
-                                                                                    %> VNĐ
-                                                                            </div>
-                                                                            <% }); %>
-                                                                    </div>
-                                                                    <% } %>
-                                            </td>
-                                            <td data-label="Áp dụng cùng">
-                                                <% if (promo.compat_allow_names && promo.compat_allow_names.length) { %>
-  <%= promo.compat_allow_names.join(', ') %>
-<% } else { %><span class="muted">Không</span><% } %>
-</td>
-<td data-label="Loại trừ">
-  <% if (promo.compat_exclude_names && promo.compat_exclude_names.length) { %>
-    <%= promo.compat_exclude_names.join(' , ') %>
-  <% } else { %><span class="muted">Không</span><% } %>
-</td>
-                                                <td data-label="Action">
-                                                <a href="/promotion-detail/<%= promo.id %>" class="btn-detail">👁️ Xem
-                                                    chi tiết</a>
-                                            </td>
-                                        </tr>
-                                        <% }); %>
-                                </tbody>
-                            </table>
-
-                            <!-- Phần tổng kết giá -->
-                            <div class="summary-item">
-                                <span>Tổng có thể giảm:</span>
-                                <strong>
-                                    <%= new Intl.NumberFormat('vi-VN').format(totalDiscount || 0) %> VNĐ
-                                                        </strong>
-                    </div>
-                    <div class="summary-item final-price">
-                        <span>Giá khuyến mãi cuối:</span>
-                        <strong>
-                            <%= new Intl.NumberFormat('vi-VN').format(finalPrice || 0) %> VNĐ
-                        </strong>
-                    </div>
 
 
-                    <% } else { %>
-                        <div class="no-data">
-                            <i>📭</i>
-                            <p>Không có CTKM nào áp dụng cho sản phẩm này</p>
-                            <p>Vui lòng kiểm tra lại SKU hoặc thử SKU khác</p>
-                        </div>
-                        <% } %>
-    </div>
-    <% } %>
-        </div>
+    /* --- [MỚI] MODERN HISTORY BANNER --- */
+    .history-banner {
+        background-color: #f0f9ff; /* Nền xanh dương nhạt hiện đại */
+        border: 1px solid #bae6fd; /* Viền xanh nhẹ */
+        border-radius: 12px;
+        padding: 15px 20px;
+        margin: 20px 0; /* Khoảng cách trên dưới */
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    }
+    .history-banner .info-group { display: flex; align-items: center; gap: 12px; }
+    .history-banner .icon-box { 
+        width: 40px; height: 40px; background: #fff; border-radius: 50%; 
+        display: flex; align-items: center; justify-content: center; 
+        font-size: 20px; color: #0284c7; border: 1px solid #e0f2fe;
+    }
+    .history-banner .title-text { color: #0c4a6e; font-weight: 700; font-size: 15px; margin: 0; }
+    .history-banner .count-badge { 
+        background: #0ea5e9; color: white; padding: 3px 10px; border-radius: 20px; 
+        font-weight: 700; font-size: 13px; margin-left: 8px; display: inline-block;
+    }
+    .history-banner .btn-view-modern {
+        background: #fff; color: #0284c7; padding: 10px 18px; border-radius: 8px; 
+        font-weight: 600; text-decoration: none; transition: all .2s;
+        border: 1px solid #0284c7; display: inline-flex; align-items: center; gap: 6px; font-size: 14px;
+    }
+    .history-banner .btn-view-modern:hover { background: #0284c7; color: white; }
+    @media (max-width: 600px) {
+        .history-banner { flex-direction: column; align-items: flex-start; gap: 10px; }
+        .history-banner .btn-view-modern { width: 100%; justify-content: center; }
+    }
 
+    /* --- CSS CHUNG --- */
+    .promotion-container { max-width: 1000px; margin: 0 auto; padding: 20px; background: #f8f9fa; min-height: 100vh; }
+    .page-search { margin-bottom: 20px; }
+    
+    /* SEARCH SECTION */
+    .search-section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); border: 1px solid #e9ecef; }
+    .search-form { display: flex; gap: 10px; align-items: flex-end; }
+    .form-group { flex: 1; }
+    .form-group label { font-weight: 600; font-size: 14px; color: #475569; margin-bottom: 5px; display: block; }
+    .form-group input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; transition: .2s; }
+    .form-group input:focus { border-color: #3b82f6; outline: none; }
+    .btn-search { background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; height: 48px; }
+    .btn-search:hover { background: #2563eb; }
 
-  <!-- ... các script khác của trang ... -->
- <script>
-document.addEventListener('DOMContentLoaded', function() {
+    /* --- [NEW UI] PRODUCT DASHBOARD CARD --- */
+    .product-dashboard-card {
+        background: #fff; border-radius: 16px; overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;
+        margin-bottom: 25px;
+    }
+    .pd-header {
+        /* [FIX] Đổi sang gradient xanh dương chủ đạo */
+        background: linear-gradient(135deg, #2664eb 0%, #2664eb 100%);
+        padding: 16px 20px; color: #fff; display: flex; justify-content: space-between; align-items: center;
+    }
+    .pd-header h2 { margin: 0; font-size: 16px; font-weight: 700; color: #fff; }
+    .pd-body { padding: 20px; }
+    
+    .pd-grid { display: grid; grid-template-columns: 2fr 3fr; gap: 25px; }
+    @media (max-width: 768px) { .pd-grid { grid-template-columns: 1fr; } }
 
-    // --- 1. CÁC HÀM HELPER ---
-    function parseNumber(s) {
-        return parseInt(String(s || '').replace(/\D/g, ''), 10) || 0;
+    .pd-info-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #e2e8f0; font-size: 14px; }
+    .pd-info-row:last-child { border-bottom: none; }
+    .pd-label { color: #64748b; font-weight: 500; }
+    .pd-value { color: #1e293b; font-weight: 700; text-align: right; }
+    
+    .pd-price-box {
+        background: #f8fafc; padding: 15px; border-radius: 12px; text-align: center; margin-top: 15px;
+        border: 1px solid #e2e8f0;
+    }
+    .pd-main-price { font-size: 22px; color: #dc2626; font-weight: 800; display: block; }
+    
+    /* --- STOCK PILLS UI (User thường) --- */
+    /* Chia 3 cột, tự xuống dòng để hiển thị đủ 5 loại kho */
+    .stock-mini-grid { 
+        display: grid; 
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 8px; 
+        margin-top: 10px; 
+    }
+    .stock-pill {
+        background: #f1f5f9; padding: 8px; border-radius: 8px; text-align: center;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        border: 1px solid transparent;
+    }
+    .stock-pill.active { background: #ecfdf5; border-color: #a7f3d0; }
+    .stock-pill .num { font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+    .stock-pill.active .num { color: #059669; }
+    .stock-pill .lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+
+    /* --- ADMIN STOCK TABLE (Admin/Manager) --- */
+    .admin-stock-wrapper {
+        border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-top: 10px;
+    }
+    .admin-stock-header {
+        background: #f1f5f9; padding: 8px 10px; font-size: 11px; font-weight: 700; color: #475569;
+        /* Grid 6 cột: Tên CN + 5 loại kho */
+        display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr 1fr; gap: 4px; text-align: right;
+    }
+    .admin-stock-header div:first-child { text-align: left; }
+    
+    .admin-stock-list { max-height: 250px; overflow-y: auto; }
+    .admin-stock-row {
+        display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr 1fr; gap: 4px; 
+        padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 12px; color: #334155; text-align: right;
+    }
+    .admin-stock-row:last-child { border-bottom: none; }
+    .admin-stock-row div:first-child { text-align: left; font-weight: 600; color: #0f172a; }
+    .zero-muted { color: #e2e8f0; font-weight: 400; } /* Số 0 làm mờ hẳn */
+
+    /* PROMO CARDS */
+    .promo-blocks-container { display: flex; flex-direction: column; gap: 20px; }
+    .block-hot-wrapper { background-color: #fff1f2; border: 1px solid #fecaca; border-radius: 12px; padding: 20px; }
+    .block-title-hot { color: #b91c1c; font-size: 16px; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+    .block-std-wrapper { background-color: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; }
+    .block-title-std { color: #1e40af; font-size: 16px; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+
+    .promo-card-item {
+        background: #fff; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05);
+        display: flex; flex-direction: column;
+    }
+    .promo-card-item:last-child { margin-bottom: 0; }
+    
+    .p-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+    .p-title { font-weight: 700; color: #333; font-size: 15px; line-height: 1.4; }
+    .p-badge { background: #dc2626; color: #fff; font-weight: 700; font-size: 13px; padding: 4px 8px; border-radius: 4px; white-space: nowrap; }
+    .p-desc { font-size: 13px; color: #64748b; margin-top: 0px; line-height: 1.4; }
+    .p-link { font-size: 13px; color: #2563eb; text-decoration: underline; margin-top: 8px; cursor: pointer; display: inline-block; font-weight: 500;}
+
+    /* EXTRA SKU (Gift/Combo) */
+    .promo-extras { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; }
+    .gift-row { 
+        display: flex; align-items: center; gap: 8px; background: #fff7ed; 
+        padding: 6px 10px; border-radius: 6px; font-size: 13px; color: #9a3412; margin-top: 5px;
+        border: 1px solid #ffedd5;
+    }
+    .gift-badge { background: #f97316; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
+    .stock-badge { background: #fff; border: 1px solid #9a3412; color: #9a3412; font-size: 11px; padding: 1px 6px; border-radius: 99px; margin-left: auto; font-weight: 700; }
+    .stock-badge.zero { border-color: #9ca3af; color: #9ca3af; background: #f3f4f6; }
+
+    /* COMPATIBILITY TAGS */
+    .compat-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; font-size: 12px; }
+    .compat-tag { padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+    .compat-tag.allow { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .compat-tag.deny { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+    /* BUTTONS */
+    .copy-btn { background: #f1f5f9; border: 1px dashed #94a3b8; color: #334155; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 6px; display: inline-block; }
+    .no-data { text-align: center; padding: 40px; color: #94a3b8; font-style: italic; }
+    .error-message { background: #fef2f2; color: #991b1b; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #fecaca; }
+    
+    /* --- PRICE SUMMARY (SOFT STYLE) --- */
+    .price-summary { 
+        background: #f8fafc; /* Nền xám rất nhạt */
+        padding: 20px 25px; 
+        border-radius: 12px; 
+        margin-top: 25px; 
+        border: 1px solid #e2e8f0; /* Viền xám nhẹ */
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
     
-    function formatNumber(n) {
-        return new Intl.NumberFormat('vi-VN').format(Number(n || 0));
+    .summary-item { 
+        display: flex; 
+        justify-content: space-between; 
+        padding: 10px 0; 
+        border-bottom: 1px dashed #cbd5e1; /* Đường kẻ đứt nét màu xám */
+        color: #334155; /* Màu chữ xám đậm */
+        font-size: 14px; 
     }
+    
+    .summary-item:last-child { 
+        border-bottom: none; 
+    }
+    
+    .final-price { 
+        font-size: 22px; 
+        font-weight: 800; 
+        color: #dc2626; /* Giá cuối vẫn giữ đỏ để dễ nhìn */
+        border-top: 2px solid #e2e8f0; /* Đường kẻ trên đậm hơn chút */
+        margin-top: 10px; 
+        padding-top: 15px; 
+    }
+</style>
 
-    // --- 2. LOGIC POPUP COUPON ---
+<div class="promotion-container">
+    <% if (typeof error !=='undefined' && error) { %>
+        <div class="error-message">⚠️ <%= error %></div>
+    <% } %>
+
+    <div class="page-search">
+        <div class="modern-search-wrapper">
+            <h1 class="ms-title">🔍 Tra cứu CTKM</h1>
+            <form action="/search-promotion" method="POST" class="search-form ms-form" id="searchForm">
+                <div class="ms-input-group">
+                    <span class="ms-icon">⌨️</span>
+                    <input type="text" id="skuSearch" name="sku" class="ms-input" autocomplete="off" 
+                           placeholder="Nhập mã SKU sản phẩm..." 
+                           value="<%= typeof product !== 'undefined' && product ? product.sku : '' %>">
+                    <div class="autocomplete-results" id="autocompleteResults"></div> 
+                </div>
+                <button type="submit" class="ms-btn">Tìm kiếm</button>
+            </form>
+        </div>
+    </div>
+
+    <% if (internalContest) { %>
+        <div class="internal-contest-card">
+            <div class="contest-icon">🏆</div>
+            <div class="contest-content">
+                <div class="contest-title"><%= internalContest.name %></div>
+                <% if (internalContest.description) { %> <p class="contest-desc"><%= internalContest.description %></p> <% } %>
+                <div class="contest-expiry">Hạn: <%= new Date(internalContest.end_date).toLocaleDateString('vi-VN') %></div>
+            </div>
+            <a href="/promotion-detail/<%= internalContest.id %>" class="contest-link">Xem</a>
+        </div>
+    <% } %>
+
+    <% if (typeof product !=='undefined' && product) { %>
+        <div class="product-dashboard-card">
+            <div class="pd-header">
+                <h2>📦 Thông tin sản phẩm</h2>
+                <span style="font-family: monospace; font-size: 15px; font-weight: 700; color: #fff; background: rgba(255,255,255,0.25); padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); letter-spacing: 0.5px;">
+    SKU: <%= product.sku %>
+</span>
+            </div>
+            <div class="pd-body">
+                <div class="pd-grid">
+                    <div>
+                        <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #334155; line-height: 1.4;"><%= product.product_name %></h3>
+                        <div class="pd-info-row"><span class="pd-label">Thương hiệu</span> <span class="pd-value"><%= product.brand %></span></div>
+                        <div class="pd-info-row"><span class="pd-label">Nhóm hàng</span> <span class="pd-value"><%= product.subcat %></span></div>
+                        
+                        <div class="pd-price-box">
+                            <span style="font-size: 12px; color: #64748b;">Giá niêm yết</span>
+                            <span id="priceView" class="pd-main-price">
+                                <%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' đ' : 'N/A' %>
+                            </span>
+                            <div style="margin-top: 8px;">
+                                <button id="btnEditPrice" type="button" style="font-size: 12px; padding: 4px 10px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer;">✏️ Sửa giá</button>
+                                <button id="btnHistoryPrice" type="button" style="font-size: 12px; padding: 4px 10px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer; margin-left:5px;">🕘 Lịch sử</button>
+                            </div>
+                            <span id="priceEdit" style="display:none; margin-top:8px;">
+                                <input id="priceInput" type="text" value="<%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) : '0' %>" style="width:100px; padding:6px; border:1px solid #cbd5e1; border-radius:4px;">
+                                <button id="btnSavePrice" style="padding:6px 10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;">Lưu</button> 
+                                <button id="btnCancelPrice" style="padding:6px 10px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;">Hủy</button>
+                            </span>
+                        </div>
+                    </div>
+    
+                    <div>
+                        <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && inventoryMap && inventoryMap.get(product.sku)) { %>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                                <strong style="color:#0f172a; font-size:14px;">📦 Tồn kho hệ thống (Admin)</strong>
+                                <span style="font-size:11px; color:#64748b;">(Đã trừ đơn chưa xuất)</span>
+                            </div>
+                            
+                            <div class="admin-stock-wrapper">
+                                <div class="admin-stock-header">
+                                    <div>Chi nhánh</div>
+                                    <div>Bán mới</div>
+                                    <div>TB CĐ</div>
+                                    <div>Lưu TL</div>
+                                    <div>TB TL</div>
+                                    <div>Khác</div>
+                                </div>
+                                <div class="admin-stock-list">
+                                    <% const branchMap = inventoryMap.get(product.sku); %>
+                                    <% if (branchMap && branchMap.size > 0) { %>
+                                        <% [...branchMap.keys()].sort().forEach(branchId => { %>
+                                            <% const counts = branchMap.get(branchId); %>
+                                            <div class="admin-stock-row">
+                                                <div><%= branchId %></div>
+                                                <div class="<%= counts.hang_ban_moi === 0 ? 'zero-muted' : '' %>">
+                                                    <strong><%= counts.hang_ban_moi %></strong>
+                                                </div>
+                                                <div class="<%= counts.trung_bay_chi_dinh === 0 ? 'zero-muted' : '' %>">
+                                                    <%= counts.trung_bay_chi_dinh %>
+                                                </div>
+                                                <div class="<%= counts.luu_kho_tl === 0 ? 'zero-muted' : '' %>">
+                                                    <%= counts.luu_kho_tl %>
+                                                </div>
+                                                <div class="<%= counts.trung_bay_tl === 0 ? 'zero-muted' : '' %>">
+                                                    <%= counts.trung_bay_tl %>
+                                                </div>
+                                                <div class="<%= counts.ton_khac === 0 ? 'zero-muted' : '' %>">
+                                                    <%= counts.ton_khac %>
+                                                </div>
+                                            </div>
+                                        <% }); %>
+                                    <% } else { %>
+                                        <div style="padding:10px; text-align:center; font-size:13px; color:#64748b;">Không có dữ liệu tồn kho.</div>
+                                    <% } %>
+                                </div>
+                            </div>
+
+                        <% } else if (typeof inventoryCounts !== 'undefined' && inventoryCounts) { %>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <strong style="color:#0f172a; font-size:14px;">Tồn kho: <%= userBranch %></strong>
+                                <span style="font-size:11px; color:#64748b;">(Đã trừ serial đã xuất)</span>
+                            </div>
+                            <div class="stock-mini-grid">
+                                <div class="stock-pill <%= inventoryCounts.hang_ban_moi > 0 ? 'active' : '' %>">
+                                    <span class="num"><%= inventoryCounts.hang_ban_moi %></span>
+                                    <span class="lbl">Bán mới</span>
+                                </div>
+                                <div class="stock-pill <%= inventoryCounts.trung_bay_chi_dinh > 0 ? 'active' : '' %>">
+                                    <span class="num"><%= inventoryCounts.trung_bay_chi_dinh %></span>
+                                    <span class="lbl">TB CĐ</span>
+                                </div>
+                                <div class="stock-pill" style="opacity: 0.9;">
+                                    <span class="num"><%= inventoryCounts.luu_kho_tl %></span>
+                                    <span class="lbl">LK TL</span>
+                                </div>
+                                <div class="stock-pill" style="opacity: 0.9;">
+                                    <span class="num"><%= inventoryCounts.trung_bay_tl %></span>
+                                    <span class="lbl">TB TL</span>
+                                </div>
+                                <div class="stock-pill" style="opacity: 0.7;">
+                                    <span class="num"><%= inventoryCounts.ton_khac %></span>
+                                    <span class="lbl">Khác</span>
+                                </div>
+                            </div>
+
+                        <% } else { %>
+                            <div class="no-data" style="padding: 20px; background: #f8fafc; border-radius: 8px; border:1px dashed #e2e8f0; margin-top:10px;">
+                                <small>Không có dữ liệu tồn kho BigQuery <% if (!isGlobalAdmin) { %>tại <%= userBranch %><% } %></small>
+                            </div>
+                        <% } %>
+    
+                        <% if (typeof oldestSerials !== 'undefined' && oldestSerials.length > 0) { %>
+                            <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                                <strong style="font-size: 14px; color: #b45309;">⚠️ 5 Serial tồn lâu nhất (Bán mới/TB):</strong>
+                                <div style="margin-top: 5px; max-height: 100px; overflow-y: auto;">
+                                    <% oldestSerials.forEach(s => { %>
+                                        <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed #f1f5f9;">
+                                            <span style="font-family:monospace;"><%= s.serial %> (<%= s.bin_zone %>)</span>
+                                            <strong style="color: #c2410c;"><%= s.days_old %> ngày</strong>
+                                        </div>
+                                    <% }) %>
+                                </div>
+                            </div>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <div class="history-banner">
+    <div class="info-group">
+        <div class="icon-box">🔎</div>
+        <div>
+            <h4 class="title-text">
+                Lịch sử so sánh giá
+                <span class="count-badge"><%= comparisonCount || 0 %> lần</span>
+            </h4>
+            <span style="font-size: 13px; color: #64748b;">Xem lại các lần so găng giá của SKU này.</span>
+        </div>
+    </div>
+    <a href="/price-battle?sku=<%= product.sku %>" class="btn-view-modern">Xem chi tiết →</a>
+</div>
+
+        <% if (typeof promoGroups !== 'undefined') { 
+             const hasHot = promoGroups.hot && promoGroups.hot.length > 0;
+             const hasFuture = promoGroups.future && promoGroups.future.length > 0;
+             const hasPayment = promoGroups.payment && promoGroups.payment.length > 0;
+             const hasInstallment = promoGroups.installment && promoGroups.installment.length > 0;
+             const hasOther = promoGroups.other && promoGroups.other.length > 0;
+        %>
+    
+        <div class="promo-blocks-container">
+            <% if (hasHot) { %>
+            <div class="block-hot-wrapper">
+                <div class="block-title-hot">🔥 Ưu đãi HOT (Trừ trực tiếp)</div>
+                <% promoGroups.hot.forEach(p => { %>
+                    <div class="promo-card-item">
+                        <div class="p-header">
+                            <span class="p-title"><%= p.name %></span>
+                            <% if (p.discount_amount_calc > 0) { %>
+                                <span class="p-badge">-<%= new Intl.NumberFormat('vi-VN').format(p.discount_amount_calc) %>đ</span>
+                            <% } %>
+                        </div>
+                        <% if(p.description) { %> <div class="p-desc"><%= p.description %></div> <% } %>
+                        
+                       <% 
+                            // Logic mới: Gom nhóm theo Option
+                            let promoOptions = [];
+                            if (p.detail_fields) {
+                                // 1. Xử lý Quà tặng (Gift Options)
+                                if (p.detail_fields.gift_options) {
+                                    Object.values(p.detail_fields.gift_options).forEach((opt, idx) => {
+                                        if (opt.skus && Array.isArray(opt.skus) && opt.skus.length > 0) {
+                                            promoOptions.push({
+                                                type: 'Quà tặng',
+                                                cssClass: 'badge-gift',
+                                                // [FIX] Lấy thêm mã code để hiển thị
+                                                code: opt.code, 
+                                                name: opt.name || `Tùy chọn ${idx + 1}`,
+                                                skus: opt.skus
+                                            });
+                                        }
+                                    });
+                                }
+                                // 2. Xử lý Combo
+                                if (p.detail_fields.combos) {
+                                    Object.values(p.detail_fields.combos).forEach((opt, idx) => {
+                                        if (opt.skus && Array.isArray(opt.skus) && opt.skus.length > 0) {
+                                            promoOptions.push({
+                                                type: 'Combo',
+                                                cssClass: 'badge-combo',
+                                                // Combo thường không có code riêng lẻ ở đây, nhưng cứ lấy nếu có
+                                                code: opt.code, 
+                                                name: opt.name || `Combo ${idx + 1}`,
+                                                skus: opt.skus
+                                            });
+                                        }
+                                    });
+                                }
+                            }
+                        %>
+
+                        <% if (promoOptions.length > 0) { %>
+                            <div class="promo-extras-container">
+                                <% promoOptions.forEach((group) => { %>
+                                    <div class="option-group">
+                                        <div class="option-header">
+                                            <span class="option-badge <%= group.cssClass %>"><%= group.type %></span>
+                                            
+                                            <% if (group.code) { %>
+                                                <code style="font-size:11px; color:#c2410c; background:#fff7ed; border:1px solid #fdba74; padding:1px 6px; border-radius:4px; font-weight:700;">
+                                                    <%= group.code %>
+                                                </code>
+                                            <% } %>
+
+                                            <span><%= group.name %></span>
+                                        </div>
+
+                                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                                            <% group.skus.forEach(skuCode => { %>
+                                                <div class="gift-row-compact js-combo-item" data-sku="<%= skuCode %>" 
+                                                     style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 6px;">
+                                                    
+                                                    <span style="flex: 1; font-size: 12px; color: #334155; line-height: 1.4;">
+                                                        <strong style="color: #0f172a; white-space: nowrap;"><%= skuCode %></strong> - 
+                                                        <span class="js-name" style="color:#94a3b8;">⏳ Đang tải...</span>
+                                                    </span>
+                                                    
+                                                    <span class="stock-badge zero js-stock" 
+                                                          style="font-size: 10px; font-weight: 600; padding: 2px 6px; line-height: 1; white-space: nowrap; border-radius: 20px; display: flex; align-items: center; height: fit-content; flex-shrink: 0;">
+                                                        --
+                                                    </span>
+                                                </div>
+                                            <% }) %>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        <% } %>
+
+                        <% if ((p.compat_allow_names && p.compat_allow_names.length) || (p.compat_exclude_names && p.compat_exclude_names.length)) { %>
+                            <div class="compat-row">
+                                <% if (p.compat_allow_names && p.compat_allow_names.length) { %>
+                                    <div class="compat-tag allow" title="Được áp dụng đồng thời">✅ Cùng: <%= p.compat_allow_names.join(', ') %></div>
+                                <% } %>
+                                <% if (p.compat_exclude_names && p.compat_exclude_names.length) { %>
+                                    <div class="compat-tag deny" title="Không áp dụng cùng">⛔ Trừ: <%= p.compat_exclude_names.join(', ') %></div>
+                                <% } %>
+                            </div>
+                        <% } %>
+
+                        <% if (p.coupon_code) { %>
+                            <div><span class="copy-btn" onclick="copyCode(this)" data-code="<%= p.coupon_code %>">Code: <%= p.coupon_code %> ❐</span></div>
+                        <% } else if (p.coupon_list && p.coupon_list.length > 0) { %>
+                            <div><span class="copy-btn" onclick="showCouponListModal(this)" data-promo-name="<%= p.name %>" data-coupons='<%- JSON.stringify(p.coupon_list) %>'>Xem <%= p.coupon_list.length %> mã ❐</span></div>
+                        <% } %>
+                        
+                        <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                    </div>
+                <% }) %>
+            </div>
+            <% } %>
+    
+            <% if (hasFuture) { %>
+            <div class="block-std-wrapper">
+                <div class="block-title-std">🎫 Tặng mã giảm đơn hàng sau</div>
+                <% promoGroups.future.forEach(p => { 
+                    const details = p.detail_fields || {};
+                    const val = details.next_order_value;
+                    const code = details.next_order_code;
+                %>
+                    <div class="promo-card-item">
+                        <div class="p-title"><%= p.name %></div>
+                        
+                        <% if(p.description) { %> 
+                            <div class="p-desc" style="margin-top:4px;"><%= p.description %></div> 
+                        <% } %>
+
+                        <% if (val) { %>
+                            <div class="voucher-tear">
+                                <div>
+                                    <div class="vt-label">Trị giá phiếu</div>
+                                    <div class="vt-value">
+                                        <% 
+                                            let displayVal = val;
+                                            if (val && !isNaN(String(val).replace(/\D/g, ''))) {
+                                                displayVal = new Intl.NumberFormat('vi-VN').format(Number(String(val).replace(/\D/g, ''))) + ' đ';
+                                            }
+                                        %>
+                                        <%= displayVal %>
+                                    </div>
+                                </div>
+                                
+                                <% if(code) { %>
+                                    <div style="text-align: right; z-index: 1;">
+                                        <div class="vt-label">Mã Code</div>
+                                        <div class="vt-code"><%= code %></div>
+                                    </div>
+                                <% } %>
+                            </div>
+                        <% } %>
+
+                        <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                    </div>
+                <% }) %>
+            </div>
+            <% } %>
+    
+            <% if (hasPayment) { %>
+            <div class="block-std-wrapper">
+                <div class="block-title-std">💳 Ưu đãi thanh toán</div>
+                <% promoGroups.payment.forEach(p => { %>
+                    <div class="promo-card-item">
+                        <div class="p-title"><%= p.name %></div>
+                        <div class="p-desc"><%= p.description || 'Giảm thêm khi thanh toán qua đối tác' %></div>
+                        <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                    </div>
+                <% }) %>
+            </div>
+            <% } %>
+    
+            <% if (hasInstallment) { %>
+            <div class="block-std-wrapper">
+                <div class="block-title-std">🏦 Ưu đãi trả góp</div>
+                <% promoGroups.installment.forEach(p => { %>
+                    <div class="promo-card-item">
+                        <div class="p-title"><%= p.name %></div>
+                        <div class="p-desc"><%= p.description || 'Lãi suất ưu đãi qua công ty tài chính hoặc thẻ tín dụng' %></div>
+                        <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                    </div>
+                <% }) %>
+            </div>
+            <% } %>
+    
+            <% if (hasOther) { %>
+            <div class="block-std-wrapper">
+                <div class="block-title-std">🎁 Quà tặng & Combo khác</div>
+                <% promoGroups.other.forEach(p => { %>
+                    <div class="promo-card-item">
+                        <div class="p-title"><%= p.name %></div>
+                        <% if(p.description) { %> <div class="p-desc"><%= p.description %></div> <% } %>
+                        
+
+                            <% 
+                            // Logic mới: Gom nhóm theo Option
+                            let promoOptions = [];
+                            if (p.detail_fields) {
+                                // 1. Xử lý Quà tặng (Gift Options)
+                                if (p.detail_fields.gift_options) {
+                                    Object.values(p.detail_fields.gift_options).forEach((opt, idx) => {
+                                        if (opt.skus && Array.isArray(opt.skus) && opt.skus.length > 0) {
+                                            promoOptions.push({
+                                                type: 'Quà tặng',
+                                                cssClass: 'badge-gift',
+                                                // [FIX] Ưu tiên mã riêng, nếu không có thì lấy mã chung của CTKM (p.coupon_code)
+                                                code: opt.code || p.coupon_code, 
+                                                name: opt.name || `Tùy chọn ${idx + 1}`,
+                                                skus: opt.skus
+                                            });
+                                        }
+                                    });
+                                }
+                                // 2. Xử lý Combo
+                                if (p.detail_fields.combos) {
+                                    Object.values(p.detail_fields.combos).forEach((opt, idx) => {
+                                        if (opt.skus && Array.isArray(opt.skus) && opt.skus.length > 0) {
+                                            promoOptions.push({
+                                                type: 'Combo',
+                                                cssClass: 'badge-combo',
+                                                // Combo thường không có code riêng, lấy code chung
+                                                code: opt.code || p.coupon_code, 
+                                                name: opt.name || `Combo ${idx + 1}`,
+                                                skus: opt.skus
+                                            });
+                                        }
+                                    });
+                                }
+                            }
+                        %>
+
+<% if (promoOptions.length > 0) { %>
+    <div class="promo-extras-container">
+        <% promoOptions.forEach((group) => { %>
+            <div class="option-group">
+                <div class="option-header">
+                    <span class="option-badge <%= group.cssClass %>"><%= group.type %></span>
+                    <span><%= group.name %></span>
+                </div>
+
+                <% group.skus.forEach(skuCode => { 
+                    const info = (typeof extraSkuInfoMap !== 'undefined' && extraSkuInfoMap) ? extraSkuInfoMap[skuCode] : null;
+                %>
+                    <div class="gift-row-compact">
+                        <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            <strong><%= skuCode %></strong> - <%= info ? info.name : 'Đang tải...' %>
+                        </span>
+                        
+                        <span class="stock-badge <%= (!info || info.stock === 0) ? 'zero' : '' %>">
+                            Tồn: <%= info ? info.stock : 0 %>
+                        </span>
+                    </div>
+                <% }) %>
+            </div>
+        <% }) %>
+    </div>
+<% } %>
+
+                        <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                    </div>
+                <% }) %>
+            </div>
+            <% } %>
+    
+            <% if (!hasHot && !hasFuture && !hasPayment && !hasInstallment && !hasOther) { %>
+                <div class="no-data"><i>📭</i> <p>Không có CTKM nào áp dụng cho sản phẩm này.</p></div>
+            <% } %>
+        </div>
+    
+        <% if (totalDiscount > 0) { %>
+        <div class="price-summary">
+            <h3 style="color:#0f172a; font-size:15px; margin: 0 0 15px 0; font-weight: 700; text-transform: uppercase;">
+                🧾 Tổng tạm tính (Tham khảo)
+            </h3>
+            
+            <div class="summary-item">
+                <span style="color: #64748b;">Giá niêm yết:</span>
+                <strong><%= new Intl.NumberFormat('vi-VN').format(product.list_price) %> VNĐ</strong>
+            </div>
+            
+            <div class="summary-item">
+                <span style="color: #64748b;">Tổng giảm trực tiếp (Ưu đãi Hot):</span>
+                <strong style="color:#dc2626;">-<%= new Intl.NumberFormat('vi-VN').format(totalDiscount) %> VNĐ</strong>
+            </div>
+            
+            <div class="summary-item final-price">
+                <span style="color: #0f172a;">Giá khách mua:</span>
+                <strong><%= new Intl.NumberFormat('vi-VN').format(finalPrice) %> VNĐ</strong>
+            </div>
+            
+            <div style="font-size:12px; color:#94a3b8; margin-top:10px; font-style:italic;">
+                * Giá trên chưa bao gồm giảm thêm từ ưu đãi thanh toán, mã giảm đơn hàng sau.
+            </div>
+        </div>
+        <% } %>
+    
+        <% } else { %>
+            <% if (typeof product === 'undefined') { %>
+               <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                   <p style="font-size: 16px;">Vui lòng nhập SKU để tra cứu chương trình khuyến mãi.</p>
+               </div>
+            <% } else { %>
+               <div class="no-data"><i>📭</i> <p>Không có dữ liệu cho SKU này.</p></div>
+            <% } %>
+        <% } %>
+    <% } %>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function parseNumber(s) { return parseInt(String(s || '').replace(/\D/g, ''), 10) || 0; }
+    function formatNumber(n) { return new Intl.NumberFormat('vi-VN').format(Number(n || 0)); }
+
+    // Popup Coupon List
     window.showCouponListModal = function (button) {
         var modal = document.getElementById('couponListModal');
         var titleEl = document.getElementById('couponModalTitle');
         var container = document.getElementById('couponModalTableContainer');
         if (!modal || !titleEl || !container) return;
-
         var promoName = (button && button.dataset && button.dataset.promoName) ? button.dataset.promoName : '—';
         var coupons = [];
-        try {
-            coupons = JSON.parse((button && button.dataset && button.dataset.coupons) ? button.dataset.coupons : '[]');
-        } catch (e) { coupons = []; }
-
+        try { coupons = JSON.parse((button && button.dataset && button.dataset.coupons) ? button.dataset.coupons : '[]'); } catch (e) { coupons = []; }
         function fmt(n) { return new Intl.NumberFormat('vi-VN').format(n); }
-        
         var sorted = coupons.slice().sort(function(a, b) {
             return (parseFloat(String(b.discount).replace(/\D/g,'')) || 0) - (parseFloat(String(a.discount).replace(/\D/g,'')) || 0);
         });
-
         var rows = sorted.map(function(c) {
             var disc = parseFloat(String(c.discount).replace(/\D/g,'')) || 0;
-            return '<tr>' +
-                '<td>' + (c.name || '-') + '</td>' +
-                '<td><button class="code-badge" onclick="copyCode(this)" data-code="' + (c.code || '') + '">' +
-                '<span>' + (c.code || '') + '</span> <small>(copy)</small></button></td>' +
-                '<td>' + (disc ? fmt(disc) : '-') + '</td>' +
-                '<td>' + (c.note || '-') + '</td>' +
-                '</tr>';
+            return `<tr><td>${c.name||'-'}</td><td><button class="code-badge" onclick="copyCode(this)" data-code="${c.code||''}">${c.code||''}</button></td><td class="money">${disc?fmt(disc):'-'}</td><td>${c.note||'-'}</td></tr>`;
         }).join('');
-
-        titleEl.textContent = 'Danh sách coupon cho: ' + promoName;
-        container.innerHTML = '<div class="table-scroll-wrapper"><table class="info-table" style="margin-top:15px"><thead><tr><th>Tên/Nhóm SP</th><th>Mã Voucher</th><th>Mức giảm</th><th>Điều kiện</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
-        modal.style.display = 'block';
+        titleEl.textContent = 'Danh sách coupon: ' + promoName;
+        container.innerHTML = '<div class="table-scroll-wrapper"><table class="info-table" style="margin-top:10px"><thead><tr><th>Tên/Nhóm</th><th>Mã</th><th>Giảm</th><th>Ghi chú</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+        modal.style.display = 'flex';
     };
 
-    // --- 3. LOGIC SẢN PHẨM (GIÁ & LỊCH SỬ) ---
+    // Copy Code Logic
+    window.copyCode = function(btn) {
+        const code = btn.getAttribute('data-code');
+        if (code) {
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span>Đã copy!</span>';
+                setTimeout(() => btn.innerHTML = originalText, 1500);
+            });
+        }
+    };
+
+    // Logic Sửa giá / Lịch sử giá (như cũ)
     const sku = "<%= (typeof product !== 'undefined' && product) ? product.sku : '' %>";
-    
     if (sku) {
         const btnEdit = document.getElementById('btnEditPrice');
         const btnSave = document.getElementById('btnSavePrice');
@@ -781,120 +968,57 @@ document.addEventListener('DOMContentLoaded', function() {
         const view = document.getElementById('priceView');
         const editWrap = document.getElementById('priceEdit');
         const input = document.getElementById('priceInput');
-        
-        // Nút xem lịch sử
         const btnHistory = document.getElementById('btnHistoryPrice');
         const historyModal = document.getElementById('priceHistoryModal');
-        const historyClose = document.getElementById('phClose');
         const historyTbody = document.querySelector('#phTable tbody');
 
-        // --- Xử lý Sửa Giá ---
-        if (input) {
-            input.addEventListener('input', (e) => {
-                e.target.value = formatNumber(parseNumber(e.target.value));
-            });
-        }
-
-        if (btnEdit) btnEdit.onclick = () => {
-            view.style.display = 'none';
-            editWrap.style.display = 'inline-block';
-            input.focus();
-        };
+        if (input) input.addEventListener('input', (e) => { e.target.value = formatNumber(parseNumber(e.target.value)); });
+        if (btnEdit) btnEdit.onclick = () => { view.style.display = 'none'; editWrap.style.display = 'block'; input.focus(); };
+        if (btnCancel) btnCancel.onclick = () => { editWrap.style.display = 'none'; view.style.display = 'block'; };
         
-        if (btnCancel) btnCancel.onclick = () => {
-            editWrap.style.display = 'none';
-            view.style.display = 'inline';
-        };
-
         if (btnSave) btnSave.onclick = async () => {
             try {
                 const newPrice = parseNumber(input.value);
                 if (newPrice < 0) { alert('Giá không hợp lệ'); return; }
-                
                 const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ new_price: newPrice })
                 });
-                
                 const js = await res.json();
                 if (!js.ok) throw new Error(js.error || 'Cập nhật thất bại');
-                
-                // Reload để tính lại KM
                 document.getElementById('searchForm').submit();
-            } catch (e) {
-                alert(e.message);
-            }
+            } catch (e) { alert(e.message); }
         };
 
-        // --- Xử lý Xem Lịch Sử (Đã fix) ---
-        if (btnHistory) {
-            btnHistory.addEventListener('click', async (e) => {
-                e.preventDefault(); // Ngăn hành vi mặc định
-                
-                // Reset bảng trước khi load
-                historyTbody.innerHTML = '<tr><td colspan="4" style="text-align:center">Đang tải...</td></tr>';
-                historyModal.style.display = 'block'; // Hiện modal ngay lập tức
-
-                try {
-                    const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price-history`);
-                    const js = await res.json();
-                    
-                    if (!js.ok) throw new Error(js.error || 'Load failed');
-
-                    const rows = (js.history || []).map(r => `
-                        <tr>
-                            <td>${new Date(r.changed_at).toLocaleString('vi-VN')}</td>
-                            <td>${new Intl.NumberFormat('vi-VN').format(r.old_price || 0)}</td>
-                            <td><strong>${new Intl.NumberFormat('vi-VN').format(r.new_price || 0)}</strong></td>
-                            <td>${r.user || '-'}</td>
-                        </tr>
-                    `).join('');
-
-                    historyTbody.innerHTML = rows || `<tr><td colspan="4" style="text-align:center">Chưa có lịch sử sửa giá</td></tr>`;
-                    
-                } catch (e) {
-                    historyTbody.innerHTML = `<tr><td colspan="4" style="color:red;text-align:center">Lỗi: ${e.message}</td></tr>`;
-                }
-            });
+        if (btnHistory) btnHistory.onclick = async (e) => {
+            e.preventDefault();
+            historyTbody.innerHTML = '<tr><td colspan="4" style="text-align:center">Đang tải...</td></tr>';
+            historyModal.style.display = 'flex';
+            try {
+                const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price-history`);
+                const js = await res.json();
+                if (!js.ok) throw new Error(js.error);
+                const rows = (js.history || []).map(r => `<tr><td>${new Date(r.changed_at).toLocaleString('vi-VN')}</td><td>${new Intl.NumberFormat('vi-VN').format(r.old_price||0)}</td><td><strong>${new Intl.NumberFormat('vi-VN').format(r.new_price||0)}</strong></td><td>${r.user||'-'}</td></tr>`).join('');
+                historyTbody.innerHTML = rows || `<tr><td colspan="4" style="text-align:center">Chưa có lịch sử</td></tr>`;
+            } catch (e) { historyTbody.innerHTML = `<tr><td colspan="4">Lỗi: ${e.message}</td></tr>`; }
+        };
+        
+        // Close modal
+        window.onclick = (e) => {
+            if (e.target == historyModal) historyModal.style.display = "none";
+            if (e.target == document.getElementById('couponListModal')) document.getElementById('couponListModal').style.display = "none";
         }
-
-        // Đóng modal lịch sử
-        if (historyClose) historyClose.onclick = () => historyModal.style.display = 'none';
+        document.querySelectorAll('.close').forEach(el => el.onclick = function() { this.closest('.modal').style.display = 'none'; });
     }
-
-    // --- 4. ĐÓNG MODAL KHI CLICK RA NGOÀI ---
-    window.addEventListener('click', (e) => {
-        const historyModal = document.getElementById('priceHistoryModal');
-        const couponModal = document.getElementById('couponListModal');
-        if (e.target === historyModal) historyModal.style.display = 'none';
-        if (e.target === couponModal) couponModal.style.display = 'none';
-    });
 });
-
-// Hàm copy code (giữ nguyên global để HTML gọi được)
-window.copyCode = function(btn) {
-    const code = btn.getAttribute('data-code');
-    if (code) {
-        navigator.clipboard.writeText(code).then(() => {
-            // Hiệu ứng nhỏ khi copy
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span>Đã copy!</span>';
-            setTimeout(() => btn.innerHTML = originalText, 1500);
-        });
-    }
-};
 </script>
 
-
-<div id="priceHistoryModal" class="modal" style="display:none">
+<div id="priceHistoryModal" class="modal">
   <div class="modal-content">
-    <span id="phClose" class="close">&times;</span>
+    <span class="close">&times;</span>
     <h3>Lịch sử sửa giá</h3>
-    <table class="detail-table" id="phTable">
-      <thead>
-        <tr><th>Thời gian</th><th>Giá cũ</th><th>Giá mới</th><th>Người sửa</th></tr>
-      </thead>
+    <table class="info-table" id="phTable">
+      <thead><tr><th>Thời gian</th><th>Giá cũ</th><th>Giá mới</th><th>Người sửa</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -902,7 +1026,7 @@ window.copyCode = function(btn) {
 
 <div id="couponListModal" class="modal">
     <div class="modal-content">
-        <span class="close" onclick="this.parentElement.parentElement.style.display='none'">&times;</span>
+        <span class="close">&times;</span>
         <h2 id="couponModalTitle"></h2>
         <div id="couponModalTableContainer"></div>
     </div>
@@ -911,5 +1035,3 @@ window.copyCode = function(btn) {
 <%- include('partials/toast') %>
 <%- include('partials/search-autocomplete') %>
 <%- include('partials/footer') %>
-</body>
-</html>
