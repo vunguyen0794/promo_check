@@ -1,6 +1,11 @@
 <%- include('partials/header', { title: 'Chi tiết CTKM', currentPage: 'promotion-detail', time: time }) %>
 
 <style>
+
+
+
+
+
     /* --- VOUCHER TICKET STYLE (BLUE THEME) --- */
 .voucher-ticket {
     background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); /* Xanh rất nhạt sang trắng */
@@ -524,9 +529,23 @@
                                 <% } %>
                                 <div style="margin-top:4px;">
                                     <% if(opt.skus) { %>
-                                        <% (Array.isArray(opt.skus) ? opt.skus : [opt.skus]).forEach(s => { %>
-                                            <span class="pill pill-sku"><%= s %></span>
-                                        <% }) %>
+                                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                                            <% (Array.isArray(opt.skus) ? opt.skus : [opt.skus]).forEach(skuCode => { %>
+                                                <div class="gift-row-compact js-combo-item" data-sku="<%= skuCode %>" 
+                                                     style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 6px;">
+                                                    
+                                                    <span style="flex: 1; font-size: 12px; color: #334155; line-height: 1.5;">
+                                                        <strong style="color: #0f172a; white-space: nowrap;"><%= skuCode %></strong> - 
+                                                        <span class="js-name" style="color:#94a3b8;">⏳ Đang tải...</span>
+                                                    </span>
+                                                    
+                                                    <span class="stock-badge zero js-stock" 
+                                                          style="font-size: 11px; font-weight: 600; padding: 4px 8px; line-height: 1; white-space: nowrap; border-radius: 20px; display: flex; align-items: center; height: fit-content; flex-shrink: 0;">
+                                                        --
+                                                    </span>
+                                                </div>
+                                            <% }) %>
+                                        </div>
                                     <% } %>
                                 </div>
                             </div>
