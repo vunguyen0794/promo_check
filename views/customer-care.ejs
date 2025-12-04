@@ -277,19 +277,22 @@
                                 </td>
                             </tr>
                             <% const users = dashboard.matrix_data[branch]; %>
-                            <% Object.values(users).sort((a,b) => b.total_revenue - a.total_revenue).forEach(sale => { %>
-                                <tr>
-                                    <td class="col-sales"><%= sale.name %></td>
-                                    <td class="col-total"><%= sale.total_care %></td>
-                                    <td class="col-rev"><%= new Intl.NumberFormat('vi-VN').format(sale.total_revenue) %></td>
-                                    <% dashboard.result_columns.forEach(col => { %>
-                                        <% const count = sale.results[col] || 0; %>
-                                        <td class="val-cell <%= count > 0 ? 'has-val' : '' %>">
-                                            <%= count > 0 ? count : '-' %>
-                                        </td>
-                                    <% }) %>
-                                </tr>
-                            <% }) %>
+                            <% Object.entries(users).sort(([,a], [,b]) => b.total_revenue - a.total_revenue).forEach(([key, sale]) => { %>
+    <tr>
+        <td class="col-sales"><%= sale.name %></td>
+        <td class="col-total"><%= sale.total_care %></td>
+        <td class="col-rev"><%= new Intl.NumberFormat('vi-VN').format(sale.total_revenue) %></td>
+        <% dashboard.result_columns.forEach(col => { %>
+            <% const count = sale.results[col] || 0; %>
+            <td class="val-cell <%= count > 0 ? 'has-val' : '' %>"
+                style="<%= count > 0 ? 'cursor:pointer; text-decoration:underline;' : '' %>"
+                onclick="<%= count > 0 ? `openMatrixDetail('${key}', '${col}', '${branch}')` : '' %>"
+            >
+                <%= count > 0 ? count : '-' %>
+            </td>
+        <% }) %>
+    </tr>
+<% }) %>
                         <% }) %>
                     </tbody>
                 </table>
@@ -439,6 +442,17 @@
                 <option value="date_asc">📅 Cũ nhất</option>
             </select>
         </div>
+
+        <div style="display:flex; align-items:center; margin-left:15px; cursor:pointer;" onclick="document.getElementById('excludeGrab').click()">
+    <input type="checkbox" id="excludeGrab" 
+           onchange="loadWorkList(1); event.stopPropagation();" 
+           style="width:18px; height:18px; cursor:pointer; accent-color: #2563eb;"
+           <%= (filters.excludeGrab !== 'false') ? 'checked' : '' %> >
+           
+    <label for="excludeGrab" style="margin-left:6px; margin-bottom:0; font-size:14px; font-weight:600; color:#334155; cursor:pointer; user-select:none;">
+        Ẩn Grab
+    </label>
+</div>
         
         <div style="margin-bottom:10px; display:flex; justify-content:flex-end; gap:10px; align-items:center;">
             <button class="btn-view-more" onclick="loadWorkList(currentPage - 1)">❮ Trước</button>
@@ -558,6 +572,35 @@
                         </tr>
                     <% }) %>
                 </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="matrixDetailModal" class="modal" style="z-index: 10000;">
+    <div class="modal-content" style="max-width: 900px; width: 95%;">
+        <span class="close" onclick="document.getElementById('matrixDetailModal').style.display='none'">&times;</span>
+        <h3 style="color:#2563eb; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+            📊 Chi tiết: <span id="matrixDetailTitle"></span>
+        </h3>
+        
+        <div class="table-scroll-wrapper" style="max-height: 70vh;">
+            <table class="info-table" style="width:100%; min-width:800px;">
+                <thead style="background:#f1f5f9; position:sticky; top:0; z-index:10;">
+                    <tr>
+                        <th width="50">STT</th>
+                        <th width="80">CN</th>
+                        <th width="150">Salesman</th>
+                        <th width="120">Mã đơn</th>
+                        <th>Ten KH/ Cty</th>
+                        <th width="100">SĐT</th>
+                        <th width="100">MST</th>
+                        <th width="120" style="text-align:right">Doanh thu</th>
+                        <th style="min-width: 250px;">Ghi chú chi tiết</th>
+                    </tr>
+                </thead>
+                <tbody id="matrixDetailBody">
+                    </tbody>
             </table>
         </div>
     </div>
@@ -743,6 +786,7 @@
         const month = document.getElementById('wlMonth').value;
         const branchEl = document.getElementById('wlBranch');
         const branch = branchEl ? branchEl.value : '';
+        const excludeGrab = document.getElementById('excludeGrab').checked;
         
         // Lấy search params
         const q = document.getElementById('searchInput').value.trim();
@@ -757,7 +801,7 @@
 
         try {
             // Gọi API duy nhất
-            const url = `/api/cskh/worklist?page=${page}&sort=${sort}&tax=${tax}&status=${status}&month=${month}&branch=${branch}&q=${encodeURIComponent(q)}&type=${type}&emp=${emp}`;
+            const url = `/api/cskh/worklist?page=${page}&sort=${sort}&tax=${tax}&status=${status}&month=${month}&branch=${branch}&q=${encodeURIComponent(q)}&type=${type}&emp=${emp}&excludeGrab=${excludeGrab}`;
             
             const res = await fetch(url);
             const json = await res.json();
@@ -1162,7 +1206,101 @@ function renderBreakdownTable(ordersList, mode, branchNameLabel = '') {
     // 5. Hiển thị Modal
     document.getElementById('breakdownModal').style.display = 'flex';
 }
+// Hàm mở Popup Chi tiết Matrix
+async function openMatrixDetail(userId, resultType, branchName) {
+    // 1. Hiển thị Modal & Loading
+    const modal = document.getElementById('matrixDetailModal');
+    const tbody = document.getElementById('matrixDetailBody');
+    const title = document.getElementById('matrixDetailTitle');
+    
+    // Lấy tháng đang chọn ở bộ lọc (để biết xem tháng nào)
+    const currentMonth = document.getElementById('wlMonth').value; 
+    // Nếu đang chọn "All" hoặc filter khác, mặc định lấy tháng hiện tại cho dashboard này (vì dashboard là "Tháng này")
+    // Tuy nhiên dashboard của bạn đang cố định là "Tháng này" (logic server). 
+    // Tốt nhất lấy giá trị từ input month, nếu 'all' thì fallback về tháng hiện tại.
+    const d = new Date();
+    const queryMonth = (currentMonth === 'all') ? d.toISOString().slice(0, 7) : currentMonth;
 
+    title.innerText = `${resultType} - ${branchName} (Tháng ${queryMonth})`;
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
+    modal.style.display = 'flex';
+
+    try {
+        // 2. Gọi API
+        const res = await fetch(`/api/cskh/matrix-detail?userId=${userId}&resultType=${encodeURIComponent(resultType)}&month=${queryMonth}&branch=${encodeURIComponent(branchName)}`);
+        const json = await res.json();
+
+        if (json.ok) {
+            if (json.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:red;">Không tìm thấy dữ liệu chi tiết.</td></tr>';
+            } else {
+                // 3. Render dữ liệu
+               const html = json.data.map(item => `
+                        <tr>
+                            <td style="text-align:center">${item.stt}</td>
+                            <td><span class="badge badge-subgroup">${item.branch}</span></td>
+                            <td>${item.salesman}</td>
+                            
+                            <td>
+                                <a href="javascript:void(0)" 
+                                   onclick="searchOrderFromModal('${item.order_code}')"
+                                   style="font-weight:700; color:#2563eb; text-decoration:underline;">
+                                   ${item.order_code}
+                                </a>
+                            </td>
+
+                            <td>
+                                <div style="font-weight:600;">${item.customer_name}</div>
+                            </td>
+                            <td>${item.phone}</td>
+                            <td>${item.tax_code}</td>
+                            
+                            <td style="text-align:right; font-weight:700; color:#16a34a;">
+                                ${new Intl.NumberFormat('vi-VN').format(item.revenue)} ₫
+                            </td>
+
+                            <td style="font-size:12px; color:#334155; text-align:left; white-space: normal;">
+                                ${item.note || '-'}
+                            </td>
+                        </tr>
+                    `).join('');
+                    tbody.innerHTML = html;
+                }
+        } else {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:red;">Lỗi: ${json.error}</td></tr>`;
+        }
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:red;">Lỗi kết nối máy chủ.</td></tr>`;
+    }
+}
+
+// Hàm hỗ trợ: Bấm vào mã đơn trong Modal -> Tìm kiếm ở Worklist
+function searchOrderFromModal(orderCode) {
+    // 1. Đóng Modal hiện tại
+    document.getElementById('matrixDetailModal').style.display = 'none';
+
+    // 2. Điền dữ liệu vào bộ lọc chính
+    const searchType = document.getElementById('searchType');
+    const searchInput = document.getElementById('searchInput');
+
+    if(searchType && searchInput) {
+        searchType.value = 'order_code'; // Chuyển loại tìm kiếm thành Mã đơn
+        searchInput.value = orderCode;   // Điền mã đơn
+        
+        // 3. Gọi hàm load dữ liệu (Tìm kiếm)
+        loadWorkList(1);
+        
+        // Cuộn màn hình xuống phần danh sách để user thấy ngay
+        document.querySelector('.dash-card').scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+// Đóng modal khi click ngoài
+window.addEventListener('click', function(e) {
+    const m = document.getElementById('matrixDetailModal');
+    if (e.target == m) m.style.display = 'none';
+});
 // Đóng modal khi click ra ngoài
 window.addEventListener('click', function(e) {
     const modal = document.getElementById('breakdownModal');

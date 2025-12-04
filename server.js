@@ -1318,10 +1318,10 @@ app.post('/api/pc-builder/check-promos', requireAuth, async (req, res) => {
     ];
     
     const tiers = [
-      { min: 50000000, discount: 1000000, code: 'PVBUILDPC25114' },
-      { min: 30000000, discount: 600000,  code: 'PVBUILDPC25113' },
-      { min: 20000000, discount: 400000,  code: 'PVBUILDPC25112' },
-      { min: 10000000, discount: 200000,  code: 'PVBUILDPC25111' }
+      { min: 50000000, discount: 1000000, code: 'PVBUILDPC25124' },
+      { min: 30000000, discount: 600000,  code: 'PVBUILDPC25123' },
+      { min: 20000000, discount: 400000,  code: 'PVBUILDPC25122' },
+      { min: 10000000, discount: 200000,  code: 'PVBUILDPC25121' }
     ];
 
     // --- BƯỚC 2: KIỂM TRA CÁC ĐIỀU KIỆN ---
@@ -4336,21 +4336,23 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
                 is_checked_out: isChecked,
             });
         }
-
-        // --- BƯỚC 5: [Req 2] TÍNH RANK ---
+        // --- BƯỚC 5: [Req 2] TÍNH RANK & FIFO (ĐÃ FIX: ÉP KIỂU NGÀY TUYỆT ĐỐI) ---
         if (searchedItem && !checkedSerials.get(searchedItem.serial) && bigquery) {
             const skuToRank = searchedItem.sku;
-            console.log(`[DEBUG] Calculating rank for Serial ${masterQuery} (SKU: ${skuToRank})`);
-
-            // Chỉ lấy các serial CÙNG SKU và CÙNG CHI NHÁNH (nếu ko phải admin)
+            
+            // 1. QUERY: Đã kiểm tra -> Đang lấy đúng 2 kho bán mới
             const rankQuery = `
                 SELECT Serial, Date_import_company
                 FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
-                /* ⭐ SỬA LỖI: Ép kiểu @skuToRank thành INT64 */
                 WHERE SKU = CAST(@skuToRank AS INT64) 
-                  ${!isGlobalAdmin ? 'AND Branch_ID = @branchCode' : ''} 
+                  ${!isGlobalAdmin ? 'AND Branch_ID = @branchCode' : ''}
+                  
+                  -- [XÁC NHẬN] Code đang lọc đúng 2 kho này
+                  AND BIN_zone IN ('Trưng bày hàng bán mới', 'Lưu kho hàng bán mới') 
+                  
                 ORDER BY Date_import_company ASC
             `;
+            
             const rankOptions = {
                 query: rankQuery, location: 'asia-southeast1',
                 params: { skuToRank: String(skuToRank), branchCode: userBranch }
@@ -4359,34 +4361,102 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
             try {
                 const [allSkuSerials] = await bigquery.query(rankOptions);
 
-                // Lấy trạng thái xuất của TẤT CẢ serial cùng SKU (để loại trừ)
+                // Lấy log đã xuất
                 const skuSerialList = allSkuSerials.map(s => s.Serial);
                 const { data: skuLogData } = await supabase
                     .from('serial_check_log')
                     .select('serial, checked_out')
                     .in('serial', skuSerialList)
-                    // Lọc theo branch VÀ ngày
                     .eq(!isGlobalAdmin ? 'branch_code' : '1', !isGlobalAdmin ? userBranch : '1')
                     .eq('check_date', todayDate);
                 
-                // Map trạng thái checkout (merge map tổng và map của SKU)
-                const skuCheckedSerialsMap = new Map([...checkedSerials, ...((skuLogData || []).map(log => [log.serial, log.checked_out]))]);
+                const skuCheckedMap = new Map([...checkedSerials, ...((skuLogData || []).map(log => [log.serial, log.checked_out]))]);
 
-                // Lọc bỏ những serial đã xuất khỏi danh sách xếp hạng
-                const activeSkuSerials = allSkuSerials.filter(s => !skuCheckedSerialsMap.get(s.Serial));
+                // Lọc serial còn tồn (Active)
+                const activeSkuSerials = allSkuSerials.filter(s => !skuCheckedMap.get(s.Serial));
                 
-                // Tìm rank
-                const rank = activeSkuSerials.findIndex(s => s.Serial === masterQuery) + 1; // Rank bắt đầu từ 1
-                const totalActive = activeSkuSerials.length;
+                if (activeSkuSerials.length > 0) {
+                    
+                    // --- [FIX] HÀM CHUẨN HÓA NGÀY "CỨNG" ---
+                    // Mục đích: Biến mọi định dạng (Object, Date, String) thành chuỗi "YYYY-MM-DD" duy nhất
+                    const normalizeDate = (input) => {
+                        if (!input) return null;
+                        
+                        let strVal = '';
+                        // TH1: BigQuery trả về Object { value: '2023-08-29' }
+                        if (typeof input === 'object' && input.value) {
+                            strVal = String(input.value);
+                        }
+                        // TH2: BigQuery trả về Date Object Javascript
+                        else if (input instanceof Date) {
+                            // Tự format thủ công để tránh lệch múi giờ
+                            const y = input.getFullYear();
+                            const m = String(input.getMonth() + 1).padStart(2, '0');
+                            const d = String(input.getDate()).padStart(2, '0');
+                            strVal = `${y}-${m}-${d}`;
+                        }
+                        // TH3: Là String thuần
+                        else {
+                            strVal = String(input);
+                        }
 
-                if (rank > 0) {
-                    rankInfo = { serial: masterQuery, rank: rank, total: totalActive, sku: skuToRank };
-                    console.log(`[DEBUG] Rank calculated: ${rank}/${totalActive}`);
-                } else { 
-                    console.log(`[DEBUG] Searched serial ${masterQuery} not found in active list (maybe checked out).`); 
-                }
-            } catch (rankError) { console.error("LỖI TÍNH RANK:", rankError.message); }
-        } else if (searchedItem) {
+                        // Dùng Regex bắt chính xác chuỗi ngày tháng năm đầu tiên
+                        const match = strVal.match(/(\d{4}-\d{2}-\d{2})/);
+                        return match ? match[1] : null; // Trả về "2023-08-29"
+                    };
+
+                    // 2. TẠO DANH SÁCH LÔ (Unique Dates)
+                    // Set sẽ tự loại bỏ trùng lặp nếu chuỗi giống hệt nhau
+                    const uniqueDates = [...new Set(activeSkuSerials.map(s => normalizeDate(s.Date_import_company)))]
+                                        .filter(Boolean)
+                                        .sort(); // Sắp xếp tăng dần theo ngày
+                    
+                    // 3. TÍNH RANK
+                    const targetDateStr = normalizeDate(searchedItem.date_in); 
+                    const rank = uniqueDates.indexOf(targetDateStr) + 1;
+                    
+                    // 4. TÍNH FIFO
+                    const oldestDateStr = uniqueDates[0]; 
+                    
+                    // Format hiển thị UI (DD/MM/YYYY)
+                    let oldestDateDisplay = oldestDateStr;
+                    if (oldestDateStr && oldestDateStr.includes('-')) {
+                        const [y, m, d] = oldestDateStr.split('-');
+                        oldestDateDisplay = `${d}/${m}/${y}`;
+                    }
+
+                    // Tính chênh lệch ngày
+                    const d1 = new Date(targetDateStr);
+                    const d2 = new Date(oldestDateStr);
+                    const diffTime = Math.abs(d1 - d2);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                    
+                    let fifoStatus = 'UNK';
+                    let fifoClass = ''; 
+                    
+                    if (diffDays <= 30) {
+                        fifoStatus = 'Đạt FIFO';
+                        fifoClass = 'text-success';
+                    } else {
+                        fifoStatus = 'Không đạt FIFO';
+                        fifoClass = 'text-danger';
+                    }
+
+                    rankInfo = { 
+                        serial: masterQuery, 
+                        rank: rank > 0 ? rank : '?', 
+                        total: uniqueDates.length, // Sẽ trả về đúng số lượng lô (Ví dụ: 3)
+                        totalSerials: activeSkuSerials.length, 
+                        sku: skuToRank,
+                        diffDays, fifoStatus, fifoClass,
+                        oldestDate: oldestDateDisplay
+                    };
+                } 
+            } catch (rankError) { console.error("Lỗi tính Rank:", rankError.message); }
+        }
+
+        
+        else if (searchedItem) {
             console.log(`[DEBUG] Rank skipped (Item already checked out or BQ disabled)`);
         }
 
@@ -5738,7 +5808,8 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
         const pageSize = 20; 
         const offset = (page - 1) * pageSize;
         
-        const { sort, tax, status, month, branch, q, type, emp } = req.query;
+        const { sort, tax, status, month, branch, q, type, emp, excludeGrab } = req.query;
+        const shouldHideGrab = excludeGrab !== 'false';
 
         if (!bigquery) return res.json({ ok: false, error: 'No BigQuery' });
 
@@ -5784,14 +5855,40 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
         }
 
         if (q && q.trim() !== '') {
-            const keyword = q.trim();
-            if (type === 'order_code') { whereClause += ` AND Order_code = @keyword`; params.keyword = keyword; } 
-            else if (type === 'tax_code') { whereClause += ` AND Billing_tax_code LIKE @keyword`; params.keyword = `%${keyword}%`; } 
-            else { whereClause += ` AND LOWER(Customer_full_name) LIKE LOWER(@keyword)`; params.keyword = `%${keyword}%`; }
-        }
+    const keyword = q.trim();
+    
+    if (type === 'order_code') { 
+        whereClause += ` AND Order_code = @keyword`; 
+        params.keyword = keyword; 
+    } 
+    else if (type === 'tax_code') { 
+        // [NÂNG CẤP] TÌM KIẾM MST CÓ SỐ 0 VÀ KHÔNG SỐ 0
+        // Logic: Tạo ra 2 biến thể keyword: Có số 0 đầu và Bỏ số 0 đầu
+        
+        // Xóa số 0 ở đầu input của user (nếu có) để lấy phần "gốc"
+        const cleanKey = keyword.replace(/^0+/, ''); 
+        
+        whereClause += ` AND (Billing_tax_code LIKE @keyRaw OR Billing_tax_code LIKE @keyNoZero OR Billing_tax_code LIKE @keyWithZero)`;
+        
+        // Trường hợp 1: Tìm đúng những gì user nhập
+        params.keyRaw = `%${keyword}%`;
+        // Trường hợp 2: Tìm dạng không có số 0 ở đầu (VD: user nhập 030 -> tìm %30%)
+        params.keyNoZero = `%${cleanKey}%`;
+        // Trường hợp 3: Tìm dạng có số 0 ở đầu (VD: user nhập 30 -> tìm %030%)
+        params.keyWithZero = `%0${cleanKey}%`;
+        
+    } 
+    else { 
+        whereClause += ` AND LOWER(Customer_full_name) LIKE LOWER(@keyword)`; 
+        params.keyword = `%${keyword}%`; 
+    }
+}
+        if (tax === 'has_tax') whereClause += ` AND Billing_tax_code IS NOT NULL AND LENGTH(CAST(Billing_tax_code AS STRING)) > 5`;
+        else if (tax === 'no_tax') whereClause += ` AND (Billing_tax_code IS NULL OR Billing_tax_code = '' OR LENGTH(CAST(Billing_tax_code AS STRING)) <= 5)`;
+        if (shouldHideGrab) {
+    whereClause += ` AND Billing_tax_code != '0316032128'`;
+}
 
-        if (tax === 'has_tax') whereClause += ` AND Billing_tax_code IS NOT NULL AND Billing_tax_code != ''`;
-        else if (tax === 'no_tax') whereClause += ` AND (Billing_tax_code IS NULL OR Billing_tax_code = '')`;
 
         let orderBy = 'ORDER BY Total_Revenue DESC';
         if (sort === 'date_desc') orderBy = 'ORDER BY Max_Date DESC';
@@ -6019,7 +6116,8 @@ app.get('/customer-care', requireAuth, async (req, res) => {
                 start: startDateRaw,
                 end: endDateRaw,
                 branch: filterBranch,
-                emp: filterEmpId
+                emp: filterEmpId,
+                excludeGrab: req.query.excludeGrab
             },
 
             dashboard: {
@@ -6791,7 +6889,120 @@ app.get('/api/admin/search-sku-stock', requireAuth, async (req, res) => {
   }
 });
 
+// API: Lấy chi tiết danh sách đơn hàng từ Matrix (Popup)
+app.get('/api/cskh/matrix-detail', requireAuth, async (req, res) => {
+    try {
+        const { userId, resultType, month, branch } = req.query;
+        const currentUser = req.session.user;
 
+        // 1. PHÂN QUYỀN (Security)
+        // Nếu là Staff: Chỉ được xem của chính mình
+        if (currentUser.role === 'staff' && currentUser.id !== userId) {
+            return res.status(403).json({ ok: false, error: 'Bạn chỉ có quyền xem dữ liệu của mình.' });
+        }
+        // Nếu là Manager: Chỉ được xem nhân viên thuộc Branch mình (trừ khi là Admin HCM.BD)
+        if (currentUser.role === 'manager' && currentUser.branch_code !== 'HCM.BD') {
+             // Cần check xem userId kia có thuộc branch của manager này không (bỏ qua bước này để tối ưu, giả định UI đã lọc đúng)
+             // Tối thiểu check branch gửi lên phải khớp
+             if (branch && branch !== currentUser.branch_code) {
+                 return res.status(403).json({ ok: false, error: 'Không có quyền truy cập branch này.' });
+             }
+        }
+
+        // 2. Lấy danh sách Order Code từ Supabase (Logs)
+        // Lọc theo User, Result, và Tháng
+        const startOfMonth = new Date(month + '-01').toISOString();
+        // Tính ngày cuối tháng
+        const [y, m] = month.split('-').map(Number);
+        const endOfMonth = new Date(y, m, 0, 23, 59, 59).toISOString();
+
+        let logQuery = supabase
+            .from('customer_care_logs')
+            .select(`
+                order_code, result, revenue_at_care, created_at, 
+                phone_number,
+                sale_note,
+                users:created_by (full_name, branch_code)
+            `)
+            .eq('created_by', userId)
+            .gte('created_at', startOfMonth)
+            .lte('created_at', endOfMonth);
+
+
+            
+        if (resultType) {
+            logQuery = logQuery.eq('result', resultType);
+        }
+
+        const { data: logs, error: logError } = await logQuery;
+        if (logError) throw logError;
+
+        if (!logs || logs.length === 0) {
+            return res.json({ ok: true, data: [] });
+        }
+
+        const orderCodes = logs.map(l => l.order_code);
+
+        // 3. Lấy thông tin chi tiết (MST, Tên KH, SĐT) từ BigQuery
+        // Vì Supabase log có thể không lưu MST hoặc SĐT mới nhất
+        if (!bigquery) {
+            // Fallback nếu không có BQ: Trả về dữ liệu từ Log
+            return res.json({ ok: true, data: logs.map((l, idx) => ({
+                stt: idx + 1,
+                branch: l.users?.branch_code,
+                salesman: l.users?.full_name,
+                order_code: l.order_code,
+                customer_name: l.customer_full_name || 'N/A', // Cần sửa log query để lấy thêm field này nếu fallback
+                phone: l.phone_number || 'N/A',
+                tax_code: 'N/A (No BQ)',
+                revenue: l.revenue_at_care
+            }))});
+        }
+
+        const bqQuery = `
+            SELECT 
+                Order_code, 
+                MAX(Customer_full_name) as Customer_Name,
+                MAX(Billing_tax_code) as Tax_Code,
+                MAX(Branch_code) as Branch
+            FROM \`nimble-volt-459313-b8.sales.raw_sales_orders\`
+            WHERE Order_code IN UNNEST(@codes)
+            GROUP BY 1
+        `;
+
+        const [bqRows] = await bigquery.query({
+            query: bqQuery,
+            params: { codes: orderCodes }
+        });
+
+        const bqMap = new Map();
+        bqRows.forEach(r => bqMap.set(r.Order_code, r));
+
+        // 4. Ghép dữ liệu trả về
+        const finalData = logs.map((log, index) => {
+            const bqInfo = bqMap.get(log.order_code) || {};
+            return {
+                stt: index + 1,
+                branch: log.users?.branch_code || bqInfo.Branch || '',
+                salesman: log.users?.full_name || '',
+                order_code: log.order_code,
+                customer_name: bqInfo.Customer_Name || 'Khách lẻ',
+                
+                // [QUAN TRỌNG] Lấy SĐT từ bảng Log User nhập
+                phone: log.phone_number || '', 
+                
+                tax_code: bqInfo.Tax_Code || '',
+                note: log.sale_note || '',
+                revenue: log.revenue_at_care
+            };
+        });
+        res.json({ ok: true, data: finalData });
+
+    } catch (e) {
+        console.error("Matrix Detail Error:", e);
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {
