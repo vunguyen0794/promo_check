@@ -10,7 +10,7 @@
         th, td { border: 1px solid #999; padding: 5px; text-align: left; vertical-align: top; }
         th { background-color: #DDEBF7; color: #1F4E78; font-weight: bold; font-size: 9.5px; text-align: center; }
         .quote-title { text-align: center; font-size: 16px; font-weight: bold; color: #FFFFFF; background-color: #2F75B5; padding: 5px; margin: 15px 0 10px 0; }
-        .right { text-align: right; } .center { text-align: center; } .no-border { border: none; }
+        .right { text-align: right; } .center { text-align: center; } 
         .header-table, .info-table, .customer-table { border: none; }
         .header-table td, .info-table td, .customer-table td { border: none; padding: 1px; }
         .company-info { font-size: 11px; font-weight: bold; }
@@ -41,6 +41,7 @@
         <div class="center" style="margin-bottom: 15px; font-style: italic; font-size: 11px; color: #555;">
             (Ngày báo giá: <%= quoteDate %>)
         </div>
+        
         <table class="info-table">
             <tr>
                 <td style="width: 50%;">
@@ -61,9 +62,11 @@
         </table>
 
         <% 
-           // 1. Kiểm tra xem có sản phẩm nào được giảm giá không?
-           // Nếu tất cả item_discount đều = 0 thì ẩn cột này đi
            const hasAnyDiscount = items.some(i => (i.item_discount || 0) > 0);
+           
+           // [MỚI] Khởi tạo biến tích lũy để tính tổng chính xác
+           let grandTotalExVat = 0;
+           let grandTotalVat = 0;
         %>
         
         <table>
@@ -77,21 +80,16 @@
                     
                     <% if (templateType === 'b2b') { %>
                         <th class="right">Đơn giá<br><i>(Chưa VAT)</i></th>
-                        
                         <% if (hasAnyDiscount) { %>
                             <th class="right">Giảm giá<br><i>(Chi tiết)</i></th>
                         <% } %>
-                        
                         <th class="right">Thành tiền<br><i>(Chưa VAT)</i></th>
-                        <th class="right">Thuế VAT<br><i>(8%)</i></th>
-                        <th class="right">Tổng cộng<br><i>(Gồm VAT)</i></th>
+                        <th class="right">Thuế VAT<br><i>(%)</i></th> <th class="right">Tổng cộng<br><i>(Gồm VAT)</i></th>
                     <% } else { %>
                         <th class="right">Đơn giá<br><i>(Gồm VAT)</i></th>
-                        
                         <% if (hasAnyDiscount) { %>
                             <th class="right">Giảm giá<br><i>(Chi tiết)</i></th>
                         <% } %>
-                        
                         <th class="right">Thành tiền<br><i>(Gồm VAT)</i></th>
                     <% } %>
                 </tr>
@@ -99,15 +97,27 @@
             <tbody>
                 <% items.forEach((item, index) => { %>
                     <% 
+                      // [MỚI] Logic xác định thuế suất dựa trên Subcat
+                      const isTaxFree = taxFreeSubcats.includes(item.subcat);
+                      const taxRate = isTaxFree ? 0 : 0.08;
+                      const taxDivisor = isTaxFree ? 1 : 1.08;
+                      
                       const unitPriceIncVat = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
                       const unitDiscountIncVat = item.item_discount || 0; 
+                      
+                      // Thành tiền dòng (Gồm VAT)
                       const lineTotalIncVat = (unitPriceIncVat - unitDiscountIncVat) * item.quantity;
-
-                      // Tính ngược cho B2B
-                      const unitPriceExVat = Math.round(unitPriceIncVat / 1.08);
-                      const unitDiscountExVat = Math.round(unitDiscountIncVat / 1.08);
+                      
+                      // [MỚI] Tính ngược giá chưa VAT dựa trên thuế suất cụ thể của món này
+                      const unitPriceExVat = Math.round(unitPriceIncVat / taxDivisor);
+                      const unitDiscountExVat = Math.round(unitDiscountIncVat / taxDivisor);
                       const lineTotalExVat = (unitPriceExVat - unitDiscountExVat) * item.quantity;
+                      
                       const lineVat = lineTotalIncVat - lineTotalExVat;
+
+                      // [MỚI] Cộng dồn vào tổng chung
+                      grandTotalExVat += lineTotalExVat;
+                      grandTotalVat += lineVat;
                     %>
                     <tr>
                         <td class="center"><%= index + 1 %></td>
@@ -126,8 +136,9 @@
                             <% } %>
                             
                             <td class="right"><%= formatVND(lineTotalExVat) %></td>
-                            <td class="right"><%= formatVND(lineVat) %></td>
+                            <td class="right"><%= isTaxFree ? '0%' : '8%' %></td>
                             <td class="right"><%= formatVND(lineTotalIncVat) %></td>
+
                         <% } else { %>
                             <td class="right"><%= formatVND(unitPriceIncVat) %></td>
                             
@@ -146,9 +157,15 @@
 
         <div class="total-section">
             <% 
-               // Tính toán tổng cuối cùng
-               const totalExVat = Math.round(finalTotal / 1.08);
-               const totalVat = finalTotal - totalExVat;
+               // Xử lý Giảm giá tổng (Global Discount)
+               // Nếu có giảm giá tổng, ta sẽ trừ nó vào Total Inclusive VAT (Tổng thanh toán)
+               // Tuy nhiên, để hóa đơn B2B chính xác, ta nên tính lại tỷ lệ VAT trung bình hoặc trừ vào trước thuế
+               // Ở đây tôi giữ logic đơn giản: Giảm trên tổng thanh toán cuối cùng, 
+               // và hiển thị các dòng VAT dựa trên tổng hợp từ danh sách sản phẩm (chưa trừ giảm giá tổng để tham khảo)
+               
+               // Lưu ý: Nếu muốn giảm giá tổng ảnh hưởng đến VAT đầu ra trên hóa đơn đỏ, 
+               // bạn cần phân bổ giảm giá này vào từng dòng sản phẩm.
+               // Hiện tại hiển thị theo cách "Chiết khấu thương mại" sau thuế.
             %>
 
             <div class="total-row">
@@ -172,13 +189,18 @@
 
             <% if (templateType === 'b2b') { %>
                 <div class="total-row" style="border-top: 1px dashed #ccc; margin-top: 2px; font-style: italic;">
-                    <span>Thành tiền (Trước thuế):</span>
-                    <span class="right"><%= formatVND(totalExVat) %></span>
+                    <span>Tổng tiền chưa thuế (Tạm tính):</span>
+                    <span class="right"><%= formatVND(grandTotalExVat) %></span>
                 </div>
                 <div class="total-row" style="font-style: italic;">
-                    <span>Tiền thuế VAT (8%):</span>
-                    <span class="right"><%= formatVND(totalVat) %></span>
+                    <span>Tổng tiền thuế VAT (Tạm tính):</span>
+                    <span class="right"><%= formatVND(grandTotalVat) %></span>
                 </div>
+                <% if (globalDiscountAmt > 0 || appliedPromo) { %>
+                    <div class="total-row" style="font-size: 9px; color: #666;">
+                        <i>* Lưu ý: Giá trị chưa thuế và VAT ở trên chưa trừ chiết khấu tổng đơn (nếu có).</i>
+                    </div>
+                <% } %>
             <% } %>
 
             <div class="total-row grand-total">

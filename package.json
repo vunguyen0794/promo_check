@@ -25,6 +25,7 @@
     "googleapis": "^159.0.0",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.11",
     "puppeteer-core": "^10.4.0",
     "resend": "^6.4.0",
     "simple-oauth2": "^5.1.0"

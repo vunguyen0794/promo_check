@@ -9,7 +9,11 @@
                 <%= error %>
             </div>
         <% } %>
-        
+        <% if (locals.successMessage) { %>
+    <div class="success-message" style="color: green; background: #d4edda; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center;">
+        <%= successMessage %>
+    </div>
+<% } %>
         <form action="/login" method="POST" class="auth-form">
             <div class="form-group">
                 <label>Email</label>
@@ -20,13 +24,14 @@
                 <label>Mật khẩu</label>
                 <input type="password" name="password" required placeholder="Nhập mật khẩu">
             </div>
-            
+
             <button type="submit" class="btn btn-primary btn-full">Đăng nhập</button>
         </form>
         
-        <div class="auth-links">
-            <p>Chưa có tài khoản? <a href="/register">Đăng ký ngay</a></p>
-        </div>
+        <div class="auth-links" style="display: flex; justify-content: space-between; align-items: center;">
+    <p style="margin: 0;">Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
+    <a href="/forgot-password" style="font-size: 0.9em;">Quên mật khẩu?</a>
+</div>
     </div>
 </div>
 

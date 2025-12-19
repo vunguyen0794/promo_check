@@ -29,6 +29,9 @@ const puppeteer = require('puppeteer'); // Đây là bản đầy đủ cho loca
 const { Readable, PassThrough } = require('stream');
 const cron = require('node-cron');
 
+const nodemailer = require('nodemailer');
+const crypto = require('crypto'); // Có sẵn trong Node.js
+
 const isVercel = !!process.env.VERCEL;
 
 // ------------------------- Supabase -------------------------
@@ -5161,6 +5164,7 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
     // 5. Tổng thanh toán cuối cùng
     // Trừ giảm giá tổng (nhập tay) VÀ trừ khuyến mãi Build PC (tự động)
     const finalTotal = totalItemsPrice - globalDiscountAmt - promoDiscount;
+    const taxFreeSubcats = ['NH09-02-01-01', 'NH09-02-01-02', 'NH09-01-01'];
 
     // 6. Render & PDF
     const userFullName = req.session.user?.full_name || 'Nhân viên Phong Vũ';
@@ -5184,6 +5188,7 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
         appliedPromo,       // Truyền promo xuống EJS để hiển thị
         finalTotal,         
         validityDays,
+        taxFreeSubcats: taxFreeSubcats,
         
         formatVND: (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0))
       }
@@ -5239,7 +5244,7 @@ app.get('/api/quote/search-products', requireAuth, async (req, res) => {
 
     let query = supabase
       .from('skus')
-      .select('sku, product_name, brand, list_price');
+      .select('sku, product_name, brand, list_price, subcat');
 
     // 1. Lọc theo từ khóa (nếu có)
     if (q) {
@@ -7003,6 +7008,164 @@ app.get('/api/cskh/matrix-detail', requireAuth, async (req, res) => {
         res.status(500).json({ ok: false, error: e.message });
     }
 });
+
+
+// --- CẤU HÌNH GỬI MAIL ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER, 
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// --- ROUTE QUÊN MẬT KHẨU ---
+
+// 1. Hiển thị form nhập email
+app.get('/forgot-password', (req, res) => {
+    // Tận dụng header/footer cũ
+    res.render('forgot-password', { 
+        title: 'Quên mật khẩu', 
+        currentPage: 'login', 
+        error: null, 
+        success: null,
+        time: '' 
+    });
+});
+
+// 2. Xử lý gửi mail
+app.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        // Kiểm tra email
+        const { data: user } = await supabase
+            .from('users')
+            .select('id, email')
+            .eq('email', email)
+            .single();
+
+        // Bảo mật: Nếu email không tồn tại, vẫn báo thành công để tránh hacker dò email
+        if (!user) {
+             return res.render('forgot-password', {
+                title: 'Quên mật khẩu', currentPage: 'login', time: '',
+                error: null,
+                success: 'Nếu email tồn tại, link khôi phục đã được gửi. Vui lòng kiểm tra hộp thư (cả mục Spam).'
+            });
+        }
+
+        // Tạo token ngẫu nhiên & Hạn dùng 1 tiếng
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 3600000); // +1 giờ
+
+        // Lưu vào DB
+        await supabase
+            .from('users')
+            .update({ reset_token: token, reset_token_expiry: expiry })
+            .eq('id', user.id);
+
+        // Tạo link (Tự động nhận diện localhost hay vercel)
+        const resetLink = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
+
+        // Gửi mail
+        await transporter.sendMail({
+            from: '"Phong Vu System" <no-reply@phongvu.vn>',
+            to: email,
+            subject: 'Yêu cầu đặt lại mật khẩu',
+            html: `
+                <h3>Yêu cầu đặt lại mật khẩu</h3>
+                <p>Bạn (hoặc ai đó) đã yêu cầu lấy lại mật khẩu cho tài khoản: <b>${email}</b></p>
+                <p>Vui lòng bấm vào link dưới đây để đặt mật khẩu mới (Link hết hạn sau 1 giờ):</p>
+                <a href="${resetLink}" style="background:#0d6efd; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">Đặt lại mật khẩu</a>
+                <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
+            `
+        });
+
+        res.render('forgot-password', {
+            title: 'Quên mật khẩu', currentPage: 'login', time: '',
+            error: null,
+            success: 'Đã gửi link khôi phục. Vui lòng kiểm tra email!'
+        });
+
+    } catch (err) {
+        console.error("Mail Error:", err);
+        res.render('forgot-password', {
+            title: 'Quên mật khẩu', currentPage: 'login', time: '',
+            error: 'Lỗi khi gửi mail. Vui lòng thử lại sau.',
+            success: null
+        });
+    }
+});
+
+// 3. Link từ Email bấm vào -> Hiện form đổi pass
+app.get('/reset-password', async (req, res) => {
+    const { token } = req.query;
+
+    // Check token hợp lệ & còn hạn
+    const { data: user } = await supabase
+        .from('users')
+        .select('id')
+        .eq('reset_token', token)
+        .gt('reset_token_expiry', new Date().toISOString()) // Expiry > Thời gian hiện tại
+        .single();
+
+    if (!user) {
+        return res.render('login', {
+            title: 'Đăng nhập', currentPage: 'login', time: '',
+            error: 'Link không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.'
+        });
+    }
+
+    res.render('reset-password', { 
+        title: 'Đặt lại mật khẩu', currentPage: 'login', time: '', 
+        token, error: null 
+    });
+});
+
+// 4. Xử lý đổi pass mới
+app.post('/reset-password', async (req, res) => {
+    const { token, password, confirm_password } = req.body;
+
+    if (password !== confirm_password) {
+        return res.render('reset-password', { 
+            title: 'Đặt lại mật khẩu', currentPage: 'login', time: '',
+            token, error: 'Mật khẩu nhập lại không khớp!' 
+        });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Update pass & Xóa token
+        const { error } = await supabase
+            .from('users')
+            .update({ 
+                password_hash: hashedPassword,
+                reset_token: null,
+                reset_token_expiry: null
+            })
+            .eq('reset_token', token)
+            .gt('reset_token_expiry', new Date().toISOString());
+
+        if (error) throw error;
+
+        // Render trang login với thông báo thành công
+        res.render('login', {
+            title: 'Đăng nhập', currentPage: 'login', time: '',
+            error: null, // Không có lỗi
+            successMessage: 'Đổi mật khẩu thành công! Hãy đăng nhập ngay.' // Cần sửa login.ejs để hiện cái này
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.render('reset-password', { 
+            title: 'Đặt lại mật khẩu', currentPage: 'login', time: '',
+            token, error: 'Lỗi hệ thống. Vui lòng thử lại.' 
+        });
+    }
+});
+
+
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {
