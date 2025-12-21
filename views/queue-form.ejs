@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lấy số thứ tự / Get Ticket</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Be Vietnam Pro', sans-serif; background: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        .card { background: white; width: 100%; max-width: 450px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        
+        .header { background: #1a73e8; color: white; padding: 25px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; }
+        .header .sub-title { font-size: 14px; font-style: italic; opacity: 0.9; font-weight: 400; margin-top: 5px; }
+        
+        .body { padding: 25px; }
+        
+        .input-group { margin-bottom: 15px; }
+        .label { display: block; margin-bottom: 8px; font-weight: 700; color: #374151; font-size: 15px; }
+        /* Style cho tiếng Anh phụ */
+        .en-sub { font-weight: 400; font-style: italic; color: #6b7280; font-size: 0.9em; margin-left: 5px; }
+        
+        .input { width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 16px; box-sizing: border-box; transition: 0.3s; }
+        .input:focus { border-color: #1a73e8; outline: none; background: #eff6ff; }
+        
+        .grid-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .btn-opt { padding: 15px 10px; border: 2px solid #e5e7eb; border-radius: 12px; cursor: pointer; background: #f9fafb; transition: 0.2s; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 110px; }
+        .btn-opt:hover { background: #e5e7eb; }
+        .btn-opt.active { border-color: #1a73e8; background: #eff6ff; color: #1a73e8; box-shadow: 0 4px 12px rgba(26, 115, 232, 0.15); }
+        
+        /* Nút Bảo hành màu cam */
+        .btn-opt[data-type="WARRANTY"].active { border-color: #f59e0b; background: #fffbeb; color: #b45309; }
+
+        .icon { font-size: 32px; display: block; margin-bottom: 5px; }
+        .name { font-weight: 700; display: block; font-size: 16px; }
+        .name-en { font-size: 13px; font-style: italic; font-weight: 400; display: block; }
+
+        #errorSection { display: none; margin-top: 20px; animation: fadeIn 0.3s; }
+        textarea.input { resize: vertical; min-height: 80px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* DISCLAIMER BOX */
+        .disclaimer-box {
+            margin-top: 25px;
+            padding: 15px;
+            background: #fff8e1; /* Màu vàng nhạt cảnh báo */
+            border: 1px solid #ffe082;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #5d4037;
+            line-height: 1.5;
+            text-align: justify;
+        }
+        .disclaimer-title { font-weight: 800; color: #d97706; margin-bottom: 5px; display: block; text-transform: uppercase; font-size: 12px; }
+        .disclaimer-en { font-style: italic; color: #78716c; margin-top: 8px; border-top: 1px dashed #d6d3d1; padding-top: 8px; }
+
+        .btn-submit { width: 100%; background: #1a73e8; color: white; padding: 16px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; margin-top: 20px; cursor: pointer; text-transform: uppercase; transition: background 0.2s; box-shadow: 0 4px 15px rgba(26, 115, 232, 0.3); }
+        .btn-submit:hover { background: #1557b0; }
+        .btn-submit.warranty { background: #f59e0b; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); }
+        .btn-submit.warranty:hover { background: #d97706; }
+        
+        .btn-sub-text { display: block; font-size: 12px; font-weight: 400; text-transform: none; font-style: italic; opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <h1>Đăng ký Lấy số</h1>
+            <div class="sub-title">Register for a Ticket</div>
+            <div style="font-size: 13px; margin-top: 8px; opacity: 0.8;">Chi nhánh / Branch: <strong><%= branchCode %></strong></div>
+        </div>
+        <div class="body">
+            <% if(error) { %><div style="color:red; margin-bottom:15px; text-align:center;"><%= error %></div><% } %>
+            
+            <form action="/api/queue/register" method="POST" id="qForm">
+                <input type="hidden" name="branch_code" value="<%= branchCode %>">
+                <input type="hidden" name="service_type" id="serviceType">
+
+                <div class="input-group">
+                    <label class="label">Họ và tên <span class="en-sub">/ Full Name</span></label>
+                    <input type="text" name="customer_name" class="input" required placeholder="Nhập tên của bạn / Enter your name">
+                </div>
+                <div class="input-group">
+                    <label class="label">Số điện thoại <span class="en-sub">/ Phone Number</span></label>
+                    <input type="tel" name="customer_phone" class="input" placeholder="09xx...">
+                </div>
+
+                <label class="label" style="margin-top: 20px;">Dịch vụ yêu cầu? <span class="en-sub">/ Service Requested?</span></label>
+                <div class="grid-btns">
+                    <div class="btn-opt" data-type="REPAIR" onclick="choose('REPAIR')">
+                        <span class="icon">🛠️</span>
+                        <span class="name">Sửa chữa</span>
+                        <span class="name-en">Repair</span>
+                    </div>
+                    <div class="btn-opt" data-type="WARRANTY" onclick="choose('WARRANTY')">
+                        <span class="icon">🛡️</span>
+                        <span class="name">Bảo hành</span>
+                        <span class="name-en">Warranty</span>
+                    </div>
+                </div>
+
+                <div id="errorSection">
+                    <label class="label">Mô tả lỗi <span class="en-sub">/ Issue Description</span></label>
+                    <textarea name="error_description" class="input" placeholder="VD: Máy không lên nguồn... / Ex: No power..."></textarea>
+                </div>
+
+                <div class="disclaimer-box">
+                    <span class="disclaimer-title">⚠️ Lưu ý quan trọng / Important Notice:</span>
+                    <div>
+                        Để đảm bảo các dữ liệu cá nhân, quý khách vui lòng tự sao, lưu và/ hoặc xóa dữ liệu, các phần mềm, ứng dụng, hình ảnh hoặc bất kỳ nội dung nào khác được lưu trữ trong sản phẩm ("Dữ Liệu") trước khi gửi sản phẩm để bảo hành/sửa chữa. 
+                        <strong>Phong Vũ không chịu trách nhiệm</strong> cho bất kỳ thiệt hại trực tiếp hoặc gián tiếp nào gây ra cho Quý khách nếu Dữ Liệu lưu trong sản phẩm bị tiết lộ, bị mất, bị hư hỏng và/hoặc bị định dạng lại trong quá trình kiểm tra.
+                    </div>
+                    <div class="disclaimer-en">
+                        To ensure personal data privacy, please back up and/or delete all data, software, apps, images, or any other content ("Data") before sending the product for warranty/repair. 
+                        <strong>Phong Vu is not responsible</strong> for any direct or indirect damage caused if Data stored in the product is disclosed, lost, damaged, and/or reformatted during inspection.
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitBtn" style="display: none;">
+                    <span>LẤY SỐ NGAY</span>
+                    <span class="btn-sub-text">GET TICKET NOW</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function choose(type) {
+            document.getElementById('serviceType').value = type;
+            document.querySelectorAll('.btn-opt').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.btn-opt[data-type="${type}"]`).classList.add('active');
+
+            document.getElementById('errorSection').style.display = 'block';
+            
+            const btn = document.getElementById('submitBtn');
+            btn.style.display = 'block';
+            const btnMainText = btn.querySelector('span:first-child');
+            const btnSubText = btn.querySelector('.btn-sub-text');
+            
+            if(type === 'REPAIR') {
+                btnMainText.innerText = 'LẤY SỐ SỬA CHỮA';
+                btnSubText.innerText = 'GET REPAIR TICKET';
+                btn.className = 'btn-submit';
+            } else {
+                btnMainText.innerText = 'LẤY SỐ BẢO HÀNH';
+                btnSubText.innerText = 'GET WARRANTY TICKET';
+                btn.className = 'btn-submit warranty';
+            }
+        }
+    </script>
+</body>
+</html>

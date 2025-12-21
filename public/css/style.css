@@ -2813,3 +2813,56 @@ td.zero-muted strong {
   background: #f3f4f6; /* Nền xám nhạt khi hover */
   color: #111827; /* Giữ nguyên màu chữ */
 }
+
+/* --- NESTED DROPDOWN (MENU CẤP 2) --- */
+
+/* 1. Item cha (Technician) */
+.dropdown-submenu {
+  position: relative; /* Để menu con neo vào đây */
+}
+
+/* Mũi tên chỉ sang phải để báo hiệu có menu con */
+.dropdown-submenu > a::after {
+  content: "▸";
+  float: right;
+  margin-left: 10px;
+  color: #666;
+}
+
+/* 2. Menu con (Ẩn mặc định) */
+.dropdown-submenu .dropdown-menu-child {
+  position: absolute;
+  top: 0;
+  left: 100%; /* Đẩy sang bên phải menu cha */
+  margin-top: -5px; /* Chỉnh lại một chút cho ngang hàng */
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  min-width: 180px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  
+  /* Ẩn */
+  display: none;
+  z-index: 100;
+}
+
+/* 3. Hiệu ứng Hover: Di chuột vào Technician -> Hiện menu con */
+.dropdown-submenu:hover > .dropdown-menu-child {
+  display: block;
+}
+
+/* Mobile responsive: Trên điện thoại thì thụt dòng thay vì bay sang ngang */
+@media (max-width: 768px) {
+  .dropdown-submenu .dropdown-menu-child {
+    position: static; /* Không bay nữa */
+    box-shadow: none;
+    border: none;
+    padding-left: 20px; /* Thụt đầu dòng */
+    background: #f9fafb;
+    display: block; /* Luôn hiện hoặc dùng JS toggle nếu muốn gọn */
+  }
+  .dropdown-submenu > a::after {
+    transform: rotate(90deg); /* Mũi tên quay xuống */
+  }
+}

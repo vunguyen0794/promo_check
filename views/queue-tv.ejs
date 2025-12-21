@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Màn hình - <%= branchCode %></title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { margin:0; overflow:hidden; font-family:'Be Vietnam Pro', sans-serif; background:#f0f2f5; }
+        
+        .tv-layout { display: flex; height: 100vh; width: 100vw; padding: 20px; gap: 20px; box-sizing: border-box; }
+        .main-panel { flex: 3; display: flex; gap: 20px; overflow: hidden; }
+        
+        .v-col { flex: 1; display: flex; flex-direction: column; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; border-top: 8px solid #ccc; }
+        .v-col.col-service { border-top-color: #1a73e8; }
+        .v-col.col-sales { border-top-color: #0d9488; }
+
+        .v-header { padding: 15px; text-align: center; font-size: 22px; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #eee; background: #fff; z-index: 2; flex-shrink: 0; }
+        .v-list { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; scrollbar-width: none; }
+        .v-list::-webkit-scrollbar { display: none; }
+
+        .sv-card { background: #fff; border: 2px solid #e5e7eb; border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); transition: all 0.3s ease; position: relative; flex-shrink: 0; }
+        .sv-card.type-service { background: #eff6ff; border-color: #1a73e8; }
+        .sv-card.type-warranty { background: #fff7ed; border-color: #f59e0b; }
+        .sv-card.type-sales { background: #f0fdfa; border-color: #0d9488; }
+
+        .active-flash { animation: flashBorder 1s infinite; transform: scale(1.02); z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+        @keyframes flashBorder { 0% { border-color: #dc2626; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); } 50% { border-color: #dc2626; box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { border-color: #dc2626; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+
+        .c-num { font-size: 55px; font-weight: 800; line-height: 1.1; margin: 5px 0; letter-spacing: -1px; }
+        .type-service .c-num { color: #1a73e8; }
+        .type-warranty .c-num { color: #d97706; }
+        .type-sales .c-num { color: #0f766e; }
+
+        .c-name { font-size: 22px; font-weight: 700; color: #333; margin-bottom: 5px; }
+        .c-counter { display: inline-block; background: #fff; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 14px; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 5px; }
+        .c-timer { font-size: 16px; font-weight: 600; color: #fff; padding: 6px 15px; border-radius: 8px; display: inline-block; margin-top: 10px; min-width: 150px; }
+        .bg-run { background: #10b981; }
+        .bg-wait { background: #f59e0b; }
+
+        .side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; }
+        .qr-area { text-align: center; padding-bottom: 15px; border-bottom: 2px dashed #eee; }
+        .qr-img { width: 220px; height: 220px; border-radius: 12px; border: 5px solid #333; }
+        .qr-text { margin-top: 10px; font-weight: 800; font-size: 20px; color: #333; }
+
+        .list-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .list-header { font-size: 16px; font-weight: 700; color: #666; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .waiting-scroll { flex: 1; overflow-y: auto; padding-right: 2px; }
+        .w-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 6px; border-radius: 6px; background: #f8fafc; border-left: 3px solid #ccc; }
+        .w-item.t-S { border-left-color: #1a73e8; }
+        .w-item.t-SALES { border-left-color: #0d9488; }
+        .w-num { font-weight: 800; font-size: 18px; color: #333; }
+
+        #tvcContainer { position:fixed; inset:0; background:#000; z-index:9999; display:none; }
+        #ytPlayer { width:100%; height:100%; }
+        .empty-col { display: flex; flex:1; align-items: center; justify-content: center; color: #999; font-style: italic; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div class="tv-layout" id="queueUI">
+        <div class="main-panel">
+            <div class="v-col col-service">
+                <div class="v-header" style="color:#1a73e8">🛠 SỬA CHỮA / BẢO HÀNH</div>
+                <div class="v-list" id="col-SERVICE"></div>
+            </div>
+            <div class="v-col col-sales">
+                <div class="v-header" style="color:#0d9488">📦 LẮP RÁP VÀ CÀI ĐẶT</div>
+                <div class="v-list" id="col-SALES"></div>
+            </div>
+        </div>
+        <div class="side-panel">
+            <div class="qr-area">
+                <img src="<%= qrCodeUrl %>" class="qr-img">
+                <div class="qr-text">Quét mã lấy số</div>
+            </div>
+            <div class="list-area">
+                <div class="list-header">
+                    <span>Đang chờ</span>
+                    <span id="total-waiting" style="background:#333; color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
+                </div>
+                <div class="waiting-scroll" id="waiting-list"></div>
+            </div>
+            <div style="text-align:center; margin-top:auto; font-size:30px; font-weight:800; color:#333;" id="clock">00:00</div>
+        </div>
+    </div>
+    <div id="tvcContainer"><div id="ytPlayer"></div></div>
+
+    <script>
+        function getYoutubeId(url) {
+            if (!url) return null;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+        const videoId = getYoutubeId("<%= config.tvc_video_url || '' %>");
+        const CONFIG = { showQueue: 60000, showTvc: 60000, hasVideo: !!videoId };
+
+        let player; 
+        let isPlayerReady = false;
+        if (CONFIG.hasVideo) {
+            var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api";
+            var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        }
+        function onYouTubeIframeAPIReady() {
+            if (!CONFIG.hasVideo) return;
+            player = new YT.Player('ytPlayer', {
+                height: '100%', width: '100%', videoId: videoId,
+                playerVars: { 'autoplay': 1, 'controls': 0, 'mute': 1, 'loop': 1, 'playlist': videoId, 'playsinline': 1 },
+                events: { 'onReady': (e) => { isPlayerReady = true; e.target.mute(); setTimeout(toggleScreen, CONFIG.showQueue); } }
+            });
+        }
+
+        let isTvc = false;
+        let toggleTimer = null;
+        let lastAnnounced = { SERVICE: {num:'', time:''}, SALES: {num:'', time:''} }; 
+        let activeTickets = [];
+        
+        // === CỜ HIỆU LẦN ĐẦU TẢI TRANG ===
+        let isFirstLoad = true;
+
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+        }, 1000);
+
+        function getDiff(startTime) {
+            if(!startTime) return "00:00";
+            const diff = Math.floor((new Date() - new Date(startTime)) / 1000);
+            if(diff < 0) return "00:00"; 
+            const m = Math.floor(diff / 60).toString().padStart(2,'0');
+            const s = (diff % 60).toString().padStart(2,'0');
+            return m >= 60 ? `${Math.floor(m/60)}:${(m%60).toString().padStart(2,'0')}:${s}` : `${m}:${s}`;
+        }
+
+        async function updateQueue(isManualCall = false) {
+            try {
+                const res = await fetch('/api/queue/live-data?branch=<%= branchCode %>');
+                const data = await res.json();
+                if(!data.ok) return;
+
+                activeTickets = data.serving || [];
+
+                if (isTvc && !isManualCall) {
+                    checkForInterrupt(data.serving);
+                    return;
+                }
+
+                renderColumn('SERVICE', data.serving);
+                renderColumn('SALES', data.serving);
+                renderWaitingList(data.waiting);
+                
+                checkAnnounce(data.serving, 'SERVICE');
+                checkAnnounce(data.serving, 'SALES');
+
+                // Sau khi chạy xong lần đầu, tắt cờ đi để các lần sau được phép đọc
+                if(isFirstLoad) isFirstLoad = false;
+
+            } catch(e) { console.error(e); }
+        }
+
+        function renderColumn(colType, allServing) {
+            let list = [];
+            if (colType === 'SERVICE') list = allServing.filter(x => x.service_type === 'REPAIR' || x.service_type === 'WARRANTY');
+            else list = allServing.filter(x => x.service_type === 'SALES');
+
+            const container = document.getElementById(`col-${colType}`);
+            if (list.length === 0) { container.innerHTML = `<div class="empty-col">Quầy trống</div>`; return; }
+
+            // Clone mảng trước khi sort để tránh lỗi mutation
+            let sortedList = [...list].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+            container.innerHTML = sortedList.map(t => {
+                const runTime = getDiff(t.updated_at);
+                let statusText = "Đang phục vụ";
+                let typeClass = "type-service";
+                
+                if (t.service_type === 'WARRANTY') typeClass = "type-warranty";
+                if (t.service_type === 'SALES') {
+                    typeClass = "type-sales";
+                    if(t.process_status==='ASSEMBLING') statusText = "Đang lắp ráp";
+                    else if(t.process_status==='INSTALLING') statusText = "Đang cài đặt";
+                    else if(t.process_status==='HANDOVER') statusText = "Đang bàn giao";
+                }
+
+                return `
+                <div id="ticket-${t.id}" class="sv-card ${typeClass}">
+                    <div class="c-counter">📍 ${t.counter_name || 'KTV'}</div>
+                    <div class="c-num">${t.ticket_number}</div>
+                    <div class="c-name">${t.customer_name}</div>
+                    <div class="c-timer bg-run" id="timer-${t.id}">${statusText}: ${runTime}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderWaitingList(allWaiting) {
+            const container = document.getElementById('waiting-list');
+            document.getElementById('total-waiting').innerText = allWaiting.length;
+            if (allWaiting.length === 0) { container.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">Không có khách chờ</div>'; return; }
+            container.innerHTML = allWaiting.map(t => {
+                let typeClass = 't-S';
+                if(t.service_type === 'SALES') typeClass = 't-SALES';
+                return `<div class="w-item ${typeClass}"><div class="w-num">${t.ticket_number}</div><div>${t.customer_name}</div></div>`;
+            }).join('');
+        }
+
+        function checkForInterrupt(allServing) {
+            let hasNew = false;
+            ['SERVICE', 'SALES'].forEach(type => {
+                let list = (type==='SERVICE') ? allServing.filter(x=>x.service_type!=='SALES') : allServing.filter(x=>x.service_type==='SALES');
+                if (list.length > 0) {
+                    const newest = [...list].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+                    if (newest.ticket_number !== lastAnnounced[type].num || newest.updated_at !== lastAnnounced[type].time) {
+                        const diffSec = Math.abs(new Date() - new Date(newest.updated_at)) / 1000;
+                        if (diffSec < 20) {
+                            let isSilent = false;
+                            if (type==='SALES' && (newest.process_status==='ASSEMBLING' || newest.process_status==='INSTALLING')) isSilent = true;
+                            if (!isSilent) hasNew = true;
+                        }
+                    }
+                }
+            });
+            if (hasNew) toggleScreen(true);
+        }
+
+        // --- HÀM CHECK LOA ĐÃ FIX TRIỆT ĐỂ ---
+        function checkAnnounce(allServing, type) {
+            let list = (type === 'SERVICE') ? allServing.filter(x => x.service_type !== 'SALES') : allServing.filter(x => x.service_type === 'SALES');
+            
+            if (list.length > 0) {
+                // Lấy vé mới nhất
+                const newest = [...list].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+                
+                // Nếu có sự thay đổi so với lần trước
+                if (newest.ticket_number !== lastAnnounced[type].num || newest.updated_at !== lastAnnounced[type].time) {
+                    
+                    // Cập nhật trạng thái
+                    lastAnnounced[type] = { num: newest.ticket_number, time: newest.updated_at };
+
+                    // === FIX 1: NẾU LÀ LẦN TẢI TRANG ĐẦU TIÊN -> BỎ QUA LUÔN ===
+                    if (isFirstLoad) return;
+
+                    // === FIX 2: KIỂM TRA THỜI GIAN (Backup nếu mạng lag) ===
+                    // Nếu lệnh gọi đã quá 20 giây -> BỎ QUA, KHÔNG ĐỌC
+                    const diffSec = Math.abs(new Date() - new Date(newest.updated_at)) / 1000;
+                    if (diffSec > 20) return; 
+
+                    let isSilent = false;
+                    if (type === 'SALES' && (newest.process_status === 'ASSEMBLING' || newest.process_status === 'INSTALLING')) isSilent = true;
+
+                    if (!isSilent) {
+                        speakNumber(newest.ticket_number, type, newest.process_status, newest.counter_name);
+                        const el = document.getElementById(`ticket-${newest.id}`);
+                        if(el) { el.classList.add('active-flash'); setTimeout(()=>el.classList.remove('active-flash'), 3000); }
+                    }
+                }
+            }
+        }
+
+        function speakNumber(num, type, status, counterName) {
+            if (!window.speechSynthesis) return;
+            const numText = num.replace('-', ' ');
+            let text = "";
+            const dest = counterName ? `đến Kỹ thuật viên ${counterName}` : `đến quầy`;
+            if (type === 'SALES' && status === 'HANDOVER') text = `Mời số ${numText} nhận bàn giao sản phẩm`;
+            else text = `Mời số ${numText} ${dest}`;
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'vi-VN'; u.rate = 0.9;
+            window.speechSynthesis.speak(u);
+        }
+
+        setInterval(() => {
+            activeTickets.forEach(t => {
+                const el = document.getElementById(`timer-${t.id}`);
+                if(el) {
+                    let statusText = "Đang phục vụ";
+                    if(t.service_type === 'SALES') {
+                        if(t.process_status==='ASSEMBLING') statusText = "Đang lắp ráp";
+                        else if(t.process_status==='INSTALLING') statusText = "Đang cài đặt";
+                        else if(t.process_status==='HANDOVER') statusText = "Đang bàn giao";
+                    }
+                    el.innerText = `${statusText}: ${getDiff(t.updated_at)}`;
+                }
+            });
+        }, 1000);
+
+        function toggleScreen(forceQueue = false) {
+            if (!CONFIG.hasVideo) return;
+            const q = document.getElementById('queueUI');
+            const t = document.getElementById('tvcContainer');
+            if (toggleTimer) clearTimeout(toggleTimer);
+
+            if (isTvc || forceQueue) { 
+                isTvc = false; t.style.display='none'; q.style.display='flex';
+                if(isPlayerReady && player) player.pauseVideo();
+                toggleTimer = setTimeout(toggleScreen, CONFIG.showQueue);
+                updateQueue(true);
+            } else { 
+                isTvc = true; q.style.display='none'; t.style.display='block';
+                if(isPlayerReady && player) player.playVideo();
+                toggleTimer = setTimeout(toggleScreen, CONFIG.showTvc);
+            }
+        }
+        if (CONFIG.hasVideo) setTimeout(toggleScreen, CONFIG.showQueue);
+
+        setInterval(() => updateQueue(), 3000);
+        updateQueue();
+
+        document.body.addEventListener('click', () => {
+            const u = new SpeechSynthesisUtterance('');
+            window.speechSynthesis.speak(u);
+        }, {once:true});
+    </script>
+</body>
+</html>

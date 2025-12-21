@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <%- include('partials/header', {title: 'Kho Lắp Ráp', currentPage: 'warehouse', time: ''}) %>
+    <style>
+        /* FIX LỖI LAYOUT: Body để block để Header hiển thị đúng ở trên cùng */
+        body { 
+            background: #f0f2f5; 
+            font-family: 'Be Vietnam Pro', sans-serif; 
+            margin: 0;
+            display: block; 
+        }
+
+        /* Wrapper riêng để căn giữa Form */
+        .wh-wrapper {
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: calc(100vh - 100px); /* Trừ hao chiều cao header */
+            padding: 20px;
+        }
+
+        .wh-card { 
+            background: white; 
+            width: 100%; 
+            max-width: 500px; 
+            padding: 30px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+        }
+        
+        .wh-header { text-align: center; margin-bottom: 25px; border-bottom: 2px dashed #eee; padding-bottom: 20px; }
+        .wh-title { font-size: 24px; font-weight: 800; color: #0d9488; text-transform: uppercase; margin: 0; }
+        
+        .branch-badge { 
+            display: inline-block; background: #e0f2fe; color: #0369a1; 
+            padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 14px; 
+            margin-top: 10px; border: 1px solid #bae6fd;
+        }
+
+        .form-group { margin-bottom: 15px; }
+        .label { display: block; margin-bottom: 8px; font-weight: 700; color: #333; }
+        .input { width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; box-sizing: border-box; transition: 0.2s; }
+        .input:focus { border-color: #0d9488; outline: none; background: #f0fdfa; }
+
+        .btn-push { width: 100%; padding: 15px; background: #0d9488; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: 700; cursor: pointer; margin-top: 10px; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-push:hover { background: #0f766e; }
+
+        .success-box { background: #d1fae5; color: #065f46; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; border: 1px solid #a7f3d0; font-weight: 600; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="wh-wrapper">
+        <div class="wh-card">
+            <% if(success) { %>
+                <div class="success-box">✅ <%= success %></div>
+            <% } %>
+
+            <div class="wh-header">
+                <h1 class="wh-title">📦 KHO CHUYỂN ĐƠN LẮP RÁP</h1>
+                <div class="branch-badge">
+                    🏢 Chi nhánh: <%= branchCode %> | 👤 <%= username %>
+                </div>
+            </div>
+
+            <form action="/api/queue/warehouse-push" method="POST">
+                <div class="form-group">
+                    <label class="label">Mã đơn hàng / Phiếu xuất</label>
+                    <input type="text" name="order_id" class="input" required placeholder="VD: DH123456" autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label class="label">Tên khách hàng</label>
+                    <input type="text" name="customer_name" class="input" required placeholder="VD: Anh Nam">
+                </div>
+
+                <div class="form-group">
+                    <label class="label">Sản phẩm chính (Tên máy)</label>
+                    <input type="text" name="product_name" class="input" required placeholder="VD: PC Gaming i5 12400F...">
+                </div>
+
+                <button type="submit" class="btn-push">
+                    🚀 Chuyển sang Kỹ thuật
+                </button>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>

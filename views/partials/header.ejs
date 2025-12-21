@@ -55,7 +55,8 @@
                     const utilityPages = [
                         'pc-builder', 'quote-builder', 'price-battle', 
                         'bom-check', 'bom-dashboard', 'clearance-check',
-                        'event-operations', 'event-orders', 'event-settings', 'customer-care'
+                        'event-operations', 'event-orders', 'event-settings', 'customer-care',
+                        'queue-admin', 'queue-tv'
                     ];
                 %>
                 <div class="dropdown">
@@ -66,6 +67,24 @@
                     </a>
                   
                     <div class="dropdown-menu" id="utilitiesDropdownMenu">
+                      <div class="dropdown-submenu">
+        <a href="#" class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>👨‍🔧 Technician</span>
+        </a>
+
+        <div class="dropdown-menu-child">
+            <a href="/queue/admin" class="dropdown-item">
+                🎛 Điều phối (Admin)
+            </a>
+            <a href="/queue/tv" target="_blank" class="dropdown-item">
+                📺 Màn hình TV (Hiển thị trên Tivi)
+            </a>
+            <a href="/queue/report" class="dropdown-item">
+    📊 Báo cáo Dịch vụ
+</a>
+        </div>
+    </div>
+    
                         <a href="/customer-care" class="<%= currentPage === 'customer-care' ? 'active' : '' %>">
                             <span class="menu-icon">📞</span> CSKH
                         </a>

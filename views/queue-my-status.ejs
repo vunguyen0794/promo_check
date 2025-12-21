@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background: linear-gradient(135deg, #1a73e8, #0d9488); 
+            font-family: 'Be Vietnam Pro', sans-serif; 
+            min-height: 100vh; margin: 0; padding: 20px;
+            display: flex; align-items: center; justify-content: center;
+            color: #333;
+        }
+        .status-card {
+            background: white; width: 100%; max-width: 400px;
+            border-radius: 24px; padding: 25px; text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            position: relative; overflow: hidden;
+        }
+        
+        .ticket-box {
+            background: #f3f4f6; border-radius: 16px; padding: 20px; margin-bottom: 20px;
+            border: 2px dashed #ccc;
+        }
+        .ticket-number { font-size: 60px; font-weight: 800; line-height: 1; margin: 10px 0; color: #1a73e8; }
+        .ticket-type { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 700; background: #e0f2fe; color: #1a73e8; }
+        
+        /* FEEDBACK FORM STYLE */
+        .feedback-box { text-align: left; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+        .fb-title { font-weight: 700; margin-bottom: 10px; font-size: 15px; }
+        
+        .star-rating { display: flex; flex-direction: row-reverse; justify-content: start; gap: 5px; margin-bottom: 15px; }
+        .star-rating input { display: none; }
+        .star-rating label { font-size: 30px; color: #ddd; cursor: pointer; transition: 0.2s; }
+        .star-rating input:checked ~ label { color: #f59e0b; }
+        .star-rating label:hover, .star-rating label:hover ~ label { color: #f59e0b; }
+
+        .form-area { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; margin-bottom: 15px; resize: vertical; box-sizing: border-box; }
+        
+        .btn-submit-fb { width: 100%; padding: 12px; background: #10b981; color: white; font-weight: 700; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; }
+        .btn-refresh { margin-top: 15px; width: 100%; padding: 12px; background: #f3f4f6; color: #555; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; }
+
+        .ktv-info { background: #e0e7ff; color: #3730a3; padding: 10px; border-radius: 8px; font-weight: 700; margin-bottom: 15px; text-align: center; }
+        
+        /* Animation Pulse cho trạng thái Serving */
+        .serving-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+    </style>
+</head>
+<body>
+    <div class="status-card">
+        <div style="font-size:16px; color:#666;">Xin chào, <strong><%= ticket.customer_name %></strong></div>
+
+        <div class="ticket-box" id="ticketBox">
+            <div style="font-size:13px; text-transform:uppercase; color:#555;">Số thứ tự của bạn</div>
+            <div class="ticket-number"><%= ticket.ticket_number %></div>
+            <div class="ticket-type">
+                <%= ticket.service_type === 'SALES' ? 'Lắp ráp và cài đặt' : (ticket.service_type === 'WARRANTY' ? 'Bảo hành' : 'Sửa chữa') %>
+            </div>
+        </div>
+
+        <% if(ticket.status === 'WAITING') { %>
+            <div style="margin:20px 0;">
+                <div style="font-size:40px; font-weight:700; color:#d93025;"><%= peopleAhead %></div>
+                <div style="color:#666;">người đang chờ phía trước</div>
+                <div style="font-size:12px; color:#999; margin-top:5px;">(Tổng toàn cửa hàng)</div>
+            </div>
+            <% } else if (ticket.status === 'SERVING') { %>
+            <div class="ktv-info serving-pulse">
+                🔔 MỜI BẠN ĐẾN QUẦY PHỤC VỤ<br>
+                <%= ticket.counter_name ? '📍 ' + ticket.counter_name : '' %>
+            </div>
+            <div style="margin-top:20px; color:#666;">Kỹ Thuật Viên đang xử lý yêu cầu của bạn...</div>
+            
+            <div style="margin-top:30px; border-top:1px dashed #ddd; padding-top:15px; font-size:14px; color:#888;">
+                (Sau khi được hỗ trợ, bạn hãy dành ra chút thời gian để đánh giá cửa hàng nhé ^^ !)
+            </div>
+
+        <% } else { %>
+            <% if(ticket.counter_name) { %>
+                <div class="ktv-info">✅ Đã phục vụ bởi: <%= ticket.counter_name %></div>
+            <% } %>
+
+            <div id="feedbackForm" class="feedback-box">
+                <h3 style="text-align:center; color:#1a73e8; margin-top:0;">🌟 Đánh giá chất lượng phục vụ và dịch vụ tại cửa hàng</h3>
+                
+                <div class="fb-title">1. Bạn hài lòng về dịch vụ tại cửa hàng không?</div>
+                <div class="star-rating">
+                    <input type="radio" name="service" id="s10" value="10"><label for="s10">★</label>
+                    <input type="radio" name="service" id="s8" value="8"><label for="s8">★</label>
+                    <input type="radio" name="service" id="s6" value="6"><label for="s6">★</label>
+                    <input type="radio" name="service" id="s4" value="4"><label for="s4">★</label>
+                    <input type="radio" name="service" id="s2" value="2"><label for="s2">★</label>
+                </div>
+
+                <div class="fb-title">2. Bạn hài lòng về Kỹ thuật viên đã hỗ trợ bạn không?</div>
+                <div class="star-rating">
+                    <input type="radio" name="tech" id="t10" value="10"><label for="t10">★</label>
+                    <input type="radio" name="tech" id="t8" value="8"><label for="t8">★</label>
+                    <input type="radio" name="tech" id="t6" value="6"><label for="t6">★</label>
+                    <input type="radio" name="tech" id="t4" value="4"><label for="t4">★</label>
+                    <input type="radio" name="tech" id="t2" value="2"><label for="t2">★</label>
+                </div>
+
+                <div class="fb-title">3. Góp ý thêm:</div>
+                <textarea id="comment" class="form-area" rows="3" placeholder="Nhập lời nhắn của bạn..."></textarea>
+
+                <button class="btn-submit-fb" onclick="submitFeedback()">GỬI ĐÁNH GIÁ</button>
+            </div>
+            
+            <div id="thankYou" style="display:none; text-align:center; padding:20px; color:#10b981;">
+                <h2 style="font-size:40px; margin:0;">❤️</h2>
+                <h3>Cảm ơn đánh giá của bạn!</h3>
+            </div>
+        <% } %>
+    </div>
+
+    <script>
+        const currentStatus = '<%= ticket.status %>';
+        const ticketId = '<%= ticket.id %>';
+
+        // --- AUTO REFRESH LOGIC ---
+        // Chỉ chạy khi trạng thái là WAITING hoặc SERVING
+        if (currentStatus === 'WAITING' || currentStatus === 'SERVING') {
+            setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/queue/check-status/${ticketId}`);
+                    const data = await res.json();
+                    
+                    if (data) {
+                        // Nếu trạng thái thay đổi so với hiện tại
+                        // WAITING -> SERVING: Reload để hiện thông báo đến quầy
+                        // SERVING -> COMPLETED: Reload để hiện form đánh giá
+                        if (data.status !== currentStatus) {
+                            window.location.reload();
+                        }
+                    }
+                } catch (e) { console.error("Polling error", e); }
+            }, 3000); // Kiểm tra mỗi 3 giây
+        }
+
+        // Logic gửi đánh giá (Giữ nguyên)
+        async function submitFeedback() {
+            const sEl = document.querySelector('input[name="service"]:checked');
+            const tEl = document.querySelector('input[name="tech"]:checked');
+            
+            if(!sEl || !tEl) { alert("Vui lòng chọn số sao đánh giá!"); return; }
+
+            const data = {
+                ticket_id: ticketId,
+                service_score: sEl.value,
+                technician_score: tEl.value,
+                comment: document.getElementById('comment').value
+            };
+
+            const btn = document.querySelector('.btn-submit-fb');
+            btn.innerText = "Đang gửi..."; btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/queue/feedback', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                if(res.ok) {
+                    document.getElementById('feedbackForm').style.display = 'none';
+                    document.getElementById('thankYou').style.display = 'block';
+                } else {
+                    alert("Lỗi gửi đánh giá");
+                    btn.innerText = "GỬI ĐÁNH GIÁ"; btn.disabled = false;
+                }
+            } catch(e) { alert("Lỗi kết nối"); }
+        }
+    </script>
+</body>
+</html>

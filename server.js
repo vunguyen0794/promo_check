@@ -7165,7 +7165,531 @@ app.post('/reset-password', async (req, res) => {
     }
 });
 
+// ========================= MODULE HÀNG ĐỢI (QUEUE SYSTEM - NEW) =========================
+// 1. MÀN HÌNH TV (Hiển thị cho khách)
+app.get('/queue/tv', requireAuth, (req, res) => {
+    const user = req.session.user;
+    
+    if (user && user.branch_code) {
+        // Nếu user có chi nhánh -> Chuyển sang URL có chi nhánh
+        res.redirect(`/queue/tv/${user.branch_code}`);
+    } else {
+        // Nếu user chưa set chi nhánh -> Báo lỗi hoặc chuyển về Admin
+        res.send(`
+            <div style="text-align:center; padding:50px;">
+                <h2>⚠️ Tài khoản chưa gán Chi nhánh</h2>
+                <p>Vui lòng liên hệ Admin để cập nhật branch_code cho user <b>${user.username}</b></p>
+                <a href="/queue/admin">Quay lại Admin</a>
+            </div>
+        `);
+    }
+});
 
+
+app.get('/queue/tv/:branch', requireAuth, async (req, res) => {
+    try {
+        // Lấy chi nhánh từ URL (ưu tiên)
+        const branchCode = req.params.branch.toUpperCase(); 
+
+        // Lấy cấu hình Video Global
+        const { data: globalConfig } = await supabase
+            .from('branch_queue_config')
+            .select('tvc_video_url')
+            .eq('branch_code', 'GLOBAL')
+            .maybeSingle();
+            
+        // Tạo mã QR (Link đăng ký cũng phải theo branch này)
+        const registerUrl = `${req.protocol}://${req.get('host')}/queue/register/${branchCode}`;
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(registerUrl)}`;
+
+        res.render('queue-tv', {
+            title: `Màn hình - ${branchCode}`,
+            config: { tvc_video_url: globalConfig?.tvc_video_url || '' },
+            branchCode: branchCode, // Truyền mã chi nhánh xuống View
+            qrCodeUrl
+        });
+    } catch (e) { res.status(500).send("Lỗi TV: " + e.message); }
+});
+
+// 2. FORM ĐĂNG KÝ (Khách hàng)
+app.get('/queue/register/:branch', async (req, res) => {
+    res.render('queue-form', { 
+        title: 'Lấy số thứ tự', 
+        branchCode: req.params.branch, 
+        error: null 
+    });
+});
+
+// 3. API: XỬ LÝ ĐĂNG KÝ VÉ (Sửa chữa: S-xxx, Bảo hành: B-xxx)
+app.post('/api/queue/register', async (req, res) => {
+    try {
+        const { branch_code, customer_name, customer_phone, service_type, error_description } = req.body;
+        const today = new Date().toISOString().slice(0, 10);
+        
+        // Định nghĩa Prefix
+        let prefix = 'S'; // Mặc định Sửa chữa
+        if (service_type === 'WARRANTY') prefix = 'B'; // Bảo hành
+        
+        // Đếm số vé trong ngày
+        const { count } = await supabase.from('queue_tickets').select('*', { count: 'exact', head: true })
+            .eq('branch_code', branch_code)
+            .eq('service_type', service_type)
+            .gte('created_at', today);
+
+        const ticketNumber = `${prefix}-${String((count || 0) + 1).padStart(3, '0')}`;
+
+        const { data, error } = await supabase.from('queue_tickets').insert({
+            branch_code, 
+            ticket_number: ticketNumber, 
+            customer_name, 
+            customer_phone,
+            service_type, 
+            error_description, 
+            status: 'WAITING'
+        }).select().single();
+
+        if (error) throw error;
+        // Chuyển hướng đến trang theo dõi
+        res.redirect(`/queue/status/${data.id}`);
+    } catch (e) {
+        res.render('queue-form', { title: 'Lỗi', branchCode: req.body.branch_code, error: e.message });
+    }
+});
+
+// 4. TRANG THEO DÕI CÁ NHÂN (Cho khách xem trên điện thoại)
+app.get('/queue/status/:ticketId', async (req, res) => {
+    try {
+        // 1. Lấy thông tin vé hiện tại
+        const { data: ticket } = await supabase
+            .from('queue_tickets')
+            .select('*')
+            .eq('id', req.params.ticketId)
+            .single();
+
+        if (!ticket) return res.send("Vé không tồn tại");
+
+        // 2. Đếm tổng số người đang chờ phía trước (BẤT KỂ LOẠI DỊCH VỤ)
+        // Logic: Cùng chi nhánh + Đang chờ + Có ID nhỏ hơn (đến trước)
+        const { count } = await supabase
+            .from('queue_tickets')
+            .select('*', { count: 'exact', head: true })
+            .eq('branch_code', ticket.branch_code)
+            // .eq('service_type', ticket.service_type) <--- ĐÃ BỎ DÒNG NÀY ĐỂ ĐẾM TỔNG
+            .eq('status', 'WAITING')
+            .lt('id', ticket.id);
+
+        res.render('queue-my-status', { 
+            title: 'Số thứ tự của bạn', 
+            ticket, 
+            peopleAhead: count || 0 
+        });
+    } catch (e) { 
+        res.status(500).send(e.message); 
+    }
+});
+
+// 5. GIAO DIỆN KHO (Tạo đơn lắp máy)
+app.get('/queue/warehouse', requireAuth, (req, res) => {
+    const user = req.session.user;
+
+    // Kiểm tra kỹ: Nếu user không có branch_code -> Chặn ngay
+    if (!user.branch_code) {
+        return res.send(`
+            <h1 style="color:red; text-align:center; margin-top:50px;">
+                LỖI: Tài khoản "${user.username}" chưa được gán Chi nhánh (Branch Code)!
+            </h1>
+            <p style="text-align:center;">Vui lòng liên hệ Admin set branch_code trong bảng users.</p>
+        `);
+    }
+
+    res.render('queue-warehouse', { 
+        title: 'Kho xuất hàng', 
+        branchCode: user.branch_code, // Truyền mã chi nhánh xuống để hiện
+        username: user.full_name || user.username,
+        success: null 
+    });
+});
+// 6. API: KHO ĐẨY ĐƠN (Tạo vé SALES: NEW-xxx)
+app.post('/api/queue/warehouse-push', requireAuth, async (req, res) => {
+    try {
+        const { order_id, customer_name, product_name } = req.body;
+        const branchCode = req.session.user.branch_code; // Lấy từ session
+        
+        if (!branchCode) return res.status(400).send("Lỗi: Mất session chi nhánh!");
+
+        const today = new Date().toISOString().slice(0, 10);
+
+        // QUAN TRỌNG: Đếm số vé NEW trong ngày CỦA RIÊNG CHI NHÁNH ĐÓ
+        const { count } = await supabase.from('queue_tickets')
+            .select('*', { count: 'exact', head: true })
+            .eq('branch_code', branchCode) // <--- LỌC THEO CHI NHÁNH
+            .eq('service_type', 'SALES')
+            .gte('created_at', today);
+
+        // Tạo số: NEW-001, NEW-002...
+        const ticketNumber = `NEW-${String((count || 0) + 1).padStart(3, '0')}`;
+
+        // Insert vào DB đúng chi nhánh
+        const { error } = await supabase.from('queue_tickets').insert({
+            branch_code: branchCode, 
+            ticket_number: ticketNumber,
+            customer_name, 
+            service_type: 'SALES', 
+            status: 'WAITING', 
+            process_status: 'ASSEMBLING', // Mặc định vào là chờ Lắp ráp ngay (để hiện lên Admin)
+            order_id, 
+            product_name,
+            counter_name: 'Kho chuyển'
+        });
+
+        if(error) throw error;
+        
+        res.render('queue-warehouse', {
+            title: 'Kho chuyển đơn', 
+            branchCode, 
+            username: req.session.user.full_name || req.session.user.username,
+            success: `Đã chuyển đơn ${order_id} (Số: ${ticketNumber}) sang Kỹ thuật!`
+        });
+
+    } catch (e) { res.status(500).send("Lỗi kho: " + e.message); }
+});
+
+// 7. TRANG ADMIN (KTV ĐIỀU PHỐI)
+app.get('/queue/admin', requireAuth, async (req, res) => {
+    try {
+        const branchCode = req.session.user.branch_code;
+        
+        // 1. Lấy vé đang chờ/phục vụ
+        const { data: tickets } = await supabase.from('queue_tickets')
+            .select('*')
+            .eq('branch_code', branchCode)
+            .in('status', ['WAITING', 'SERVING'])
+            .order('id', { ascending: true });
+
+        // 2. Lấy link TVC
+        const { data: globalConfig } = await supabase.from('branch_queue_config')
+            .select('tvc_video_url').eq('branch_code', 'GLOBAL').maybeSingle();
+
+        // 3. LẤY DANH SÁCH KTV TỪ BẢNG USERS (Theo hình ảnh bạn gửi)
+        // Điều kiện: Cùng chi nhánh + Đang hoạt động (is_active = true)
+        const { data: staffList } = await supabase.from('users')
+            .select('full_name, email') 
+            .eq('branch_code', branchCode)
+            .eq('is_active', true) 
+            .order('full_name', { ascending: true });
+
+        res.render('queue-admin', {
+            title: 'Điều phối Kỹ thuật', branchCode,
+            tickets: tickets || [],
+            currentTvcUrl: globalConfig?.tvc_video_url || '',
+            staffList: staffList || [] // Truyền danh sách xuống View
+        });
+    } catch (e) { res.status(500).send("Lỗi Admin: " + e.message); }
+});
+
+// 8. API: ĐIỀU KHIỂN (GỌI SỐ, CHUYỂN BƯỚC, HOÀN THÀNH)
+app.post('/api/queue/control', requireAuth, async (req, res) => {
+    try {
+        const { action, ticket_id, service_type, process_step, counter_name } = req.body;
+        const branchCode = req.session.user.branch_code;
+        let updateData = { updated_at: new Date().toISOString() };
+
+        // --- GỌI SỐ TIẾP THEO ---
+        if (action === 'CALL_NEXT') {
+            let query = supabase.from('queue_tickets').select('id')
+                .eq('branch_code', branchCode)
+                .eq('status', 'WAITING')
+                .order('id', { ascending: true }) // FIFO
+                .limit(1);
+
+            // Xử lý gọi chung (SERVICE_MIX) cho Sửa chữa & Bảo hành
+            if (service_type === 'SERVICE_MIX') {
+                query = query.in('service_type', ['REPAIR', 'WARRANTY']);
+            } else {
+                query = query.eq('service_type', service_type);
+            }
+
+            const { data: next } = await query.maybeSingle();
+            
+            if (!next) return res.json({ ok: false, message: 'Hết khách chờ!' });
+            
+            // Cập nhật trạng thái và tên KTV
+            await supabase.from('queue_tickets').update({ 
+                status: 'SERVING', 
+                updated_at: new Date().toISOString(),
+                counter_name: counter_name || 'Quầy phục vụ'
+            }).eq('id', next.id);
+            
+            return res.json({ ok: true });
+        }
+
+        // --- CẬP NHẬT QUY TRÌNH (LẮP MÁY) ---
+        if (action === 'UPDATE_PROCESS') {
+            updateData.process_status = process_step;
+            if (process_step === 'ASSEMBLING') updateData.status = 'SERVING';
+        } 
+        // --- HOÀN THÀNH ---
+        else if (action === 'COMPLETE') {
+            updateData.status = 'COMPLETED';
+            if(service_type === 'SALES') updateData.process_status = 'DONE';
+        }
+        // --- BỎ QUA ---
+        else if (action === 'SKIP') updateData.status = 'SKIPPED';
+
+        await supabase.from('queue_tickets').update(updateData).eq('id', ticket_id);
+        res.json({ ok: true });
+
+    } catch (e) { res.status(500).json({ ok: false, message: e.message }); }
+});
+
+// 9. API: UPDATE TVC (Bất kỳ ai login đều đổi được)
+app.post('/api/queue/update-tvc', requireAuth, async (req, res) => {
+    try {
+        await supabase.from('branch_queue_config').upsert({ 
+            branch_code: 'GLOBAL', 
+            tvc_video_url: req.body.tvc_url 
+        }, { onConflict: 'branch_code' });
+        res.json({ ok: true });
+    } catch (e) { res.status(500).json({ ok: false, message: e.message }); }
+});
+
+// 10. API: LIVE DATA CHO TV
+app.get('/api/queue/live-data', async (req, res) => {
+    // Không bắt buộc login cứng nếu muốn TV chạy độc lập (tùy nhu cầu), 
+    // nhưng ở đây ta giữ check login để bảo mật cơ bản.
+    // if (!req.session.user) return res.json({ ok: false }); 
+    
+    try {
+        // Ưu tiên lấy từ Query Param (?branch=HCM), nếu không có mới lấy từ Session
+        let branchCode = req.query.branch;
+        
+        if (!branchCode && req.session.user) {
+            branchCode = req.session.user.branch_code;
+        }
+
+        if (!branchCode) return res.json({ ok: false, message: "Thiếu mã chi nhánh" });
+
+        // Lọc dữ liệu ĐÚNG THEO CHI NHÁNH ĐÓ
+        const { data: serving } = await supabase.from('queue_tickets')
+            .select('*')
+            .eq('branch_code', branchCode) // <--- QUAN TRỌNG
+            .eq('status', 'SERVING')
+            .order('updated_at', { ascending: false });
+
+        const { data: waiting } = await supabase.from('queue_tickets')
+            .select('*')
+            .eq('branch_code', branchCode) // <--- QUAN TRỌNG
+            .eq('status', 'WAITING')
+            .order('id', { ascending: true });
+
+        res.json({ ok: true, serving, waiting });
+    } catch (e) { res.status(500).json({ ok: false }); }
+});
+
+
+// ========================= MODULE BÁO CÁO (QUEUE REPORT) =========================
+
+// 1. TRANG GIAO DIỆN BÁO CÁO
+app.get('/queue/report', requireAuth, (req, res) => {
+    const user = req.session.user;
+    
+    // --- PHÂN QUYỀN: CHỈ MANAGER HOẶC HCM.BD ĐƯỢC VÀO ---
+    // Giả sử trong bảng users có cột role. Nếu chưa có, bạn tạm thời check theo username
+    const isManager = user.role === 'manager' || user.username === 'hcm.bd' || user.username === 'admin';
+    
+    if (!isManager) {
+        return res.status(403).send("<h1>Bạn không có quyền truy cập báo cáo!</h1>");
+    }
+
+    res.render('queue-report', {
+        title: 'Báo cáo Hàng đợi',
+        userBranch: user.branch_code,
+        isSuperAdmin: user.username === 'hcm.bd' // Cờ để hiện full chi nhánh
+    });
+});
+
+// 2. API LẤY DỮ LIỆU BÁO CÁO (ĐÃ BỔ SUNG FEEDBACK)
+app.get('/api/queue/report-data', requireAuth, async (req, res) => {
+    try {
+        const user = req.session.user;
+        const { startDate, endDate, branchFilter } = req.query;
+
+        // --- QUERY 1: LẤY VÉ (ĐỂ VẼ BIỂU ĐỒ SỐ LƯỢNG) ---
+        let ticketQuery = supabase
+            .from('queue_tickets')
+            .select('id, service_type, created_at, branch_code, status');
+
+        if (startDate) ticketQuery = ticketQuery.gte('created_at', startDate + 'T00:00:00');
+        if (endDate) ticketQuery = ticketQuery.lte('created_at', endDate + 'T23:59:59');
+
+        // Phân quyền
+        if (user.username === 'hcm.bd') {
+            if (branchFilter && branchFilter !== 'ALL') ticketQuery = ticketQuery.eq('branch_code', branchFilter);
+        } else {
+            ticketQuery = ticketQuery.eq('branch_code', user.branch_code);
+        }
+
+        const { data: tickets, error: err1 } = await ticketQuery;
+        if (err1) throw err1;
+
+        // --- QUERY 2: LẤY ĐÁNH GIÁ (ĐỂ LÀM BẢNG XẾP HẠNG) ---
+        // Join bảng feedback với tickets để lấy tên KTV (counter_name)
+        let fbQuery = supabase
+            .from('service_feedback')
+            .select(`
+                *,
+                queue_tickets!inner (
+                    counter_name,
+                    branch_code,
+                    created_at
+                )
+            `);
+            
+        // Áp dụng bộ lọc ngày tháng cho Feedback dựa trên ngày tạo vé
+        if (startDate) fbQuery = fbQuery.gte('queue_tickets.created_at', startDate + 'T00:00:00');
+        if (endDate) fbQuery = fbQuery.lte('queue_tickets.created_at', endDate + 'T23:59:59');
+        
+        // Phân quyền cho Feedback
+        if (user.username === 'hcm.bd') {
+            if (branchFilter && branchFilter !== 'ALL') fbQuery = fbQuery.eq('queue_tickets.branch_code', branchFilter);
+        } else {
+            fbQuery = fbQuery.eq('queue_tickets.branch_code', user.branch_code);
+        }
+
+        const { data: feedbacks, error: err2 } = await fbQuery;
+        if (err2) throw err2;
+
+        // --- XỬ LÝ DỮ LIỆU ---
+
+        // 1. Stats cho biểu đồ (Số lượng)
+        let stats = { REPAIR: 0, WARRANTY: 0, SALES: 0, TOTAL: 0 };
+        let dailyStats = {};
+
+        tickets.forEach(t => {
+            if (stats[t.service_type] !== undefined) stats[t.service_type]++;
+            stats.TOTAL++;
+
+            const day = t.created_at.split('T')[0];
+            if (!dailyStats[day]) dailyStats[day] = { REPAIR: 0, WARRANTY: 0, SALES: 0 };
+            if (dailyStats[day][t.service_type] !== undefined) dailyStats[day][t.service_type]++;
+        });
+
+        // 2. Stats cho Bảng xếp hạng KTV (Chất lượng)
+        let ktvMap = {}; // { "KTV Nam": { totalTech: 90, totalService: 80, count: 10, comments: [] } }
+
+        feedbacks.forEach(fb => {
+            // Lấy tên KTV từ bảng tickets đã join
+            // counter_name có thể là "KTV Nam (Bàn 1)". Ta có thể để nguyên hoặc tách tên.
+            // Ở đây tôi để nguyên để phân biệt rõ bàn nào.
+            const name = fb.queue_tickets.counter_name || 'Không rõ';
+
+            if (!ktvMap[name]) {
+                ktvMap[name] = { 
+                    totalTech: 0, 
+                    totalService: 0, 
+                    count: 0, 
+                    latestComment: '' 
+                };
+            }
+
+            ktvMap[name].totalTech += (fb.technician_score || 0);
+            ktvMap[name].totalService += (fb.service_score || 0);
+            ktvMap[name].count++;
+            if (fb.comment) ktvMap[name].latestComment = fb.comment;
+        });
+
+        // Chuyển về mảng và tính trung bình
+        let leaderboard = Object.keys(ktvMap).map(key => {
+            const k = ktvMap[key];
+            return {
+                name: key,
+                count: k.count,
+                avgTech: (k.totalTech / k.count).toFixed(1),
+                avgService: (k.totalService / k.count).toFixed(1),
+                latestComment: k.latestComment
+            };
+        });
+
+        // Sắp xếp: Điểm KTV cao nhất lên đầu
+        leaderboard.sort((a, b) => b.avgTech - a.avgTech);
+
+        res.json({ ok: true, stats, dailyStats, leaderboard });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ ok: false, message: e.message });
+    }
+});
+
+
+// 1. API: XUẤT BÁO CÁO EXCEL (CSV)
+app.get('/queue/export', requireAuth, async (req, res) => {
+    try {
+        const user = req.session.user;
+        const { startDate, endDate, branchFilter } = req.query;
+
+        // Logic phân quyền (Giống biểu đồ)
+        let query = supabase.from('queue_tickets').select('*');
+
+        if (startDate) query = query.gte('created_at', startDate + 'T00:00:00');
+        if (endDate) query = query.lte('created_at', endDate + 'T23:59:59');
+
+        if (user.username === 'hcm.bd') {
+            if (branchFilter && branchFilter !== 'ALL') query = query.eq('branch_code', branchFilter);
+        } else {
+            query = query.eq('branch_code', user.branch_code);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
+
+        // Tạo nội dung CSV (Có BOM để Excel hiển thị tiếng Việt)
+        let csv = '\uFEFF'; 
+        csv += "Mã Vé,Tên Khách,SĐT,Dịch Vụ,Trạng Thái,KTV/Quầy,Ngày Tạo,Giờ Xử Lý\n";
+
+        data.forEach(t => {
+            const typeName = t.service_type === 'SALES' ? 'Lắp máy' : (t.service_type === 'WARRANTY' ? 'Bảo hành' : 'Sửa chữa');
+            const date = new Date(t.created_at).toLocaleString('vi-VN');
+            const updateTime = t.updated_at ? new Date(t.updated_at).toLocaleTimeString('vi-VN') : '--';
+            
+            // Xử lý CSV injection và dấu phẩy
+            const cleanName = (t.customer_name || '').replace(/,/g, ' ');
+            const cleanCounter = (t.counter_name || '').replace(/,/g, ' ');
+            
+            csv += `${t.ticket_number},${cleanName},'${t.customer_phone || ''},${typeName},${t.status},${cleanCounter},${date},${updateTime}\n`;
+        });
+
+        res.header('Content-Type', 'text/csv; charset=utf-8');
+        res.attachment(`Bao_cao_Hang_doi_${Date.now()}.csv`);
+        res.send(csv);
+
+    } catch (e) { res.status(500).send("Lỗi xuất file: " + e.message); }
+});
+
+// 2. API: LƯU ĐÁNH GIÁ (FEEDBACK)
+app.post('/api/queue/feedback', async (req, res) => {
+    try {
+        const { ticket_id, service_score, technician_score, comment } = req.body;
+        
+        await supabase.from('service_feedback').insert({
+            ticket_id, service_score, technician_score, comment
+        });
+        
+        res.json({ ok: true });
+    } catch (e) { res.status(500).json({ ok: false, message: e.message }); }
+});
+
+
+app.get('/api/queue/check-status/:id', async (req, res) => {
+    try {
+        const { data } = await supabase
+            .from('queue_tickets')
+            .select('status, counter_name')
+            .eq('id', req.params.id)
+            .single();
+        res.json(data);
+    } catch (e) { res.status(500).json(null); }
+});
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {

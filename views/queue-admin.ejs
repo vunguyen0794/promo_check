@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <%- include('partials/header', {title: 'Điều phối Kỹ thuật', currentPage: 'queue-admin', time: ''}) %>
+    <style>
+        body { background: #f0f2f5; overflow: hidden; }
+        .admin-layout { display: flex; gap: 20px; padding: 20px; height: calc(100vh - 80px); }
+        .col-panel { flex: 1; background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .col-header { padding: 15px 20px; color: white; font-weight: 800; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+        .list-wrap { flex: 1; overflow-y: auto; padding: 15px; background: #f8fafc; }
+        
+        /* Màu sắc cột */
+        .col-service .col-header { background: #1a73e8; }
+        .col-sales .col-header { background: #0d9488; }
+
+        /* Card vé */
+        .card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .card.serving { border: 2px solid; background: #f0f9ff; transform: scale(1.01); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .col-service .card.serving { border-color: #1a73e8; }
+        .col-sales .card.serving { border-color: #0d9488; }
+
+        .tag-type { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-left: 5px; }
+        .tag-repair { background: #e0f2fe; color: #0369a1; }
+        .tag-warranty { background: #ffedd5; color: #c2410c; }
+
+        .btn-call-header { background: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; color: #333; display: flex; align-items: center; gap: 5px; }
+        .btn-action { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 700; color: white; cursor: pointer; margin-top: 10px; }
+        .btn-done { background: #10b981; } .btn-done:hover { background: #059669; }
+        .btn-recall { background: #f59e0b; color: white; } .btn-recall:hover { background: #d97706; }
+        .btn-skip { background: #ef4444; margin-top: 5px; opacity: 0.8; }
+
+        .wf-steps { display: flex; gap: 5px; margin-top: 15px; }
+        .wf-btn { flex: 1; padding: 8px 0; font-size: 11px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 4px; }
+        .wf-btn.active { background: #0d9488; color: white; border-color: #0d9488; }
+        
+        /* === MODAL POPUP STYLES === */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5); z-index: 1000;
+            display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .modal-overlay.open { display: flex; opacity: 1; }
+        
+        .modal-box {
+            background: white; width: 90%; max-width: 400px;
+            padding: 25px; border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transform: translateY(20px); transition: transform 0.2s;
+        }
+        .modal-overlay.open .modal-box { transform: translateY(0); }
+
+        .form-group { margin-bottom: 15px; }
+        .form-label { display: block; font-weight: 600; margin-bottom: 8px; color: #333; }
+        .form-select, .form-input { 
+            width: 100%; padding: 12px; border: 1px solid #ddd; 
+            border-radius: 8px; font-size: 16px; outline: none; 
+        }
+        .form-select:focus, .form-input:focus { border-color: #1a73e8; }
+        
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-modal { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; font-size: 16px; }
+        .btn-confirm { background: #1a73e8; color: white; }
+        .btn-cancel { background: #f3f4f6; color: #333; }
+        
+        /* Ẩn TVC Bar theo yêu cầu */
+        .tvc-bar { display: none; } 
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        
+        <div class="col-panel col-service">
+            <div class="col-header">
+                <span>🛠 SỬA CHỮA / BẢO HÀNH</span>
+                <button class="btn-call-header" onclick="openCallModal('SERVICE_MIX')">
+                    📞 GỌI KHÁCH
+                </button>
+            </div>
+            <div class="list-wrap">
+                <% 
+                   const serviceList = tickets.filter(t => t.service_type === 'REPAIR' || t.service_type === 'WARRANTY'); 
+                   serviceList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1));
+                %>
+                <% if(serviceList.length===0) { %><div style="text-align:center;color:#999;margin-top:30px">📭 Trống</div><% } %>
+
+                <% serviceList.forEach(t => { %>
+                    <div class="card <%= t.status==='SERVING'?'serving':'' %>">
+                        <% if(t.status === 'SERVING') { %><div style="font-weight:700; color:#1a73e8; margin-bottom:5px;">📍 <%= t.counter_name %></div><% } %>
+                        
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="font-size:20px; font-weight:800; color:#1a73e8;"><%= t.ticket_number %></span>
+                            <span class="tag-type <%= t.service_type==='REPAIR'?'tag-repair':'tag-warranty' %>">
+                                <%= t.service_type==='REPAIR'?'SỬA CHỮA':'BẢO HÀNH' %>
+                            </span>
+                        </div>
+                        <div style="font-weight:700;"><%= t.customer_name %></div>
+                        <% if(t.error_description) { %><div style="font-style:italic; font-size:13px; color:#c00;">"<%= t.error_description %>"</div><% } %>
+
+                        <% if(t.status === 'SERVING') { %>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                <button class="btn-action btn-done" onclick="control('COMPLETE', '<%= t.id %>', '<%= t.service_type %>')">✅ Xong</button>
+                                <button class="btn-action" style="background:#f59e0b;" onclick="control('RECALL', '<%= t.id %>', '<%= t.service_type %>')">🔊 Gọi lại</button>
+                            </div>
+                            <button class="btn-action btn-skip" style="padding: 8px; font-size: 12px;" onclick="control('SKIP', '<%= t.id %>', '<%= t.service_type %>')">❌ Khách vắng</button>
+                        <% } else { %>
+                            <div style="font-size:12px; color:#1a73e8; margin-top:5px; font-weight:600; text-align:right;">Đang chờ...</div>
+                        <% } %>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+
+        <div class="col-panel col-sales">
+            <div class="col-header">
+                <span>📦 LẮP MÁY MỚI</span>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <a href="/queue/warehouse" target="_blank" style="color:white; font-size:12px; text-decoration:underline;">
+                        Trang Kho ↗
+                    </a>
+                    <button class="btn-call-header" onclick="openCallModal('SALES')">
+                        📞 NHẬN ĐƠN
+                    </button>
+                </div>
+            </div>
+            
+            <div class="list-wrap">
+                <% const salesList = tickets.filter(t => t.service_type === 'SALES'); 
+                   salesList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1)); %>
+                
+                <% if(salesList.length===0) { %><div style="text-align:center;color:#999;margin-top:30px">📦 Chưa có đơn</div><% } %>
+
+                <% salesList.forEach(t => { %>
+                    <div class="card <%= t.status==='SERVING'?'serving':'' %>">
+                         <% if(t.status === 'SERVING') { %><div style="font-weight:700; color:#0d9488; margin-bottom:5px;">📍 <%= t.counter_name %></div><% } %>
+                        <div style="font-size:20px; font-weight:800; color:#0d9488;"><%= t.ticket_number %></div>
+                        <div style="font-weight:700;"><%= t.customer_name %></div>
+                        <div style="font-size:13px;"><%= t.product_name %></div>
+
+                        <% if(t.status === 'SERVING') { %>
+                            <div class="wf-steps">
+                                <button class="wf-btn <%= t.process_status==='ASSEMBLING'?'active':'' %>" onclick="updateProcess('<%= t.id %>', 'ASSEMBLING')">1. Lắp</button>
+                                <button class="wf-btn <%= t.process_status==='INSTALLING'?'active':'' %>" onclick="updateProcess('<%= t.id %>', 'INSTALLING')">2. Cài</button>
+                                <button class="wf-btn <%= t.process_status==='HANDOVER'?'active':'' %>" onclick="updateProcess('<%= t.id %>', 'HANDOVER')">3. Giao</button>
+                            </div>
+                            <% if(t.process_status === 'HANDOVER') { %>
+                                <button class="btn-action btn-done" onclick="control('COMPLETE', '<%= t.id %>', 'SALES')">✅ HOÀN THÀNH</button>
+                            <% } %>
+                        <% } %>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+    </div>
+    
+   <div id="callModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 style="margin-top:0; color:#1a73e8;">Chọn Người / Quầy phục vụ</h3>
+            
+            <div class="form-group">
+                <label class="form-label">Kỹ thuật viên:</label>
+                
+                <select id="ktvSelect" class="form-select" onchange="checkKtvOther(this)">
+                    <option value="" disabled selected>-- Chọn tên KTV --</option>
+                    
+                    <% if(staffList && staffList.length > 0) { %>
+                        <% staffList.forEach(user => { %>
+                            <option value="<%= user.full_name || user.email %>">
+                                <%= user.full_name || user.email %>
+                            </option>
+                        <% }) %>
+                    <% } %>
+
+                    <option value="other" style="font-weight:bold; color:#d93025;">✏️ Nhập tên khác...</option>
+                </select>
+
+                <input id="ktvInput" class="form-input" placeholder="Nhập tên KTV..." style="display:none; margin-top:10px;">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Tại Quầy / Bàn số:</label>
+                <select id="counterSelect" class="form-select">
+                    <option value="">-- Không chọn --</option>
+                    <option value="Bàn 1">Bàn số 1</option>
+                    <option value="Bàn 2">Bàn số 2</option>
+                    <option value="Bàn 3">Bàn số 3</option>
+                    <option value="Bàn 4">Bàn số 4</option>
+                    <option value="Bàn 5">Bàn số 5</option>
+                    <option value="Bàn 6">Bàn số 6</option>
+                    <option value="Quầy A">Quầy A</option>
+                    <option value="Quầy B">Quầy B</option>
+                </select>
+            </div>
+
+            <div class="modal-btns">
+                <button class="btn-modal btn-cancel" onclick="closeModal()">Hủy</button>
+                <button class="btn-modal btn-confirm" onclick="confirmCall()">📞 GỌI NGAY</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+       let currentCallType = ''; 
+
+        // Mở Modal & Tự động điền tên cũ đã lưu
+        function openCallModal(type) {
+            currentCallType = type;
+            const modal = document.getElementById('callModal');
+            modal.classList.add('open');
+
+            // 1. Lấy dữ liệu đã lưu trong trình duyệt (LocalStorage)
+            const savedKtv = localStorage.getItem('last_ktv') || '';
+            const savedCounter = localStorage.getItem('last_counter') || '';
+
+            const ktvSelect = document.getElementById('ktvSelect');
+            const ktvInput = document.getElementById('ktvInput');
+            
+            // 2. Logic "Nhớ" thông minh
+            let foundInList = false;
+            
+            // Duyệt qua danh sách để xem tên đã lưu có khớp với ai trong DB không
+            for(let i=0; i<ktvSelect.options.length; i++){
+                if(ktvSelect.options[i].value === savedKtv) {
+                    ktvSelect.selectedIndex = i; // Có trong list -> Chọn luôn
+                    foundInList = true;
+                    break;
+                }
+            }
+
+            // 3. Xử lý hiển thị
+            if(savedKtv && !foundInList) {
+                // Nếu có tên lưu mà KHÔNG nằm trong list DB -> Chọn "Nhập khác" và điền vào input
+                ktvSelect.value = 'other';
+                ktvInput.style.display = 'block';
+                ktvInput.value = savedKtv;
+            } else if (foundInList) {
+                // Nếu có trong list -> Ẩn input nhập tay
+                ktvInput.style.display = 'none';
+            } else {
+                // Lần đầu chưa lưu gì -> Reset về mặc định
+                ktvSelect.selectedIndex = 0; 
+                ktvInput.style.display = 'none';
+            }
+
+            // 4. Set lại bàn/quầy đã lưu
+            document.getElementById('counterSelect').value = savedCounter;
+        }
+
+        function closeModal() {
+            document.getElementById('callModal').classList.remove('open');
+        }
+
+        // Xử lý khi chọn "Nhập tên khác"
+        function checkKtvOther(select) {
+            const input = document.getElementById('ktvInput');
+            if(select.value === 'other') {
+                input.style.display = 'block';
+                input.focus();
+                input.value = ''; // Reset để người dùng nhập mới
+            } else {
+                input.style.display = 'none';
+            }
+        }
+
+        async function confirmCall() {
+            const ktvSelect = document.getElementById('ktvSelect');
+            const ktvInput = document.getElementById('ktvInput');
+            const counterSelect = document.getElementById('counterSelect');
+
+            // Lấy tên KTV (từ dropdown hoặc từ input nhập tay)
+            let ktvName = ktvSelect.value === 'other' ? ktvInput.value.trim() : ktvSelect.value;
+            
+            if(!ktvName || (ktvSelect.value === 'other' && !ktvName)) {
+                alert("Vui lòng chọn hoặc nhập tên KTV!");
+                return;
+            }
+
+            let counterVal = counterSelect.value;
+            
+            // Ghép chuỗi hiển thị: "Vũ (Bàn 1)"
+            let finalName = ktvName;
+            if (counterVal) finalName = `${ktvName} (${counterVal})`;
+
+            // === LƯU LẠI LỰA CHỌN VÀO TRÌNH DUYỆT ===
+            localStorage.setItem('last_ktv', ktvName);
+            localStorage.setItem('last_counter', counterVal);
+
+            // Gửi API
+            try {
+                const btn = document.querySelector('.btn-confirm');
+                btn.innerText = "Đang gọi..."; btn.disabled = true;
+
+                const res = await fetch('/api/queue/control', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        action: 'CALL_NEXT', 
+                        service_type: currentCallType, 
+                        counter_name: finalName 
+                    })
+                });
+                const data = await res.json();
+                
+                if(data.ok) window.location.reload();
+                else {
+                    alert(data.message);
+                    btn.innerText = "📞 GỌI NGAY"; btn.disabled = false;
+                    closeModal();
+                }
+            } catch(e) { 
+                alert('Lỗi kết nối'); 
+                closeModal();
+            }
+        }
+
+        async function control(action, id, type) {
+            if(action==='COMPLETE' && !confirm('Xác nhận hoàn thành?')) return;
+            await fetch('/api/queue/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action, ticket_id: id, service_type: type}) });
+            window.location.reload();
+        }
+        async function updateProcess(id, step) {
+            await fetch('/api/queue/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'UPDATE_PROCESS', ticket_id: id, process_step: step}) });
+            window.location.reload();
+        }
+        
+        setTimeout(() => window.location.reload(), 15000);
+    </script>
+</body>
+</html>
