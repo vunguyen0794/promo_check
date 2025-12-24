@@ -100,14 +100,35 @@
             var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api";
             var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
         }
+
         function onYouTubeIframeAPIReady() {
-            if (!CONFIG.hasVideo) return;
-            player = new YT.Player('ytPlayer', {
-                height: '100%', width: '100%', videoId: videoId,
-                playerVars: { 'autoplay': 1, 'controls': 0, 'mute': 1, 'loop': 1, 'playlist': videoId, 'playsinline': 1 },
-                events: { 'onReady': (e) => { isPlayerReady = true; e.target.mute(); setTimeout(toggleScreen, CONFIG.showQueue); } }
-            });
+    if (!CONFIG.hasVideo) return;
+    player = new YT.Player('ytPlayer', {
+        height: '100%', width: '100%', videoId: videoId,
+        playerVars: { 'autoplay': 1, 'controls': 0, 'mute': 1, 'loop': 1, 'playlist': videoId, 'playsinline': 1 },
+        events: { 
+            'onReady': (e) => { 
+                isPlayerReady = true; 
+                e.target.mute(); 
+                setTimeout(toggleScreen, CONFIG.showQueue);
+                
+                // === [MỚI] LOGIC RÊ CHUỘT DỪNG VIDEO ===
+                const container = document.getElementById('tvcContainer');
+                container.addEventListener('mouseenter', () => {
+                    if(isPlayerReady && player && typeof player.pauseVideo === 'function') {
+                        player.pauseVideo();
+                    }
+                });
+                container.addEventListener('mouseleave', () => {
+                    if(isPlayerReady && player && typeof player.playVideo === 'function') {
+                        player.playVideo();
+                    }
+                });
+                // ========================================
+            } 
         }
+    });
+}
 
         let isTvc = false;
         let toggleTimer = null;
@@ -117,9 +138,13 @@
         // === CỜ HIỆU LẦN ĐẦU TẢI TRANG ===
         let isFirstLoad = true;
 
-        setInterval(() => {
-            document.getElementById('clock').innerText = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
-        }, 1000);
+setInterval(() => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+    const dateStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
+    // Hiển thị giờ to, ngày nhỏ ở dưới
+    document.getElementById('clock').innerHTML = `${timeStr}<br><span style="font-size:16px; font-weight:400; opacity:0.8">${dateStr}</span>`;
+}, 1000);
 
         function getDiff(startTime) {
             if(!startTime) return "00:00";
@@ -157,38 +182,45 @@
         }
 
         function renderColumn(colType, allServing) {
-            let list = [];
-            if (colType === 'SERVICE') list = allServing.filter(x => x.service_type === 'REPAIR' || x.service_type === 'WARRANTY');
-            else list = allServing.filter(x => x.service_type === 'SALES');
+        let list = [];
+        if (colType === 'SERVICE') list = allServing.filter(x => x.service_type === 'REPAIR' || x.service_type === 'WARRANTY');
+        else list = allServing.filter(x => x.service_type === 'SALES');
 
-            const container = document.getElementById(`col-${colType}`);
-            if (list.length === 0) { container.innerHTML = `<div class="empty-col">Quầy trống</div>`; return; }
+        const container = document.getElementById(`col-${colType}`);
+        if (list.length === 0) { container.innerHTML = `<div class="empty-col">Quầy trống</div>`; return; }
 
-            // Clone mảng trước khi sort để tránh lỗi mutation
-            let sortedList = [...list].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
-
-            container.innerHTML = sortedList.map(t => {
-                const runTime = getDiff(t.updated_at);
-                let statusText = "Đang phục vụ";
-                let typeClass = "type-service";
+        let sortedList = [...list].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+        
+        container.innerHTML = sortedList.map(t => {
+            const runTime = getDiff(t.updated_at);
+            let statusText = "Đang phục vụ";
+            let typeClass = "type-service";
+            
+            // Xử lý hiển thị Order ID (Chỉ cho SALES)
+            let orderInfoHtml = '';
+            
+            if (t.service_type === 'WARRANTY') typeClass = "type-warranty";
+            if (t.service_type === 'SALES') {
+                typeClass = "type-sales";
+                if(t.process_status==='ASSEMBLING') statusText = "Đang lắp ráp";
+                else if(t.process_status==='INSTALLING') statusText = "Đang cài đặt";
+                else if(t.process_status==='HANDOVER') statusText = "Đang bàn giao";
                 
-                if (t.service_type === 'WARRANTY') typeClass = "type-warranty";
-                if (t.service_type === 'SALES') {
-                    typeClass = "type-sales";
-                    if(t.process_status==='ASSEMBLING') statusText = "Đang lắp ráp";
-                    else if(t.process_status==='INSTALLING') statusText = "Đang cài đặt";
-                    else if(t.process_status==='HANDOVER') statusText = "Đang bàn giao";
+                // Hiển thị Mã Đơn Hàng nếu có
+                if(t.order_id) {
+                    orderInfoHtml = `<div style="font-size:16px; color:#555; margin-top:4px;">Đơn: <b>${t.order_id}</b></div>`;
                 }
+            }
 
-                return `
-                <div id="ticket-${t.id}" class="sv-card ${typeClass}">
-                    <div class="c-counter">📍 ${t.counter_name || 'KTV'}</div>
-                    <div class="c-num">${t.ticket_number}</div>
-                    <div class="c-name">${t.customer_name}</div>
-                    <div class="c-timer bg-run" id="timer-${t.id}">${statusText}: ${runTime}</div>
-                </div>`;
-            }).join('');
-        }
+            return `
+            <div id="ticket-${t.id}" class="sv-card ${typeClass}">
+                <div class="c-counter">📍 ${t.counter_name || 'KTV'}</div>
+                <div class="c-num">${t.ticket_number}</div>
+                <div class="c-name">${t.customer_name}</div>
+                ${orderInfoHtml} <div class="c-timer bg-run" id="timer-${t.id}">${statusText}: ${runTime}</div>
+            </div>`;
+        }).join('');
+    }
 
         function renderWaitingList(allWaiting) {
             const container = document.getElementById('waiting-list');
@@ -255,16 +287,39 @@
         }
 
         function speakNumber(num, type, status, counterName) {
-            if (!window.speechSynthesis) return;
-            const numText = num.replace('-', ' ');
-            let text = "";
-            const dest = counterName ? `đến Kỹ thuật viên ${counterName}` : `đến quầy`;
-            if (type === 'SALES' && status === 'HANDOVER') text = `Mời số ${numText} nhận bàn giao sản phẩm`;
-            else text = `Mời số ${numText} ${dest}`;
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = 'vi-VN'; u.rate = 0.9;
-            window.speechSynthesis.speak(u);
+        if (!window.speechSynthesis) return;
+        
+        // Hủy các câu đang nói dở để tránh chồng chéo
+        window.speechSynthesis.cancel();
+
+        const numText = num.replace('-', ' ');
+        let text = "";
+        
+        // Logic đọc câu thông báo
+        const dest = counterName ? `đến Kỹ thuật viên ${counterName}` : `đến quầy phục vụ`;
+        
+        if (type === 'SALES' && status === 'HANDOVER') {
+            text = `Mời số ${numText} nhận bàn giao sản phẩm`;
+        } else {
+            text = `Mời số ${numText} ${dest}`;
         }
+
+        const u = new SpeechSynthesisUtterance(text);
+        
+        // === FIX QUAN TRỌNG: Tìm giọng đọc tiếng Việt ===
+        const voices = window.speechSynthesis.getVoices();
+        // Ưu tiên giọng Google tiếng Việt hoặc bất kỳ giọng 'vi-VN' nào
+        const vnVoice = voices.find(v => v.lang === 'vi-VN' || v.name.includes('Google tiếng Việt'));
+        
+        if (vnVoice) u.voice = vnVoice;
+        u.lang = 'vi-VN';
+        u.rate = 0.9; // Tốc độ đọc vừa phải
+        
+        window.speechSynthesis.speak(u);
+    }
+    
+    // Hack: Chrome cần load voice async, nên gọi hàm này 1 lần khi load trang
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 
         setInterval(() => {
             activeTickets.forEach(t => {

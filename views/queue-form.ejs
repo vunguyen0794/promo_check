@@ -6,6 +6,19 @@
     <title>Lấy số thứ tự / Get Ticket</title>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
+        .confirm-box {
+            display: flex; align-items: flex-start; gap: 12px;
+            margin-bottom: 25px; padding: 10px;
+            background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;
+        }
+        .confirm-input {
+            width: 20px; height: 20px; margin-top: 3px; cursor: pointer;
+            accent-color: #16a34a; /* Màu xanh lá khi tick */
+        }
+        .confirm-label {
+            font-size: 14px; font-weight: 600; color: #166534; cursor: pointer; line-height: 1.4;
+        }
+        
         body { font-family: 'Be Vietnam Pro', sans-serif; background: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
         .card { background: white; width: 100%; max-width: 450px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
         
@@ -115,6 +128,14 @@
                         <strong>Phong Vu is not responsible</strong> for any direct or indirect damage caused if Data stored in the product is disclosed, lost, damaged, and/or reformatted during inspection.
                     </div>
                 </div>
+
+                <div class="confirm-box">
+                        <input type="checkbox" id="agreeTerms" name="agreed" class="confirm-input" required>
+                        <label for="agreeTerms" class="confirm-label">
+                            Tôi đã đọc và đồng ý với các lưu ý trên.<br>
+                            <span style="font-weight:400; font-size:12px; color:#555;">I have read and agree to the terms above.</span>
+                        </label>
+                    </div>
 
                 <button type="submit" class="btn-submit" id="submitBtn" style="display: none;">
                     <span>LẤY SỐ NGAY</span>

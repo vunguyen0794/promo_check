@@ -7327,7 +7327,7 @@ app.post('/api/queue/warehouse-push', requireAuth, async (req, res) => {
             .gte('created_at', today);
 
         // Tạo số: NEW-001, NEW-002...
-        const ticketNumber = `NEW-${String((count || 0) + 1).padStart(3, '0')}`;
+        const ticketNumber = `N-${String((count || 0) + 1).padStart(3, '0')}`;
 
         // Insert vào DB đúng chi nhánh
         const { error } = await supabase.from('queue_tickets').insert({
@@ -7393,7 +7393,15 @@ app.post('/api/queue/control', requireAuth, async (req, res) => {
         const { action, ticket_id, service_type, process_step, counter_name } = req.body;
         const branchCode = req.session.user.branch_code;
         let updateData = { updated_at: new Date().toISOString() };
-
+        if (action === 'DELETE') {
+            const { error } = await supabase
+                .from('queue_tickets')
+                .update({ status: 'CANCELLED' }) // Không xóa hẳn, chỉ đổi trạng thái hủy
+                .eq('id', ticket_id);
+            
+            if (error) throw error;
+            return res.json({ ok: true });
+        }
         // --- GỌI SỐ TIẾP THEO ---
         if (action === 'CALL_NEXT') {
             let query = supabase.from('queue_tickets').select('id')
@@ -7489,79 +7497,116 @@ app.get('/api/queue/live-data', async (req, res) => {
 
 // ========================= MODULE BÁO CÁO (QUEUE REPORT) =========================
 
-// 1. TRANG GIAO DIỆN BÁO CÁO
-app.get('/queue/report', requireAuth, (req, res) => {
-    const user = req.session.user;
-    
-    // --- PHÂN QUYỀN: CHỈ MANAGER HOẶC HCM.BD ĐƯỢC VÀO ---
-    // Giả sử trong bảng users có cột role. Nếu chưa có, bạn tạm thời check theo username
-    const isManager = user.role === 'manager' || user.username === 'hcm.bd' || user.username === 'admin';
-    
-    if (!isManager) {
-        return res.status(403).send("<h1>Bạn không có quyền truy cập báo cáo!</h1>");
+app.get('/queue/report', requireAuth, async (req, res) => {
+    try {
+        const user = req.session.user;
+        
+        // --- 1. KHỞI TẠO BIẾN branchList ĐỂ TRÁNH LỖI UNDEFINED ---
+        let branchList = []; 
+
+        // --- 2. LOGIC LẤY DANH SÁCH CHI NHÁNH (CHỈ CHO HCM.BD) ---
+        if (user.branch_code === 'HCM.BD') {
+            const { data: usersData, error } = await supabase
+                .from('users')
+                .select('branch_code')
+                .not('branch_code', 'is', null); // Lấy tất cả user có mã chi nhánh
+
+            if (!error && usersData) {
+                // Lọc trùng lặp và sắp xếp A-Z
+                let uniqueSet = new Set(usersData.map(u => u.branch_code));
+                branchList = Array.from(uniqueSet).sort();
+            }
+        }
+
+        // --- 3. RENDER GIAO DIỆN VÀ TRUYỀN BIẾN ---
+        res.render('queue-report', {
+            title: 'Báo cáo Thống kê',
+            user: user,                   // Truyền user
+            branchList: branchList,       // <--- QUAN TRỌNG: Truyền danh sách chi nhánh sang EJS
+            userBranch: user.branch_code,
+            isSuperAdmin: (user.branch_code === 'HCM.BD')
+        });
+
+    } catch (e) {
+        console.error("Lỗi trang report:", e);
+        res.status(500).send("Lỗi server: " + e.message);
     }
-
-    res.render('queue-report', {
-        title: 'Báo cáo Hàng đợi',
-        userBranch: user.branch_code,
-        isSuperAdmin: user.username === 'hcm.bd' // Cờ để hiện full chi nhánh
-    });
 });
-
 // 2. API LẤY DỮ LIỆU BÁO CÁO (ĐÃ BỔ SUNG FEEDBACK)
 app.get('/api/queue/report-data', requireAuth, async (req, res) => {
     try {
         const user = req.session.user;
-        const { startDate, endDate, branchFilter } = req.query;
+        const { startDate, endDate, branchFilter, keyword } = req.query;
 
-        // --- QUERY 1: LẤY VÉ (ĐỂ VẼ BIỂU ĐỒ SỐ LƯỢNG) ---
+        // --- LOGIC PHÂN QUYỀN (GIỮ NGUYÊN) ---
+        let targetBranch = user.branch_code; 
+        if (user.branch_code === 'HCM.BD') {
+            if (branchFilter && branchFilter !== 'ALL') {
+                targetBranch = branchFilter;
+            } else {
+                targetBranch = null; 
+            }
+        }
+
+        // 1. QUERY TICKETS (SỬA ĐOẠN NÀY)
+        // Code cũ: .select('id, service_type, created_at, branch_code, status');
+        // Code mới: Lấy hết (*) và join thêm bảng feedback để hiển thị chi tiết
         let ticketQuery = supabase
             .from('queue_tickets')
-            .select('id, service_type, created_at, branch_code, status');
+            .select(`
+                *,
+                service_feedback (
+                    service_score,
+                    technician_score,
+                    comment
+                )
+            `)
+            .order('created_at', { ascending: false }); // Sắp xếp mới nhất lên đầu
 
         if (startDate) ticketQuery = ticketQuery.gte('created_at', startDate + 'T00:00:00');
         if (endDate) ticketQuery = ticketQuery.lte('created_at', endDate + 'T23:59:59');
+        
+        if (targetBranch) {
+            ticketQuery = ticketQuery.eq('branch_code', targetBranch);
+        }
 
-        // Phân quyền
-        if (user.username === 'hcm.bd') {
-            if (branchFilter && branchFilter !== 'ALL') ticketQuery = ticketQuery.eq('branch_code', branchFilter);
-        } else {
-            ticketQuery = ticketQuery.eq('branch_code', user.branch_code);
+        if (keyword && keyword.trim() !== '') {
+            const k = keyword.trim();
+            // Cú pháp .or() của Supabase: (cột1 ILIKE %k% OR cột2 ILIKE %k% ...)
+            const searchStr = `customer_phone.ilike.%${k}%,order_id.ilike.%${k}%,ticket_number.ilike.%${k}%`;
+            ticketQuery = ticketQuery.or(searchStr);
         }
 
         const { data: tickets, error: err1 } = await ticketQuery;
         if (err1) throw err1;
 
-        // --- QUERY 2: LẤY ĐÁNH GIÁ (ĐỂ LÀM BẢNG XẾP HẠNG) ---
-        // Join bảng feedback với tickets để lấy tên KTV (counter_name)
+        // 2. QUERY FEEDBACK (GIỮ NGUYÊN HOÀN TOÀN)
         let fbQuery = supabase
             .from('service_feedback')
             .select(`
                 *,
                 queue_tickets!inner (
-                    counter_name,
-                    branch_code,
-                    created_at
+                    counter_name, branch_code, created_at
                 )
             `);
-            
-        // Áp dụng bộ lọc ngày tháng cho Feedback dựa trên ngày tạo vé
+        
         if (startDate) fbQuery = fbQuery.gte('queue_tickets.created_at', startDate + 'T00:00:00');
         if (endDate) fbQuery = fbQuery.lte('queue_tickets.created_at', endDate + 'T23:59:59');
-        
-        // Phân quyền cho Feedback
-        if (user.username === 'hcm.bd') {
-            if (branchFilter && branchFilter !== 'ALL') fbQuery = fbQuery.eq('queue_tickets.branch_code', branchFilter);
-        } else {
-            fbQuery = fbQuery.eq('queue_tickets.branch_code', user.branch_code);
-        }
 
+        if (targetBranch) {
+            fbQuery = fbQuery.eq('queue_tickets.branch_code', targetBranch);
+        }
+        if (keyword && keyword.trim() !== '') {
+            const k = keyword.trim();
+            // Lưu ý: Search vào bảng queue_tickets đã join
+            fbQuery = fbQuery.or(`customer_phone.ilike.%${k}%,order_id.ilike.%${k}%,ticket_number.ilike.%${k}%`, { foreignTable: 'queue_tickets' });
+        }
         const { data: feedbacks, error: err2 } = await fbQuery;
         if (err2) throw err2;
 
-        // --- XỬ LÝ DỮ LIỆU ---
+        // --- XỬ LÝ DỮ LIỆU (GIỮ NGUYÊN LOGIC CŨ CỦA BẠN) ---
 
-        // 1. Stats cho biểu đồ (Số lượng)
+        // 1. Stats cho biểu đồ
         let stats = { REPAIR: 0, WARRANTY: 0, SALES: 0, TOTAL: 0 };
         let dailyStats = {};
 
@@ -7574,17 +7619,17 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
             if (dailyStats[day][t.service_type] !== undefined) dailyStats[day][t.service_type]++;
         });
 
-        // 2. Stats cho Bảng xếp hạng KTV (Chất lượng)
-        let ktvMap = {}; // { "KTV Nam": { totalTech: 90, totalService: 80, count: 10, comments: [] } }
+        // 2. Stats cho Bảng xếp hạng KTV
+        let ktvMap = {}; 
 
         feedbacks.forEach(fb => {
-            // Lấy tên KTV từ bảng tickets đã join
-            // counter_name có thể là "KTV Nam (Bàn 1)". Ta có thể để nguyên hoặc tách tên.
-            // Ở đây tôi để nguyên để phân biệt rõ bàn nào.
             const name = fb.queue_tickets.counter_name || 'Không rõ';
+            const branch = fb.queue_tickets.branch_code || ''; 
 
             if (!ktvMap[name]) {
                 ktvMap[name] = { 
+                    name: name,
+                    branch: branch,
                     totalTech: 0, 
                     totalService: 0, 
                     count: 0, 
@@ -7598,29 +7643,36 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
             if (fb.comment) ktvMap[name].latestComment = fb.comment;
         });
 
-        // Chuyển về mảng và tính trung bình
-        let leaderboard = Object.keys(ktvMap).map(key => {
-            const k = ktvMap[key];
-            return {
-                name: key,
+        // Chuyển về mảng
+        let leaderboard = [];
+        for (let key in ktvMap) {
+            let k = ktvMap[key];
+            leaderboard.push({
+                name: k.name,
+                branch: k.branch,
                 count: k.count,
                 avgTech: (k.totalTech / k.count).toFixed(1),
                 avgService: (k.totalService / k.count).toFixed(1),
                 latestComment: k.latestComment
-            };
-        });
+            });
+        }
 
-        // Sắp xếp: Điểm KTV cao nhất lên đầu
         leaderboard.sort((a, b) => b.avgTech - a.avgTech);
 
-        res.json({ ok: true, stats, dailyStats, leaderboard });
+        // [MỚI] TRẢ VỀ THÊM BIẾN 'details' LÀ DANH SÁCH TICKETS
+        res.json({ 
+            ok: true, 
+            stats, 
+            dailyStats, 
+            leaderboard, 
+            details: tickets // <-- Thêm cái này để Report EJS dùng
+        });
 
     } catch (e) {
         console.error(e);
         res.status(500).json({ ok: false, message: e.message });
     }
 });
-
 
 // 1. API: XUẤT BÁO CÁO EXCEL (CSV)
 app.get('/queue/export', requireAuth, async (req, res) => {
@@ -7689,6 +7741,114 @@ app.get('/api/queue/check-status/:id', async (req, res) => {
             .single();
         res.json(data);
     } catch (e) { res.status(500).json(null); }
+});
+
+// [THÊM VÀO server.js] API lấy lịch sử phục vụ trong ngày (kèm đánh giá)
+app.get('/api/queue/history', requireAuth, async (req, res) => {
+    try {
+        const branchCode = req.query.branch || req.session.user.branch_code;
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10;
+        const offset = (page - 1) * limit;
+
+        const today = new Date().toISOString().slice(0, 10);
+
+        // Lấy danh sách vé đã hoàn thành (COMPLETED) trong ngày
+        // Kèm theo thông tin đánh giá từ bảng service_feedback
+        const { data: history, count, error } = await supabase
+            .from('queue_tickets')
+            .select(`
+                *,
+                service_feedback(service_score, comment)
+            `, { count: 'exact' })
+            .eq('branch_code', branchCode)
+            .eq('status', 'COMPLETED') // Chỉ lấy khách đã xong
+            .gte('updated_at', today + 'T00:00:00') // Trong ngày hôm nay
+            .order('updated_at', { ascending: false }) // Mới nhất lên đầu
+            .range(offset, offset + limit - 1);
+
+        if (error) throw error;
+
+        res.json({ 
+            ok: true, 
+            data: history, 
+            pagination: { page, limit, total: count, totalPages: Math.ceil(count/limit) } 
+        });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ ok: false, message: e.message });
+    }
+});
+
+
+// --- API: Ghi Log công việc vào Sheets & Hoàn thành vé ---
+app.post('/api/queue/log-and-complete', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ ok: false, message: 'Unauthorized' });
+
+    const { ticket_id, msnv, customer_info, action_desc, other_action } = req.body;
+    const userEmail = req.session.user.email;
+    const SHEET_ID = '1CBPQph9ShcNmOZNh5-1B2HBd8ctJ5spArpIEUEvSI8o'; // ID Sheet của bạn
+
+    try {
+      // 1. Lấy Key bảo mật từ Vercel Env
+    let credentials;
+    if (process.env.GOOGLE_CREDENTIALS) {
+        credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    } else {
+         // Fallback: Báo lỗi nếu quên set env
+         throw new Error("Chưa cấu hình GOOGLE_CREDENTIALS trên Vercel!");
+    }
+
+    // 2. Xác thực với Google
+    const auth = new google.auth.GoogleAuth({
+        credentials, // Truyền object key đã parse vào đây
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    // 3. KHỞI TẠO SERVICE SHEETS (⚠️ Bạn đang thiếu dòng này)
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // 4. Chuẩn bị dữ liệu
+    const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    
+    // ID Sheet của bạn (Lấy từ URL)
+    const SHEET_ID = '1CBPQph9ShcNmOZNh5-1B2HBd8ctJ5spArpIEUEvSI8o';
+
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: SHEET_ID,
+            range: 'Sheet1!A:F', // Giả sử ghi vào Sheet1
+            valueInputOption: 'USER_ENTERED',
+            requestBody: {
+                values: [[
+                    now,            // Dấu thời gian
+                    userEmail,      // Địa chỉ email
+                    msnv,           // MSNV
+                    customer_info,  // Tên KH / Mã ĐH
+                    action_desc,    // Bạn đã làm gì...
+                    other_action    // Các hành động khác
+                ]]
+            }
+        });
+
+        // 2. Cập nhật trạng thái vé trong Supabase (như logic cũ)
+        const { error } = await supabase
+            .from('queue_tickets')
+            .update({ 
+                status: 'COMPLETED', 
+                process_status: 'DONE',
+                updated_at: new Date() 
+            })
+            .eq('id', ticket_id);
+
+        if (error) throw error;
+
+        res.json({ ok: true });
+
+    } catch (e) {
+        console.error("Log Work Error:", e);
+        res.status(500).json({ ok: false, message: e.message });
+    }
 });
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
