@@ -1,7 +1,7 @@
 # Google Cloud / Secrets
 bigquery-key.json
 *-key.json
-
+service-account.json
 # Common
 .env
 .env.*

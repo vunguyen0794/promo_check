@@ -242,7 +242,11 @@
 
             <% if ((role.isManager || role.isGlobalAdmin) && tableSales && tableSales.length > 0) { %>
                 <div class="table-section">
-                    <div class="table-header-title">🏆 Bảng xếp hạng Salesman</div>
+                    <div class="table-header-title">🏆 Bảng xếp hạng Salesman<% if (locals.dataDate) { %>
+                            <span style="font-size: 12px; font-weight: normal; color: #64748b; margin-left: 8px;">
+                                (Dữ liệu đến: <%= dataDate %>)
+                            </span>
+                        <% } %></div>
                     <div class="table-scroll-wrapper" style="max-height: 600px;">
                         <table class="data-table">
                             <thead style="position: sticky; top: 0; z-index: 10;">

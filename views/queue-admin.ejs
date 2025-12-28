@@ -68,7 +68,7 @@
         .action-list { display: flex; flex-direction: column; gap: 8px; border: 1px solid #eee; padding: 10px; border-radius: 8px; max-height: 250px; overflow-y: auto; }
     .action-item { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 5px; border-radius: 4px; transition: background 0.2s; }
     .action-item:hover { background: #f9fafb; }
-    .action-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin-top: 2px; }
+    .action-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin-top: 2px;flex-shrink: 0;}
     .action-item span { font-size: 14px; color: #333; line-height: 1.4; }
     </style>
 </head>
@@ -237,17 +237,16 @@
     <div style="overflow-x: auto;">
         <table style="width:100%; border-collapse: collapse; font-size:14px;">
             <thead>
-                <tr style="background:#f8fafc; color:#555; text-align:left; border-bottom:2px solid #eee;">
-                    <th style="padding:12px;">STT</th>
-                    <th style="padding:12px;">Thời gian</th>
-                    <th style="padding:12px;">Loại DV</th>
-                    <th style="padding:12px;">Khách hàng</th>
-                    <th style="padding:12px;">SĐT / Đơn hàng</th>
-                    <th style="padding:12px;">KTV Phục vụ</th>
-                    <th style="padding:12px;">Tổng thời gian</th>
-                    <th style="padding:12px;">Đánh giá</th>
-                </tr>
-            </thead>
+    <tr style="background:#f8fafc; color:#555; text-align:left; border-bottom:2px solid #eee;">
+        <th style="padding:12px;">STT</th>
+        <th style="padding:12px;">Chi nhánh</th> <th style="padding:12px;">Thời gian</th>
+        <th style="padding:12px;">Loại DV</th>
+        <th style="padding:12px;">Khách hàng</th>
+        <th style="padding:12px;">SĐT / Đơn hàng</th>
+        <th style="padding:12px;">KTV Phục vụ</th>
+        <th style="padding:12px;">Tổng thời gian</th> <th style="padding:12px;">Đánh giá</th>
+    </tr>
+</thead>
             <tbody id="historyTableBody">
                 </tbody>
         </table>
@@ -272,37 +271,42 @@
         <div class="form-group">
             <label class="form-label">Bạn đã làm gì để khách hàng hài lòng? (Chọn ít nhất 1) <span style="color:red">*</span></label>
             
-            <div class="action-list">
-                <label class="action-item">
-                    <input type="checkbox" name="workAction" value="Vệ sinh ngoại quan">
-                    <span>Vệ sinh ngoại quan</span>
-                </label>
-                <label class="action-item">
-                    <input type="checkbox" name="workAction" value="Tư vấn Zalo OA hỗ trợ sau bán hàng">
-                    <span>Tư vấn Zalo OA để hỗ trợ sau bán hàng</span>
-                </label>
-                <label class="action-item">
-                    <input type="checkbox" name="workAction" value="Khiêng hàng / Ràng hàng lên xe">
-                    <span>Khiêng hàng cồng kềnh / giúp khách ràng hàng hóa lên xe</span>
-                </label>
-                <label class="action-item">
-                    <input type="checkbox" name="workAction" value="Đóng hàng kỹ / Bọc màng PE">
-                    <span>Đóng hàng kỹ / bọc màng PE nếu thời tiết chuyển mưa</span>
-                </label>
-                <label class="action-item">
-                    <input type="checkbox" name="workAction" value="Hỏi nhu cầu / Tư vấn thêm">
-                    <span>Chủ động hỏi kỹ về nhu cầu sử dụng để tư vấn/ cài đặt thêm</span>
-                </label>
-                <label class="action-item">
-                    <input type="checkbox" name="workAction" value="Hướng dẫn sử dụng">
-                    <span>Chủ động hướng dẫn sử dụng máy và các phần mềm cơ bản</span>
-                </label>
-                <label class="action-item">
-                    <input type="checkbox" name="workAction" value="Hỗ trợ qua Zalo OA">
-                    <span>Hỗ trợ Khách hàng qua kênh chat Zalo OA</span>
-                </label>
-            </div>
-        </div>
+        <div class="action-list">
+    <label class="action-item">
+        <input type="checkbox" name="workAction" value="Vệ sinh ngoại quan">
+        <span>Vệ sinh ngoại quan</span>
+    </label>
+    
+    <label class="action-item">
+        <input type="checkbox" name="workAction" value="Tư vấn Zalo OA để hỗ trợ sau bán hàng">
+        <span>Tư vấn Zalo OA để hỗ trợ sau bán hàng</span>
+    </label>
+    
+    <label class="action-item">
+        <input type="checkbox" name="workAction" value="Khiêng hàng cồng kềnh / giúp khách ràng hàng hóa lên xe">
+        <span>Khiêng hàng cồng kềnh / giúp khách ràng hàng hóa lên xe</span>
+    </label>
+    
+    <label class="action-item">
+        <input type="checkbox" name="workAction" value="Đóng hàng kỹ / bọc màng PE nếu thời tiết chuyển mưa">
+        <span>Đóng hàng kỹ / bọc màng PE nếu thời tiết chuyển mưa</span>
+    </label>
+    
+    <label class="action-item">
+        <input type="checkbox" name="workAction" value="Chủ động hỏi kỹ về nhu cầu sử dụng để tư vấn/ cài đặt thêm">
+        <span>Chủ động hỏi kỹ về nhu cầu sử dụng để tư vấn/ cài đặt thêm</span>
+    </label>
+    
+    <label class="action-item">
+        <input type="checkbox" name="workAction" value="Chủ động hướng dẫn sử dụng máy và các phần mềm cơ bản">
+        <span>Chủ động hướng dẫn sử dụng máy và các phần mềm cơ bản</span>
+    </label>
+
+    <label class="action-item">
+        <input type="checkbox" name="workAction" value="Hỗ trợ qua Zalo OA">
+        <span>Hỗ trợ Khách hàng qua kênh chat Zalo OA</span>
+    </label>
+</div>
 
         <div class="form-group">
             <label class="form-label">Các hành động khác (Nhập thêm nếu có)</label>
@@ -463,47 +467,46 @@
             }
 
             // Render dữ liệu ra bảng
-            tbody.innerHTML = json.data.map((item, index) => {
-                const stt = (page - 1) * 10 + index + 1;
-                
-                // Format Ngày giờ
-                const dateObj = new Date(item.updated_at);
-                const timeStr = dateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
-                
-                // Format Loại dịch vụ
-                let typeInfo = '';
-                if(item.service_type === 'REPAIR') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Sửa chữa</span>';
-                else if(item.service_type === 'WARRANTY') typeInfo = '<span style="color:#d97706; font-weight:700;">Bảo hành</span>';
-                else typeInfo = '<span style="color:#0d9488; font-weight:700;">Lắp ráp</span>';
+tbody.innerHTML = json.data.map((item, index) => {
+    const stt = (page - 1) * 10 + index + 1;
+    
+    const dateObj = new Date(item.updated_at);
+    const timeStr = dateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+    
+    let typeInfo = '';
+    if(item.service_type === 'REPAIR') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Sửa chữa</span>';
+    else if(item.service_type === 'WARRANTY') typeInfo = '<span style="color:#d97706; font-weight:700;">Bảo hành</span>';
+    else typeInfo = '<span style="color:#0d9488; font-weight:700;">Lắp ráp</span>';
 
-                // Format Đánh giá
-                let feedbackHtml = '<span style="color:#ccc;">--</span>';
-                if(item.service_feedback && item.service_feedback.length > 0) {
-                    const fb = item.service_feedback[0];
-                    const stars = '⭐'.repeat(fb.service_score || 5);
-                    feedbackHtml = `<div>${stars}</div><div style="font-size:11px; color:#666;">${fb.comment || ''}</div>`;
-                }
+    let feedbackHtml = '<span style="color:#ccc;">--</span>';
+    if(item.service_feedback && item.service_feedback.length > 0) {
+        const fb = item.service_feedback[0];
+        const stars = '⭐'.repeat(fb.service_score || 5);
+        feedbackHtml = `<div>${stars}</div><div style="font-size:11px; color:#666;">${fb.comment || ''}</div>`;
+    }
 
-                // Tính thời gian phục vụ
-                const durationMs = new Date(item.updated_at) - new Date(item.created_at);
-                const durationMin = Math.floor(durationMs / 60000);
+    // Tính thời gian phục vụ (Phút)
+    let durationMin = 0;
+    if (item.created_at && item.updated_at) {
+        const durationMs = new Date(item.updated_at) - new Date(item.created_at);
+        durationMin = Math.floor(durationMs / 60000);
+    }
 
-                return `
-                    <tr style="border-bottom:1px solid #eee; hover:background-color:#f9f9f9;">
-                        <td style="padding:12px; text-align:center;">${stt}</td>
-                        <td style="padding:12px;">${timeStr}</td>
-                        <td style="padding:12px;">${typeInfo}<br><small style="color:#555">${item.ticket_number}</small></td>
-                        <td style="padding:12px; font-weight:600;">${item.customer_name}</td>
-                        <td style="padding:12px;">
-                            ${item.customer_phone || ''}
-                            ${item.order_id ? `<br><span style="color:#0d9488; font-size:11px;">Đơn: ${item.order_id}</span>` : ''}
-                        </td>
-                        <td style="padding:12px;">${item.counter_name || '---'}</td>
-                        <td style="padding:12px;">${durationMin} phút</td>
-                        <td style="padding:12px;">${feedbackHtml}</td>
-                    </tr>
-                `;
-            }).join('');
+    return `
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:12px; text-align:center;">${stt}</td>
+            <td style="padding:12px; font-weight:bold; color:#555;">${item.branch_code || '--'}</td> <td style="padding:12px;">${timeStr}</td>
+            <td style="padding:12px;">${typeInfo}<br><small style="color:#555">${item.ticket_number}</small></td>
+            <td style="padding:12px; font-weight:600;">${item.customer_name}</td>
+            <td style="padding:12px;">
+                ${item.customer_phone || ''}
+                ${item.order_id ? `<br><span style="color:#0d9488; font-size:11px;">Đơn: ${item.order_id}</span>` : ''}
+            </td>
+            <td style="padding:12px;">${item.counter_name || '---'}</td>
+            <td style="padding:12px; text-align:center; font-weight:bold;">${durationMin} phút</td> <td style="padding:12px;">${feedbackHtml}</td>
+        </tr>
+    `;
+}).join('');
 
             // Render Phân trang
             const { totalPages } = json.pagination;

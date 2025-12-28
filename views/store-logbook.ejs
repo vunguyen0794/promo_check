@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <%- include('partials/header', {title: 'Nhật Ký Cửa Hàng', currentPage: 'store-logbook', time: ''}) %>
+    <style>
+        .logbook-container { max-width: 600px; margin: 20px auto; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .section-title { font-size: 14px; font-weight: 700; color: #1a73e8; text-transform: uppercase; margin: 20px 0 10px 0; border-bottom: 2px solid #f0f2f5; padding-bottom: 5px; }
+        .form-group { margin-bottom: 15px; }
+        .form-label { font-weight: 600; color: #444; margin-bottom: 5px; display: block; }
+        .form-control, .form-select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; }
+        
+        /* Serial Tags Styles */
+        .serial-wrapper { border: 1px solid #ddd; padding: 10px; border-radius: 8px; background: #f9fafb; }
+        .serial-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .tag { background: #e0e7ff; color: #3730a3; padding: 5px 10px; border-radius: 20px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+        .tag i { cursor: pointer; color: #ef4444; }
+        
+        /* Button */
+        .btn-submit-log { width: 100%; padding: 15px; background: #0d9488; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .btn-submit-log:disabled { background: #ccc; }
+
+        /* Loading Overlay */
+        #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; text-align: center; padding-top: 40vh; }
+    </style>
+</head>
+<body>
+
+<div class="logbook-container">
+    <h2 style="text-align:center; color:#333;">📋 SMART STORE CHECKLIST</h2>
+    
+    <form id="logbookForm">
+        <div class="section-title">1. Thông tin</div>
+        <div class="form-group">
+            <label class="form-label">Chi nhánh</label>
+            <input type="text" class="form-control" value="<%= user.branch_code %>" disabled style="background:#eee;">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Nhân viên thực hiện</label>
+            <input type="text" class="form-control" value="<%= user.username %>" disabled style="background:#eee;">
+        </div>
+
+        <div class="section-title">2. Hình ảnh & Trưng bày (VM)</div>
+        <div class="form-group">
+            <label class="form-label">Vệ sinh & Sắp xếp quầy kệ</label>
+            <select class="form-select" name="vm_check">
+                <option value="Đạt">✅ Đạt chuẩn</option>
+                <option value="Không đạt">❌ Không đạt (Ghi chú bên dưới)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Chụp ảnh tổng quan (Bắt buộc)</label>
+            <input type="file" class="form-control" name="imageFile" accept="image/*" capture="environment" required>
+        </div>
+        <div class="form-group">
+            <textarea class="form-control" name="vm_note" rows="2" placeholder="Ghi chú nếu có vấn đề..."></textarea>
+        </div>
+
+        <div class="section-title">3. Kiểm soát Hàng giá trị cao</div>
+        <div class="form-group">
+            <label class="form-label">Tình trạng Server/Mạng</label>
+            <select class="form-select" name="ops_check">
+                <option value="Đạt">Ổn định</option>
+                <option value="Không đạt">Chập chờn/Mất kết nối</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Số lượng Laptop > 30tr (Thực tế)</label>
+            <input type="number" class="form-control" name="stock_count" placeholder="Nhập số lượng..." required>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" style="color:#d97706;">🔍 Quét/Nhập Serial (Máy đã khui seal)</label>
+            <div class="serial-wrapper">
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="serialInput" class="form-control" placeholder="Nhập Serial rồi nhấn Enter...">
+                    <button type="button" onclick="addSerial()" style="border:none; background:#1a73e8; color:white; padding:0 15px; border-radius:6px;">Thêm</button>
+                </div>
+                <div class="serial-tags" id="serialContainer"></div>
+                <input type="hidden" name="serial_list" id="serialListHidden">
+            </div>
+        </div>
+
+        <button type="submit" class="btn-submit-log" id="btnSubmit">
+            GỬI BÁO CÁO
+        </button>
+    </form>
+</div>
+
+<div id="loadingOverlay">
+    <div style="font-size: 40px;">🚀</div>
+    <h3 style="color:#1a73e8;">Đang tải ảnh & Ghi dữ liệu...</h3>
+    <p>Vui lòng không tắt trình duyệt</p>
+</div>
+
+<script>
+    let serials = [];
+
+    // --- Logic thêm Serial ---
+    const serialInput = document.getElementById("serialInput");
+    
+    serialInput.addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            addSerial();
+        }
+    });
+
+    function addSerial() {
+        const val = serialInput.value.trim().toUpperCase();
+        if(val && !serials.includes(val)) {
+            serials.push(val);
+            renderSerials();
+            serialInput.value = "";
+            serialInput.focus();
+        }
+    }
+
+    function removeSerial(val) {
+        serials = serials.filter(s => s !== val);
+        renderSerials();
+    }
+
+    function renderSerials() {
+        const container = document.getElementById("serialContainer");
+        container.innerHTML = serials.map(s => 
+            `<div class="tag">${s} <span onclick="removeSerial('${s}')">✖</span></div>`
+        ).join("");
+        document.getElementById("serialListHidden").value = serials.join(", ");
+    }
+
+    // --- Logic Submit Form ---
+    document.getElementById('logbookForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const btn = document.getElementById("btnSubmit");
+        const overlay = document.getElementById("loadingOverlay");
+        const formData = new FormData(e.target);
+
+        btn.disabled = true;
+        overlay.style.display = 'block';
+
+        try {
+            const res = await fetch('/api/store-logbook/submit', {
+                method: 'POST',
+                body: formData // Gửi dạng FormData để hỗ trợ upload file
+            });
+            const data = await res.json();
+
+            if(data.ok) {
+                alert("✅ Báo cáo thành công!");
+                window.location.reload();
+            } else {
+                alert("❌ Lỗi: " + data.message);
+                btn.disabled = false;
+                overlay.style.display = 'none';
+            }
+        } catch (err) {
+            alert("❌ Lỗi kết nối!");
+            console.error(err);
+            btn.disabled = false;
+            overlay.style.display = 'none';
+        }
+    });
+</script>
+</body>
+</html>

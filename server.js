@@ -53,7 +53,7 @@ const parseSkus = v => {
 
 // ------------------------- BigQuery Client -------------------------
 let bigquery;
-try {
+try {35
     const keyFile = process.env.BIGQUERY_KEY_FILE;
     
     // 1. Dùng file key local (ví dụ: bigquery-key.json)
@@ -377,6 +377,23 @@ app.use(async (req, res, next) => {
  // next();
 //});
 
+
+const auth = new google.auth.GoogleAuth({
+    scopes: [
+        'https://www.googleapis.com/auth/spreadsheets', // Quyền ghi Sheet
+        'https://www.googleapis.com/auth/drive'         // <--- QUAN TRỌNG: Quyền Upload Drive
+    ],
+    // Logic: Ưu tiên file json ở local, nếu không có thì tìm biến môi trường (Vercel)
+    keyFile: fs.existsSync('service-account.json') ? 'service-account.json' : undefined,
+    credentials: (process.env.VERCEL && process.env.GOOGLE_CREDENTIALS) 
+        ? JSON.parse(process.env.GOOGLE_CREDENTIALS) 
+        : undefined
+});
+
+
+const drive = google.drive({ version: 'v3', auth }); // <--- BẠN ĐANG THIẾU DÒNG NÀY
+
+
 // ------------------------- Auth middlewares -------------------------
 const wantsJSON = (req) =>
   req.xhr ||
@@ -407,6 +424,8 @@ const upload = multer({
 });
 
 
+// --- CẤU HÌNH ID (Bạn thay ID thật vào đây nhé) ---
+const LOGBOOK_SHEET_ID = '1XIcKVwK6OA5iuIYnFz0t34ItsSMqh3pkaDcyGlFBEnI'; // ID File Sheet lưu log
 
 
 // So sánh thay đổi đơn giản cho một số field
@@ -1710,7 +1729,16 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     if (!product) {
        throw new Error('Không tìm thấy thông tin cho SKU: ' + skuInput);
     }
-    
+    try {
+        const { count } = await supabase
+            .from('price_comparisons')
+            .select('*', { count: 'exact', head: true }) // Chỉ lấy số lượng (nhẹ server)
+            .eq('sku', product.sku);
+        
+        comparisonCount = count || 0;
+    } catch (errCount) {
+        console.error("Lỗi đếm chiến giá:", errCount);
+    }
     const price = Number(product.list_price || 0);
     console.log(`[DEBUG] Bước 1: Đã tìm thấy sản phẩm - Tên: ${product.product_name}, Giá niêm yết: ${price}đ`);
 
@@ -6529,7 +6557,8 @@ async function getPerformanceStats(options) {
              COUNT(DISTINCT CASE WHEN Revenue_with_VAT < 0 THEN Order_code END)) as total_orders,
 
             IFNULL(SUM(Revenue), 0) as total_revenue, 
-            IFNULL(SUM(Sale_point), 0) as total_kfi
+            IFNULL(SUM(Sale_point), 0) as total_kfi,
+            MAX(Report_date) as max_date
         FROM \`nimble-volt-459313-b8.sales.raw_sales_orders\`
         ${whereClause}
         ${groupByClause}
@@ -6672,6 +6701,7 @@ app.get('/profile', requireAuth, async (req, res) => {
         let dashboardData = {};
         let tableSales = [];
         let tableBranch = [];
+        let lastUpdateStr = '';
 
         if (isStaff) {
             const stats = await getPerformanceStats({ email: user.email, period });
@@ -6684,6 +6714,19 @@ app.get('/profile', requireAuth, async (req, res) => {
             dashboardData = calculateBonusMetrics(branchStats, finalTarget, false);
 
             const salesStats = await getPerformanceStats({ branch: targetCode, period, groupBy: 'email' });
+            if (salesStats && salesStats.length > 0) {
+                // Lấy mảng các ngày (dạng YYYY-MM-DD) và sort giảm dần
+                const dates = salesStats
+                    .map(s => s.max_date ? (s.max_date.value || s.max_date) : null)
+                    .filter(Boolean)
+                    .sort().reverse();
+                
+                if (dates.length > 0) {
+                    // Format lại thành DD/MM/YYYY
+                    const [y, m, d] = dates[0].split('-'); 
+                    lastUpdateStr = `${d}/${m}/${y}`;
+                }
+            }
             tableSales = salesStats.map(s => {
                 const info = empMap[s.key_id] || { full_name: s.name, hrm_id: '' };
                 if (!(info.position || '').toLowerCase().includes('bán hàng')) return null;
@@ -6711,6 +6754,17 @@ app.get('/profile', requireAuth, async (req, res) => {
 
             // --- BẢNG SALES: TRA CỨU TỪ MAP ---
             const allSalesStats = await getPerformanceStats({ branch: 'HCM.BD', period, groupBy: 'email' });
+            if (allSalesStats && allSalesStats.length > 0) {
+                const dates = allSalesStats
+                    .map(s => s.max_date ? (s.max_date.value || s.max_date) : null)
+                    .filter(Boolean)
+                    .sort().reverse();
+                
+                if (dates.length > 0) {
+                    const [y, m, d] = dates[0].split('-'); 
+                    lastUpdateStr = `${d}/${m}/${y}`;
+                }
+            }
             tableSales = allSalesStats.map(s => {
                 const info = empMap[s.key_id] || {};
                 if (!(info.position || '').toLowerCase().includes('bán hàng')) return null;
@@ -6750,7 +6804,7 @@ app.get('/profile', requireAuth, async (req, res) => {
             // Chỉ lấy list branch có trong DB Target để hiển thị dropdown cho đẹp
             branchList: Object.keys(allTargetsMap).sort(), 
             profile: myProfile, onlineTime: lastSeen,
-            dashboard: dashboardData, tableSales, tableBranch, formatCompact
+            dashboard: dashboardData, tableSales, tableBranch, formatCompact,dataDate: lastUpdateStr
         });
 
     } catch (e) { console.error("Profile Error:", e); res.status(500).send(e.message); }
@@ -7532,14 +7586,16 @@ app.get('/queue/report', requireAuth, async (req, res) => {
         res.status(500).send("Lỗi server: " + e.message);
     }
 });
-// 2. API LẤY DỮ LIỆU BÁO CÁO (ĐÃ BỔ SUNG FEEDBACK)
+// ----------------------------------------------------------------------
+// 1. API: LẤY DỮ LIỆU BÁO CÁO (Đã bao gồm Feedback & BranchStats)
+// ----------------------------------------------------------------------
 app.get('/api/queue/report-data', requireAuth, async (req, res) => {
     try {
         const user = req.session.user;
         const { startDate, endDate, branchFilter, keyword } = req.query;
 
-        // --- LOGIC PHÂN QUYỀN (GIỮ NGUYÊN) ---
-        let targetBranch = user.branch_code; 
+        // --- A. LOGIC PHÂN QUYỀN ---
+        let targetBranch = user.branch_code;
         if (user.branch_code === 'HCM.BD') {
             if (branchFilter && branchFilter !== 'ALL') {
                 targetBranch = branchFilter;
@@ -7548,9 +7604,7 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
             }
         }
 
-        // 1. QUERY TICKETS (SỬA ĐOẠN NÀY)
-        // Code cũ: .select('id, service_type, created_at, branch_code, status');
-        // Code mới: Lấy hết (*) và join thêm bảng feedback để hiển thị chi tiết
+        // --- B. QUERY DATABASE (JOIN FEEDBACK) ---
         let ticketQuery = supabase
             .from('queue_tickets')
             .select(`
@@ -7561,89 +7615,67 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
                     comment
                 )
             `)
-            .order('created_at', { ascending: false }); // Sắp xếp mới nhất lên đầu
+            .order('created_at', { ascending: false });
 
         if (startDate) ticketQuery = ticketQuery.gte('created_at', startDate + 'T00:00:00');
         if (endDate) ticketQuery = ticketQuery.lte('created_at', endDate + 'T23:59:59');
-        
-        if (targetBranch) {
-            ticketQuery = ticketQuery.eq('branch_code', targetBranch);
-        }
+        if (targetBranch) ticketQuery = ticketQuery.eq('branch_code', targetBranch);
 
         if (keyword && keyword.trim() !== '') {
-            const k = keyword.trim();
-            // Cú pháp .or() của Supabase: (cột1 ILIKE %k% OR cột2 ILIKE %k% ...)
-            const searchStr = `customer_phone.ilike.%${k}%,order_id.ilike.%${k}%,ticket_number.ilike.%${k}%`;
-            ticketQuery = ticketQuery.or(searchStr);
-        }
+    const k = keyword.trim();
+    // Tìm trong 3 trường: SĐT (customer_phone) HOẶC Số vé (ticket_number) HOẶC Mã đơn (order_id)
+    ticketQuery = ticketQuery.or(`customer_phone.ilike.%${k}%,ticket_number.ilike.%${k}%,order_id.ilike.%${k}%`);
+}
 
         const { data: tickets, error: err1 } = await ticketQuery;
         if (err1) throw err1;
 
-        // 2. QUERY FEEDBACK (GIỮ NGUYÊN HOÀN TOÀN)
-        let fbQuery = supabase
-            .from('service_feedback')
-            .select(`
-                *,
-                queue_tickets!inner (
-                    counter_name, branch_code, created_at
-                )
-            `);
-        
-        if (startDate) fbQuery = fbQuery.gte('queue_tickets.created_at', startDate + 'T00:00:00');
-        if (endDate) fbQuery = fbQuery.lte('queue_tickets.created_at', endDate + 'T23:59:59');
-
-        if (targetBranch) {
-            fbQuery = fbQuery.eq('queue_tickets.branch_code', targetBranch);
-        }
-        if (keyword && keyword.trim() !== '') {
-            const k = keyword.trim();
-            // Lưu ý: Search vào bảng queue_tickets đã join
-            fbQuery = fbQuery.or(`customer_phone.ilike.%${k}%,order_id.ilike.%${k}%,ticket_number.ilike.%${k}%`, { foreignTable: 'queue_tickets' });
-        }
-        const { data: feedbacks, error: err2 } = await fbQuery;
-        if (err2) throw err2;
-
-        // --- XỬ LÝ DỮ LIỆU (GIỮ NGUYÊN LOGIC CŨ CỦA BẠN) ---
-
-        // 1. Stats cho biểu đồ
+        // --- C. AGGREGATION (TÍNH TOÁN) ---
         let stats = { REPAIR: 0, WARRANTY: 0, SALES: 0, TOTAL: 0 };
         let dailyStats = {};
+        let branchStats = {}; 
+        let ktvMap = {};
 
         tickets.forEach(t => {
+            // 1. Stats Tổng
             if (stats[t.service_type] !== undefined) stats[t.service_type]++;
             stats.TOTAL++;
 
+            // 2. Daily Stats
             const day = t.created_at.split('T')[0];
             if (!dailyStats[day]) dailyStats[day] = { REPAIR: 0, WARRANTY: 0, SALES: 0 };
             if (dailyStats[day][t.service_type] !== undefined) dailyStats[day][t.service_type]++;
-        });
 
-        // 2. Stats cho Bảng xếp hạng KTV
-        let ktvMap = {}; 
+            // 3. Branch Stats
+            const br = t.branch_code || 'N/A';
+            if (!branchStats[br]) branchStats[br] = { REPAIR: 0, WARRANTY: 0, SALES: 0 };
+            if (branchStats[br][t.service_type] !== undefined) branchStats[br][t.service_type]++;
 
-        feedbacks.forEach(fb => {
-            const name = fb.queue_tickets.counter_name || 'Không rõ';
-            const branch = fb.queue_tickets.branch_code || ''; 
-
-            if (!ktvMap[name]) {
-                ktvMap[name] = { 
-                    name: name,
-                    branch: branch,
-                    totalTech: 0, 
-                    totalService: 0, 
-                    count: 0, 
-                    latestComment: '' 
-                };
+            // 4. Leaderboard Logic
+            if (t.service_feedback && t.service_feedback.length > 0) {
+                const fb = t.service_feedback[0];
+                const name = t.counter_name || 'Không rõ';
+                
+                if (!ktvMap[name]) {
+                    ktvMap[name] = { 
+                        name: name, 
+                        branch: t.branch_code, 
+                        totalTech: 0, 
+                        totalService: 0, 
+                        count: 0, 
+                        latestComment: '' 
+                    };
+                }
+                ktvMap[name].totalTech += (fb.technician_score || 0);
+                ktvMap[name].totalService += (fb.service_score || 0);
+                ktvMap[name].count++;
+                if (fb.comment && !ktvMap[name].latestComment) {
+                    ktvMap[name].latestComment = fb.comment;
+                }
             }
-
-            ktvMap[name].totalTech += (fb.technician_score || 0);
-            ktvMap[name].totalService += (fb.service_score || 0);
-            ktvMap[name].count++;
-            if (fb.comment) ktvMap[name].latestComment = fb.comment;
         });
 
-        // Chuyển về mảng
+        // Chuẩn hóa mảng Leaderboard
         let leaderboard = [];
         for (let key in ktvMap) {
             let k = ktvMap[key];
@@ -7656,63 +7688,99 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
                 latestComment: k.latestComment
             });
         }
+        leaderboard.sort((a, b) => parseFloat(b.avgTech) - parseFloat(a.avgTech));
 
-        leaderboard.sort((a, b) => b.avgTech - a.avgTech);
-
-        // [MỚI] TRẢ VỀ THÊM BIẾN 'details' LÀ DANH SÁCH TICKETS
         res.json({ 
             ok: true, 
             stats, 
             dailyStats, 
+            branchStats, 
             leaderboard, 
-            details: tickets // <-- Thêm cái này để Report EJS dùng
+            details: tickets 
         });
 
     } catch (e) {
-        console.error(e);
+        console.error("Report API Error:", e);
         res.status(500).json({ ok: false, message: e.message });
     }
 });
 
-// 1. API: XUẤT BÁO CÁO EXCEL (CSV)
+// ----------------------------------------------------------------------
+// 2. API: EXPORT EXCEL (ĐÃ CẬP NHẬT FEEDBACK)
+// ----------------------------------------------------------------------
 app.get('/queue/export', requireAuth, async (req, res) => {
     try {
         const user = req.session.user;
-        const { startDate, endDate, branchFilter } = req.query;
+        const { startDate, endDate, branchFilter, keyword } = req.query;
 
-        // Logic phân quyền (Giống biểu đồ)
-        let query = supabase.from('queue_tickets').select('*');
+        // [QUAN TRỌNG] Phải select thêm bảng service_feedback để lấy điểm đánh giá
+        let query = supabase
+            .from('queue_tickets')
+            .select(`
+                *,
+                service_feedback (
+                    service_score,
+                    technician_score,
+                    comment
+                )
+            `);
 
+        // --- Filter Logic ---
         if (startDate) query = query.gte('created_at', startDate + 'T00:00:00');
         if (endDate) query = query.lte('created_at', endDate + 'T23:59:59');
 
-        if (user.username === 'hcm.bd') {
+        if (user.branch_code === 'HCM.BD') {
             if (branchFilter && branchFilter !== 'ALL') query = query.eq('branch_code', branchFilter);
         } else {
             query = query.eq('branch_code', user.branch_code);
         }
 
+        if (keyword && keyword.trim() !== '') {
+    const k = keyword.trim();
+    // Đồng bộ logic tìm kiếm cho cả xuất file
+    query = query.or(`customer_phone.ilike.%${k}%,ticket_number.ilike.%${k}%,order_id.ilike.%${k}%`);
+}
+
         const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw error;
 
-        // Tạo nội dung CSV (Có BOM để Excel hiển thị tiếng Việt)
+        // --- Tạo nội dung CSV ---
         let csv = '\uFEFF'; 
-        csv += "Mã Vé,Tên Khách,SĐT,Dịch Vụ,Trạng Thái,KTV/Quầy,Ngày Tạo,Giờ Xử Lý\n";
+        // Header: Thêm cột Điểm KTV, Điểm DV, Góp ý
+        csv += "Chi Nhánh,Mã Vé,Tên Khách,SĐT,Dịch Vụ,Trạng Thái,KTV/Quầy,Ngày Tạo,Giờ Xử Lý,Tổng Thời Gian (Phút),Điểm KTV,Điểm DV,Góp ý\n";
 
         data.forEach(t => {
             const typeName = t.service_type === 'SALES' ? 'Lắp máy' : (t.service_type === 'WARRANTY' ? 'Bảo hành' : 'Sửa chữa');
             const date = new Date(t.created_at).toLocaleString('vi-VN');
             const updateTime = t.updated_at ? new Date(t.updated_at).toLocaleTimeString('vi-VN') : '--';
             
-            // Xử lý CSV injection và dấu phẩy
+            // Tính tổng thời gian
+            let duration = 0;
+            if (t.created_at && t.updated_at && t.status === 'COMPLETED') {
+                duration = Math.floor((new Date(t.updated_at) - new Date(t.created_at)) / 60000);
+            }
+
+            // Xử lý thông tin khách
             const cleanName = (t.customer_name || '').replace(/,/g, ' ');
             const cleanCounter = (t.counter_name || '').replace(/,/g, ' ');
+            const phone = t.customer_phone || '';
+
+            // [MỚI] Xử lý Feedback
+            let fKtv = '', fDv = '', fCmt = '';
+            if (t.service_feedback && t.service_feedback.length > 0) {
+                const fb = t.service_feedback[0];
+                fKtv = fb.technician_score || '';
+                fDv = fb.service_score || '';
+                // Xóa dấu phẩy hoặc xuống dòng trong comment để tránh vỡ file CSV
+                fCmt = (fb.comment || '').replace(/,/g, '.').replace(/\n/g, ' '); 
+            }
             
-            csv += `${t.ticket_number},${cleanName},'${t.customer_phone || ''},${typeName},${t.status},${cleanCounter},${date},${updateTime}\n`;
+            // Ghi dòng CSV
+            csv += `${t.branch_code},${t.ticket_number},${cleanName},'${phone},${typeName},${t.status},${cleanCounter},${date},${updateTime},${duration},${fKtv},${fDv},${fCmt}\n`;
         });
 
         res.header('Content-Type', 'text/csv; charset=utf-8');
-        res.attachment(`Bao_cao_Hang_doi_${Date.now()}.csv`);
+        res.attachment(`Bao_cao_Chi_tiet_${Date.now()}.csv`);
         res.send(csv);
 
     } catch (e) { res.status(500).send("Lỗi xuất file: " + e.message); }
@@ -7792,26 +7860,43 @@ app.post('/api/queue/log-and-complete', async (req, res) => {
 
     try {
       // 1. Lấy Key bảo mật từ Vercel Env
+    let auth;
     let credentials;
-    if (process.env.GOOGLE_CREDENTIALS) {
-        credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-    } else {
-         // Fallback: Báo lỗi nếu quên set env
-         throw new Error("Chưa cấu hình GOOGLE_CREDENTIALS trên Vercel!");
-    }
-
-    // 2. Xác thực với Google
-    const auth = new google.auth.GoogleAuth({
-        credentials, // Truyền object key đã parse vào đây
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
+    // Ưu tiên 1: Chạy trên Vercel (Biến môi trường)
+        if (process.env.GOOGLE_CREDENTIALS) {
+            const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+            auth = new google.auth.GoogleAuth({
+                credentials,
+                scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+            });
+        } 
+        // Ưu tiên 2: Chạy Local (File service-account.json)
+        else if (fs.existsSync('service-account.json')) {
+            console.log("[Local] Đang dùng file service-account.json");
+            auth = new google.auth.GoogleAuth({
+                keyFile: 'service-account.json',
+                scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+            });
+        } 
+        // Lỗi: Không tìm thấy cả 2
+        else {
+            throw new Error("Thiếu cấu hình: Cần GOOGLE_CREDENTIALS (Vercel) hoặc file service-account.json (Local)");
+        }
 
     // 3. KHỞI TẠO SERVICE SHEETS (⚠️ Bạn đang thiếu dòng này)
     const sheets = google.sheets({ version: 'v4', auth });
-
-    // 4. Chuẩn bị dữ liệu
-    const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
     
+    // 4. Chuẩn bị dữ liệu
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const yyyy = d.getFullYear();
+const mm = String(d.getMonth() + 1).padStart(2, '0');
+const dd = String(d.getDate()).padStart(2, '0');
+const h = String(d.getHours()).padStart(2, '0');
+const m = String(d.getMinutes()).padStart(2, '0');
+const s = String(d.getSeconds()).padStart(2, '0');
+
+// Kết quả sẽ là: 2025-12-28 08:26:12 (Đúng chuẩn để sort)
+const now = `${yyyy}-${mm}-${dd} ${h}:${m}:${s}`;
     // ID Sheet của bạn (Lấy từ URL)
     const SHEET_ID = '1CBPQph9ShcNmOZNh5-1B2HBd8ctJ5spArpIEUEvSI8o';
 
@@ -7850,6 +7935,107 @@ app.post('/api/queue/log-and-complete', async (req, res) => {
         res.status(500).json({ ok: false, message: e.message });
     }
 });
+
+
+
+// --- ROUTE 1: HIỂN THỊ TRANG LOGBOOK ---
+app.get('/store-logbook', requireAuth, (req, res) => {
+    // Render trang ejs mới tạo
+    res.render('store-logbook', { 
+        user: req.session.user 
+    });
+});
+// --- CẤU HÌNH ID THƯ MỤC LOGBOOK ---
+// Bạn hãy thay ID thư mục thật vào đây (Thư mục đã Share quyền cho Bot)
+const LOGBOOK_FOLDER_ID = '1TJn-ZTCvJS96YOPK2G462gEVS6zhggHr'; 
+
+// --- ROUTE: XỬ LÝ SUBMIT FORM LOGBOOK (CHUẨN HÓA THEO CHIẾN GIÁ) ---
+app.post('/api/store-logbook/submit', requireAuth, upload.single('imageFile'), async (req, res) => {
+    try {
+        const user = req.session.user;
+        const { vm_check, vm_note, ops_check, stock_count, serial_list } = req.body;
+        
+        let fileUrl = '';
+
+        // 1. UPLOAD ẢNH LÊN GOOGLE DRIVE (Logic Stream giống Chiến Giá)
+        if (req.file) {
+            // Khởi tạo Drive
+            const drive = google.drive({ version: 'v3', auth });
+            
+            // [QUAN TRỌNG] Tạo luồng đọc file từ buffer (RAM)
+            const fileStream = Readable.from(req.file.buffer);
+
+            const fileMetadata = {
+                name: `LOG_${user.branch_code}_${Date.now()}.jpg`,
+                parents: [LOGBOOK_FOLDER_ID] // Lưu vào thư mục đã cấu hình
+            };
+
+            const media = {
+                mimeType: req.file.mimetype,
+                body: fileStream
+            };
+
+            // Thực hiện Upload
+            const file = await drive.files.create({
+                requestBody: fileMetadata,
+                media: media,
+                fields: 'id, webViewLink',
+                supportsAllDrives: true, // Hỗ trợ thư mục Share
+            });
+
+            // Set quyền Public (Anyone can read) để hiển thị ảnh trên Web
+            await drive.permissions.create({
+                fileId: file.data.id,
+                requestBody: {
+                    role: 'reader',
+                    type: 'anyone',
+                },
+                supportsAllDrives: true
+            });
+
+            fileUrl = file.data.webViewLink;
+        }
+
+        // 2. TÍNH ĐIỂM (Logic cũ)
+        let score = 0;
+        if(vm_check === 'Đạt') score += 50;
+        if(ops_check === 'Đạt') score += 50;
+
+        // 3. GHI VÀO GOOGLE SHEETS
+        const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+        
+        // Đảm bảo biến LOGBOOK_SHEET_ID đã được khai báo hoặc thay trực tiếp ID Sheet vào đây
+        const TARGET_SHEET_ID = '1CBPQph9ShcNmOZNh5-1B2HBd8ctJ5spArpIEUEvSI8o'; // ID Sheet Logbook của bạn
+
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: TARGET_SHEET_ID,
+            range: 'db_logs!A:I', // Đảm bảo tên Tab là db_logs
+            valueInputOption: 'USER_ENTERED',
+            requestBody: {
+                values: [[
+                    now, 
+                    user.branch_code, 
+                    user.username,
+                    vm_check, 
+                    vm_note, 
+                    fileUrl, // Link ảnh từ Drive
+                    ops_check, 
+                    stock_count, 
+                    serial_list, 
+                    score
+                ]]
+            }
+        });
+
+        res.json({ ok: true, message: 'Đã lưu báo cáo thành công' });
+
+    } catch (e) {
+        console.error("❌ Logbook Upload Error:", e);
+        // Trả về lỗi chi tiết để dễ debug
+        res.status(500).json({ ok: false, message: e.message });
+    }
+});
+
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {
