@@ -53,6 +53,35 @@
         #tvcContainer { position:fixed; inset:0; background:#000; z-index:9999; display:none; }
         #ytPlayer { width:100%; height:100%; }
         .empty-col { display: flex; flex:1; align-items: center; justify-content: center; color: #999; font-style: italic; font-size: 18px; }
+    
+        /* Style cho vé ĐANG CHỜ trên TV */
+.tv-waiting-card {
+    background-color: #fffdf5;       /* Nền vàng rất nhạt */
+    border: 2px dashed #f59e0b;      /* Viền nét đứt màu cam */
+    border-radius: 12px;
+    padding: 12px 15px;
+    margin-bottom: 12px;             /* Khoảng cách giữa các vé */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* Màu số vé */
+.tv-waiting-ticket {
+    font-size: 24px;
+    font-weight: 800;
+    color: #333;
+}
+
+/* Màu tên khách */
+.tv-waiting-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #555;
+}
+    
+    
     </style>
 </head>
 <body>
@@ -70,8 +99,17 @@
         <div class="side-panel">
             <div class="qr-area">
                 <img src="<%= qrCodeUrl %>" class="qr-img">
-                <div class="qr-text">Quét mã lấy số</div>
+                <div class="qr-text">Quét mã lấy số và đánh giá<br>sau khi được phục vụ</div>
             </div>
+            <div style="margin-top: 5px; padding: 15px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+    <div style="font-size: 16px; color: #555; margin-bottom: 5px;">Kết nối Wifi miễn phí</div>
+    <div style="font-size: 24px; font-weight: 800; color: #333;">
+        <span style="color: #1a73e8;">Wifi:</span> Phongvu.vn
+    </div>
+    <div style="font-size: 24px; font-weight: 800; color: #333; margin-top: 5px;">
+        <span style="color: #dc3545;">Pass:</span> 18006865
+    </div>
+</div>
             <div class="list-area">
                 <div class="list-header">
                     <span>Đang chờ</span>
@@ -142,8 +180,16 @@ setInterval(() => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
     const dateStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
-    // Hiển thị giờ to, ngày nhỏ ở dưới
-    document.getElementById('clock').innerHTML = `${timeStr}<br><span style="font-size:16px; font-weight:400; opacity:0.8">${dateStr}</span>`;
+    
+    // SỬA: Thêm dấu gạch đứng | ở giữa
+    document.getElementById('clock').innerHTML = `
+        <div style="display: flex; justify-content: center; align-items: baseline; gap: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+            <span style="font-size: 36px; font-weight: 800; color: #333; line-height: 1;">${timeStr}</span>
+            
+            <span style="font-size: 28px; font-weight: 300; color: #ccc;">|</span>
+            
+            <span style="font-size: 18px; font-weight: 600; color: #777;">${dateStr}</span>
+        </div>`;
 }, 1000);
 
         function getDiff(startTime) {
@@ -223,15 +269,28 @@ setInterval(() => {
     }
 
         function renderWaitingList(allWaiting) {
-            const container = document.getElementById('waiting-list');
-            document.getElementById('total-waiting').innerText = allWaiting.length;
-            if (allWaiting.length === 0) { container.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">Không có khách chờ</div>'; return; }
-            container.innerHTML = allWaiting.map(t => {
-                let typeClass = 't-S';
-                if(t.service_type === 'SALES') typeClass = 't-SALES';
-                return `<div class="w-item ${typeClass}"><div class="w-num">${t.ticket_number}</div><div>${t.customer_name}</div></div>`;
-            }).join('');
-        }
+    const container = document.getElementById('waiting-list');
+    document.getElementById('total-waiting').innerText = allWaiting.length;
+
+    if (allWaiting.length === 0) { 
+        container.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">Không có khách chờ</div>'; 
+        return;
+    }
+
+    // --- SỬA ĐOẠN NÀY ---
+    // Sử dụng class 'tv-waiting-card' đã định nghĩa trong CSS
+    container.innerHTML = allWaiting.map(t => {
+        return `
+        <div class="tv-waiting-card">
+            <div class="tv-waiting-ticket">
+                ${t.ticket_number}
+            </div>
+            <div class="tv-waiting-name">
+                ${t.customer_name || 'Khách lẻ'}
+            </div>
+        </div>`;
+    }).join('');
+}
 
         function checkForInterrupt(allServing) {
             let hasNew = false;

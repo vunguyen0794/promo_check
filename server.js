@@ -7589,115 +7589,154 @@ app.get('/queue/report', requireAuth, async (req, res) => {
 // ----------------------------------------------------------------------
 // 1. API: LẤY DỮ LIỆU BÁO CÁO (Đã bao gồm Feedback & BranchStats)
 // ----------------------------------------------------------------------
+// --- API: Lấy dữ liệu Báo cáo & So sánh (CHẾ ĐỘ DEBUG) ---
 app.get('/api/queue/report-data', requireAuth, async (req, res) => {
     try {
         const user = req.session.user;
         const { startDate, endDate, branchFilter, keyword } = req.query;
 
-        // --- A. LOGIC PHÂN QUYỀN ---
+        // --- [DEBUG 1] In ra thông tin người dùng và bộ lọc ---
+        console.log("========== DEBUG REPORT ==========");
+        console.log(`👤 User: ${user.username} | Branch: ${user.branch_code}`);
+        console.log(`📅 Filter: ${startDate} -> ${endDate}`);
+        console.log(`🔎 Keyword: "${keyword}" | BranchSelect: ${branchFilter}`);
+
+        // 1. LOGIC PHÂN QUYỀN
         let targetBranch = user.branch_code;
         if (user.branch_code === 'HCM.BD') {
-            if (branchFilter && branchFilter !== 'ALL') {
-                targetBranch = branchFilter;
-            } else {
-                targetBranch = null; 
+            targetBranch = (branchFilter && branchFilter !== 'ALL') ? branchFilter : null;
+        }
+        console.log(`🎯 Target Branch Query: ${targetBranch || 'ALL (Toàn bộ)'}`);
+
+        // 2. TÍNH TOÁN KỲ TRƯỚC
+        const dStart = new Date(startDate);
+        const dEnd = new Date(endDate);
+        const timeDiff = dEnd.getTime() - dStart.getTime(); 
+        const dPrevEnd = new Date(dStart.getTime() - 86400000); 
+        const dPrevStart = new Date(dPrevEnd.getTime() - timeDiff);
+        const prevStartStr = dPrevStart.toISOString().split('T')[0];
+        const prevEndStr = dPrevEnd.toISOString().split('T')[0];
+
+        // 3. HÀM QUERY (Đã bỏ lọc status để test)
+        const queryData = async (s, e, label) => {
+            console.log(`🚀 Đang query [${label}]: ${s}T00:00:00 -> ${e}T23:59:59`);
+            
+            let query = supabase
+                .from('queue_tickets')
+                .select(`*, service_feedback(service_score, technician_score, comment)`)
+                .gte('created_at', s + 'T00:00:00')
+                .lte('created_at', e + 'T23:59:59')
+                .order('created_at', { ascending: false })
+
+            // Tạm thời COMMENT dòng này để hiện tất cả vé (kể cả WAITING/SKIPPED)
+            .neq('status', 'WAITING') ;
+
+            if (targetBranch) {
+                query = query.eq('branch_code', targetBranch);
             }
+
+            if (keyword && keyword.trim() !== '') {
+                const k = keyword.trim();
+                query = query.or(`customer_phone.ilike.%${k}%,ticket_number.ilike.%${k}%,order_id.ilike.%${k}%`);
+            }
+            return await query;
+        };
+
+        // 4. THỰC THI QUERY
+        const [currRes, prevRes] = await Promise.all([
+            queryData(startDate, endDate, "CURRENT"),
+            queryData(prevStartStr, prevEndStr, "PREVIOUS")
+        ]);
+
+        // --- [DEBUG 2] Kiểm tra kết quả trả về từ Supabase ---
+        if (currRes.error) {
+            console.error("❌ LỖI SUPABASE:", currRes.error);
+            throw currRes.error;
+        }
+        
+        console.log(`✅ Kết quả Kỳ này: tìm thấy ${currRes.data.length} vé.`);
+        console.log(`✅ Kết quả Kỳ trước: tìm thấy ${prevRes.data ? prevRes.data.length : 0} vé.`);
+        
+        // Nếu không có dữ liệu, thử in ra 1 dòng mẫu trong DB để check branch_code
+        if (currRes.data.length === 0) {
+            console.log("⚠️ CẢNH BÁO: Không tìm thấy vé nào!");
+            console.log("   -> Kiểm tra lại user.branch_code có khớp với cột branch_code trong DB không?");
+            console.log("   -> Kiểm tra lại khoảng thời gian startDate/endDate.");
         }
 
-        // --- B. QUERY DATABASE (JOIN FEEDBACK) ---
-        let ticketQuery = supabase
-            .from('queue_tickets')
-            .select(`
-                *,
-                service_feedback (
-                    service_score,
-                    technician_score,
-                    comment
-                )
-            `)
-            .order('created_at', { ascending: false });
+        const tickets = currRes.data || [];
+        const prevTickets = prevRes.data || [];
 
-        if (startDate) ticketQuery = ticketQuery.gte('created_at', startDate + 'T00:00:00');
-        if (endDate) ticketQuery = ticketQuery.lte('created_at', endDate + 'T23:59:59');
-        if (targetBranch) ticketQuery = ticketQuery.eq('branch_code', targetBranch);
+        // 5. TÍNH TOÁN STATS
+        const calcStats = (list) => {
+            const s = { REPAIR: 0, WARRANTY: 0, SALES: 0, TOTAL: 0 };
+            list.forEach(t => {
+                // [QUAN TRỌNG] Chỉ đếm nếu trạng thái là COMPLETED
+                if (t.status === 'COMPLETED') { 
+                    s.TOTAL++;
+                    if (s[t.service_type] !== undefined) s[t.service_type]++;
+                }
+            });
+            return s;
+        };
+        const stats = calcStats(tickets);         
+        const prevStats = calcStats(prevTickets); 
 
-        if (keyword && keyword.trim() !== '') {
-    const k = keyword.trim();
-    // Tìm trong 3 trường: SĐT (customer_phone) HOẶC Số vé (ticket_number) HOẶC Mã đơn (order_id)
-    ticketQuery = ticketQuery.or(`customer_phone.ilike.%${k}%,ticket_number.ilike.%${k}%,order_id.ilike.%${k}%`);
-}
-
-        const { data: tickets, error: err1 } = await ticketQuery;
-        if (err1) throw err1;
-
-        // --- C. AGGREGATION (TÍNH TOÁN) ---
-        let stats = { REPAIR: 0, WARRANTY: 0, SALES: 0, TOTAL: 0 };
+        // 6. XỬ LÝ BIỂU ĐỒ & LEADERBOARD
         let dailyStats = {};
         let branchStats = {}; 
         let ktvMap = {};
 
         tickets.forEach(t => {
-            // 1. Stats Tổng
-            if (stats[t.service_type] !== undefined) stats[t.service_type]++;
-            stats.TOTAL++;
-
-            // 2. Daily Stats
-            const day = t.created_at.split('T')[0];
-            if (!dailyStats[day]) dailyStats[day] = { REPAIR: 0, WARRANTY: 0, SALES: 0 };
-            if (dailyStats[day][t.service_type] !== undefined) dailyStats[day][t.service_type]++;
-
-            // 3. Branch Stats
-            const br = t.branch_code || 'N/A';
-            if (!branchStats[br]) branchStats[br] = { REPAIR: 0, WARRANTY: 0, SALES: 0 };
-            if (branchStats[br][t.service_type] !== undefined) branchStats[br][t.service_type]++;
-
-            // 4. Leaderboard Logic
-            if (t.service_feedback && t.service_feedback.length > 0) {
-                const fb = t.service_feedback[0];
-                const name = t.counter_name || 'Không rõ';
+            // [QUAN TRỌNG] Bọc toàn bộ logic Biểu đồ trong điều kiện COMPLETED
+            if (t.status === 'COMPLETED') {
                 
+                // --- A. Daily Stats ---
+                const day = t.created_at.split('T')[0];
+                if (!dailyStats[day]) dailyStats[day] = { REPAIR: 0, WARRANTY: 0, SALES: 0 };
+                if (dailyStats[day][t.service_type] !== undefined) dailyStats[day][t.service_type]++;
+
+                // --- B. Branch Stats ---
+                const br = t.branch_code || 'N/A';
+                if (!branchStats[br]) branchStats[br] = { REPAIR: 0, WARRANTY: 0, SALES: 0 };
+                if (branchStats[br][t.service_type] !== undefined) branchStats[br][t.service_type]++;
+            }
+
+            // --- C. Leaderboard (Logic này đã chuẩn, giữ nguyên) ---
+            if (t.status === 'COMPLETED' && t.counter_name) { 
+                const name = t.counter_name;
                 if (!ktvMap[name]) {
                     ktvMap[name] = { 
-                        name: name, 
-                        branch: t.branch_code, 
-                        totalTech: 0, 
-                        totalService: 0, 
-                        count: 0, 
-                        latestComment: '' 
+                        name: name, branch: t.branch_code, 
+                        totalTech: 0, totalService: 0, count: 0, ratedCount: 0, latestComment: '' 
                     };
                 }
-                ktvMap[name].totalTech += (fb.technician_score || 0);
-                ktvMap[name].totalService += (fb.service_score || 0);
+                
                 ktvMap[name].count++;
-                if (fb.comment && !ktvMap[name].latestComment) {
-                    ktvMap[name].latestComment = fb.comment;
+
+                if (t.service_feedback && t.service_feedback.length > 0) {
+                    const fb = t.service_feedback[0];
+                    ktvMap[name].ratedCount++;
+                    ktvMap[name].totalTech += Number(fb.technician_score || 0);
+                    ktvMap[name].totalService += Number(fb.service_score || 0);
+                    if (fb.comment) ktvMap[name].latestComment = fb.comment;
                 }
             }
         });
 
-        // Chuẩn hóa mảng Leaderboard
-        let leaderboard = [];
-        for (let key in ktvMap) {
-            let k = ktvMap[key];
-            leaderboard.push({
-                name: k.name,
-                branch: k.branch,
-                count: k.count,
-                avgTech: (k.totalTech / k.count).toFixed(1),
-                avgService: (k.totalService / k.count).toFixed(1),
-                latestComment: k.latestComment
-            });
-        }
-        leaderboard.sort((a, b) => parseFloat(b.avgTech) - parseFloat(a.avgTech));
+        let leaderboard = Object.values(ktvMap).map(k => ({
+            name: k.name,
+            branch: k.branch,
+            count: k.count, // Hiển thị tổng số vé đã làm
+            
+            // SỬA QUAN TRỌNG: Chia cho ratedCount thay vì count
+            avgTech: k.ratedCount > 0 ? (k.totalTech / k.ratedCount).toFixed(1) : '---',
+            avgService: k.ratedCount > 0 ? (k.totalService / k.ratedCount).toFixed(1) : '---',
+            
+            latestComment: k.latestComment
+        })).sort((a, b) => b.count - a.count);
 
-        res.json({ 
-            ok: true, 
-            stats, 
-            dailyStats, 
-            branchStats, 
-            leaderboard, 
-            details: tickets 
-        });
+        res.json({ ok: true, stats, prevStats, dailyStats, branchStats, leaderboard, details: tickets });
 
     } catch (e) {
         console.error("Report API Error:", e);
