@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>In phiếu #<%= (data && data.ID) ? data.ID : 'Print' %></title>
+  <style>
+    /* --- CẤU HÌNH TRANG IN --- */
+    @page { size: landscape; margin: 5mm; }
+    
+    body {
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 13px;
+        color: #000;
+        background: #fff;
+        padding: 20px;
+    }
+    .wrap { max-width: 100%; margin: 0 auto; }
+
+    /* --- TABLE STYLING --- */
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; border: 1px solid #000; }
+    th, td { border: 1px solid #000; padding: 6px 8px; vertical-align: middle; }
+    
+    /* Header màu hồng nhạt */
+    thead th {
+        background-color: #ffe6f2 !important; 
+        -webkit-print-color-adjust: exact; 
+        print-color-adjust: exact;
+        text-align: center;
+        font-weight: bold;
+        white-space: nowrap;
+        height: 30px;
+    }
+
+    /* Utilities */
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .text-red { color: #d32f2f; font-weight: bold; }
+    .text-blue { color: #1a73e8; font-weight: bold; }
+
+    .toolbar { margin-bottom: 20px; display: flex; gap: 10px; }
+    .btn { padding: 8px 16px; border: 1px solid #ccc; background: #fff; cursor: pointer; border-radius: 4px; font-weight: 600; }
+    .btn-primary { background: #1a73e8; color: white; border-color: #1a73e8; }
+
+    @media print { .toolbar { display: none; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+
+<% if (!data || !data.ID) { %>
+    <div style="text-align:center; color:red; padding:50px;"><h2>KHÔNG CÓ DỮ LIỆU</h2></div>
+<% } else { %>
+    <% 
+        // --- XỬ LÝ DATA ---
+        const isOffset = String(data.OffsetToNewOrder).toLowerCase() === 'true';
+        const isCash = String(data.RefundMethod).toLowerCase() === 'tiền mặt';
+        const fmt = (n) => n ? Number(n).toLocaleString('vi-VN') : '0';
+        const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
+        const bankInfo = data.Bank || [data.BankName, data.Branch, data.AccountNumber, data.AccountName].filter(Boolean).join(' - ');
+
+        // --- XỬ LÝ CỘT HIỂN THỊ ---
+        var activeCols = (typeof cols !== 'undefined' && Array.isArray(cols)) ? cols : [];
+        const showApprover = activeCols.includes('ApprovedBy') || activeCols.includes('SRApprover');
+        const showBank = activeCols.includes('Bank') && !isCash;
+    %>
+
+    <div class="wrap">
+        <div class="toolbar">
+            <button class="btn" onclick="window.print()">🖨 In Phiếu</button>
+            <button class="btn btn-primary" onclick="copyTable()">📋 Copy bảng</button>
+        </div>
+
+        <h1 style="font-size:18px; margin:0 0 5px; text-transform:uppercase; color:#1a73e8;">
+            Phiếu <%= isOffset ? 'Cấn Trừ Công Nợ' : 'Yêu Cầu Hoàn Tiền' %> #<%= data.ID %>
+        </h1>
+        <div style="font-style: italic; color: #555;">
+            Ngày: <strong><%= fmtDate(data.RequestDate) %></strong> — Trạng thái: <strong><%= data.Status %></strong>
+        </div>
+
+        <% if (isOffset) { %>
+            <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%; font-size:12px;">
+                <thead>
+                    <tr style="background-color: #ffccff; font-weight: bold; text-align: center;">
+                        <th style="background-color:#ffccff;">Loại đơn</th>
+                        <th style="background-color:#ffccff;">Mã đơn hàng</th>
+                        <th style="background-color:#ffccff;">Người duyệt (SM)</th>
+                        <th style="background-color:#ffccff;">Giá trị đơn hàng</th>
+                        <th style="background-color:#ffccff;">Trước KM</th> <th style="background-color:#ffccff;">Tiền KM</th>   <th style="background-color:#ffccff;">Sau KM</th>    <th style="background-color:#ffccff;">Lý do</th>
+                        <th style="background-color:#ffccff;">Phương thức</th>
+                        <th style="background-color:#ffccff;">Thông tin NH</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:bold; text-align:center;">Đơn cũ</td>
+                        <td style="text-align:center;"><%= data.OrderID %></td>
+                        
+                        <td rowspan="2" style="text-align:center; vertical-align:middle;">
+                            <%= data.SRApprover || data.ApprovedBy %>
+                        </td>
+
+                        <td style="text-align:right;"><%= fmt(data.OrderTotal) %></td>
+                        <td style="text-align:right;"><%= fmt(data.OldBeforeKM || data.OrderTotal) %></td>
+                        <td style="text-align:right;"><%= fmt(data.OldKM || 0) %></td>
+                        <td style="text-align:right;"><%= fmt(data.OldAfterKM || data.OrderTotal) %></td>
+
+                        <td rowspan="2" style="text-align:center; vertical-align:middle;"><%= data.Reason %></td>
+                        <td rowspan="2" style="text-align:center; vertical-align:middle;"><%= data.RefundMethod %></td>
+                        <td rowspan="2" style="text-align:center; vertical-align:middle;"><%= bankInfo %></td>
+                    </tr>
+
+                    <tr>
+                        <td style="font-weight:bold; text-align:center;">Đơn mới</td>
+                        <td style="text-align:center;"><%= data.NewOrderID %></td>
+                        
+                        <td style="text-align:right;"><%= fmt(data.NewOrderValue) %></td>
+                        <td style="text-align:right;"><%= fmt(data.NewBeforeKM || data.NewOrderValue) %></td>
+                        <td style="text-align:right;"><%= fmt(data.NewKM || 0) %></td>
+                        <td style="text-align:right;"><%= fmt(data.NewAfterKM || data.NewAfterKM) %></td>
+                    </tr>
+
+                    <tr style="background-color: #f0f0f0;">
+                        <td colspan="6" style="text-align: right; font-weight: bold; padding-right: 10px;">
+                            SỐ TIỀN HOÀN LẠI (Đơn cũ - Đơn mới):
+                        </td>
+                        <td style="text-align: right; font-weight: bold; font-size: 14px; color: #d93025;">
+                            <%= fmt(data.RefundAmount) %>
+                        </td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+        <% } else { %>
+
+            <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
+                <thead>
+                    <tr>
+                        <% activeCols.forEach(function(col) { %>
+                            <th style="background-color:#ffe6f2;">
+                                <%= (typeof colNames !== 'undefined' && colNames[col]) ? colNames[col] : col %>
+                            </th>
+                        <% }); %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <% activeCols.forEach(function(col) { %>
+                            <td style="text-align: center;">
+                                <% 
+                                    let val = data[col];
+                                    if (col.includes('Date') || col.includes('At')) val = fmtDate(val);
+                                    else if (['RefundAmount', 'OrderTotal'].includes(col)) val = fmt(val);
+                                    else if (col === 'Bank') val = bankInfo; 
+                                %>
+                                <%= val %>
+                            </td>
+                        <% }); %>
+                    </tr>
+                </tbody>
+            </table>
+
+        <% } %>
+    </div>
+<% } %>
+
+<script>
+    function copyTable() {
+        // 1. Tìm bảng gốc
+        const originalTable = document.querySelector('table');
+        if (!originalTable) return;
+ß
+        // 2. Tạo bản sao của bảng để xử lý (tránh làm hỏng giao diện hiện tại)
+        const cloneTable = originalTable.cloneNode(true);
+
+        // 3. THÊM STYLE CỨNG CHO EMAIL (Đây là phần quan trọng nhất)
+        // Thêm thuộc tính border="1" để email hiểu là bảng có khung
+        cloneTable.setAttribute('border', '1');
+        cloneTable.setAttribute('cellpadding', '5');
+        cloneTable.setAttribute('cellspacing', '0');
+        
+        // Ép style dính liền vào bảng
+        cloneTable.style.borderCollapse = 'collapse';
+        cloneTable.style.border = '1px solid #000';
+        cloneTable.style.width = '100%';
+
+        // Ép style dính liền vào từng ô (th/td)
+        const cells = cloneTable.querySelectorAll('th, td');
+        cells.forEach(cell => {
+            cell.style.border = '1px solid #000'; // Đường viền đen
+            cell.style.padding = '6px 8px';       // Khoảng cách chữ
+            cell.style.verticalAlign = 'middle';
+            
+            // Giữ màu nền cho tiêu đề (nếu là th)
+            if (cell.tagName === 'TH') {
+                cell.style.backgroundColor = '#ffe6f2'; 
+                cell.style.fontWeight = 'bold';
+            }
+        });
+
+        // 4. Tạo một khung ẩn để chứa bảng vừa sửa
+        const tempDiv = document.createElement('div');
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px'; // Giấu khỏi màn hình
+        tempDiv.appendChild(cloneTable);
+        document.body.appendChild(tempDiv);
+
+        // 5. Thực hiện bôi đen và copy từ khung ẩn này
+        const range = document.createRange();
+        range.selectNode(cloneTable);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                alert('✅ Đã copy bảng! (Đã fix lỗi mất khung khi dán vào Email)');
+            } else {
+                alert('❌ Không thể copy, vui lòng thử lại.');
+            }
+        } catch (err) {
+            console.error('Lỗi copy:', err);
+            alert('❌ Lỗi trình duyệt không hỗ trợ copy.');
+        }
+
+        // 6. Dọn dẹp: Xóa khung ẩn và bỏ bôi đen
+        document.body.removeChild(tempDiv);
+        selection.removeAllRanges();
+    }
+</script>
+</body>
+</html>

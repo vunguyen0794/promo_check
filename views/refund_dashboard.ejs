@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hệ thống Hoàn tiền</title>
+    <link rel="stylesheet" href="/css/refund.css">
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS BỔ SUNG */
+        .dash-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .stat-card { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .stat-val { font-size: 24px; font-weight: 700; color: var(--primary-color); margin-top: 5px; }
+        .stat-label { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .filter-bar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; background: #f1f3f4; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .filter-group { display: flex; flex-direction: column; gap: 4px; }
+        .filter-group label { font-size: 12px; font-weight: 600; color: #555; }
+        
+        /* Modal View Style */
+        .view-section { margin-bottom: 15px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
+        .view-section:last-child { border-bottom: none; }
+        .view-title { font-size: 14px; font-weight: 700; color: var(--primary-color); margin-bottom: 8px; text-transform: uppercase; }
+        .view-row { display: flex; justify-content: space-between; padding: 6px 0; }
+        .view-label { color: #666; font-size: 13px; }
+        .view-val { font-weight: 600; color: #222; text-align: right; max-width: 60%; }
+        .text-red { color: #d93025; }
+        /* CSS cho list kéo thả */
+.sortable-list { list-style: none; padding: 0; margin: 0; }
+.sortable-item { 
+    display: flex; align-items: center; gap: 10px; 
+    padding: 10px; background: #fff; border: 1px solid #eee; margin-bottom: 5px; 
+    border-radius: 4px; cursor: grab; transition: background 0.2s;
+}
+.sortable-item:hover { background: #f8f9fa; border-color: #ddd; }
+.sortable-item.sortable-ghost { opacity: 0.4; background: #c8ebfb; }
+.drag-handle { cursor: grab; color: #999; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div id="loading"><div class="spinner"></div><div>Đang xử lý...</div></div>
+
+    <header style="background:#fff; border-bottom:1px solid #ddd; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+        <h1 style="margin:0; font-size:20px; color:#1a73e8; font-weight:700;">QUẢN LÝ HOÀN TIỀN</h1>
+        <div>
+            <button onclick="location.reload()" class="btn ghost">↻ Tải lại dữ liệu</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="dash-stats">
+            <div class="stat-card"><div class="stat-label">Tổng phiếu</div><div class="stat-val" id="stat-count">0</div></div>
+            <div class="stat-card"><div class="stat-label">Tổng tiền hoàn</div><div class="stat-val text-red" id="stat-money">0</div></div>
+            <div class="stat-card"><div class="stat-label">Cấn trừ</div><div class="stat-val" id="stat-offset">0</div></div>
+            <div class="stat-card"><div class="stat-label">Chờ duyệt</div><div class="stat-val" style="color:#f9ab00" id="stat-pending">0</div></div>
+        </section>
+
+        <section class="card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                <h2 class="card-title">📝 Thông tin phiếu</h2>
+                
+            </div>
+            
+            <form id="refund-form">
+                <div class="form-grid">
+                    <div class="form-group col-1"><label>Ngày yêu cầu</label><input name="RequestDate" type="date"></div>
+                    <div class="form-group col-1"><label>Mã đơn hàng *</label><input name="OrderID" id="inp-OrderID" placeholder="VD: 2405..."></div>
+                    <div class="form-group col-1"><label>SĐT Khách</label><input name="Phone"></div>
+                    <div class="form-group col-1"><label>Tên Khách hàng</label><input name="CustomerName"></div>
+
+                    <div class="form-group col-2"><label>Sản phẩm</label><input name="Product"></div>
+                    <div class="form-group col-2"><label>Lý do hoàn *</label><input name="Reason" id="inp-Reason"></div>
+
+                    <div class="form-group col-1"><label>Tổng giá trị đơn</label><input name="OrderTotal" type="number" class="text-right"></div>
+                    <div class="form-group col-1"><label>Số tiền hoàn *</label><input name="RefundAmount" id="inp-RefundAmount" type="number" class="text-right font-bold text-red"></div>
+                    <div class="form-group col-1"><label>Phương thức</label><select name="RefundMethod" id="refund-method"></select></div>
+                    <div class="form-group col-1"><label>Trạng thái</label><select name="Status"><option>Mới tạo</option><option>Đã duyệt</option><option>Đã chi</option><option>Huỷ</option></select></div>
+                </div>
+
+                <div style="margin-top:15px; padding:10px; background:#f8f9fa; border-radius:6px; border:1px solid #eee;">
+                    <label style="display:flex; gap:10px; font-weight:600; color:#1a73e8; cursor:pointer;">
+                        <input type="checkbox" id="chk-offset-new" name="OffsetToNewOrder"> Kích hoạt Cấn trừ đơn mới
+                    </label>
+                    <div id="offset-section" class="form-grid hidden" style="margin-top:10px;">
+                        <input type="hidden" name="OldOrderID"><input type="hidden" name="SRApprover">
+                        <div class="form-group col-1"><label>Mã đơn mới</label><input name="NewOrderID"></div>
+                        <div class="form-group col-1"><label>Giá trị mới</label><input name="NewOrderValue" type="number" class="text-right"></div>
+                        <div class="form-group col-1"><label>Tiền KM</label><input name="NewKM" type="number" class="text-right"></div>
+                        <div class="form-group col-1"><label>Sau KM</label><input name="NewAfterKM" type="number" class="text-right"></div>
+                    </div>
+                </div>
+
+                <div id="bank-section" class="hidden" style="margin-top:15px; padding-top:10px; border-top:1px dashed #ccc;">
+                    <div class="form-grid">
+                        <div class="form-group col-1"><label>Ngân hàng</label><input name="BankName"></div>
+                        <div class="form-group col-1"><label>Chi nhánh</label><input name="Branch"></div>
+                        <div class="form-group col-1"><label>Số tài khoản</label><input name="AccountNumber"></div>
+                        <div class="form-group col-1"><label>Chủ tài khoản</label><input name="AccountName"></div>
+                    </div>
+                </div>
+
+                <div class="form-grid" style="margin-top:15px;">
+                     <div class="form-group col-1"><label>Người yêu cầu</label><input name="RequestedBy"></div>
+                     <div class="form-group col-1"><label>Người duyệt</label><input name="ApprovedBy"></div>
+                     <div class="form-group col-2"><label>Ghi chú</label><input name="Notes"></div>
+                </div>
+
+                <div class="actions">
+                    <button type="button" id="btn-save" class="btn primary">Lưu dữ liệu</button>
+                    <button type="button" id="btn-save-print" class="btn">Lưu & In</button>
+                    <button type="button" onclick="openPrintColsModal()" class="btn ghost">⚙️ Cấu hình cột in</button>
+                    <button type="button" onclick="resetForm()" class="btn ghost" style="margin-left:auto; color:#d93025">❌ Nhập mới / Hủy</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card">
+            <h2 class="card-title">Lịch sử giao dịch</h2>
+            <div class="filter-bar">
+                <div class="filter-group"><label>Từ ngày</label><input type="date" id="f-start"></div>
+                <div class="filter-group"><label>Đến ngày</label><input type="date" id="f-end"></div>
+                <div class="filter-group" style="flex:1"><label>Tìm kiếm</label><input type="text" id="f-search" placeholder="Nhập Mã đơn, Tên KH, SĐT..."></div>
+                <button class="btn primary" onclick="applyFilter()">Lọc</button>
+            </div>
+            <div class="table-wrap">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Loại</th>
+                            <th>Ngày</th>
+                            <th>Khách hàng</th>
+                            <th>Mã đơn</th>
+                            <th class="text-right">Số tiền</th>
+                            <th>Trạng thái</th>
+                            <th style="text-align:center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div id="printcols-modal" class="modal">
+        <div class="modal-backdrop" onclick="closePrintColsModal()"></div>
+        <div class="modal-panel">
+            <h3 style="margin-top:0">Chọn cột hiển thị khi In</h3>
+            <div id="printcols-list" class="modal-grid"></div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn ghost" onclick="closePrintColsModal()">Đóng</button>
+                <button class="btn primary" onclick="applyPrintCols()">Áp dụng</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-modal" class="modal">
+        <div class="modal-backdrop" onclick="closeViewModal()"></div>
+        <div class="modal-panel" style="width: 500px;">
+            <h3 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px; display:flex; justify-content:space-between;">
+                <span>Chi tiết phiếu</span>
+                <button onclick="closeViewModal()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+            </h3>
+            <div id="view-content" style="max-height:60vh; overflow-y:auto; padding-right:5px;"></div>
+            <div style="text-align: right; margin-top: 15px; border-top:1px solid #eee; padding-top:10px;">
+                <button class="btn primary" onclick="closeViewModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let __allRows = [], __editingId = null;
+
+// ===== DANH SÁCH CỘT CÓ THỂ IN =====
+const ALL_COLUMNS = [
+    { key:'ID', label:'Số chứng từ' },
+    { key:'RequestDate', label:'Ngày yêu cầu' },
+    { key:'CustomerName', label:'Khách hàng' },
+    { key:'Phone', label:'SĐT' },
+    { key:'OrderID', label:'Mã đơn hàng' },
+    { key:'Product', label:'Sản phẩm' },
+    { key:'Reason', label:'Lý do' },
+    { key:'OrderTotal', label:'Giá trị đơn' },
+    { key:'RefundAmount', label:'Số tiền hoàn' },
+    { key:'RefundMethod', label:'Phương thức' },
+    { key:'Bank', label:'Thông tin ngân hàng' },
+    { key:'Status', label:'Trạng thái' },
+    { key:'ApprovedBy', label:'Người duyệt' },
+    { key:'Notes', label:'Ghi chú' }
+];
+
+// --- KHAI BÁO BIẾN CÓ LƯU TRỮ (LOCAL STORAGE) ---
+    
+    // 1. Danh sách mặc định (nếu người dùng chưa từng cài đặt)
+    const DEFAULT_COLS = [
+        'OrderID', 'CustomerName', 'Product','Reason','OrderTotal',
+        'RefundAmount', 'RefundMethod', 'Bank', 'ApprovedBy'
+    ];
+
+    // 2. Thử lấy cài đặt cũ từ bộ nhớ trình duyệt
+    const savedCols = localStorage.getItem('MY_PRINT_CONFIG');
+
+    // 3. Nếu có thì dùng cái cũ, nếu không thì dùng mặc định
+    let selectedPrintCols = savedCols ? JSON.parse(savedCols) : DEFAULT_COLS;
+
+
+        // --- HÀM MỞ TRANG IN ---
+function openPrint(id) {
+    if (!selectedPrintCols || selectedPrintCols.length === 0) {
+        alert('Bạn chưa chọn cột nào');
+        return;
+    }
+
+    const colsParam = selectedPrintCols.join(',');
+    window.open(`/refunds/print/${id}?cols=${colsParam}`, '_blank');
+}
+
+
+// --- HÀM LƯU CẤU HÌNH CỘT ---
+function applyPrintCols() {
+    const checks = document.querySelectorAll('#printcols-list input:checked');
+    if (items.length === 0) {
+        alert('Vui lòng chọn ít nhất 1 cột');
+        return;
+    }
+
+// Lấy danh sách cột người dùng vừa chọn
+        selectedPrintCols = Array.from(checks).map(c => c.value);
+        
+        // === DÒNG QUAN TRỌNG: LƯU VÀO BỘ NHỚ TRÌNH DUYỆT ===
+        localStorage.setItem('MY_PRINT_CONFIG', JSON.stringify(selectedPrintCols));
+        
+        closePrintColsModal();
+        alert('Đã lưu cấu hình cột in!'); // (Tùy chọn) Thông báo cho user biết
+    }
+
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const methods = ['Chuyển khoản', 'Tiền mặt', 'VNPay QR', 'Ví điện tử'];
+            document.getElementById('refund-method').innerHTML = methods.map(m => `<option>${m}</option>`).join('');
+            
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            document.getElementById('f-start').value = firstDay.toISOString().slice(0,10);
+            document.getElementById('f-end').value = today.toISOString().slice(0,10);
+
+            resetForm();
+            fetchData();
+            
+            document.getElementById('btn-save').onclick = () => handleSave(false);
+            document.getElementById('btn-save-print').onclick = () => handleSave(true);
+            document.getElementById('refund-method').onchange = toggleBank;
+            document.getElementById('chk-offset-new').onchange = toggleOffset;
+        });
+
+        // --- CORE FUNCTIONS ---
+        function showLoading(show) { document.getElementById('loading').style.display = show ? 'flex' : 'none'; }
+        
+        async function fetchData() {
+            showLoading(true);
+            try {
+                const res = await fetch('/api/refunds/list?limit=500');
+                const json = await res.json();
+                __allRows = json.data || [];
+                applyFilter();
+            } catch(e) {} finally { showLoading(false); }
+        }
+
+        function applyFilter() {
+            const start = document.getElementById('f-start').value;
+            const end = document.getElementById('f-end').value;
+            const kw = document.getElementById('f-search').value.toLowerCase().trim();
+            let filtered = __allRows.filter(r => {
+                if (start && r.RequestDate < start) return false;
+                if (end && r.RequestDate > end) return false;
+                if (kw && ![r.ID, r.CustomerName, r.Phone, r.OrderID].join(' ').toLowerCase().includes(kw)) return false;
+                return true;
+            });
+            updateDashboard(filtered); renderTable(filtered);
+        }
+
+        function updateDashboard(rows) {
+    let refundCash = 0;      // Hoàn tiền thực trả
+    let offsetRefund = 0;   // Cấn trừ nhưng trả lại khách
+    let offsetExtra = 0;    // Khách bù thêm tiền
+
+    rows.forEach(r => {
+        const isOffset = String(r.OffsetToNewOrder).toLowerCase() === 'true';
+        const orderTotal = Number(r.OrderTotal || 0);
+        const newAfter = Number(r.NewAfterKM || 0);
+
+        if (!isOffset) {
+            refundCash += Number(r.RefundAmount || 0);
+        } else {
+            const diff = orderTotal - newAfter;
+            if (diff >= 0) offsetRefund += diff;
+            else offsetExtra += Math.abs(diff);
+        }
+    });
+
+    document.getElementById('stat-count').textContent = rows.length;
+    document.getElementById('stat-money').textContent = refundCash.toLocaleString('vi-VN');
+    document.getElementById('stat-offset').textContent = offsetRefund.toLocaleString('vi-VN');
+    document.getElementById('stat-pending').textContent = rows.filter(r=>r.Status=='Mới tạo').length;
+
+    console.log({ refundCash, offsetRefund, offsetExtra });
+}
+
+
+        function renderTable(rows) {
+            const tb = document.querySelector('#history-table tbody');
+            if(!rows.length) return tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px">Không có dữ liệu</td></tr>';
+            
+            tb.innerHTML = rows.map(r => {
+                const isOffset = String(r.OffsetToNewOrder).toLowerCase() === 'true';
+                const badge = isOffset ? '<span class="badge badge-offset">Cấn trừ</span>' : '<span class="badge badge-refund">Hoàn tiền</span>';
+                
+                return `<tr>
+                    <td>${badge}</td>
+                    <td>${r.RequestDate}</td>
+                    <td><b>${r.CustomerName}</b><br><small>${r.Phone}</small></td>
+                    <td>${r.OrderID}</td>
+                    <td class="text-right text-red font-bold">${Number(r.RefundAmount).toLocaleString('vi-VN')}</td>
+                    <td>${r.Status}</td>
+                    <td style="text-align:center; white-space:nowrap;">
+                        <button class="btn ghost" title="Xem" onclick="openViewModal('${r.ID}')">👁️</button>
+                        <button class="btn ghost" title="Sửa" onclick="loadEdit('${r.ID}')">✏️</button>
+                        <button class="btn ghost" title="In" onclick="openPrint('${r.ID}')">🖨️</button>
+                        <button class="btn ghost" title="Xóa" style="color:red" onclick="deleteItem('${r.ID}')">🗑️</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        // --- MODAL XEM CHI TIẾT (Đã fix) ---
+        function openViewModal(id) {
+            const r = __allRows.find(x => x.ID === id);
+            if (!r) return;
+
+            const isOffset = String(r.OffsetToNewOrder) === 'true';
+            const bank = r.Bank || [r.BankName, r.Branch, r.AccountNumber, r.AccountName].filter(Boolean).join(' - ');
+
+            let html = `
+                <div class="view-section">
+                    <div class="view-title">Thông tin chung</div>
+                    <div class="view-row"><span class="view-label">Mã phiếu</span><span class="view-val">${r.ID}</span></div>
+                    <div class="view-row"><span class="view-label">Ngày yêu cầu</span><span class="view-val">${r.RequestDate}</span></div>
+                    <div class="view-row"><span class="view-label">Khách hàng</span><span class="view-val">${r.CustomerName}</span></div>
+                    <div class="view-row"><span class="view-label">Số điện thoại</span><span class="view-val">${r.Phone}</span></div>
+                </div>
+                <div class="view-section">
+                    <div class="view-title">Chi tiết hoàn tiền</div>
+                    <div class="view-row"><span class="view-label">Mã đơn hàng</span><span class="view-val">${r.OrderID}</span></div>
+                    <div class="view-row"><span class="view-label">Sản phẩm</span><span class="view-val">${r.Product}</span></div>
+                    <div class="view-row"><span class="view-label">Lý do</span><span class="view-val">${r.Reason}</span></div>
+                    <div class="view-row"><span class="view-label">Tổng giá trị đơn</span><span class="view-val">${Number(r.OrderTotal).toLocaleString('vi-VN')}</span></div>
+                    <div class="view-row"><span class="view-label">Số tiền hoàn</span><span class="view-val text-red" style="font-size:16px">${Number(r.RefundAmount).toLocaleString('vi-VN')}</span></div>
+                </div>
+            `;
+
+            if (isOffset) {
+                html += `
+                <div class="view-section">
+                    <div class="view-title">Thông tin Cấn trừ</div>
+                    <div class="view-row"><span class="view-label">Đơn hàng mới</span><span class="view-val">${r.NewOrderID}</span></div>
+                    <div class="view-row"><span class="view-label">Giá trị mới</span><span class="view-val">${Number(r.NewOrderValue).toLocaleString('vi-VN')}</span></div>
+                    <div class="view-row"><span class="view-label">Sau KM</span><span class="view-val">${Number(r.NewAfterKM).toLocaleString('vi-VN')}</span></div>
+                </div>`;
+            } else {
+                html += `
+                <div class="view-section">
+                    <div class="view-title">Thanh toán</div>
+                    <div class="view-row"><span class="view-label">Phương thức</span><span class="view-val">${r.RefundMethod}</span></div>
+                    <div class="view-row"><span class="view-label">Ngân hàng</span><span class="view-val" style="font-size:12px">${bank}</span></div>
+                </div>`;
+            }
+            
+            html += `<div class="view-row" style="margin-top:10px"><span class="view-label">Trạng thái</span><span class="badge badge-refund">${r.Status}</span></div>`;
+
+            document.getElementById('view-content').innerHTML = html;
+            document.getElementById('view-modal').classList.add('show');
+        }
+
+        function closeViewModal() { document.getElementById('view-modal').classList.remove('show'); }
+
+        // --- EDIT / DELETE / SAVE ---
+        function loadEdit(id) {
+            const r = __allRows.find(x => x.ID === id);
+            if(!r) return;
+            __editingId = id;
+            const form = document.getElementById('refund-form');
+            Object.keys(r).forEach(k => {
+                const el = form.querySelector(`[name="${k}"]`);
+                if(el) { if(el.type=='checkbox') el.checked=(String(r[k])=='true'); else el.value=r[k]; }
+            });
+            toggleBank(); toggleOffset(); window.scrollTo({top:0,behavior:'smooth'});
+        }
+
+        async function deleteItem(id) {
+            if(!confirm('Xóa phiếu này?')) return;
+            await fetch('/api/refunds/delete/'+id, {method:'DELETE'});
+            fetchData();
+        }
+
+        async function handleSave(alsoPrint) {
+    // 1. Validate cơ bản
+    const orderID = document.getElementById('inp-OrderID').value;
+    const refundVal = Number(document.getElementById('inp-RefundAmount').value);
+    const orderTotalVal = Number(document.querySelector('[name="OrderTotal"]').value);
+
+    if(!orderID) return alert('Vui lòng nhập Mã đơn hàng!');
+    if(!refundVal) return alert('Vui lòng nhập Số tiền hoàn!');
+
+    // 2. [MỚI] Validate: Tiền hoàn > Giá trị đơn
+    // Lưu ý: Chỉ check nếu OrderTotal > 0 (đề phòng trường hợp chưa nhập giá trị đơn)
+    if (orderTotalVal > 0 && refundVal > orderTotalVal) {
+        return alert(`LỖI: Số tiền hoàn (${refundVal.toLocaleString()}) không được lớn hơn Tổng giá trị đơn (${orderTotalVal.toLocaleString()})!`);
+    }
+
+    const form = document.getElementById('refund-form');
+    const data = Object.fromEntries(new FormData(form).entries());
+    data.OffsetToNewOrder = document.getElementById('chk-offset-new').checked;
+        // ===== AUTO TÍNH TIỀN CẤN TRỪ =====
+    if (data.OffsetToNewOrder === true || data.OffsetToNewOrder === 'true') {
+        const oldVal = Number(data.OrderTotal || 0);
+        const newAfter = Number(data.NewAfterKM || 0);
+
+        // RefundAmount = Đơn cũ - Đơn mới sau KM
+        data.RefundAmount = oldVal - newAfter;
+    }
+    // ===== END AUTO =====
+
+    showLoading(true);
+    try {
+        const url = __editingId ? `/api/refunds/update/${__editingId}` : '/api/refunds/create';
+        const res = await fetch(url, {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.message);
+
+        alert('Lưu thành công!');
+        const id = __editingId || json.id;
+        
+        resetForm();
+        await fetchData(); // Đợi load lại dữ liệu để có thông tin mới nhất cho việc in
+
+        if (alsoPrint) openPrint(id);
+    } catch(e) { 
+        alert(e.message); 
+    } finally { 
+        showLoading(false);
+    }
+}
+
+        function resetForm() {
+            document.getElementById('refund-form').reset();
+            __editingId = null;
+            document.querySelector('[name="RequestDate"]').value = new Date().toISOString().slice(0,10);
+            toggleBank(); toggleOffset();
+        }
+
+        function openPrint(id) { 
+    // 1. Kiểm tra cấu hình cột
+    if (!selectedPrintCols || selectedPrintCols.length === 0) {
+        alert('Bạn chưa chọn cột nào để in!');
+        return;
+    }
+
+    // 2. Tìm dữ liệu phiếu
+    const r = __allRows.find(x => x.ID === id);
+    if (!r) return;
+
+    // 3. Tạo bản sao danh sách cột để xử lý
+    let colsToSend = [...selectedPrintCols];
+    
+    // Kiểm tra loại phiếu
+    const isOffset = String(r.OffsetToNewOrder).toLowerCase() === 'true';
+
+    if (isOffset) {
+        // === LOGIC CHO PHIẾU CẤN TRỪ ===
+        
+        // a. Loại bỏ các cột không dùng cho cấn trừ
+        colsToSend = colsToSend.filter(col => !['Bank', 'RefundMethod', 'ApprovedBy'].includes(col));
+
+        // b. Tự động THÊM các cột cấn trừ quan trọng (nếu chưa có)
+        const offsetCols = ['NewOrderID', 'NewOrderValue', 'NewAfterKM', 'SRApprover'];
+        offsetCols.forEach(col => {
+            if (!colsToSend.includes(col)) colsToSend.push(col);
+        });
+
+    } else {
+        // === LOGIC CHO PHIẾU HOÀN TIỀN THƯỜNG ===
+        
+        // Nếu là Tiền mặt -> Bỏ cột Bank
+        if (r.RefundMethod === 'Tiền mặt') {
+            colsToSend = colsToSend.filter(col => col !== 'Bank');
+        }
+        // Đảm bảo có cột Người duyệt thường
+        if (!colsToSend.includes('ApprovedBy')) colsToSend.push('ApprovedBy');
+    }
+
+    // 4. Mở trang in
+    const colsParam = colsToSend.join(',');
+    window.open(`/refunds/print/${id}?cols=${colsParam}`, '_blank');
+}
+        // --- PRINT COLS MODAL ---
+        function openPrintColsModal() {
+    const list = document.getElementById('printcols-list');
+
+    list.innerHTML = ALL_COLUMNS.map(col => `
+        <div class="sortable-item">
+            <span class="drag-handle">☰</span>
+            <label style="flex:1">
+                <input type="checkbox" value="${col.key}"
+                    ${selectedPrintCols.includes(col.key) ? 'checked' : ''}>
+                ${col.label}
+            </label>
+        </div>
+    `).join('');
+
+    // KÉO THẢ
+    new Sortable(list, {
+        animation: 150,
+        handle: '.drag-handle'
+    });
+
+    document.getElementById('printcols-modal').classList.add('show');
+}
+
+
+
+        function closePrintColsModal() { document.getElementById('printcols-modal').classList.remove('show'); }
+        function applyPrintCols() {
+            const checks = document.querySelectorAll('#printcols-list input:checked');
+            selectedPrintCols = Array.from(checks).map(c => c.value);
+            closePrintColsModal();
+        }
+
+        function toggleBank() {
+            const v = document.getElementById('refund-method').value;
+            const show = /chuyển|qr|ví/i.test(v);
+            document.getElementById('bank-section').classList.toggle('hidden', !show);
+        }
+        function toggleOffset() {
+            const chk = document.getElementById('chk-offset-new');
+            document.getElementById('offset-section').classList.toggle('hidden', !chk.checked);
+        }
+    </script>
+</body>
+</html>

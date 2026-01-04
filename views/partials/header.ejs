@@ -65,8 +65,23 @@
                         Tiện ích
                         <span style="font-size: 10px;">▼</span>
                     </a>
-                  
+                    
                     <div class="dropdown-menu" id="utilitiesDropdownMenu">
+
+                        <% 
+                        // Danh sách các email được phép truy cập (Bạn thay email thật vào đây)
+                        const ALLOWED_REFUND_EMAILS = [
+                            'vu.nt1@phongvu-mna.vn', 
+                            'thu.hm@phongvu-mna.vn'
+                        ];
+
+                        // Kiểm tra: User đã đăng nhập VÀ Email nằm trong danh sách cho phép
+                        if (user && ALLOWED_REFUND_EMAILS.includes(user.email)) { 
+                    %>
+                        <a href="/refunds" class="<%= currentPage === 'refund_dashboard' ? 'active' : '' %>">
+                            💸 Hoàn tiền
+                        </a>
+                    <% } %>
                       <div class="dropdown-submenu">
         <a href="#" class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
             <span>👨‍🔧 Technician</span>
@@ -84,7 +99,7 @@
 </a>
         </div>
     </div>
-    
+
                         <a href="/customer-care" class="<%= currentPage === 'customer-care' ? 'active' : '' %>">
                             <span class="menu-icon">📞</span> CSKH
                         </a>

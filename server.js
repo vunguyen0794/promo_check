@@ -85,8 +85,8 @@ if (isVercel) app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cookieSession({
   name: 'promo_sess',
   keys: [process.env.SESSION_SECRET || 'dev-secret'],
@@ -1068,7 +1068,7 @@ app.get('/products', requireAuth, async (req, res) => {
   if (category) {
     query = query.eq('category', category); // Lọc theo category
   }
-
+  
   let orderOptions = { ascending: true };
   let orderField = 'sku';
 
@@ -1340,10 +1340,11 @@ app.post('/api/pc-builder/check-promos', requireAuth, async (req, res) => {
     ];
     
     const tiers = [
-      { min: 50000000, discount: 1000000, code: 'PVBUILDPC25124' },
-      { min: 30000000, discount: 600000,  code: 'PVBUILDPC25123' },
-      { min: 20000000, discount: 400000,  code: 'PVBUILDPC25122' },
-      { min: 10000000, discount: 200000,  code: 'PVBUILDPC25121' }
+      { min: 50000000, discount: 1000000, code: 'PVBPC26014' },
+      { min: 30000000, discount: 600000,  code: 'PVBPC26013' },
+      { min: 20000000, discount: 400000,  code: 'PVBPC26012' },
+      { min: 10000000, discount: 200000,  code: 'PVBPC26011' },
+      { min: 100000000, discount: 2000000,  code: 'PVBPC26015' }
     ];
 
     // --- BƯỚC 2: KIỂM TRA CÁC ĐIỀU KIỆN ---
@@ -1742,6 +1743,25 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     const price = Number(product.list_price || 0);
     console.log(`[DEBUG] Bước 1: Đã tìm thấy sản phẩm - Tên: ${product.product_name}, Giá niêm yết: ${price}đ`);
 
+    try {
+        const { data: kfiData } = await supabase
+            .from('kfi_list')
+            .select('kfi_end_user, kfi_dealer')
+            .eq('sku', product.sku)
+            .single();
+
+        // Gán dữ liệu KFI vào biến product để truyền xuống giao diện
+        if (kfiData) {
+            product.kfi_end_user = kfiData.kfi_end_user || 0;
+            product.kfi_dealer = kfiData.kfi_dealer || 0;
+        } else {
+            product.kfi_end_user = 0;
+            product.kfi_dealer = 0;
+        }
+    } catch (errKfi) {
+        console.error("Lỗi lấy data KFI:", errKfi.message);
+    }
+
     // === LẤY TỒN KHO BIGQUERY ===
     try {
         const today = new Date().toISOString().split('T')[0];
@@ -1861,7 +1881,7 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
         p.compat_exclude_names = [...new Set(exclIds.map(id => promoInfoById[id]?.group_name).filter(Boolean))];
       });
     }
-
+    
     // 5) Tính toán giá trị giảm
     //let availablePromos = (regularPromos || []).map(p => {
         //const ruleDiscount = calcDiscountAmt(p, price);
@@ -8072,6 +8092,451 @@ app.post('/api/store-logbook/submit', requireAuth, upload.single('imageFile'), a
         console.error("❌ Logbook Upload Error:", e);
         // Trả về lỗi chi tiết để dễ debug
         res.status(500).json({ ok: false, message: e.message });
+    }
+});
+
+const REFUND_SPREADSHEET_ID = '1uKAVBdZtXXRSQoD8GK05awJB-pClcbnhVhyohGGQBwM'; // ID từ code cũ
+const REFUND_SHEET_NAME = 'Refunds';
+
+const REFUND_HEADERS = [
+    'ID',               // Cột A
+    'RequestDate',      // Cột B
+    'CustomerName',     // Cột C
+    'Phone',            // Cột D
+    'OrderID',          // Cột E
+    'Product',          // Cột F
+    'Reason',           // Cột G
+    'RefundMethod',     // Cột H
+    'RefundAmount',     // Cột I
+    'OrderTotal',       // Cột J
+    'BankName',         // Cột K
+    'Branch',           // Cột L
+    'AccountName',      // Cột M
+    'AccountNumber',    // Cột N
+    'RequestedBy',      // Cột O
+    'ApprovedBy',       // Cột P
+    'Status',           // Cột Q
+    'Notes',            // Cột R
+    'CreatedBy',        // Cột S
+    'CreatedAt',        // Cột T
+    'UpdatedBy',        // Cột U
+    'UpdatedAt',        // Cột V (Nguyên nhân lỗi ngày tháng nằm ở đây)
+    'OldOrderID',       // Cột W
+    'NewOrderID',       // Cột X
+    'SRApprover',       // Cột Y
+    'OldOrderValue',    // Cột Z
+    'OldBeforeKM',      // Cột AA
+    'OldKM',            // Cột AB
+    'OldAfterKM',       // Cột AC
+    'NewOrderValue',    // Cột AD
+    'NewBeforeKM',      // Cột AE
+    'NewKM',            // Cột AF
+    'NewAfterKM',       // Cột AG
+    'Bank',             // Cột AH (Thông tin NH gộp)
+    'OffsetToNewOrder'  // Cột AI
+];
+
+// Map tên cột hiển thị khi in
+const COL_NAMES_VN = {
+    ID: 'Số chứng từ',          // UUID hệ thống
+    OrderID: 'Mã đơn hàng',     // Mã đơn user nhập (VD: 1212124)
+    RequestDate: 'Ngày yêu cầu',
+    CustomerName: 'Khách hàng',
+    Phone: 'SĐT',
+    Product: 'Sản phẩm',
+    Reason: 'Lý do',
+    RefundMethod: 'Phương thức',
+    RefundAmount: 'Số tiền hoàn',
+    OrderTotal: 'Giá trị đơn',
+    Bank: 'Thông tin NH',
+    Status: 'Trạng thái',
+    RequestedBy: 'Người yêu cầu',
+    ApprovedBy: 'Người duyệt',
+    Notes: 'Ghi chú',
+    // --- Các cột thường ---
+    ApprovedBy: 'Người duyệt (SM)',
+
+    // --- Các cột Cấn Trừ (Thêm mới vào đây) ---
+    SRApprover: 'Người duyệt (SR)',
+    NewOrderID: 'Mã đơn mới',
+    NewOrderValue: 'Giá trị mới',
+    NewKM: 'Tiền KM',
+    NewAfterKM: 'Sau KM'
+};
+
+// Hàm Helper: Lấy dữ liệu
+// Hàm Helper: Lấy dữ liệu
+async function fetchRefunds() {
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: REFUND_SPREADSHEET_ID,
+            range: `${REFUND_SHEET_NAME}!A:AZ`, 
+        });
+
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) return [];
+
+        // Lấy header từ dòng 1 và xóa khoảng trắng thừa
+        const headers = rows[0].map(h => String(h).trim());
+        const data = [];
+
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const obj = {};
+            // Map dữ liệu vào object
+            headers.forEach((h, index) => {
+                obj[h] = row[index] || '';
+            });
+
+            // LOGIC FIX: Tự động gộp Bank nếu cột Bank rỗng
+            if (!obj.Bank || obj.Bank.trim() === '') {
+                const parts = [obj.BankName, obj.Branch, obj.AccountNumber, obj.AccountName]
+                              .filter(p => p && String(p).trim() !== '');
+                if (parts.length > 0) obj.Bank = parts.join(' - ');
+            }
+            data.push(obj);
+        }
+        return data.reverse(); // Mới nhất lên đầu
+    } catch (error) {
+        console.error('Fetch Refund Error:', error);
+        throw error;
+    }
+}
+
+// Khởi tạo sheets client toàn cục
+const sheets = google.sheets({ version: 'v4', auth });
+
+
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(express.static('public')); // Để load file css/refund.css
+
+// --- ROUTES ---
+app.delete('/api/refunds/delete/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Bước 1: Tìm rowIndex của ID cần xóa
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: REFUND_SPREADSHEET_ID,
+            range: `${REFUND_SHEET_NAME}!A:A` // Chỉ cần đọc cột ID để tìm dòng
+        });
+        
+        const rows = response.data.values || [];
+        let rowIndex = -1;
+        
+        // Giả sử cột ID nằm đầu tiên (A). Nếu không phải thì cần logic tìm index
+        // Ở đây REFUND_HEADERS[0] === 'ID' nên cột A là chuẩn.
+        for (let i = 1; i < rows.length; i++) {
+            if (rows[i][0] === id) {
+                rowIndex = i; // Index trong mảng (0-based)
+                break;
+            }
+        }
+
+        if (rowIndex === -1) return res.status(404).json({ ok: false, message: 'Không tìm thấy phiếu' });
+
+        // Bước 2: Xóa dòng bằng lệnh batchUpdate (deleteDimension)
+        // Lưu ý: Sheet API dùng index 0-based. rowIndex=1 (dòng 2 trong Excel)
+        
+        // Trước tiên cần lấy sheetId (GID) của tab 'Refunds'
+        const meta = await sheets.spreadsheets.get({ spreadsheetId: REFUND_SPREADSHEET_ID });
+        const sheetObj = meta.data.sheets.find(s => s.properties.title === REFUND_SHEET_NAME);
+        const sheetId = sheetObj.properties.sheetId;
+
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: REFUND_SPREADSHEET_ID,
+            requestBody: {
+                requests: [{
+                    deleteDimension: {
+                        range: {
+                            sheetId: sheetId,
+                            dimension: 'ROWS',
+                            startIndex: rowIndex,     // Bắt đầu từ dòng này
+                            endIndex: rowIndex + 1    // Đến trước dòng này (xóa 1 dòng)
+                        }
+                    }
+                }]
+            }
+        });
+
+        res.json({ ok: true, message: 'Đã xóa thành công' });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ ok: false, message: e.message });
+    }
+});
+
+// 5. Route UI
+app.get('/refunds', (req, res) => res.render('refund_dashboard'));
+
+// 2. Trang In Phiếu
+app.get('/refunds/print/:id', async (req, res) => {
+    // Biến mặc định để tránh lỗi EJS nếu crash
+    const safePayload = { 
+        data: null, 
+        cols: [], 
+        colNames: COL_NAMES_VN 
+    };
+
+    try {
+        const { id } = req.params;
+        const { cols } = req.query; // Lấy danh sách cột từ URL
+
+        // 1. Lấy dữ liệu
+        const allData = await fetchRefunds();
+        const rec = allData.find(r => r.ID === id);
+
+        // 2. Nếu không tìm thấy phiếu -> Render trang lỗi
+        if (!rec) {
+            return res.render('refund_print', safePayload);
+        }
+
+        // 3. Xác định các cột cần in
+        // Nếu URL có ?cols=A,B,C thì dùng, không thì dùng mặc định
+        let colsToPrint = [];
+        if (cols) {
+            colsToPrint = cols.split(',');
+        } else {
+            colsToPrint = ['ID', 'RequestDate', 'CustomerName', 'OrderID', 'RefundAmount', 'Reason', 'Bank', 'Status'];
+        }
+
+        // 4. Render và truyền ĐỦ biến
+        res.render('refund_print', { 
+            data: rec, 
+            cols: colsToPrint,       // <--- QUAN TRỌNG: Biến này sửa lỗi cols is not defined
+            colNames: COL_NAMES_VN   // <--- QUAN TRỌNG: Biến này sửa lỗi colNames
+        });
+
+    } catch (e) {
+        console.error("Print Error:", e);
+        // Trường hợp lỗi Server vẫn truyền biến rỗng để không sập trang
+        res.render('refund_print', safePayload);
+    }
+});
+app.get('/api/refunds/list', async (req, res) => {
+    try {
+        const data = await fetchRefunds();
+        // Filter đơn giản nếu cần
+        const { q } = req.query;
+        let result = data;
+        if (q) {
+             const lowerQ = q.toLowerCase();
+             result = data.filter(r => JSON.stringify(r).toLowerCase().includes(lowerQ));
+        }
+        // Luôn trả về JSON
+        res.json({ ok: true, data: result.slice(0, 100) });
+    } catch (e) {
+        res.status(500).json({ ok: false, message: e.message });
+    }
+});
+
+// 2. API Tạo phiếu mới (thay thế createRefund)
+app.post('/api/refunds/create', async (req, res) => {
+    try {
+        const payload = req.body;
+        const id = crypto.randomUUID();
+        const now = new Date().toISOString();
+        const refund = Number(payload.RefundAmount || 0);
+const orderTotal = Number(payload.OrderTotal || 0);
+const isOffset = payload.OffsetToNewOrder === true || payload.OffsetToNewOrder === 'true';
+
+if (!isOffset && orderTotal > 0 && refund > orderTotal) {
+    return res.status(400).json({
+        ok: false,
+        message: 'Số tiền hoàn không được lớn hơn tổng giá trị đơn'
+    });
+}
+        // 1. Chuẩn bị dữ liệu
+        // Tự động gộp Bank từ các trường con
+        const bankCombined = [
+            payload.BankName, 
+            payload.Branch, 
+            payload.AccountNumber, 
+            payload.AccountName
+        ].filter(p => p && String(p).trim() !== '').join(' - ');
+
+        const newRec = {
+            ...payload,
+            ID: id,
+            CreatedAt: now,
+            UpdatedAt: now,
+            CreatedBy: 'system',
+            Bank: bankCombined // Gán vào cột Bank
+        };
+
+        // 2. Map dữ liệu ra mảng theo đúng thứ tự REFUND_HEADERS
+        const row = REFUND_HEADERS.map(h => {
+            // Lấy giá trị từ newRec, nếu không có thì để trống
+            return newRec[h] !== undefined ? newRec[h] : '';
+        });
+
+        // 3. Ghi vào Sheet
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: REFUND_SPREADSHEET_ID,
+            range: `${REFUND_SHEET_NAME}!A:A`, // Tự động tìm dòng trống
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [row] }
+        });
+
+        res.json({ ok: true, id: id, message: 'Đã lưu thành công' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ ok: false, message: e.message });
+    }
+});
+
+// 3. API In phiếu (Render HTML để in)
+app.get('/refunds/print/:id', async (req, res) => {
+    const safePayload = { data: null, cols: [], colNames: COL_NAMES_VN };
+    try {
+        const { id } = req.params;
+        const { cols } = req.query; 
+
+        const allData = await fetchRefunds();
+        const rec = allData.find(r => r.ID === id);
+
+        if (!rec) return res.render('refund_print', safePayload);
+
+        // Xử lý danh sách cột cần in
+        let colsToPrint = [];
+        if (cols && cols.trim() !== '') {
+            colsToPrint = cols.split(',');
+        } else {
+            // Mặc định nếu không chọn gì
+            colsToPrint = ['OrderID', 'RequestDate', 'CustomerName', 'Reason', 'RefundAmount', 'Bank'];
+        }
+
+        res.render('refund_print', { 
+            data: rec, 
+            cols: colsToPrint,       
+            colNames: COL_NAMES_VN   
+        });
+
+    } catch (e) {
+        console.error("Print Error:", e);
+        res.render('refund_print', safePayload);
+    }
+});
+
+
+app.post('/api/refunds/update/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const payload = req.body;
+        
+        // 1. Tìm dòng chứa ID
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: REFUND_SPREADSHEET_ID,
+            range: `${REFUND_SHEET_NAME}!A:AZ`, // Đọc rộng ra để bao hết cột
+        });
+        const rows = response.data.values;
+        if (!rows || rows.length < 2) return res.status(404).json({ok:false, message: 'Sheet trống'});
+
+        // Giả định dòng 1 là Header theo đúng thứ tự REFUND_HEADERS
+        // Tìm vị trí cột ID (Cột đầu tiên = index 0)
+        const idColumnIndex = REFUND_HEADERS.indexOf('ID');
+        
+        let rowIndex = -1;
+        // Duyệt tìm dòng
+        for (let i = 1; i < rows.length; i++) {
+            // rows[i][idColumnIndex] chính là ô ID
+            if (rows[i][idColumnIndex] === id) {
+                rowIndex = i;
+                break;
+            }
+        }
+
+        if (rowIndex === -1) return res.status(404).json({ ok: false, message: 'Không tìm thấy phiếu #' + id });
+
+        // 2. Lấy dữ liệu cũ
+        const oldRowData = rows[rowIndex];
+        const currentData = {};
+        
+        // Map dữ liệu cũ vào object
+        REFUND_HEADERS.forEach((h, index) => {
+            currentData[h] = oldRowData[index] || '';
+        });
+
+        // 3. Merge dữ liệu mới
+        const merged = { ...currentData, ...payload, UpdatedAt: new Date().toISOString() };
+        
+        // Cập nhật lại Bank gộp nếu user có sửa thông tin bank
+        merged.Bank = [
+            merged.BankName, merged.Branch, merged.AccountNumber, merged.AccountName
+        ].filter(p => p && String(p).trim() !== '').join(' - ');
+
+        // 4. Map lại thành mảng để ghi đè
+        const newRowValues = REFUND_HEADERS.map(h => merged[h] !== undefined ? merged[h] : '');
+        
+        // 5. Ghi đè vào Sheet
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: REFUND_SPREADSHEET_ID,
+            range: `${REFUND_SHEET_NAME}!A${rowIndex + 1}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [newRowValues] }
+        });
+
+        res.json({ ok: true, message: 'Đã cập nhật' });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ ok: false, message: e.message });
+    }
+});
+
+
+
+const requireAdmin = (req, res, next) => {
+    // 1. Kiểm tra đã đăng nhập chưa
+    if (!req.session || !req.session.user) {
+        return res.status(401).json({ ok: false, error: 'Vui lòng đăng nhập!' });
+    }
+    // 2. Kiểm tra quyền (Admin hoặc Manager đều được)
+    const role = req.session.user.role;
+    if (role === 'admin' || role === 'manager') {
+        return next(); // Cho phép đi tiếp
+    }
+    // 3. Nếu không phải admin thì chặn lại
+    return res.status(403).json({ ok: false, error: 'Bạn không có quyền thực hiện thao tác này!' });
+};
+
+// === API IMPORT KFI (Dùng cho trang quản lý CTKM) ===
+app.post('/api/admin/import-kfi', requireAdmin, async (req, res) => {
+    try {
+        const { rawData } = req.body;
+        if (!rawData) return res.json({ ok: false, error: 'Chưa nhập dữ liệu' });
+
+        const rows = rawData.trim().split('\n');
+        const upsertData = [];
+        
+        // Format Excel: SKU | Tên | Ngành | Hãng | EndUser | Dealer
+        for (const row of rows) {
+            const cols = row.split('\t');
+            if (cols.length >= 6) {
+                const cleanMoney = (str) => parseFloat(String(str).replace(/,/g, '').replace(/\./g, '')) || 0;
+                upsertData.push({
+                    sku: cols[0].trim(),
+                    product_name: cols[1].trim(),
+                    category: cols[2].trim(),
+                    brand: cols[3].trim(),
+                    kfi_end_user: cleanMoney(cols[4]),
+                    kfi_dealer: cleanMoney(cols[5]),
+                    updated_at: new Date()
+                });
+            }
+        }
+        
+        if (upsertData.length === 0) return res.json({ ok: false, error: 'Sai định dạng' });
+
+        const { error } = await supabase.from('kfi_list').upsert(upsertData);
+        if (error) throw error;
+
+        res.json({ ok: true, count: upsertData.length });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ ok: false, error: e.message });
     }
 });
 

@@ -427,6 +427,62 @@
         margin-top: 10px; 
         padding-top: 15px; 
     }
+
+
+    /* Badge KFI nổi bật */
+.kfi-block {
+    display: inline-flex;
+    align-items: center;
+    background: #fff0f6; /* Nền hồng phấn */
+    border: 1px solid #ffadd2;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin: 10px 0;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    box-shadow: 0 2px 4px rgba(255, 105, 180, 0.15);
+}
+.kfi-icon { font-size: 18px; margin-right: 8px; }
+.kfi-content { display: flex; align-items: center; gap: 15px; }
+.kfi-item { display: flex; flex-direction: column; }
+.kfi-label { font-size: 10px; text-transform: uppercase; color: #999; font-weight: 600; letter-spacing: 0.5px; }
+.kfi-value { font-size: 15px; font-weight: 700; color: #d93025; }
+.kfi-sep { width: 1px; height: 25px; background: #ffadd2; }
+
+/* Badge tính tiền ưu đãi thanh toán */
+.pay-discount-tag {
+    background: #e8f0fe; 
+    color: #1967d2; 
+    font-weight: 700; 
+    font-size: 12px; 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+    margin-left: 5px;
+}
+
+/* Badge hiển thị số tiền giảm ưu đãi thanh toán */
+.pay-discount-tag {
+    display: inline-block;
+    background-color: #e8f0fe; /* Nền xanh nhạt Google */
+    color: #1a73e8;            /* Chữ xanh đậm */
+    font-weight: 700;
+    font-size: 13px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;          /* Cách tên ưu đãi một chút */
+    vertical-align: middle;
+}
+
+/* --- BADGE MÀU XANH (CHO ƯU ĐÃI THANH TOÁN) --- */
+.p-badge-blue {
+    background: #2563eb; /* Màu xanh dương Google */
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap; /* Không xuống dòng */
+    display: inline-block;
+}
 </style>
 
 <div class="promotion-container">
@@ -481,6 +537,30 @@
                             <span style="font-size: 12px; color: #64748b;">Giá niêm yết</span>
                             <span id="priceView" class="pd-main-price">
                                 <%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' đ' : 'N/A' %>
+                                <% if (product && (product.kfi_end_user > 0 || product.kfi_dealer > 0)) { %>
+    <div class="kfi-block">
+        <span class="kfi-icon">🎁</span>
+        <div class="kfi-content">
+            <% if (product.kfi_end_user > 0) { %>
+                <div class="kfi-item">
+                    <span class="kfi-label">KFI End User</span>
+                    <span class="kfi-value"><%= Number(product.kfi_end_user).toLocaleString('vi-VN') %></span>
+                </div>
+            <% } %>
+
+            <% if (product.kfi_end_user > 0 && product.kfi_dealer > 0) { %>
+                <div class="kfi-sep"></div>
+            <% } %>
+
+            <% if (product.kfi_dealer > 0) { %>
+                <div class="kfi-item">
+                    <span class="kfi-label">KFI Dealer</span>
+                    <span class="kfi-value"><%= Number(product.kfi_dealer).toLocaleString('vi-VN') %></span>
+                </div>
+            <% } %>
+        </div>
+    </div>
+<% } %>
                             </span>
                             <div style="margin-top: 8px;">
                                 <button id="btnEditPrice" type="button" style="font-size: 12px; padding: 4px 10px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer;">✏️ Sửa giá</button>
@@ -770,19 +850,55 @@
                 <% }) %>
             </div>
             <% } %>
-    
+            
             <% if (hasPayment) { %>
             <div class="block-std-wrapper">
                 <div class="block-title-std">💳 Ưu đãi thanh toán</div>
                 <% promoGroups.payment.forEach(p => { %>
                     <div class="promo-card-item">
-                        <div class="p-title"><%= p.name %></div>
+                        
+                        <div class="p-header">
+                            <span class="p-title"><%= p.name %></span>
+                            
+                            <% 
+                                /* --- TÍNH TOÁN GIÁ TRỊ GIẢM --- */
+                                let payDiscount = 0;
+                                let priceVal = (typeof product !== 'undefined' && product) ? Number(product.list_price || 0) : 0;
+
+                                if (priceVal > 0) {
+                                    // 1. Giảm theo % (Có kiểm tra trần tối đa)
+                                    if (p.discount_value_type === 'percent') {
+                                        let rawDiscount = (priceVal * (Number(p.discount_value) || 0)) / 100;
+                                        let maxCap = Number(p.max_discount_amount || p.max_discount_value || 0);
+                                        
+                                        // Nếu có trần và giá tính ra vượt trần -> Lấy trần
+                                        if (maxCap > 0 && rawDiscount > maxCap) {
+                                            payDiscount = maxCap;
+                                        } else {
+                                            payDiscount = rawDiscount;
+                                        }
+                                    } 
+                                    // 2. Giảm tiền mặt
+                                    else if (p.discount_value_type === 'amount') {
+                                        payDiscount = Number(p.discount_value) || 0;
+                                    }
+                                }
+                            %>
+
+                            <% if (payDiscount > 0) { %>
+                                <span class="p-badge-blue">
+                                    -<%= Math.round(payDiscount).toLocaleString('vi-VN') %>₫
+                                </span>
+                            <% } %>
+                        </div>
+
                         <div class="p-desc"><%= p.description || 'Giảm thêm khi thanh toán qua đối tác' %></div>
                         <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
                     </div>
                 <% }) %>
             </div>
             <% } %>
+           
     
             <% if (hasInstallment) { %>
             <div class="block-std-wrapper">

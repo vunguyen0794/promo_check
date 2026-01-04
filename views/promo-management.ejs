@@ -97,6 +97,7 @@
 
     <div class="action-buttons">
         <button class="btn btn-primary" onclick="showCreateModal()">+ Tạo CTKM mới</button>
+
     </div>
   
     <div class="search-and-filter">
@@ -901,6 +902,69 @@
             .then(r=>r.json()).then(d=>{ if(d.success) location.reload(); else alert(d.error); });
         }
     }
+
+    // --- [MỚI] HÀM XỬ LÝ IMPORT KFI ---
+    async function doImportKFI() {
+        const rawData = document.getElementById('inpKfiData').value;
+        if(!rawData.trim()) return alert('⚠️ Vui lòng dán dữ liệu vào ô trống!');
+        
+        if(!confirm('Bạn có chắc muốn cập nhật bảng KFI với dữ liệu này?')) return;
+
+        // Đổi nút bấm thành trạng thái đang tải
+        const btn = event.target;
+        const oldText = btn.innerText;
+        btn.innerText = "Đang xử lý...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/admin/import-kfi', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ rawData })
+            });
+            const json = await res.json();
+            
+            if(json.ok) {
+                alert(`✅ Thành công! Đã cập nhật ${json.count} dòng KFI.`);
+                document.getElementById('modalImportKFI').style.display = 'none';
+                document.getElementById('inpKfiData').value = ''; // Xóa dữ liệu cũ
+            } else {
+                alert('❌ Lỗi: ' + json.error);
+            }
+        } catch(e) { 
+            console.error(e);
+            alert('❌ Lỗi hệ thống: ' + e.message); 
+        } finally {
+            btn.innerText = oldText;
+            btn.disabled = false;
+        }
+    }
 </script>
+
+<div id="modalImportKFI" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:25px; border-radius:8px; width:650px; max-width:95%; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0; color:#1e293b;">📥 Import KFI Focus (Paste từ Excel)</h3>
+            <span onclick="document.getElementById('modalImportKFI').style.display='none'" 
+                  style="cursor:pointer; font-size:24px; color:#999;">&times;</span>
+        </div>
+        
+        <div style="background:#f1f5f9; padding:10px; border-radius:6px; font-size:13px; color:#475569; margin-bottom:10px;">
+            Copy <strong>6 cột</strong> từ Excel theo đúng thứ tự sau:<br>
+            <b>SKU  |  Tên SP  |  Ngành hàng  |  Hãng  |  Thưởng End User  |  Thưởng Dealer</b>
+        </div>
+
+        <textarea id="inpKfiData" rows="12" style="width:100%; border:1px solid #cbd5e1; padding:10px; border-radius:6px; font-family:monospace; font-size:12px;" 
+                  placeholder="Dán dữ liệu Excel vào đây..."></textarea>
+        
+        <div style="margin-top:20px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+            <button onclick="document.getElementById('modalImportKFI').style.display='none'" 
+                    class="btn" style="background:#f1f5f9; border:1px solid #cbd5e1; padding:8px 15px;">Đóng</button>
+            <button onclick="doImportKFI()" 
+                    class="btn btn-primary" style="background:#059669; border:none; padding:8px 20px;">💾 Lưu dữ liệu</button>
+        </div>
+    </div>
+</div>
+
 
 <%- include('partials/footer') %>
