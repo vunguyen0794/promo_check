@@ -481,7 +481,50 @@
     padding: 4px 8px;
     border-radius: 4px;
     white-space: nowrap; /* Không xuống dòng */
-    display: inline-block;
+    display: inline-block;}
+/* --- NEW KFI PREMIUM STYLE --- */
+
+
+/* --- KFI POINT BAR (BLUE THEME) --- */
+.kfi-point-bar {
+    background: #f0f9ff; /* Nền xanh siêu nhạt (gần như trắng) */
+    border: 1px solid #bae6fd; /* Viền xanh dương nhạt */
+    border-radius: 8px;
+    padding: 10px 15px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 5px rgba(14, 165, 233, 0.1); /* Bóng xanh nhẹ */
+}
+
+/* Phần tiêu đề bên trái */
+.kfi-pb-left {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 800; 
+    color: #0369a1; /* Màu xanh đậm (thay vì vàng) */
+    font-size: 13px; 
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Phần số liệu bên phải */
+.kfi-pb-right {
+    display: flex; align-items: center; gap: 20px;
+}
+
+.kfi-p-item {
+    display: flex; align-items: baseline; gap: 5px;
+    font-size: 12px; 
+    color: #334155; /* Text màu đen xám (chuẩn dễ đọc) */
+    font-weight: 600;
+}
+
+.kfi-p-num {
+    font-family: sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    color: #0284c7; /* Số màu xanh dương nổi bật */
 }
 </style>
 
@@ -532,35 +575,46 @@
                         <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #334155; line-height: 1.4;"><%= product.product_name %></h3>
                         <div class="pd-info-row"><span class="pd-label">Thương hiệu</span> <span class="pd-value"><%= product.brand %></span></div>
                         <div class="pd-info-row"><span class="pd-label">Nhóm hàng</span> <span class="pd-value"><%= product.subcat %></span></div>
-                        
-                        <div class="pd-price-box">
-                            <span style="font-size: 12px; color: #64748b;">Giá niêm yết</span>
-                            <span id="priceView" class="pd-main-price">
-                                <%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' đ' : 'N/A' %>
-                                <% if (product && (product.kfi_end_user > 0 || product.kfi_dealer > 0)) { %>
-    <div class="kfi-block">
-        <span class="kfi-icon">🎁</span>
-        <div class="kfi-content">
+                        <% if (product.kfi_end_user > 0 || product.kfi_dealer > 0) { %>
+    
+    <% 
+        // Logic lấy tháng hiện tại
+        const d = new Date();
+        const currentMonth = d.getMonth() + 1;
+        const monthStr = currentMonth < 10 ? '0' + currentMonth : currentMonth;
+    %>
+
+    <div class="kfi-point-bar">
+        <div class="kfi-pb-left">
+            <span>💎</span> KFI THÁNG <%= monthStr %>
+        </div>
+
+        <div class="kfi-pb-right">
             <% if (product.kfi_end_user > 0) { %>
-                <div class="kfi-item">
-                    <span class="kfi-label">KFI End User</span>
-                    <span class="kfi-value"><%= Number(product.kfi_end_user).toLocaleString('vi-VN') %></span>
+                <div class="kfi-p-item">
+                    <span>User:</span>
+                    <span class="kfi-p-num"><%= Number(product.kfi_end_user).toLocaleString('vi-VN') %></span>
                 </div>
             <% } %>
 
             <% if (product.kfi_end_user > 0 && product.kfi_dealer > 0) { %>
-                <div class="kfi-sep"></div>
+                <div style="width:1px; height:14px; background:#bfdbfe;"></div>
             <% } %>
 
             <% if (product.kfi_dealer > 0) { %>
-                <div class="kfi-item">
-                    <span class="kfi-label">KFI Dealer</span>
-                    <span class="kfi-value"><%= Number(product.kfi_dealer).toLocaleString('vi-VN') %></span>
+                <div class="kfi-p-item">
+                    <span>Dealer:</span>
+                    <span class="kfi-p-num"><%= Number(product.kfi_dealer).toLocaleString('vi-VN') %></span>
                 </div>
             <% } %>
         </div>
     </div>
 <% } %>
+                        
+                        <div class="pd-price-box">
+                            <span style="font-size: 12px; color: #64748b;">Giá niêm yết</span>
+                            <span id="priceView" class="pd-main-price">
+                                <%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' đ' : 'N/A' %>
                             </span>
                             <div style="margin-top: 8px;">
                                 <button id="btnEditPrice" type="button" style="font-size: 12px; padding: 4px 10px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer;">✏️ Sửa giá</button>
@@ -578,7 +632,7 @@
                         <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && inventoryMap && inventoryMap.get(product.sku)) { %>
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                                 <strong style="color:#0f172a; font-size:14px;">📦 Tồn kho hệ thống (Admin)</strong>
-                                <span style="font-size:11px; color:#64748b;">(Đã trừ đơn chưa xuất)</span>
+                                <span style="font-size:11px; color:#64748b;">(Đã trừ serial đã xuất)</span>
                             </div>
                             
                             <div class="admin-stock-wrapper">
@@ -687,7 +741,10 @@
 </div>
 
         <% if (typeof promoGroups !== 'undefined') { 
-             const hasHot = promoGroups.hot && promoGroups.hot.length > 0;
+            if (promoGroups.other && promoGroups.other.length > 0) {
+            promoGroups.other = promoGroups.other.filter(p => p.promo_type !== 'KFI');
+        };
+            const hasHot = promoGroups.hot && promoGroups.hot.length > 0;
              const hasFuture = promoGroups.future && promoGroups.future.length > 0;
              const hasPayment = promoGroups.payment && promoGroups.payment.length > 0;
              const hasInstallment = promoGroups.installment && promoGroups.installment.length > 0;

@@ -1,0 +1,347 @@
+<%- include('partials/header', {title: 'Tra cứu KFI & Tồn kho', currentPage: 'kfi-program', time: typeof time !== 'undefined' ? time : ''}) %>
+
+<style>
+    :root { 
+        --primary-text: #1e293b; 
+        --secondary-text: #64748b;
+        --bg-page: #f8fafc; 
+        --border-color: #e2e8f0; 
+        --accent-pink: #db2777;
+        --accent-blue: #0284c7;
+    }
+    body { background-color: var(--bg-page); color: var(--primary-text); font-family: 'Be Vietnam Pro', sans-serif; }
+    .kfi-wrapper { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+    /* CARD STYLE */
+    .modern-card { 
+        background: #ffffff; 
+        border: 1px solid var(--border-color); 
+        border-radius: 12px; 
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03); 
+        overflow: hidden; 
+        margin-bottom: 20px; 
+    }
+    
+    .card-header { 
+        padding: 12px 20px; 
+        border-bottom: 1px solid var(--border-color); 
+        background: #fff; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        flex-wrap: wrap; 
+        gap: 15px; 
+    }
+    
+    /* TABLE STYLE */
+    .sku-table-wrapper { overflow-x: auto; min-height: 400px; }
+    
+    .sku-table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        font-size: 13px; 
+        table-layout: fixed; /* Cố định layout để wrap text hoạt động tốt */
+    }
+    
+    .sku-table th {
+        background: #fff;
+        padding: 12px 10px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #94a3b8;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap; 
+        cursor: pointer;
+        user-select: none;
+    }
+    .sku-table th:hover { color: var(--accent-blue); background: #f8fafc; }
+    
+    .sku-table td { 
+        padding: 8px 10px; 
+        border-bottom: 1px solid #f1f5f9; 
+        vertical-align: middle; /* Căn giữa theo chiều dọc cho đẹp */
+        color: var(--primary-text);
+        
+        /* [QUAN TRỌNG] FORCE WRAP TEXT */
+        white-space: normal !important; 
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.5; /* Giãn dòng ra chút cho dễ đọc khi xuống dòng */
+    }
+    .sku-table tr:hover { background: #f8fafc; }
+
+    /* COMPONENTS */
+    .kfi-search-box { position: relative; width: 300px; }
+    .kfi-search-input { 
+        width: 100%; padding: 8px 12px 8px 35px; 
+        border: 1px solid #e2e8f0; border-radius: 6px; 
+        outline: none; font-size: 13px; color: var(--primary-text);
+        background: #f8fafc; transition: all 0.2s;
+    }
+    .kfi-search-input:focus { background: #fff; border-color: var(--accent-blue); }
+    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px; }
+
+    .btn-reset { 
+        padding: 7px 12px; border: 1px solid #e2e8f0; background: #fff; 
+        border-radius: 6px; cursor: pointer; color: var(--secondary-text); 
+        font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px;
+    }
+    .btn-reset:hover { border-color: #cbd5e1; color: var(--primary-text); background: #f8fafc; }
+
+    /* TEXT STYLES */
+    .text-sku { font-family: 'Consolas', monospace; color: var(--secondary-text); font-size: 12px; font-weight: 600; }
+    
+    .brand-tag { 
+        display: inline-block; padding: 2px 6px; border-radius: 4px; 
+        font-size: 11px; font-weight: 600; color: #64748b; 
+        border: 1px solid #e2e8f0; background: #fff; 
+    }
+
+    .reward-val { font-weight: 700; font-size: 14px; }
+    .reward-user { color: var(--accent-pink); }
+    .reward-dealer { color: var(--accent-blue); }
+    
+    .stock-pill { 
+        padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; 
+        display: inline-flex; align-items: center; justify-content: center; min-width: 28px;
+    }
+    .stock-high { background: #ecfdf5; color: #059669; }
+    .stock-low { background: #fffbeb; color: #d97706; }
+    .stock-out { color: #94a3b8; background: #f1f5f9; }
+
+    .link-view { 
+        color: var(--secondary-text); text-decoration: none; font-size: 12px; 
+        padding: 4px 8px; border-radius: 4px; transition: all 0.2s; white-space: nowrap;
+    }
+    .link-view:hover { color: var(--accent-blue); background: #f0f9ff; }
+
+    /* HEADER */
+    .page-header-simple {
+        margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0;
+    }
+    .page-title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px; }
+    .page-subtitle { margin: 5px 0 0; color: #64748b; font-size: 14px; }
+
+    /* PAGINATION */
+    .pagination-container { padding: 10px; display: flex; justify-content: center; gap: 5px; border-top: 1px solid #f1f5f9; }
+    .page-link { 
+        min-width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+        border-radius: 6px; text-decoration: none; color: var(--secondary-text); 
+        font-size: 12px; font-weight: 500;
+    }
+    .page-link:hover { background: #f1f5f9; color: var(--primary-text); }
+    .page-link.active { background: #0f172a; color: #fff; }
+
+    .sort-helper-text {
+        font-size: 12px; font-style: italic; color: #94a3b8;
+        background: #f8fafc; padding: 8px 24px; text-align: right; border-bottom: 1px solid #f1f5f9;
+    }
+</style>
+
+<div class="kfi-wrapper">
+    <div class="page-header-simple">
+        <h1 class="page-title">
+            <span style="color: #db2777;">💎</span> Chương trình Thưởng KFI Focus
+        </h1>
+        <p class="page-subtitle">
+            Kho đang xem: <strong style="color:#0f172a;"><%= userBranch === 'HCM.BD' ? 'Tổng kho hệ thống (HCM.BD)' : userBranch %></strong> 
+            • Tổng số: <strong><%= totalItems %></strong> SKU
+        </p>
+    </div>
+
+    <div class="modern-card">
+        <div class="card-header">
+            <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
+                <div class="kfi-search-box" style="flex: 1;">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="kfiSearchInput" class="kfi-search-input" placeholder="Lọc nhanh tên, SKU, hãng..." onkeyup="filterTable()">
+                </div>
+                
+                <button class="btn-reset" onclick="resetSort()">
+                    <span>🔄</span> Mặc định
+                </button>
+            </div>
+        </div>
+
+        <div class="sort-helper-text">
+            Click vào tiêu đề cột để sắp xếp tăng/giảm dần
+        </div>
+
+        <div class="sku-table-wrapper">
+            <table class="sku-table" id="kfiTable">
+                <colgroup>
+                    <col style="width: 120px;"> <col style="width: auto;">  <col style="width: 90px;">  <col style="width: 100px;"> <col style="width: 100px;"> <col style="width: 80px;">  <col style="width: 70px;">  </colgroup>
+
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0, 'text')">SKU <span class="sort-icon">⇅</span></th>
+                        <th onclick="sortTable(1, 'text')">Tên sản phẩm <span class="sort-icon">⇅</span></th>
+                        <th onclick="sortTable(2, 'text')">Hãng <span class="sort-icon">⇅</span></th>
+                        <th onclick="sortTable(3, 'number')" style="text-align: right;">User <span class="sort-icon">⇅</span></th>
+                        <th onclick="sortTable(4, 'number')" style="text-align: right;">Dealer <span class="sort-icon">⇅</span></th>
+                        <th onclick="sortTable(5, 'number')" style="text-align: center;">Tồn <span class="sort-icon">⇅</span></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (kfiList && kfiList.length > 0) { %>
+                        <% kfiList.forEach((item, index) => { %>
+                            <% 
+                                const stock = (stockMap && stockMap[item.sku]) ? stockMap[item.sku] : 0;
+                                let stockClass = 'stock-out';
+                                if (stock >= 3) stockClass = 'stock-high';
+                                else if (stock > 0) stockClass = 'stock-low';
+                            %>
+                            <tr data-original-index="<%= index %>">
+                                <td data-value="<%= item.sku %>">
+                                    <span class="text-sku">#<%= item.sku %></span>
+                                </td>
+                                
+                                <td data-value="<%= item.product_name %>">
+                                    <div style="font-weight: 600;"><%= item.product_name %></div>
+                                    <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;"><%= item.category %></div>
+                                </td>
+                                
+                                <td data-value="<%= item.brand %>">
+                                    <span class="brand-tag"><%= item.brand %></span>
+                                </td>
+                                
+                                <td style="text-align: right;" data-value="<%= item.kfi_end_user %>">
+                                    <% if (item.kfi_end_user > 0) { %>
+                                        <span class="reward-val reward-user"><%= Number(item.kfi_end_user).toLocaleString('vi-VN') %></span>
+                                    <% } else { %> <span style="color:#e2e8f0;">-</span> <% } %>
+                                </td>
+
+                                <td style="text-align: right;" data-value="<%= item.kfi_dealer %>">
+                                    <% if (item.kfi_dealer > 0) { %>
+                                        <span class="reward-val reward-dealer"><%= Number(item.kfi_dealer).toLocaleString('vi-VN') %></span>
+                                    <% } else { %> <span style="color:#e2e8f0;">-</span> <% } %>
+                                </td>
+
+                                <td style="text-align: center;" data-value="<%= stock %>">
+                                    <span class="stock-pill <%= stockClass %>"><%= stock %></span>
+                                </td>
+
+                                <td style="text-align: right;">
+                                    <a href="/search-promotion?query=<%= item.sku %>" target="_blank" class="link-view">
+                                        Xem &rarr;
+                                    </a>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    <% } else { %>
+                        <tr><td colspan="7" style="text-align:center; padding:40px; color: #94a3b8;">Không tìm thấy dữ liệu phù hợp.</td></tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+
+        <% if (totalPages > 1) { %>
+            <div class="pagination-container">
+                <% if (page > 1) { %>
+                    <a href="/kfi-program?page=<%= page - 1 %>&q=<%= searchQuery %>" class="page-link">←</a>
+                <% } %>
+                
+                <% 
+                   let startPage = Math.max(1, page - 2);
+                   let endPage = Math.min(totalPages, page + 2);
+                   if (startPage > 1) { %> 
+                       <a href="/kfi-program?page=1&q=<%= searchQuery %>" class="page-link">1</a>
+                       <% if(startPage > 2) { %> <span style="padding:0 5px; color:#cbd5e1;">...</span> <% } %>
+                   <% } 
+                %>
+
+                <% for(let i = startPage; i <= endPage; i++) { %>
+                    <a href="/kfi-program?page=<%= i %>&q=<%= searchQuery %>" class="page-link <%= i === page ? 'active' : '' %>">
+                        <%= i %>
+                    </a>
+                <% } %>
+
+                <% if (endPage < totalPages) { %> 
+                    <% if(endPage < totalPages - 1) { %> <span style="padding:0 5px; color:#cbd5e1;">...</span> <% } %>
+                    <a href="/kfi-program?page=<%= totalPages %>&q=<%= searchQuery %>" class="page-link"><%= totalPages %></a>
+                <% } %>
+
+                <% if (page < totalPages) { %>
+                    <a href="/kfi-program?page=<%= page + 1 %>&q=<%= searchQuery %>" class="page-link">→</a>
+                <% } %>
+            </div>
+        <% } %>
+
+    </div>
+</div>
+
+<script>
+    // --- SEARCH LOCAL (ĐÃ FIX ẨN HEADER) ---
+    function filterTable() {
+        const input = document.getElementById("kfiSearchInput");
+        const filter = input.value.toUpperCase();
+        
+        // Chỉ lấy rows trong tbody
+        const tbody = document.querySelector("#kfiTable tbody");
+        const rows = tbody.getElementsByTagName("tr");
+
+        for (let i = 0; i < rows.length; i++) {
+            const cells = rows[i].getElementsByTagName("td");
+            let found = false;
+            
+            if(cells.length > 2) {
+                const txt = (cells[0].innerText + " " + cells[1].innerText + " " + cells[2].innerText).toUpperCase();
+                if (txt.indexOf(filter) > -1) found = true;
+                rows[i].style.display = found ? "" : "none";
+            }
+        }
+    }
+
+    // --- SORT LOGIC ---
+    let sortDirection = {}; 
+    function resetSort() {
+        const tbody = document.querySelector('#kfiTable tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+            const idxA = parseInt(a.getAttribute('data-original-index')) || 0;
+            const idxB = parseInt(b.getAttribute('data-original-index')) || 0;
+            return idxA - idxB;
+        });
+        rows.forEach(row => tbody.appendChild(row));
+        document.querySelectorAll('.sku-table th').forEach(th => th.classList.remove('th-active'));
+        sortDirection = {};
+    }
+
+    function sortTable(n, type) {
+        const table = document.getElementById("kfiTable");
+        let rows, switching, i, x, y, shouldSwitch;
+        let dir = sortDirection[n] === "asc" ? "desc" : "asc";
+        sortDirection[n] = dir; 
+
+        document.querySelectorAll('.sku-table th').forEach(th => th.classList.remove('th-active'));
+        document.querySelectorAll('.sku-table th')[n].classList.add('th-active');
+
+        switching = true;
+        while (switching) {
+            switching = false;
+            const tbody = table.querySelector('tbody');
+            const dataRows = tbody.rows;
+
+            for (i = 0; i < (dataRows.length - 1); i++) {
+                shouldSwitch = false;
+                x = dataRows[i].getElementsByTagName("td")[n].getAttribute("data-value");
+                y = dataRows[i + 1].getElementsByTagName("td")[n].getAttribute("data-value");
+                
+                if (type === 'number') { x = parseFloat(x) || 0; y = parseFloat(y) || 0; } 
+                else { x = (x||"").toLowerCase(); y = (y||"").toLowerCase(); }
+
+                if (dir == "asc") { if (x > y) { shouldSwitch = true; break; } } 
+                else if (dir == "desc") { if (x < y) { shouldSwitch = true; break; } }
+            }
+            if (shouldSwitch) {
+                dataRows[i].parentNode.insertBefore(dataRows[i + 1], dataRows[i]);
+                switching = true;
+            }
+        }
+    }
+</script>
+
+<%- include('partials/footer') %>

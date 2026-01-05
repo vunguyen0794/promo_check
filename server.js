@@ -855,7 +855,7 @@ app.get('/', requireAuth, async (req, res) => {
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
     const pageSize = 8;
     const today = new Date().toISOString().slice(0, 10);
-
+    const userRole = req.session.user?.role || '';
     // 1. Query DB (Lấy SKU để search)
     const { data: allPromos, error: promosErr } = await supabase
       .from('promotions')
@@ -864,7 +864,7 @@ app.get('/', requireAuth, async (req, res) => {
       .lte('start_date', today)
       .gte('end_date', today);
     if (promosErr) throw promosErr;
-
+    
     // 2. Tính toán Discount & Stack (Logic cũ giữ nguyên)
     const promoIds = allPromos.map(p => p.id);
     const { data: compatRows } = await supabase.from('promotion_compat_allows').select('promotion_id').in('promotion_id', promoIds);
@@ -924,9 +924,19 @@ const isVisibleToUser = (p) => {
                hasSkuMatch;
       });
     }
-
+    
     // 4. Sắp xếp & Phân trang
-    filteredPromos.sort((a, b) => b.__sort_value - a.__sort_value);
+    filteredPromos.sort((a, b) => {
+        // --- ƯU TIÊN 1: KFI LUÔN LÊN ĐẦU ---
+        const isKfiA = (a.promo_type === 'KFI');
+        const isKfiB = (b.promo_type === 'KFI');
+
+        if (isKfiA && !isKfiB) return -1; // A là KFI -> Lên trước
+        if (!isKfiA && isKfiB) return 1;  // B là KFI -> Lên trước
+
+        // --- ƯU TIÊN 2: SẮP THEO GIÁ TRỊ GIẢM (Code cũ) ---
+        return b.__sort_value - a.__sort_value;
+    });
     
     // Lấy danh sách nhóm (Sắp xếp A->Z)
     const allGroups = [...new Set(promosWithStackInfo.map(p => p.group_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -955,6 +965,7 @@ const isVisibleToUser = (p) => {
       page, totalPages,
       matrixRows, competitorCols,
       randomSkus: randomSkus || [],
+      userRole: userRole,
     });
   } catch (e) {
     console.error('Lỗi trang chủ:', e);
@@ -1796,14 +1807,49 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
 
     // 2) Lấy các CTKM đang active
     const today = new Date().toISOString().split('T')[0];
-    const { data: promosRaw } = await supabase
-      .from('promotions')
-      .select('*, promotion_skus(*), promotion_excluded_skus(*), detail_fields, group_name, subgroup_name')
-      .lte('start_date', today)
-      .gte('end_date', today)
-      .eq('status', 'active');
+    let { data: promosRaw } = await supabase 
+  .from('promotions')
+  .select('*, promotion_skus(*), promotion_excluded_skus(*), detail_fields, group_name, subgroup_name')
+  .lte('start_date', today)
+  .gte('end_date', today)
+  .eq('status', 'active')
     
+    if (promosRaw && promosRaw.length > 0 && skuInput) {
+        // 1. Tìm xem trong database KFI có thông tin SKU này không?
+        const { data: kfiItem } = await supabase
+            .from('kfi_list')
+            .select('*')
+            .eq('sku', skuInput) // skuInput là biến SKU người dùng đang tìm
+            .single();
+
+        // 2. Duyệt qua các CTKM, nếu gặp loại KFI thì xử lý
+        promosRaw = promosRaw.filter(p => {
+            if (p.promo_type === 'KFI') {
+                // Nếu SKU này CÓ trong bảng KFI và có tiền thưởng -> Giữ lại & Cập nhật nội dung
+                if (kfiItem && (kfiItem.kfi_end_user > 0 || kfiItem.kfi_dealer > 0)) {
+                    // Ghi đè mô tả CTKM bằng số tiền thực tế của SKU này
+                    const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n);
+                    p.description = `🎁 Thưởng User: ${fmt(kfiItem.kfi_end_user)}đ  |  Dealer: ${fmt(kfiItem.kfi_dealer)}đ`;
+                    
+                    // Gắn cờ để giao diện biết mà tô màu
+                    p.is_kfi_sku = true; 
+                    
+                    // Gắn tiền vào biến này để sorting nếu cần (đưa lên top)
+                    p.discount_amount_calc = kfiItem.kfi_end_user; 
+                    
+                    return true; // Giữ lại hiển thị
+                } else {
+                    // Nếu SKU này không nằm trong list KFI -> Ẩn CTKM KFI đi (đỡ rác)
+                    return false; 
+                }
+            }
+            return true; // Các loại khác giữ nguyên
+        });
+    }
+
     console.log(`[DEBUG] Bước 2: Lấy được ${promosRaw?.length || 0} CTKM active từ database.`);
+
+    
 
     // 3) Lọc theo SKU áp dụng / loại trừ
     let filteredPromos = (promosRaw || []).filter(p => {
@@ -8503,6 +8549,7 @@ const requireAdmin = (req, res, next) => {
 };
 
 // === API IMPORT KFI (Dùng cho trang quản lý CTKM) ===
+// === API IMPORT KFI (PHIÊN BẢN FIX LỖI) ===
 app.post('/api/admin/import-kfi', requireAdmin, async (req, res) => {
     try {
         const { rawData } = req.body;
@@ -8510,12 +8557,21 @@ app.post('/api/admin/import-kfi', requireAdmin, async (req, res) => {
 
         const rows = rawData.trim().split('\n');
         const upsertData = [];
-        
-        // Format Excel: SKU | Tên | Ngành | Hãng | EndUser | Dealer
+
+        console.log(`[DEBUG] Đang xử lý ${rows.length} dòng...`);
+
         for (const row of rows) {
             const cols = row.split('\t');
+            // Check đủ cột (SKU | Tên | Ngành | Hãng | User | Dealer)
             if (cols.length >= 6) {
-                const cleanMoney = (str) => parseFloat(String(str).replace(/,/g, '').replace(/\./g, '')) || 0;
+                // Hàm làm sạch số tiền (Bỏ hết chữ, dấu chấm, phẩy -> chỉ lấy số)
+                const cleanMoney = (str) => {
+                    if (!str) return 0;
+                    // Giữ lại số và dấu chấm/phẩy, sau đó loại bỏ ký tự không phải số
+                    // Cách đơn giản nhất cho tiền VNĐ: Bỏ hết tất cả ký tự không phải số
+                    return parseFloat(String(str).replace(/[^0-9]/g, '')) || 0;
+                };
+
                 upsertData.push({
                     sku: cols[0].trim(),
                     product_name: cols[1].trim(),
@@ -8527,18 +8583,131 @@ app.post('/api/admin/import-kfi', requireAdmin, async (req, res) => {
                 });
             }
         }
-        
-        if (upsertData.length === 0) return res.json({ ok: false, error: 'Sai định dạng' });
 
+        if (upsertData.length === 0) {
+            return res.json({ ok: false, error: 'Không đọc được dòng nào. Hãy chắc chắn bạn copy từ Excel.' });
+        }
+
+        // Lưu vào Supabase
         const { error } = await supabase.from('kfi_list').upsert(upsertData);
-        if (error) throw error;
+        
+        if (error) {
+            console.error('Lỗi Supabase:', error);
+            throw new Error(error.message);
+        }
 
+        console.log(`[SUCCESS] Đã import ${upsertData.length} SKU.`);
         res.json({ ok: true, count: upsertData.length });
+
     } catch (e) {
-        console.error(e);
+        console.error('Lỗi Import:', e);
         res.status(500).json({ ok: false, error: e.message });
     }
 });
+
+
+// ==================================================================
+// === [UPDATE] KFI PROGRAM (PHÂN TRANG + SEARCH CHÍNH XÁC) ===
+// ==================================================================
+// ==================================================================
+// === [UPDATE] KFI PROGRAM (CHUẨN LOGIC BIGQUERY NHƯ TRANG PRODUCT) ===
+// ==================================================================
+app.get('/kfi-program', requireAuth, async (req, res) => {
+    try {
+        const userBranch = req.session.user.branch_code;
+        const userRole = req.session.user.role || ''; // Lấy role để check admin
+        const searchQuery = (req.query.q || '').trim().toLowerCase(); 
+        
+        // --- 1. PHÂN TRANG & LẤY LIST KFI ---
+        const page = parseInt(req.query.page || '1'); 
+        const pageSize = 50; 
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+
+        let query = supabase.from('kfi_list').select('*', { count: 'exact' }); 
+        
+        if (searchQuery) {
+            query = query.ilike('sku', `%${searchQuery}%`);
+        } else {
+            query = query.order('kfi_end_user', { ascending: false });
+        }
+
+        const { data: kfiList, count, error } = await query.range(from, to);
+        if (error) throw error;
+
+        const totalItems = count || 0;
+        const totalPages = Math.ceil(totalItems / pageSize);
+
+        // --- 2. LẤY TỒN KHO BIGQUERY (THEO CODE MẪU CỦA BẠN) ---
+        let stockMap = {};
+        
+        if (kfiList && kfiList.length > 0) {
+            const skuList = kfiList.map(i => i.sku);
+            
+            try {
+                // a. Chuẩn bị tham số như code mẫu
+                const today = new Date().toISOString().split('T')[0];
+                const isGlobalAdmin = (userRole === 'admin' || userBranch === 'HCM.BD');
+
+                // b. Khởi tạo mặc định 0
+                skuList.forEach(sku => stockMap[sku] = 0);
+
+                // c. Gọi hàm BigQuery chuẩn
+                const inventoryMap = await getInventoryCounts(skuList, userBranch, isGlobalAdmin, today);
+
+                // d. Xử lý dữ liệu trả về
+                skuList.forEach(sku => {
+                    if (inventoryMap.has(sku)) {
+                        const branchMap = inventoryMap.get(sku); // Map<Branch, Data>
+
+                        if (isGlobalAdmin) {
+                            // --- LOGIC CHO ADMIN/HCM.BD: CỘNG TỔNG TOÀN BỘ ---
+                            // Vì là Admin nên branchMap sẽ chứa dữ liệu của nhiều kho
+                            let totalStock = 0;
+                            branchMap.forEach((val) => {
+                                totalStock += (val.hang_ban_moi || 0);
+                            });
+                            stockMap[sku] = totalStock;
+                        } else {
+                            // --- LOGIC CHO USER THƯỜNG: LẤY ĐÚNG KHO MÌNH ---
+                            if (branchMap.has(userBranch)) {
+                                const counts = branchMap.get(userBranch);
+                                stockMap[sku] = counts.hang_ban_moi || 0;
+                            }
+                        }
+                    }
+                });
+
+            } catch (errBQ) {
+                console.error('Lỗi lấy tồn kho BigQuery (KFI):', errBQ.message);
+            }
+        }
+
+        // 3. Render
+        res.render('kfi-program', {
+            title: 'Chương trình KFI Focus',
+            currentPage: 'kfi-program',
+            
+            kfiList: kfiList || [],
+            stockMap,
+            userBranch,
+            branchCode: userBranch,
+            
+            page, 
+            totalPages,
+            totalItems,
+
+            qrCodeUrl: '', 
+            searchQuery,
+            time: new Date().toLocaleTimeString('vi-VN')
+        });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).send('Lỗi hệ thống: ' + e.message);
+    }
+});
+
 
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
