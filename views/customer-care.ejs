@@ -172,6 +172,88 @@
 .clickable-row:hover {
     background-color: #eff6ff; /* Xanh nhạt khi hover */
 }
+
+/* --- CSS CHO THANH ACTION BAR (GÁN KHÁCH) --- */
+.action-bar {
+    position: fixed;
+    bottom: 30px; /* Cách đáy màn hình 30px */
+    left: 50%;
+    transform: translateX(-50%) translateY(150%); /* Mặc định ẩn xuống dưới */
+    
+    background-color: rgba(255, 255, 255, 0.95); /* Nền trắng hơi trong suốt */
+    backdrop-filter: blur(10px); /* Hiệu ứng mờ nền đằng sau */
+    
+    padding: 15px 25px;
+    border-radius: 50px; /* Bo tròn hình viên thuốc */
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15); /* Đổ bóng đẹp */
+    border: 1px solid #e2e8f0;
+    
+    display: flex; /* Xếp hàng ngang */
+    align-items: center; /* Căn giữa theo chiều dọc */
+    gap: 15px; /* Khoảng cách giữa các nút */
+    
+    z-index: 9999; /* Luôn nổi trên cùng */
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); /* Hiệu ứng trượt mượt mà */
+    min-width: 600px; /* Độ rộng tối thiểu */
+    justify-content: space-between;
+}
+
+/* Khi có class .visible thì trượt lên */
+.action-bar.visible {
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Style cho chữ "Đã chọn..." */
+.count-display {
+    font-weight: 600;
+    color: #334155;
+    background: #f1f5f9;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+}
+.count-display b {
+    color: #2563eb;
+    font-size: 16px;
+}
+
+/* Style cho ô chọn nhân viên (Select box) */
+.action-bar select {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 12px;
+    outline: none;
+    font-size: 14px;
+    min-width: 250px; /* Độ rộng ô chọn */
+    cursor: pointer;
+    background-color: #fff;
+    transition: border 0.2s;
+}
+.action-bar select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Style cho nút Gán */
+.btn-assign {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 30px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    transition: transform 0.1s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+.btn-assign:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 15px rgba(37, 99, 235, 0.4);
+}
+.btn-assign:active {
+    transform: translateY(1px);
+}
 </style>
 
 <div class="container">
@@ -442,16 +524,59 @@
                 <option value="date_asc">📅 Cũ nhất</option>
             </select>
         </div>
+<div id="actionBar" class="action-bar">
+    <span class="count-display">
+        Đã chọn: <b id="countDisplay">0</b> khách hàng
+    </span>
+    
+    <% if (isManager) { %>
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end;">
+            
+            <select id="targetEmployeeSelect">
+                <option value="">-- Chọn nhân viên tiếp nhận --</option>
+                <% if (branchStaffs && branchStaffs.length > 0) { %>
+                    <% branchStaffs.forEach(staff => { %>
+                        <option value="<%= staff.id %>">
+                            <%= staff.full_name %> (<%= staff.branch_code %>)
+                        </option>
+                    <% }) %>
+                <% } else { %>
+                    <option disabled>Không có nhân viên nào</option>
+                <% } %>
+            </select>
 
-        <div style="display:flex; align-items:center; margin-left:15px; cursor:pointer;" onclick="document.getElementById('excludeGrab').click()">
-    <input type="checkbox" id="excludeGrab" 
-           onchange="loadWorkList(1); event.stopPropagation();" 
-           style="width:18px; height:18px; cursor:pointer; accent-color: #2563eb;"
-           <%= (filters.excludeGrab !== 'false') ? 'checked' : '' %> >
-           
-    <label for="excludeGrab" style="margin-left:6px; margin-bottom:0; font-size:14px; font-weight:600; color:#334155; cursor:pointer; user-select:none;">
-        Ẩn Grab
-    </label>
+            <button class="btn-assign" onclick="submitAssignment()">
+                <i class="bi bi-person-check-fill"></i> Gán khách ngay
+            </button>
+        </div>
+    <% } %>
+</div>
+
+<div style="display: flex; align-items: center; gap: 20px; margin-left: 15px; border-left: 1px solid #cbd5e1; padding-left: 15px;">
+    
+
+        <div class="form-check form-switch" style="min-height: auto; padding-left: 2.5em; margin: 0;">
+            <input class="form-check-input" type="checkbox" id="checkAssignedOnly" 
+                   onchange="loadWorkList(1)" 
+                   style="cursor: pointer; width: 35px; height: 18px; margin-left: -2.5em;">
+            <label class="form-check-label" for="checkAssignedOnly" 
+                   style="cursor: pointer; font-weight: 600; color: #334155; font-size: 14px; margin-top: 1px;">
+                Được phân bổ bởi QLSR
+            </label>
+        </div>
+
+
+    <div class="form-check d-flex align-items-center" style="padding: 0; gap: 8px;">
+        <input type="checkbox" id="excludeGrab" 
+               onchange="loadWorkList(1)" 
+               style="width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb;"
+               <%= (filters.excludeGrab !== 'false') ? 'checked' : '' %> >
+        <label for="excludeGrab" 
+               style="margin: 0; font-size: 14px; font-weight: 600; color: #334155; cursor: pointer; user-select: none;">
+            Ẩn Grab
+        </label>
+    </div>
+
 </div>
         
         <div style="margin-bottom:10px; display:flex; justify-content:flex-end; gap:10px; align-items:center;">
@@ -776,23 +901,27 @@
 
 
     // --- HÀM LOAD DỮ LIỆU DUY NHẤT ---
+   // --- HÀM LOAD DỮ LIỆU (Đã cập nhật logic lọc Gán) ---
     async function loadWorkList(page) {
         if (page < 1) return;
         
-        // Lấy tất cả giá trị từ form gộp
+        // 1. Lấy giá trị các bộ lọc
         const sort = document.getElementById('wlSort').value;
         const tax = document.getElementById('wlTax').value;
         const status = document.getElementById('wlStatus').value;
         const month = document.getElementById('wlMonth').value;
         const branchEl = document.getElementById('wlBranch');
         const branch = branchEl ? branchEl.value : '';
-        const excludeGrab = document.getElementById('excludeGrab').checked;
         
-        // Lấy search params
+        // Checkbox: Ẩn Grab & Xem data được gán
+        const excludeGrab = document.getElementById('excludeGrab').checked;
+        const showAssigned = document.getElementById('checkAssignedOnly') ? document.getElementById('checkAssignedOnly').checked : false;
+
+        // Tìm kiếm
         const q = document.getElementById('searchInput').value.trim();
         const type = document.getElementById('searchType').value;
         
-        // Lấy nhân viên (Select2 value)
+        // Lọc theo nhân viên
         let emp = '';
         if ($('#filterEmail').length > 0) emp = $('#filterEmail').val();
 
@@ -800,8 +929,8 @@
         container.style.opacity = '0.5';
 
         try {
-            // Gọi API duy nhất
-            const url = `/api/cskh/worklist?page=${page}&sort=${sort}&tax=${tax}&status=${status}&month=${month}&branch=${branch}&q=${encodeURIComponent(q)}&type=${type}&emp=${emp}&excludeGrab=${excludeGrab}`;
+            // 2. Tạo URL với tham số showAssigned
+            const url = `/api/cskh/worklist?page=${page}&sort=${sort}&tax=${tax}&status=${status}&month=${month}&branch=${branch}&q=${encodeURIComponent(q)}&type=${type}&emp=${emp}&excludeGrab=${excludeGrab}&showAssigned=${showAssigned}`;
             
             const res = await fetch(url);
             const json = await res.json();
@@ -825,21 +954,30 @@
         }
     }
     // --- [UPDATED] RENDER BẢNG WORKLIST (GOM NHÓM - CARE Ở CHA) ---
+    // --- HÀM RENDER BẢNG (Đã thêm Checkbox cho Manager) ---
     function renderGroupedTable(customers) {
         const container = document.getElementById('workListContainer');
         
+        // Lấy quyền Manager từ EJS truyền xuống
+        const isManager = <%= isManager %>; 
+
         if (!customers || customers.length === 0) {
-            container.innerHTML = '<div class="no-data" style="padding:40px; text-align:center; color:#64748b;">Không có dữ liệu tháng này.</div>';
+            container.innerHTML = '<div class="no-data" style="padding:40px; text-align:center; color:#64748b;">Không có dữ liệu phù hợp.</div>';
             return;
         }
+
+        // Cấu hình Header: Nếu là Manager thì hiện ô checkbox chọn tất cả
+        const checkHeader = isManager 
+            ? `<input type="checkbox" class="form-check-input" onclick="toggleAll(this)">`
+            : ``;
 
         let html = `
             <div class="table-scroll-wrapper">
             <table class="info-table" style="border-collapse: separate; border-spacing: 0;">
                 <thead>
                     <tr>
-                        <th style="width:40px"></th>
-                        <th>Khách hàng</th>
+                        <th style="width:40px; text-align:center;">${checkHeader}</th>
+                        <th style="width:40px"></th> <th>Khách hàng</th>
                         <th>Tổng Đơn</th>
                         <th>Tổng Doanh Thu</th>
                         <th>Trạng thái Care</th>
@@ -858,27 +996,45 @@
             else if (cust.Care_Status === 'partial') statusBadge = '<span class="status-tag st-caring">Đang care</span>';
             else statusBadge = '<span class="status-tag st-uncared">Chưa care</span>';
 
-            // Tìm đơn mới nhất để log Care
+            // Badge báo hiệu khách được Gán
+            const assignedBadge = cust.is_assigned_group 
+                ? `<span class="badge bg-warning text-dark" style="font-size:10px; margin-left:5px;">QLSR Gán</span>` 
+                : ``;
+
+            // Lấy đơn mới nhất
             const sortedOrders = (cust.Orders || []).sort((a, b) => new Date(b.Report_date) - new Date(a.Report_date));
             const latestOrder = sortedOrders.length > 0 ? sortedOrders[0] : {};
+            
+            // Lấy mã Order Code đại diện để gán
+            const repOrderCode = latestOrder.Order_code || '';
 
             const modalData = {
-                Order_code: latestOrder.Order_code,
+                Order_code: repOrderCode,
                 Customer_full_name: cust.Customer_Name,
             };
 
-            // DÒNG CHA
+            // Cấu hình ô Checkbox từng dòng
+            const checkCell = isManager 
+                ? `<input type="checkbox" class="form-check-input bulk-check" value="${repOrderCode}" onchange="updateBulkAction()">`
+                : `<span style="color:#cbd5e1">•</span>`;
+
+            // --- RENDER DÒNG CHA ---
             html += `
                 <tr class="parent-row" onclick="toggleDetail('${rowId}', this)">
+                    <td style="text-align:center;" onclick="event.stopPropagation()">
+                        ${checkCell}
+                    </td>
                     <td><span class="toggle-icon">▶</span></td>
                     <td>
-                        <div style="font-weight:700; color:#1e293b; font-size:14px;">${cust.Customer_Name}</div>
+                        <div style="font-weight:700; color:#1e293b; font-size:14px;">
+                            ${cust.Customer_Name} ${assignedBadge}
+                        </div>
                         ${cust.Tax_Code ? `<div style="font-size:11px; color:#64748b;">MST: ${cust.Tax_Code}</div>` : ''}
                     </td>
                     <td style="font-weight:600; color:#2563eb; cursor:pointer; text-decoration:underline;" 
-    onclick="event.stopPropagation(); showOrderBreakdown(${index})">
-    ${cust.Order_Count} đơn
-</td>
+                        onclick="event.stopPropagation(); showOrderBreakdown(${index})">
+                        ${cust.Order_Count} đơn
+                    </td>
                     <td style="font-weight:700; color:#16a34a;">${totalRev} ₫</td>
                     <td>${statusBadge}</td>
                     <td>
@@ -896,8 +1052,8 @@
                 </tr>
             `;
 
-            // DÒNG CON (DETAILS - KHÔNG NÚT CARE)
-            html += `<tr id="${rowId}" class="detail-row"><td colspan="6" style="padding:0; border:none;">`;
+            // --- RENDER DÒNG CON (CHI TIẾT) ---
+            html += `<tr id="${rowId}" class="detail-row"><td colspan="7" style="padding:0; border:none;">`;
             html += `<div class="detail-table-inner">
                         <table style="width:100%;">
                             <thead>
@@ -923,24 +1079,18 @@
                     ? `<span style="color:#16a34a; font-weight:600; font-size:12px;">${order.result}</span>` 
                     : '<span style="color:#94a3b8; font-size:12px;">-</span>';
 
-                const productDisplay = `
-    <div style="font-size:13px; line-height:1.6;">
-        ${order.Product_Display_Html} 
-    </div>
-`;
+                const productDisplay = `<div style="font-size:13px; line-height:1.6;">${order.Product_Display_Html}</div>`;
+                
                 html += `
                     <tr>
                         <td>${order.Report_date || '-'}</td>
                         <td><span class="badge badge-subgroup">${order.Branch_code || '-'}</span></td>
-                        <td style="font-size:11px; color:#64748b;">
-                            ${order.Sales_Email ? order.Sales_Email.split('@')[0] : 'N/A'}
-                         </td>
+                        <td style="font-size:11px; color:#64748b;">${order.Sales_Email ? order.Sales_Email.split('@')[0] : 'N/A'}</td>
                         <td style="color:#2563eb; font-weight:600;">${order.Order_code}</td>
                         <td>${productDisplay}</td>
                         <td style="font-weight:700;">${orderRev} ₫</td>
                         <td>${orderStatus}</td>
-                    </tr>
-                `;
+                    </tr>`;
             });
 
             html += `</tbody></table></div></td></tr>`;
@@ -1308,5 +1458,89 @@ window.addEventListener('click', function(e) {
         modal.style.display = "none";
     }
 });
-    
+
+
+// Cập nhật thanh Action Bar khi tick checkbox
+    window.updateBulkAction = function() {
+        const checkboxes = document.querySelectorAll('.bulk-check:checked');
+        const count = checkboxes.length;
+        const countDisplay = document.getElementById('countDisplay');
+        const actionBar = document.getElementById('actionBar');
+
+        if (countDisplay) countDisplay.textContent = count;
+        
+        if (actionBar) {
+            if (count > 0) {
+                actionBar.classList.add('visible'); 
+                actionBar.style.display = 'flex'; // Đảm bảo hiện flex
+            } else {
+                actionBar.classList.remove('visible');
+                setTimeout(() => { if(actionBar.classList.contains('visible') === false) actionBar.style.display = 'none'; }, 300);
+            }
+        }
+    };
+
+    // Chọn tất cả
+    window.toggleAll = function(source) {
+        const checkboxes = document.querySelectorAll('.bulk-check');
+        checkboxes.forEach(cb => {
+            cb.checked = source.checked;
+        });
+        updateBulkAction();
+    };
+
+    // Gửi yêu cầu gán khách
+    window.submitAssignment = async function() {
+        const targetSelect = document.getElementById('targetEmployeeSelect');
+        const targetUserId = targetSelect ? targetSelect.value : null;
+
+        if (!targetUserId) {
+            alert('Vui lòng chọn nhân viên để gán.');
+            return;
+        }
+
+        // Lấy danh sách mã đơn hàng đã tick
+        const checkedBoxes = document.querySelectorAll('.bulk-check:checked');
+        const orderCodes = Array.from(checkedBoxes).map(cb => cb.value);
+
+        if (orderCodes.length === 0) return;
+
+        if (!confirm(`Bạn chắc chắn muốn phân bổ ${orderCodes.length} khách hàng này?`)) return;
+
+        try {
+            // Hiệu ứng loading nút bấm
+            const btn = document.querySelector('#actionBar button.btn-primary');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Đang xử lý...';
+            btn.disabled = true;
+
+            const res = await fetch('/api/cskh/assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_codes: orderCodes,
+                    target_user_id: targetUserId
+                })
+            });
+            
+            const data = await res.json();
+            
+            if (data.ok) {
+                alert(data.message);
+                loadWorkList(currentPage); // Tải lại trang hiện tại
+                // Ẩn action bar
+                document.getElementById('actionBar').style.display = 'none';
+            } else {
+                alert('Lỗi: ' + data.error);
+            }
+            
+            // Reset nút bấm
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+
+        } catch (e) {
+            alert('Lỗi hệ thống: ' + e.message);
+            console.error(e);
+        }
+    };
 </script>

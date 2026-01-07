@@ -1,6 +1,5 @@
 <%- include('partials/header', {title: 'Quản lý CTKM' , currentPage: 'promo-management' , time: time}) %>
 
-
 <% 
   // --- [FIX] KHAI BÁO BIẾN listCompat ĐỂ TRÁNH LỖI REFERENCE ERROR ---
   var listCompat = [];
@@ -10,7 +9,145 @@
     }
   } catch (e) { listCompat = []; }
 %>
+
 <style>
+    body { background-color: #f1f5f9; font-family: 'Inter', -apple-system, sans-serif; color: #334155; }
+    .promo-management { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    
+    /* Header Section */
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .section-title { font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
+    
+    /* --- FILTER BAR (Modern) --- */
+    .search-and-filter { 
+        background: #fff; padding: 12px; border-radius: 12px; 
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;
+        display: flex; gap: 12px; align-items: center; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .check-all-wrapper {
+        display: flex; align-items: center; gap: 8px; padding-right: 15px; 
+        border-right: 1px solid #e2e8f0; height: 100%;
+    }
+    .custom-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb; }
+    
+    .search-input { 
+        flex: 1; min-width: 200px; height: 42px; padding: 0 16px; 
+        border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; 
+        transition: all 0.2s;
+    }
+    .search-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    
+    .btn-filter {
+        background: #fff; border: 1px solid #cbd5e1; color: #475569;
+        padding: 0 16px; height: 42px; border-radius: 8px; font-weight: 600;
+        cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+    }
+    .btn-filter:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+
+    /* Filter Popover */
+    .filter-popover { 
+        position: absolute; top: 110%; right: 0; background: #fff; 
+        border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; 
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 50; width: 320px; display: none; 
+    }
+    .filter-popover.show { display: block; animation: fadeIn 0.2s ease-out; }
+    
+    /* --- PROMO CARD (REDESIGNED) --- */
+    .promo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
+    
+    .promo-card {
+        background: #fff; border-radius: 12px; border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        padding: 16px 16px 16px 50px; /* Chừa chỗ cho checkbox bên trái */
+        position: relative; transition: all 0.2s ease;
+        display: flex; flex-direction: column;
+    }
+    
+    /* Hover effect: Nổi lên nhẹ */
+    .promo-card:hover { 
+        transform: translateY(-2px); 
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08); 
+        border-color: #bfdbfe; 
+    }
+
+    /* Checkbox vị trí cố định đẹp mắt */
+    .bulk-check {
+        position: absolute; left: 16px; top: 20px;
+        width: 20px; height: 20px; cursor: pointer;
+        accent-color: #2563eb; z-index: 5;
+    }
+
+    /* Tiêu đề CTKM */
+    .promo-card h3 {
+        margin: 0 0 8px 0; font-size: 15px; font-weight: 700; color: #1e293b;
+        line-height: 1.5;
+        /* Xử lý text dài */
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden; word-break: break-word;
+    }
+
+    /* Group Label (Pill) */
+    .group-label {
+        display: inline-block; background: #f1f5f9; color: #475569;
+        font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+        margin-bottom: 10px; border: 1px solid #e2e8f0;
+    }
+
+    /* Meta Info (Ngày & Loại) */
+    .card-meta { margin-top: auto; font-size: 13px; color: #64748b; }
+    .card-meta div { margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+
+    /* Status Badge */
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .st-active { background: #10b981; box-shadow: 0 0 0 2px #d1fae5; }
+    .st-expired { background: #ef4444; box-shadow: 0 0 0 2px #fee2e2; }
+    
+    /* --- ACTION BUTTONS (Clean Grid) --- */
+    .card-actions {
+        margin-top: 15px; padding-top: 12px; border-top: 1px dashed #e2e8f0;
+        display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+    }
+    
+    .btn-card {
+        border: 1px solid #e2e8f0; background: #fff; color: #475569;
+        padding: 6px 0; border-radius: 6px; font-size: 12px; font-weight: 600;
+        cursor: pointer; text-align: center; text-decoration: none;
+        transition: all 0.1s; display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .btn-card:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+    
+    /* Màu riêng cho nút xóa */
+    .btn-card.danger:hover { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+
+    /* --- BULK ACTION BAR (Floating Bottom) --- */
+    #bulkActionBar {
+        position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+        background: #1e293b; color: white; padding: 12px 24px; border-radius: 50px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+        display: flex; align-items: center; gap: 20px; z-index: 100;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        opacity: 0; pointer-events: none;
+    }
+    #bulkActionBar.visible { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
+    
+    .btn-bulk-delete {
+        background: #ef4444; color: white; border: none;
+        padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 13px;
+        cursor: pointer; transition: background 0.2s;
+    }
+    .btn-bulk-delete:hover { background: #dc2626; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* Pagination */
+    .pagination { display: flex; justify-content: center; gap: 5px; margin-top: 30px; }
+    .page-link { 
+        width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+        border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; 
+        text-decoration: none; color: #64748b; font-weight: 600; transition: all 0.2s;
+    }
+    .page-link.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .page-link:hover:not(.active) { background: #f1f5f9; }
     /* --- STYLES MODAL TẠO MỚI (CHUẨN HÓA) --- */
     .modal-xl { max-width: 1100px; width: 95%; margin: 30px auto; }
 
@@ -70,7 +207,7 @@
     .rte-toolbar { display: flex; gap: 5px; margin-bottom: 5px; background: #f9fafb; padding: 5px; border: 1px solid #e5e7eb; border-radius: 4px; }
     .rte-btn { padding: 2px 8px; border: 1px solid #d1d5db; background: #fff; cursor: pointer; font-size: 12px; font-weight: bold; }
 
-    /* Filter Bar Styles (Legacy) */
+    /* Filter Bar Styles */
     .search-and-filter { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; position: relative; }
     .search-input { flex: 1; height: 40px; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; }
     .filter-popover { 
@@ -82,30 +219,51 @@
     .popover-row { margin-bottom: 10px; }
     .info-select { width: 100%; height: 36px; padding: 0 8px; border: 1px solid #e5e7eb; border-radius: 6px; }
 
-    /* Promo List Styles */
+    /* Promo List Styles & Status */
     .promo-list { display: grid; gap: 15px; }
-    .promo-card { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; }
     .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
     .status-badge.active { background: #dcfce7; color: #166534; }
     .status-badge.expired { background: #fee2e2; color: #991b1b; }
 
-    @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } }
 </style>
 
 <div class="promo-management">
-    <h1 class="section-title">Quản lý Chương trình Khuyến mãi</h1>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h1 class="section-title" style="margin:0;">Quản lý CTKM</h1>
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="showCreateModal()">+ Tạo mới</button>
+        </div>
+    </div>
 
-    <div class="action-buttons">
-        <button class="btn btn-primary" onclick="showCreateModal()">+ Tạo CTKM mới</button>
-
+    <div id="bulkActionBar">
+        <div>
+            <strong id="selectedCount">0</strong> mục đang chọn
+            <button type="button" onclick="deselectAll()" style="background:none; border:none; color:#be123c; text-decoration:underline; cursor:pointer; margin-left:10px;">Bỏ chọn</button>
+        </div>
+        <button class="btn-bulk-delete" onclick="submitBulkDelete()">🗑️ Xóa các mục đã chọn</button>
     </div>
   
     <div class="search-and-filter">
+        <div style="display:flex; align-items:center; gap:5px; padding-right:10px; border-right:1px solid #ddd;">
+            <input type="checkbox" id="checkAll" style="width:18px; height:18px; cursor:pointer;">
+            <label for="checkAll" style="font-size:13px; font-weight:600; cursor:pointer;">All</label>
+        </div>
+
         <input id="promoSearch" class="search-input" type="text" placeholder="Tìm kiếm CTKM..." value="<%= q || '' %>">
-        <button type="button" class="btn btn-primary filter-toggle">⚙️</button>
+        <button type="button" class="btn btn-primary filter-toggle">⚙️ Lọc</button>
 
         <form method="get" action="/promo-management" id="filterForm" class="filter-popover">
             <input type="hidden" name="q" id="qHidden" value="<%= q %>">
+            
+            <div class="popover-row">
+                <label>Trạng thái</label>
+                <select name="status" class="info-select">
+                    <option value="">-- Tất cả --</option>
+                    <option value="active" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'active' ? 'selected' : '' %>>🟢 Đang hoạt động</option>
+                    <option value="expired" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'expired' ? 'selected' : '' %>>🔴 Đã hết hạn</option>
+                </select>
+            </div>
+
             <div class="popover-row">
                 <label>Nhóm</label>
                 <select name="group" id="groupSelect" class="info-select">
@@ -125,48 +283,81 @@
                 </select>
             </div>
             <div style="text-align: right;">
-                <button type="submit" class="btn btn-primary">Lọc</button>
+                <button type="submit" class="btn btn-primary">Áp dụng</button>
                 <a class="btn btn-secondary" href="/promo-management">Xóa lọc</a>
             </div>
         </form>
+        
     </div>
-
+    
     <div class="promo-list">
         <% if (promotions && promotions.length> 0) { %>
-            <% promotions.forEach(promo=> { %>
+       <% promotions.forEach(promo=> { %>
                 <div class="promo-card" data-name="<%= promo.name.toLowerCase() %>">
-                    <h3 style="margin-top:0"><%= promo.name %></h3>
+                    
+                    <input type="checkbox" class="bulk-check custom-checkbox" value="<%= promo.id %>" onchange="updateBulkAction()">
+
                     <% if (promo.group_name) { %>
-                        <span style="background:#eff6ff; color:#1e40af; padding:2px 6px; border-radius:4px; font-size:12px;">
-                            <%= promo.group_name %>
-                        </span>
+                        <div><span class="group-label"><%= promo.group_name %></span></div>
                     <% } %>
-                    <p style="font-size:13px; color:#64748b; margin: 5px 0;">
-                        📅 <%= new Date(promo.start_date).toLocaleDateString('vi-VN') %> - <%= new Date(promo.end_date).toLocaleDateString('vi-VN') %>
-                    </p>
-                    <p><strong>🎯 Loại:</strong> <%= promo.promo_type %></p>
+
+                    <h3 title="<%= promo.name %>"><%= promo.name %></h3>
+
+                    <div class="card-meta">
+                        <% 
+                            const endDate = new Date(promo.end_date);
+                            endDate.setHours(23, 59, 59, 999);
+                            const isActive = endDate >= new Date();
+                        %>
+                        <div>
+                            <span class="status-dot <%= isActive ? 'st-active' : 'st-expired' %>"></span>
+                            <span style="font-weight: 600; color: <%= isActive ? '#059669' : '#dc2626' %>;">
+                                <%= isActive ? 'Đang chạy' : 'Hết hạn' %>
+                            </span>
+                        </div>
+                        <div>
+                            <span>📅</span> 
+                            <%= new Date(promo.start_date).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'}) %> - 
+                            <%= new Date(promo.end_date).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'2-digit'}) %>
+                        </div>
+                        <div>
+                            <span>🏷️</span> <%= promo.promo_type %>
+                        </div>
+                    </div>
                     
-                    <% 
-                        const endDate = new Date(promo.end_date);
-                        endDate.setHours(23, 59, 59, 999);
-                        const isActive = endDate >= new Date();
-                    %>
-                    <p><span class="status-badge <%= isActive ? 'active' : 'expired' %>"><%= isActive ? '🟢 Đang hoạt động' : '🔴 Đã hết hạn' %></span></p>
-                    
-                    <div style="margin-top:10px; display:flex; gap:5px;">
-                        <a href="/promotion-detail/<%= promo.id %>" class="btn btn-info" style="padding:5px 10px; font-size:13px;">👁️ Xem</a>
+                    <div class="card-actions">
+                        <a href="/promotion-detail/<%= promo.id %>" class="btn-card">
+                            👁️ Xem
+                        </a>
+                        
                         <% if (user && user.role==='manager' ) { %>
-                            <button class="btn btn-warning" onclick="window.location.href='/edit-promotion/<%= promo.id %>'" style="padding:5px 10px; font-size:13px;">✏️ Sửa</button>
-                            <button class="btn btn-secondary" onclick="copyPromo(<%= promo.id %>)" style="padding:5px 10px; font-size:13px;">📑 Copy</button>
-                            <button class="btn btn-danger" onclick="deletePromo(<%= promo.id %>)" style="padding:5px 10px; font-size:13px;">🗑️ Xóa</button>
+                            <a href="/edit-promotion/<%= promo.id %>" class="btn-card">
+                                ✏️ Sửa
+                            </a>
+                            
+                            <div style="display:flex; gap:5px; grid-column: span 1;">
+                                <button onclick="copyPromo(<%= promo.id %>)" class="btn-card" style="flex:1;" title="Sao chép">📑</button>
+                                <button onclick="deletePromo(<%= promo.id %>)" class="btn-card danger" style="flex:1;" title="Xóa">🗑️</button>
+                            </div>
                         <% } %>
                     </div>
                 </div>
             <% }); %>
         <% } else { %>
-            <div class="no-data" style="text-align:center; padding:20px; color:#64748b;">📭 Chưa có CTKM nào.</div>
+            <div class="no-data" style="text-align:center; padding:20px; color:#64748b;">📭 Chưa có CTKM nào phù hợp.</div>
         <% } %>
     </div>
+
+    <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+        <div style="margin-top:20px; text-align:center;">
+            <% for(let i=1; i<=totalPages; i++) { %>
+                <a href="/promo-management?page=<%= i %>&q=<%= q %>&status=<%= typeof selectedStatus !=='undefined' ? selectedStatus : '' %>&group=<%= typeof selectedGroup !=='undefined' ? selectedGroup : '' %>" 
+                   style="padding:5px 10px; border:1px solid #ccc; margin:2px; text-decoration:none; border-radius:4px; <%= page===i ? 'background:#1e293b; color:white;' : 'background:white;' %>">
+                   <%= i %>
+                </a>
+            <% } %>
+        </div>
+    <% } %>
 </div>
 
 <div id="createPromoModal" class="modal">
@@ -351,6 +542,8 @@
                                 <option value="HD SAISON">HD SAISON</option>
                                 <option value="Home Credit">Home Credit</option>
                                 <option value="Mcredit">Mcredit</option>
+                                <option value="Payoo">Payoo</option>
+                                <option value="Payoo">Shinhan</option>
                             </select>
                         </div>
                     </div>
@@ -371,6 +564,93 @@
                     <div class="special-title">🧩 Cấu hình Combo</div>
                     <div id="comboContainer"></div>
                     <div class="add-btn-dashed" onclick="addComboRow()">+ Thêm bộ Combo</div>
+                    <div class="form-section" style="background:#f8fafc; border:1px solid #e2e8f0;">
+    <h3 style="color:#2563eb; margin-bottom:15px; border-bottom:1px dashed #cbd5e1; padding-bottom:5px;">
+        🧩 Cấu hình Combo / Ghép SP
+    </h3>
+
+    <div class="form-group">
+        <label>Mã nhóm hàng ghép (Subcat)</label>
+        <input type="text" name="detail[combo_partner_subcat]" class="form-control" placeholder="VD: NH01-02">
+        <small class="text-muted">Nhập mã nhóm hàng để lấy toàn bộ sản phẩm trong nhóm đó.</small>
+    </div>
+    <div class="form-group" style="margin-top:10px; border-top:1px dashed #eee; padding-top:10px;">
+        <label>Hoặc: Paste danh sách SKU cụ thể (Ưu tiên)</label>
+        <textarea name="detail[combo_sku_list]" class="form-control" rows="3" placeholder="Ví dụ: 230101, 230102, 230103 (Cách nhau dấu phẩy hoặc xuống dòng)"></textarea>
+        <small style="color:#e11d48;">* Nếu nhập ô này, hệ thống sẽ bỏ qua Subcat và chỉ hiển thị đúng các SKU này.</small>
+    </div>
+                    <div class="row" style="display:flex; gap:10px; margin-bottom:10px;">
+        <div style="flex:1;">
+            <label>Giá trị giảm</label>
+            <input type="number" name="detail[combo_discount_val]" class="form-control" placeholder="VD: 50000 hoặc 10">
+        </div>
+        <div style="width:100px;">
+            <label>Đơn vị</label>
+            <select name="detail[combo_discount_type]" class="form-control">
+                <option value="amount">VNĐ</option>
+                <option value="percent">%</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="row" style="display:flex; gap:10px;">
+        <div style="flex:1;">
+            <label>Đơn tối thiểu (đ)</label>
+            <input type="number" name="detail[combo_min_order]" class="form-control" placeholder="0 = Không giới hạn">
+            <small style="color:#666">Tổng tiền các SP combo phải đạt mức này.</small>
+        </div>
+        <div style="flex:1;">
+            <label>Giảm tối đa (đ)</label>
+            <input type="number" name="detail[combo_max_discount]" class="form-control" placeholder="Để trống nếu không giới hạn">
+            <small style="color:#666">Chỉ dùng khi giảm theo %.</small>
+        </div>
+    </div>
+</div>
+
+  <div style="margin-top:10px;" class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="trigger_tier_price" onchange="toggleTierConfig()">
+    <label class="form-check-label fw-bold text-primary" for="trigger_tier_price">
+        📦 Kích hoạt: Mua nhiều giảm sâu (Tier Price)
+    </label>
+</div>
+
+<div id="tier-price-config" class="card mt-3 mb-3 border-primary" style="display: none;">
+    <div class="card-header bg-primary text-white py-2">
+        <h6 class="mb-0"><i class="fas fa-layer-group"></i> Cấu hình Mốc Số Lượng (Tier Price)</h6>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info py-2 small mb-3">
+            <i class="fas fa-info-circle"></i> 
+            <strong>Lưu ý:</strong> Hệ thống sẽ áp dụng bảng giá này cho các sản phẩm bạn đã chọn ở mục <strong>"4. PHẠM VI SẢN PHẨM ÁP DỤNG"</strong> bên trên.
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm text-center align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 200px;">Mua từ số lượng (Min Qty)</th>
+                        <th>Mức giảm giá</th>
+                        <th style="width: 150px;">Đơn vị giảm</th>
+                        <th style="width: 60px;">Xóa</th>
+                    </tr>
+                </thead>
+                <tbody id="tier-rows">
+                    </tbody>
+            </table>
+        </div>
+
+        <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addTierRow()">
+            <i class="fas fa-plus-circle"></i> Thêm mốc số lượng
+        </button>
+        
+        <div class="mt-2">
+             <small style="display:block; color:#ea580c; font-style:italic;">* Giá trị giảm tính trên ĐƠN GIÁ mỗi sản phẩm.</small>
+        </div>
+
+        <input type="hidden" name="detail" id="detail_json_input">
+    </div>
+</div>
+
                 </div>
             </div>
 
@@ -504,6 +784,127 @@
         </form>
     </div>
 </div>
+
+<script>
+    // 1. Hàm bật/tắt khung cấu hình
+    function toggleTierConfig() {
+        const checkbox = document.getElementById('trigger_tier_price');
+        const container = document.getElementById('tier-price-config');
+        
+        if (checkbox && container) {
+            container.style.display = checkbox.checked ? 'block' : 'none';
+            
+            // Nếu bật lên mà chưa có dòng nào thì tự thêm 1 dòng mẫu
+            const tbody = document.getElementById('tier-rows');
+            if (checkbox.checked && tbody.children.length === 0) {
+                addTierRow();
+            }
+        }
+    }
+
+    // 2. Hàm thêm dòng mốc mới
+    function addTierRow(data = {}) {
+        const tbody = document.getElementById('tier-rows');
+        const tr = document.createElement('tr');
+        
+        const qty = data.min_qty || 2;
+        const disc = data.discount || 0;
+        const type = data.type || 'amount'; // amount hoặc percent
+
+        tr.innerHTML = `
+            <td>
+                <input type="number" class="form-control form-control-sm text-center tier-qty" 
+                       value="${qty}" min="1" step="1" required placeholder="Nhập SL">
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm text-end tier-disc" 
+                       value="${disc}" min="0" required placeholder="Nhập mức giảm">
+            </td>
+            <td>
+                <select class="form-select form-select-sm tier-type">
+                    <option value="amount" ${type === 'amount' ? 'selected' : ''}>VNĐ (đ)</option>
+                    <option value="percent" ${type === 'percent' ? 'selected' : ''}>Phần trăm (%)</option>
+                </select>
+            </td>
+            <td>
+                <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="this.closest('tr').remove()">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    // 3. Xử lý khi trang vừa tải xong (Dành cho trang Edit Promotion)
+    document.addEventListener('DOMContentLoaded', function() {
+        // Kiểm tra xem có dữ liệu cũ từ server truyền xuống không (dùng EJS)
+        <% if (typeof promotion !== 'undefined' && promotion.detail_fields && promotion.detail_fields.tiers) { %>
+            const savedTiers = <%- JSON.stringify(promotion.detail_fields.tiers) %>;
+            
+            if (Array.isArray(savedTiers) && savedTiers.length > 0) {
+                // 1. Check vào ô kích hoạt
+                const checkbox = document.getElementById('trigger_tier_price');
+                if(checkbox) checkbox.checked = true;
+
+                // 2. Load các dòng dữ liệu
+                const tbody = document.getElementById('tier-rows');
+                tbody.innerHTML = ''; // Xóa trắng trước khi load
+                savedTiers.forEach(t => addTierRow(t));
+
+                // 3. Hiển thị khung
+                toggleTierConfig();
+            }
+        <% } %>
+    });
+
+    // 4. Xử lý trước khi Submit Form (Gom dữ liệu vào input hidden)
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const checkbox = document.getElementById('trigger_tier_price');
+            
+            // Chỉ xử lý nếu checkbox được kích hoạt
+            if (checkbox && checkbox.checked) {
+                const rows = document.querySelectorAll('#tier-rows tr');
+                const tiers = [];
+                let isValid = true;
+
+                rows.forEach(row => {
+                    const qty = parseInt(row.querySelector('.tier-qty').value) || 0;
+                    const discount = parseFloat(row.querySelector('.tier-disc').value) || 0;
+                    const type = row.querySelector('.tier-type').value;
+
+                    if (qty <= 0) isValid = false;
+                    
+                    // Chỉ lấy dòng có dữ liệu hợp lệ
+                    if (qty > 0) {
+                        tiers.push({ min_qty: qty, discount: discount, type: type });
+                    }
+                });
+
+                if (!isValid) {
+                    alert('Số lượng mua phải lớn hơn 0.');
+                    e.preventDefault(); return;
+                }
+
+                if (tiers.length === 0) {
+                    alert('Bạn đã kích hoạt Tier Price nhưng chưa nhập mốc số lượng nào.');
+                    e.preventDefault(); return;
+                }
+
+                // Sắp xếp tăng dần theo số lượng
+                tiers.sort((a, b) => a.min_qty - b.min_qty);
+
+                // Gán vào input hidden
+                const detailObj = { tiers: tiers };
+                document.getElementById('detail_json_input').value = JSON.stringify(detailObj);
+            } else {
+                // Nếu không kích hoạt, đảm bảo gửi lên null hoặc object rỗng để server biết đường xóa cũ
+                document.getElementById('detail_json_input').value = JSON.stringify({});
+            }
+        });
+    }
+</script>
 
 <script>
     // --- SEARCH & FILTER (LEGACY) ---
@@ -938,6 +1339,84 @@
         } finally {
             btn.innerText = oldText;
             btn.disabled = false;
+        }
+    }
+
+    // --- [MỚI] LOGIC BULK DELETE & SELECT ALL ---
+    
+    const checkAllBtn = document.getElementById('checkAll');
+    const actionBar = document.getElementById('bulkActionBar');
+    const countDisplay = document.getElementById('selectedCount');
+
+    // 1. Xử lý nút "Chọn tất cả"
+    if (checkAllBtn) {
+        checkAllBtn.addEventListener('change', function() {
+            const isChecked = this.checked;
+            document.querySelectorAll('.bulk-check').forEach(cb => cb.checked = isChecked);
+            updateBulkAction();
+        });
+    }
+
+
+    // Cập nhật hàm này trong script cũ của bạn
+    window.updateBulkAction = function() {
+        const checkedCount = document.querySelectorAll('.bulk-check:checked').length;
+        if(countDisplay) countDisplay.textContent = checkedCount;
+        
+        if (actionBar) {
+            if (checkedCount > 0) {
+                // Thay vì display block, ta dùng class để animate
+                actionBar.classList.add('visible'); 
+                // Đảm bảo display flex để layout ko bị vỡ (nếu css set display none ban đầu)
+                actionBar.style.display = 'flex'; 
+            } else {
+                actionBar.classList.remove('visible');
+            }
+        }
+    }
+    // 3. Hàm bỏ chọn tất cả
+    window.deselectAll = function() {
+        document.querySelectorAll('.bulk-check').forEach(cb => cb.checked = false);
+        if(checkAllBtn) checkAllBtn.checked = false;
+        updateBulkAction();
+    }
+
+    // 4. Gửi request xóa hàng loạt
+    window.submitBulkDelete = async function() {
+        const checkedBoxes = document.querySelectorAll('.bulk-check:checked');
+        const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+        if (ids.length === 0) return;
+
+        if (!confirm(`⚠️ CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN ${ids.length} chương trình khuyến mãi này không?\nHành động này không thể hoàn tác!`)) {
+            return;
+        }
+
+        try {
+            const btn = document.querySelector('.btn-bulk-delete');
+            const oldText = btn.textContent;
+            btn.textContent = "Đang xóa...";
+            btn.disabled = true;
+
+            const res = await fetch('/api/promotions/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids })
+            });
+
+            const json = await res.json();
+
+            if (json.ok) {
+                alert('✅ ' + json.message);
+                window.location.reload();
+            } else {
+                alert('❌ Lỗi: ' + json.error);
+                btn.textContent = oldText;
+                btn.disabled = false;
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Lỗi kết nối mạng.');
         }
     }
 </script>

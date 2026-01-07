@@ -75,25 +75,39 @@
                 </div>
 
                 <div class="promo-meta">
-                    <% if (isKFI) { %>
-                        <div style="font-size:13px; color:#9d174d; font-weight:600; margin-top: 4px;">
-                            <% if (p.description && p.description.includes('Thưởng')) { %>
-                                <%= p.description %> <% } else { %>
-                                Xem KFI tháng này & Tồn kho <% } %>
-                        </div>
-                    <% } else if (p.__display_discount) { %>
-                        <%= p.__display_prefix %>: 
-                        <strong>
-                            <% if (String(p.__display_discount).includes('%')) { %>
-                                <%= p.__display_discount %>
-                            <% } else { %>
-                                <%= new Intl.NumberFormat('vi-VN').format(p.__display_discount) %>₫
-                            <% } %>
-                        </strong>
-                    <% } else { %>
-                        <span class="dash-muted"><%= p.description || 'Quà tặng/Khác' %></span>
-                    <% } %>
-                </div>
+    <% 
+        // Danh sách các loại CTKM KHÔNG được hiện giá tiền trực tiếp (ưu tiên hiện text mô tả)
+        const HIDE_PRICE_TYPES = ['Combo', 'Gift', 'Quà tặng (Gift)', 'Trả góp', 'Ưu đãi thanh toán', 'KFI'];
+        
+        // Chỉ hiện giá nếu có discount VÀ không thuộc loại bị ẩn
+        const shouldShowPrice = p.__display_discount && !HIDE_PRICE_TYPES.includes(p.promo_type);
+    %>
+
+    <% if (isKFI) { %>
+        <div style="font-size:13px; color:#9d174d; font-weight:600; margin-top: 4px;">
+            <% if (p.description && p.description.includes('Thưởng')) { %>
+                <%= p.description %> 
+            <% } else { %>
+                Xem KFI tháng này & Tồn kho 
+            <% } %>
+        </div>
+
+    <% } else if (shouldShowPrice) { %>
+        <%= p.__display_prefix || '' %>: 
+        <strong>
+            <% if (String(p.__display_discount).includes('%')) { %>
+                <%= p.__display_discount %>
+            <% } else { %>
+                <%= new Intl.NumberFormat('vi-VN').format(p.__display_discount) %>₫
+            <% } %>
+        </strong>
+
+    <% } else { %>
+        <span class="dash-muted" style="font-size:13px; color:#64748b;">
+            <%= p.description ? p.description : (p.promo_type || 'Xem chi tiết') %>
+        </span>
+    <% } %>
+</div>
             </div>
 
             <% if (expiry.formattedDate) { %>

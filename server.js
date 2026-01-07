@@ -96,6 +96,26 @@ app.use(cookieSession({
   maxAge: 24 * 60 * 60 * 1000,
 }));
 
+const REGIONAL_CONFIG = {
+  'TD12': ['CP46', 'CP67'],
+  'BD12': ['CP02', 'CP69']
+};
+
+// Hàm helper để lấy danh sách chi nhánh được phép xem
+const getAllowedBranches = (user) => {
+  const userBranch = user.branch_code;
+  // Nếu là Admin hoặc HCM.BD -> Xem hết (logic cũ) hoặc xử lý riêng
+  if (userBranch === 'HCM.BD') return null; // Null nghĩa là không lọc branch (All)
+
+  // Nếu thuộc nhóm Regional Manager
+  if (REGIONAL_CONFIG[userBranch]) {
+    return REGIONAL_CONFIG[userBranch];
+  }
+
+  // Mặc định: chỉ xem chi nhánh của chính mình
+  return [userBranch];
+};
+
 const BRANCH_CONFIG = {
   // Đây là mục dự phòng nếu không tìm thấy branch
   'DEFAULT': {
@@ -1241,64 +1261,108 @@ app.get('/api/skus', async (req, res) => {
 // ===== SỬA API COMPONENTS (DÙNG .eq() VÌ CLIENT ĐÃ SỬA) =====
 app.get('/api/components', requireAuth, async (req, res) => {
   try {
-    // Client đã gửi ID 3 phần (ví dụ: 'NH03-01-02')
-    const subcatPrefix = req.query.subcat; 
-    if (!subcatPrefix) {
-      return res.status(400).json({ ok: false, error: 'Thiếu mã subcat' });
+    // Lấy thông tin User để phân quyền tồn kho
+    const userBranch = req.session.user ? req.session.user.branch_code : '';
+    const userRole = req.session.user ? req.session.user.role : '';
+    const REGIONAL_MAP = {
+        'TD-12': ['CP46', 'CP67'],
+        'BD-DN': ['CP02', 'CP69']
+    };
+
+    const { subcat, skus } = req.query; 
+
+    // Logic Query
+    let query = supabase.from('skus').select('sku, product_name, list_price, brand, subcat');
+
+    // CASE 1: CÓ LIST SKU (Ưu tiên cao nhất)
+    if (skus && skus.trim() !== '') {
+        const skuArray = skus.toString().replace(/[\r\n]+/g, ',').split(',').map(s => s.trim()).filter(Boolean);
+        if (skuArray.length > 0) {
+            query = query.in('sku', skuArray);
+        } else {
+            return res.json({ ok: true, components: [] });
+        }
+    } 
+    // CASE 2: CÓ SUBCAT
+    else if (subcat && subcat.trim() !== '') {
+        const cleanSub = subcat.trim();
+        
+        // [SỬA LỖI] Dùng ilike để KHÔNG phân biệt hoa thường (nh11 = NH11)
+        query = query.ilike('subcat', `${cleanSub}%`);
+    } 
+    else {
+        return res.json({ ok: true, components: [] });
     }
 
-    // 1. Lấy danh sách linh kiện (SKU) từ Supabase
-    const { data: components, error: componentsError } = await supabase
-      .from('skus')
-      .select('sku, product_name, list_price, brand, subcat')
-      
-      // === SỬA LỖI: Dùng 'eq()' vì client đã gửi đúng ID 3 phần ===
-      .like('subcat', `${subcatPrefix}%`)
-      // =======================================================
-      
-      //.limit(100); 
+    // Thực thi query
+    const { data: components, error } = await query.limit(100);
 
-    if (componentsError) throw componentsError;
-    if (!components || components.length === 0) {
-      console.warn(`[Build PC] Không tìm thấy SKU nào cho subcat: ${subcatPrefix}`);
-      return res.json({ ok: true, components: [] });
+    // [LOGIC MỚI - BACKUP] Nếu tìm Subcat không thấy -> Thử tìm chính xác SKU
+    // (Phòng trường hợp bạn nhập nhầm mã SKU vào ô Subcat)
+    if ((!components || components.length === 0) && subcat && !skus) {
+        const { data: retryData } = await supabase
+            .from('skus')
+            .select('sku, product_name, list_price, brand, subcat')
+            .eq('sku', subcat.trim()) // Tìm chính xác SKU
+            .limit(1);
+        
+        if (retryData && retryData.length > 0) {
+            // Nếu tìm thấy theo SKU thì gán lại dữ liệu để trả về
+            return processResult(res, retryData, userBranch, userRole, REGIONAL_MAP);
+        }
     }
 
-    const skuList = components.map(c => c.sku);
-
-    // 2. Lấy tồn kho (Giữ nguyên logic)
-    let stockMap = {};
-    try {
-        stockMap = await getSkuNewStockByBranch(skuList);
-    } catch (bqError) {
-        console.error("LỖI BIGQUERY (getSkuNewStockByBranch):", bqError.message);
-    }
-
-    // 3. Gộp dữ liệu (Giữ nguyên logic)
-    const componentsWithStock = components.map(component => {
-      const stock_by_branch = stockMap[component.sku] || {};
-      const total_stock = Object.values(stock_by_branch).reduce((sum, qty) => sum + qty, 0);
-
-      return {
-        ...component,
-        stock_by_branch: stock_by_branch,
-        total_stock: total_stock
-      };
-    });
-
-    // 4. Sắp xếp (Giữ nguyên logic)
-    componentsWithStock.sort((a, b) => b.total_stock - a.total_stock);
+    if (error) throw error;
     
-    // 5. Trả về dữ liệu
-    res.json({ ok: true, components: componentsWithStock });
+    // Gọi hàm xử lý kết quả (để code gọn hơn)
+    return processResult(res, components || [], userBranch, userRole, REGIONAL_MAP);
 
   } catch (e) {
-    console.error('Lỗi API /api/components:', e);
+    console.error('Lỗi API /api/components:', e.message);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
-// ===== KẾT THÚC SỬA API =====
 
+// HÀM PHỤ TRỢ: XỬ LÝ TỒN KHO & TRẢ VỀ JSON
+async function processResult(res, components, userBranch, userRole, REGIONAL_MAP) {
+    if (!components || components.length === 0) {
+        return res.json({ ok: true, components: [] });
+    }
+
+    const skuList = components.map(c => c.sku);
+    let stockMap = {};
+    
+    try {
+        // Hàm lấy tồn kho cũ của bạn
+        stockMap = await getSkuNewStockByBranch(skuList);
+    } catch (e) { console.error("Lỗi Stock:", e.message); }
+
+    const finalData = components.map(p => {
+        const stocks = stockMap[p.sku] || {};
+        const absTotal = Object.values(stocks).reduce((a, b) => a + b, 0);
+        let visible = 0;
+
+        // Phân quyền tồn kho
+        if (userBranch === 'HCM.BD') visible = absTotal;
+        else if (userRole === 'manager' && REGIONAL_MAP[userBranch]) {
+            REGIONAL_MAP[userBranch].forEach(br => visible += (stocks[br] || 0));
+        } else {
+            visible = stocks[userBranch] || 0;
+        }
+
+        return { 
+            ...p, 
+            stock_by_branch: stocks, 
+            total_stock: visible,
+            real_total_stock: absTotal
+        };
+    });
+
+    // Sắp xếp: Còn tồn hiển thị trước
+    finalData.sort((a, b) => b.total_stock - a.total_stock);
+
+    res.json({ ok: true, components: finalData });
+}
 
 // ===== BẮT ĐẦU: SỬA TOÀN BỘ API CHECK PROMOS (CÓ CẢNH BÁO) =====
 app.post('/api/pc-builder/check-promos', requireAuth, async (req, res) => {
@@ -2296,65 +2360,155 @@ try {
   }
 
 });
-// Trang quản lý CTKM (đã loại bỏ cat/brand)
+
+
+// --- Thay thế toàn bộ đoạn app.get('/promo-management') cũ bằng đoạn này ---
 app.get('/promo-management', requireAuth, requireManager, async (req, res) => {
   try {
-    const { q, group, subgroup, sku } = req.query;
+    const user = req.session.user;
+    
+    // 1. Cấu hình Phân trang (Pagination)
+    const page = parseInt(req.query.page) || 1;
+    const limit = 20; // Số lượng hiển thị mỗi trang
+    const offset = (page - 1) * limit;
+
+    // 2. Lấy tham số Filter từ URL
+    const { q, group, subgroup, sku, status } = req.query;
+
+    // 3. Khởi tạo Query chính
+    // count: 'exact' để đếm tổng số dòng phục vụ phân trang
     let query = supabase
       .from('promotions')
-      .select('*, promotion_skus(count), promotion_excluded_skus(count)')
-      .order('created_at', { ascending: false });
-    if (q) query = query.ilike('name', `%${q}%`);
-    if (group) query = query.eq('group_name', group);
-    if (subgroup) query = query.eq('subgroup_name', subgroup);
-    if (sku) query = query.eq('promotion_skus.sku', sku);
+      .select('*, promotion_skus(count), promotion_excluded_skus(count)', { count: 'exact' });
 
-    let q2 = supabase
-      .from('promotions')
-      .select('*, promotion_skus(sku), promotion_excluded_skus(sku)')
-      .order('created_at', { ascending: false })
-      .eq('apply_to_all_skus', true);
-    if (sku) q2 = q2.not('id', 'is', null); // giữ nguyên, lọc sau ở app
+    // --- Áp dụng các bộ lọc ---
+    
+    // Tìm kiếm theo tên
+    if (q) {
+        query = query.ilike('name', `%${q}%`);
+    }
+    
+    // Lọc theo Group
+    if (group) {
+        query = query.eq('group_name', group);
+    }
+    
+    // Lọc theo Subgroup
+    if (subgroup) {
+        query = query.eq('subgroup_name', subgroup);
+    }
 
+    // [MỚI] Lọc theo Trạng thái (Active / Expired)
+    const now = new Date().toISOString(); // Lấy thời gian hiện tại chuẩn ISO
+    if (status === 'active') {
+        // Đang hoạt động: Ngày kết thúc >= Hiện tại
+        query = query.gte('end_date', now);
+    } else if (status === 'expired') {
+        // Đã hết hạn: Ngày kết thúc < Hiện tại
+        query = query.lt('end_date', now);
+    }
+
+    // Sắp xếp & Phân trang
+    query = query.order('created_at', { ascending: false })
+                 .range(offset, offset + limit - 1);
+
+    // Thực thi Query
+    const { data: promotions, count, error } = await query;
+    
+    if (error) throw error;
+
+    // 4. Lấy dữ liệu hỗ trợ (Groups, Compatibility) cho Modal tạo mới
+    // Lấy list CTKM để làm chức năng "Áp dụng cùng / Loại trừ"
     const { data: allPromosForCompatRaw } = await supabase
       .from('promotions')
       .select('id, name, group_name, subgroup_name, status')
       .order('name', { ascending: true });
 
-    const allPromosForCompat =
-      (allPromosForCompatRaw || []).filter(p => (p.status || 'active') === 'active');
+    const allPromosForCompat = (allPromosForCompatRaw || []).filter(p => (p.status || 'active') === 'active');
 
-    const { data: promotions } = await query;
-    // lấy danh sách group/subgroup duy nhất cho dropdown
-    const { data: groups } = await supabase
+    // Lấy danh sách Group/Subgroup duy nhất để hiển thị Dropdown lọc
+    // (Cách này hơi thủ công nhưng an toàn với code cũ của bạn)
+    const { data: allGroupsData } = await supabase
       .from('promotions')
       .select('group_name, subgroup_name');
-    const groupSet = new Set(); const subgroupSet = new Set();
-    (groups || []).forEach(r => {
+      
+    const groupSet = new Set(); 
+    const subgroupSet = new Set();
+    (allGroupsData || []).forEach(r => {
       if (r.group_name) groupSet.add(r.group_name);
       if (r.subgroup_name) subgroupSet.add(r.subgroup_name);
     });
 
+    // 5. Render View
     res.render('promo-management', {
       title: 'Quản lý CTKM',
       currentPage: 'promo-management',
       promotions: promotions || [],
-      groups: Array.from(groupSet),
-      subgroups: Array.from(subgroupSet),
-      q: q || '', selectedGroup: group || '', selectedSubgroup: subgroup || '',
+      
+      // Dữ liệu lọc
+      groups: Array.from(groupSet).sort(),
+      subgroups: Array.from(subgroupSet).sort(),
+      
+      // Trạng thái hiện tại của bộ lọc
+      q: q || '', 
+      selectedGroup: group || '', 
+      selectedSubgroup: subgroup || '',
+      selectedStatus: status || '', // [MỚI] Truyền status xuống EJS
+      
+      // Dữ liệu phân trang
+      page,
+      totalPages: Math.ceil((count || 0) / limit),
+      totalItems: count,
+
+      // User & Auth
       user: req.session?.user || null,
+      
+      // Dữ liệu cho Modal tạo mới
       allPromosForCompat,
       compatAllowIds: [],
       compatExclIds: [],
+      
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
+
   } catch (err) {
-    console.error('Promo management fatal:', err);
+    console.error('Promo management fatal error:', err);
     res.status(500).send('Lỗi khi tải trang quản lý CTKM: ' + err.message);
   }
 });
 
+// [MỚI] API Xóa nhiều CTKM cùng lúc
+app.post('/api/promotions/bulk-delete', requireAuth, requireManager, async (req, res) => {
+  try {
+    const { ids } = req.body; // Nhận mảng ID từ client: [1, 5, 8]
 
+    // Validate dữ liệu
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Chưa chọn CTKM nào để xóa.' });
+    }
+
+    // Thực hiện xóa trong Database
+    // Lưu ý: Nếu DB của bạn có ràng buộc khóa ngoại (Foreign Key) chưa set ON DELETE CASCADE,
+    // bạn có thể cần xóa các bảng con (promotion_skus, v.v.) trước.
+    // Tuy nhiên Supabase thường xử lý tốt nếu setup đúng.
+    
+    const { error } = await supabase
+      .from('promotions')
+      .delete()
+      .in('id', ids);
+
+    if (error) throw error;
+
+    res.json({ 
+      ok: true, 
+      message: `Đã xóa vĩnh viễn ${ids.length} chương trình khuyến mãi.` 
+    });
+
+  } catch (e) {
+    console.error("Lỗi Bulk Delete:", e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 // [MỚI] Route Tạo CTKM (Đã bao gồm Branch, Exclude Mở Rộng, Show Multiple)
 app.post('/create-promotion', requireAuth, async (req, res) => {
     try {
@@ -2677,7 +2831,18 @@ app.post('/edit-promotion/:id', requireAuth, async (req, res) => {
       group_name, apply_to_type, apply_brands, apply_categories, apply_subcats,
       skus, excluded_skus, has_coupon_list, coupons, detail
     } = req.body;
+    let finalDetail = req.body.detail || {};
 
+// 2. Xử lý riêng Tier Price (vì nó gửi lên dạng JSON string riêng biệt)
+if (req.body.tiers_json) {
+    try {
+        const tiersObj = JSON.parse(req.body.tiers_json); // Parse chuỗi '{"tiers": [...]}'
+        // Gộp vào object finalDetail
+        finalDetail = { ...finalDetail, ...tiersObj }; 
+    } catch (err) {
+        console.error('Lỗi parse JSON tiers:', err);
+    }
+}
     const apply_with = parseToArray(req.body.apply_with);
     const exclude_with = parseToArray(req.body.exclude_with);
 
@@ -2711,7 +2876,7 @@ app.post('/edit-promotion/:id', requireAuth, async (req, res) => {
     const updatePayload = {
       name, description, start_date, end_date, group_name,
       channel: channel || 'ALL', promo_type, coupon_code: coupon_code || null,
-      coupon_list: couponListData, detail_fields: detail || {},
+      coupon_list: couponListData, detail_fields: finalDetail || {},
       
       // --- CÁC TRƯỜNG MỚI ---
       show_multiple_in_group: req.body.show_multiple_in_group === 'on',
@@ -2730,7 +2895,7 @@ app.post('/edit-promotion/:id', requireAuth, async (req, res) => {
           uniq(parseSkus(apply_brands)).forEach(b => uniq(parseSkus(apply_subcats)).forEach(s => bs.push({ brand: String(b), subcat_id: String(s) })));
           return bs.length ? bs : null;
         })() : null,
-
+        
       // Update giá trị giảm
       discount_value_type, discount_value, max_discount_amount, min_order_value,
       updated_at: new Date().toISOString()
@@ -5900,6 +6065,7 @@ app.post('/api/admin/event-settings/update', requireAuth, requireManager, async 
 // ============================================================
 // 1. API WORKLIST (ĐÃ FIX LỖI "GROUP BY AGGREGATION")
 // ============================================================
+// === API WORKLIST (Đã cập nhật: Lọc cứng khi chọn "Được phân bổ") ===
 app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
     try {
         const user = req.session.user;
@@ -5907,23 +6073,62 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
         const pageSize = 20; 
         const offset = (page - 1) * pageSize;
         
-        const { sort, tax, status, month, branch, q, type, emp, excludeGrab } = req.query;
+        // Lấy các tham số từ Frontend
+        const { sort, tax, status, month, branch, q, type, emp, excludeGrab, showAssigned } = req.query;
+        
+        // Logic lọc
         const shouldHideGrab = excludeGrab !== 'false';
+        const isFilterAssignedOnly = showAssigned === 'true'; // <--- Biến quan trọng này
 
         if (!bigquery) return res.json({ ok: false, error: 'No BigQuery' });
 
-        // --- 1. Xử lý Thời gian ---
-        const now = new Date();
-        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        // 1. XỬ LÝ QUYỀN VÀ CHI NHÁNH (Regional Logic)
+        const isGlobalAdmin = user.branch_code === 'HCM.BD';
+        const allowedBranches = getAllowedBranches(user);
+        const isManager = user.role === 'manager' || user.role === 'admin' || isGlobalAdmin;
+
+        // 2. CHUẨN BỊ SQL QUERY
+        let whereClause = 'WHERE 1=1';
+        const params = { limit: pageSize, offset: offset };
+
+        // --- XỬ LÝ LỌC: "ĐƯỢC PHÂN BỔ BỞI QLSR" ---
+        // Logic: Nếu tích chọn -> Lấy danh sách Code từ Supabase -> Áp vào BigQuery
+        let assignedOrderCodes = [];
         
-        let filterMonth = month;
-        // Nếu search hoặc lọc nhân viên thì mặc định xem All time, ngược lại xem tháng này
-        if (!filterMonth) {
-            filterMonth = (q || emp) ? 'all' : currentMonth; 
+        // Lấy danh sách đơn được gán từ Supabase
+        // Nếu user chọn lọc theo nhân viên (emp) -> Lấy đơn gán cho nhân viên đó
+        // Nếu không -> Lấy đơn gán cho chính user đang xem (hoặc tất cả nếu là Manager muốn xem tổng)
+        let assignQuery = supabase.from('customer_assignments').select('order_code');
+        
+        if (emp) {
+            assignQuery = assignQuery.eq('assigned_to', emp);
+        } else if (!isManager) {
+            // Staff chỉ xem đơn gán cho mình
+            assignQuery = assignQuery.eq('assigned_to', user.id);
+        } 
+        // Manager xem "All" thì không filter assigned_to, lấy hết list đã gán
+
+        const { data: assignData } = await assignQuery;
+        assignedOrderCodes = (assignData || []).map(r => r.order_code);
+
+        // NẾU ĐANG TÍCH CHỌN "Được phân bổ"
+        if (isFilterAssignedOnly) {
+            if (assignedOrderCodes.length === 0) {
+                // Nếu không có đơn nào được gán -> Trả về rỗng luôn (khỏi query BQ tốn tiền)
+                return res.json({ ok: true, data: [], page: page, month: month });
+            }
+            // Thêm điều kiện lọc vào BigQuery
+            whereClause += ` AND Order_code IN UNNEST(@assignedCodes)`;
+            params.assignedCodes = assignedOrderCodes;
         }
 
-        let whereClause = 'WHERE 1=1';
-        const params = { limit: pageSize, offset: offset, filterMonth: filterMonth };
+        // --- XỬ LÝ THỜI GIAN ---
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        let filterMonth = month;
+        if (!filterMonth) filterMonth = (q || emp) ? 'all' : currentMonth; 
+        
+        params.filterMonth = filterMonth;
 
         if (filterMonth !== 'all') {
             whereClause += ` AND FORMAT_DATE('%Y-%m', Report_date) = @filterMonth`;
@@ -5933,70 +6138,79 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
             }
         }
 
-        // --- 2. Phân quyền & Lọc ---
-        const isGlobalAdmin = user.branch_code === 'HCM.BD';
-        const isManager = user.role === 'manager' || user.role === 'admin' || isGlobalAdmin;
-
+        // --- XỬ LÝ LỌC CHI NHÁNH (GIỮ NGUYÊN LOGIC CŨ) ---
         if (isGlobalAdmin) { 
-            if (branch && branch !== 'all') { whereClause += ` AND Branch_code = @branch`; params.branch = branch; }
-        } else if (isManager) { 
-            whereClause += ` AND Branch_code = @branch`; params.branch = user.branch_code;
-        } else { 
-            whereClause += ` AND LOWER(Email) = LOWER(@email)`; params.email = user.email; 
+            if (branch && branch !== 'all') { 
+                whereClause += ` AND Branch_code = @branch`; params.branch = branch; 
+            }
+        } 
+        else if (allowedBranches) {
+            // Regional Manager hoặc Manager thường
+            if (branch && branch !== 'all' && allowedBranches.includes(branch)) {
+                 whereClause += ` AND Branch_code = @branch`; params.branch = branch;
+            } else {
+                 // Nếu không chọn branch cụ thể -> Lấy tất cả branch được phép (VD: TD12 lấy cả CP46, CP67)
+                 whereClause += ` AND Branch_code IN UNNEST(@regionalBranches)`;
+                 params.regionalBranches = allowedBranches;
+            }
+        } 
+        else { 
+            // Staff (User thường)
+            if (!isFilterAssignedOnly) {
+                // Nếu KHÔNG tích ô gán -> Xem data của mình như bình thường
+                // (Logic cũ: Xem email của mình HOẶC xem đơn được gán gộp vào)
+                if (assignedOrderCodes.length > 0) {
+                     whereClause += ` AND (LOWER(Email) = LOWER(@email) OR Order_code IN UNNEST(@assignedCodes))`;
+                     params.assignedCodes = assignedOrderCodes;
+                } else {
+                     whereClause += ` AND LOWER(Email) = LOWER(@email)`;
+                }
+                params.email = user.email; 
+            }
+            // Nếu CÓ tích ô gán -> Đã xử lý ở trên (Order_code IN ...) -> Không cần filter Email nữa
         }
 
+        // Lọc theo nhân viên cụ thể (Dành cho Manager lọc view)
         if (isManager && emp && emp.trim() !== '') {
             const { data: uData } = await supabase.from('users').select('email').eq('id', emp).single();
             if (uData) {
-                whereClause += ` AND LOWER(Email) = LOWER(@targetEmail)`;
-                params.targetEmail = uData.email;
+                // Nếu tích "Chỉ xem gán" -> Không cần lọc email (vì đã lọc theo order_code gán cho user đó rồi)
+                if (!isFilterAssignedOnly) {
+                    whereClause += ` AND LOWER(Email) = LOWER(@targetEmail)`;
+                    params.targetEmail = uData.email;
+                }
             }
         }
 
+        // --- TÌM KIẾM ---
         if (q && q.trim() !== '') {
-    const keyword = q.trim();
-    
-    if (type === 'order_code') { 
-        whereClause += ` AND Order_code = @keyword`; 
-        params.keyword = keyword; 
-    } 
-    else if (type === 'tax_code') { 
-        // [NÂNG CẤP] TÌM KIẾM MST CÓ SỐ 0 VÀ KHÔNG SỐ 0
-        // Logic: Tạo ra 2 biến thể keyword: Có số 0 đầu và Bỏ số 0 đầu
-        
-        // Xóa số 0 ở đầu input của user (nếu có) để lấy phần "gốc"
-        const cleanKey = keyword.replace(/^0+/, ''); 
-        
-        whereClause += ` AND (Billing_tax_code LIKE @keyRaw OR Billing_tax_code LIKE @keyNoZero OR Billing_tax_code LIKE @keyWithZero)`;
-        
-        // Trường hợp 1: Tìm đúng những gì user nhập
-        params.keyRaw = `%${keyword}%`;
-        // Trường hợp 2: Tìm dạng không có số 0 ở đầu (VD: user nhập 030 -> tìm %30%)
-        params.keyNoZero = `%${cleanKey}%`;
-        // Trường hợp 3: Tìm dạng có số 0 ở đầu (VD: user nhập 30 -> tìm %030%)
-        params.keyWithZero = `%0${cleanKey}%`;
-        
-    } 
-    else { 
-        whereClause += ` AND LOWER(Customer_full_name) LIKE LOWER(@keyword)`; 
-        params.keyword = `%${keyword}%`; 
-    }
-}
+            const keyword = q.trim();
+            if (type === 'order_code') { 
+                whereClause += ` AND Order_code = @keyword`; params.keyword = keyword; 
+            } else if (type === 'tax_code') { 
+                const cleanKey = keyword.replace(/^0+/, ''); 
+                whereClause += ` AND (Billing_tax_code LIKE @keyRaw OR Billing_tax_code LIKE @keyNoZero OR Billing_tax_code LIKE @keyWithZero)`;
+                params.keyRaw = `%${keyword}%`; params.keyNoZero = `%${cleanKey}%`; params.keyWithZero = `%0${cleanKey}%`;
+            } else { 
+                whereClause += ` AND LOWER(Customer_full_name) LIKE LOWER(@keyword)`; 
+                params.keyword = `%${keyword}%`; 
+            }
+        }
+
+        // --- CÁC BỘ LỌC KHÁC ---
         if (tax === 'has_tax') whereClause += ` AND Billing_tax_code IS NOT NULL AND LENGTH(CAST(Billing_tax_code AS STRING)) > 5`;
         else if (tax === 'no_tax') whereClause += ` AND (Billing_tax_code IS NULL OR Billing_tax_code = '' OR LENGTH(CAST(Billing_tax_code AS STRING)) <= 5)`;
-        if (shouldHideGrab) {
-    whereClause += ` AND Billing_tax_code != '0316032128'`;
-}
+        if (shouldHideGrab) whereClause += ` AND Billing_tax_code != '0316032128'`;
 
-
+        // --- SORTING ---
         let orderBy = 'ORDER BY Total_Revenue DESC';
         if (sort === 'date_desc') orderBy = 'ORDER BY Max_Date DESC';
         if (sort === 'price_asc') orderBy = 'ORDER BY Total_Revenue ASC';
         if (sort === 'date_asc') orderBy = 'ORDER BY Max_Date ASC';
 
-        const tableName = '`nimble-volt-459313-b8.sales.raw_sales_orders`';
-        
-        // --- QUERY FIX LỖI GROUP BY ---
+        // TÊN BẢNG (Dùng View mới nhất)
+        const tableName = '`nimble-volt-459313-b8.sales.raw_sales_orders_all`';
+
         const query = `
             WITH OrderSummary AS (
                 SELECT 
@@ -6007,17 +6221,14 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
                     MAX(Branch_code) as Branch_code,
                     MAX(Email) as Sales_Email,
                     SUM(Revenue_with_VAT) as Order_Total_Val,
-                    STRING_AGG(CONCAT('<span style="color:#2563eb; font-weight:700;">', CAST(SKU AS STRING), '</span> - ', SKU_name, ' <span style="color:#64748b;">(x', CAST(Quantity AS STRING), ')</span>'), '<br>') as Full_Product_Info,
-                    ANY_VALUE(CAST(SKU AS STRING)) as SKU_Rep
+                    STRING_AGG(CONCAT('<span style="color:#2563eb; font-weight:700;">', CAST(SKU AS STRING), '</span> - ', SKU_name, ' <span style="color:#64748b;">(x', CAST(Quantity AS STRING), ')</span>'), '<br>') as Full_Product_Info
                 FROM ${tableName}
                 ${whereClause}
                 GROUP BY Order_code
             )
             SELECT
-                -- [FIX] Bỏ hàm MAX() đi, lấy trực tiếp tên cột
                 COALESCE(Customer_full_name, 'Khách lẻ') as Customer_Name,
                 IFNULL(Billing_tax_code, '') as Tax_Code,
-                
                 COUNT(Order_code) as Order_Count,
                 CAST(SUM(Order_Total_Val) AS FLOAT64) as Total_Revenue,
                 MAX(Report_date) as Max_Date,
@@ -6027,12 +6238,10 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
                     Branch_code,
                     Sales_Email,
                     CAST(Order_Total_Val AS FLOAT64) as Revenue,
-                    SKU_Rep as SKU,
                     Full_Product_Info as Product_Display_Html, 
                     1 as Quantity
                 )) as Orders
             FROM OrderSummary
-            -- [FIX] Group by theo số thứ tự cột (1=Name, 2=TaxCode) cho an toàn
             GROUP BY 1, 2
             ${orderBy}
             LIMIT @limit OFFSET @offset
@@ -6040,16 +6249,18 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
 
         const [rows] = await bigquery.query({ query, params });
 
-        // --- Xử lý trạng thái (Giữ nguyên) ---
+        // --- XỬ LÝ MAPPING LOGS & ASSIGNMENT FLAG ---
         if (rows.length > 0) {
             let allOrderCodes = [];
             rows.forEach(row => { if(row.Orders) row.Orders.forEach(o => allOrderCodes.push(o.Order_code)); });
 
-            const { data: logs } = await supabase
-                .from('customer_care_logs')
-                .select('order_code, result')
-                .in('order_code', allOrderCodes)
-                .order('created_at', { ascending: false });
+            // Fetch Logs
+            const { data: logs } = await supabase.from('customer_care_logs').select('order_code, result').in('order_code', allOrderCodes).order('created_at', { ascending: false });
+            
+            // Fetch Assignments (để tô màu UI)
+            // Lấy lại danh sách gán để check flag hiển thị
+            const { data: assignments } = await supabase.from('customer_assignments').select('order_code').in('order_code', allOrderCodes);
+            const assignedSet = new Set((assignments || []).map(a => a.order_code));
 
             const logMap = new Map();
             (logs || []).forEach(l => { if (!logMap.has(l.order_code)) logMap.set(l.order_code, l); });
@@ -6057,21 +6268,28 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
             rows.forEach(customer => {
                 let caredCount = 0;
                 let hasClosedOrder = false;
+                let isAssignedCustomer = false;
+
                 if(customer.Orders) {
                     customer.Orders = customer.Orders.map(o => {
-                        let d = o.Report_date;
-                        if (d && d.value) d = d.value;
+                        let d = o.Report_date; if (d && d.value) d = d.value;
+                        
                         const log = logMap.get(o.Order_code);
                         if(log) { caredCount++; if ((log.result||'').toLowerCase().includes('chốt')) hasClosedOrder = true; }
-                        const status = log ? 'Đã chăm sóc' : 'Chưa chăm sóc';
-                        const result = log?.result || '';
-                        return { ...o, Report_date: d, status, result };
+                        
+                        const isAssigned = assignedSet.has(o.Order_code);
+                        if (isAssigned) isAssignedCustomer = true;
+
+                        return { ...o, Report_date: d, status: log ? 'Đã chăm sóc' : 'Chưa chăm sóc', result: log?.result || '', is_assigned: isAssigned };
                     });
                 }
                 if (hasClosedOrder) customer.Care_Status = 'done';
                 else if (caredCount > 0) customer.Care_Status = 'partial';
                 else customer.Care_Status = 'uncared';
+                
+                customer.is_assigned_group = isAssignedCustomer;
 
+                // Lọc theo Status (cared/uncared/done)
                 if (status && status !== 'all') {
                     if (status === 'done' && customer.Care_Status !== 'done') customer.hidden = true;
                     if (status === 'caring' && customer.Care_Status !== 'partial') customer.hidden = true;
@@ -6081,16 +6299,47 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
             const filteredRows = rows.filter(r => !r.hidden);
             return res.json({ ok: true, data: filteredRows, page: page, month: filterMonth });
         }
-
         res.json({ ok: true, data: [], page: page, month: filterMonth });
-
     } catch (e) {
         console.error('[Worklist Error]', e);
         res.status(500).json({ ok: false, error: e.message });
     }
 });
 
-// --- ROUTE HIỂN THỊ TRANG CRM (ĐÃ FIX LỖI BIẾN branchStaffs) ---
+app.post('/api/cskh/assign', requireAuth, requireManager, async (req, res) => {
+    try {
+        const { order_codes, target_user_id } = req.body;
+
+        if (!order_codes || !Array.isArray(order_codes) || order_codes.length === 0) {
+            return res.status(400).json({ ok: false, error: 'Chưa chọn khách hàng nào.' });
+        }
+        if (!target_user_id) {
+            return res.status(400).json({ ok: false, error: 'Chưa chọn nhân viên tiếp nhận.' });
+        }
+
+        // Chuẩn bị dữ liệu upsert
+        const assignments = order_codes.map(code => ({
+            order_code: code,
+            assigned_to: target_user_id,
+            assigned_by: req.session.user.id,
+            created_at: new Date()
+        }));
+
+        const { error } = await supabase
+            .from('customer_assignments')
+            .upsert(assignments, { onConflict: 'order_code' });
+
+        if (error) throw error;
+
+        res.json({ ok: true, message: `Đã phân bổ ${order_codes.length} đơn hàng.` });
+
+    } catch (e) {
+        console.error('Assign Error:', e);
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+// --- DASHBOARD CHĂM SÓC KHÁCH HÀNG (LOGIC CŨ + FIX REGIONAL) ---
 app.get('/customer-care', requireAuth, async (req, res) => {
     try {
         const user = req.session.user;
@@ -6098,6 +6347,10 @@ app.get('/customer-care', requireAuth, async (req, res) => {
         // 1. XÁC ĐỊNH QUYỀN
         const isGlobalAdmin = user.branch_code === 'HCM.BD';
         const isManager = user.role === 'manager' || user.role === 'admin' || isGlobalAdmin;
+
+        // Lấy danh sách chi nhánh được phép xem (Regional Logic)
+        // Ví dụ: TD12 -> ['CP46', 'CP67']
+        const allowedBranches = getAllowedBranches(user);
 
         // 2. BỘ LỌC THỜI GIAN
         const now = new Date();
@@ -6111,15 +6364,14 @@ app.get('/customer-care', requireAuth, async (req, res) => {
         endDateObj.setHours(23, 59, 59, 999);
         const endISO = endDateObj.toISOString();
 
-        // 3. BỘ LỌC ĐỐI TƯỢNG
-        let filterBranch = user.branch_code;
-        let filterEmpId = null;
+        // 3. XỬ LÝ LỌC BRANCH & EMP TRÊN GIAO DIỆN
+        let filterBranch = req.query.branch || null;
+        let filterEmpId = req.query.emp || null;
+        
+        // Nếu là Manager/User thường, ép buộc filterEmpId nếu họ tự lọc
+        if (!isManager) filterEmpId = user.id;
 
-        if (isGlobalAdmin) filterBranch = req.query.branch || null; 
-        if (isManager) filterEmpId = req.query.emp || null;
-        else filterEmpId = user.id;
-
-        // 4. TRUY VẤN DỮ LIỆU
+        // 4. TRUY VẤN DỮ LIỆU (SUPABASE ONLY - LOGIC CŨ)
         let baseQuery = supabase
             .from('customer_care_logs')
             .select(`
@@ -6130,13 +6382,33 @@ app.get('/customer-care', requireAuth, async (req, res) => {
             .gte('created_at', startISO)
             .lte('created_at', endISO);
 
-        if (filterBranch) baseQuery = baseQuery.eq('users.branch_code', filterBranch);
+        // --- FIX LOGIC REGIONAL TẠI ĐÂY ---
+        if (isGlobalAdmin) {
+            // Admin: Nếu chọn branch thì lọc, không thì lấy hết
+            if (filterBranch && filterBranch !== 'all') {
+                baseQuery = baseQuery.eq('users.branch_code', filterBranch);
+            }
+        } else if (allowedBranches) {
+            // Regional (TD12/BD12) hoặc Manager thường
+            if (filterBranch && allowedBranches.includes(filterBranch)) {
+                // Nếu User chọn cụ thể 1 branch (VD: TD12 chọn xem CP46)
+                baseQuery = baseQuery.eq('users.branch_code', filterBranch);
+            } else {
+                // Nếu không chọn, lấy TẤT CẢ branch con (VD: TD12 lấy cả CP46, CP67)
+                baseQuery = baseQuery.in('users.branch_code', allowedBranches);
+            }
+        } else {
+            // Trường hợp dự phòng (User thường không có cấu hình)
+            baseQuery = baseQuery.eq('users.branch_code', user.branch_code);
+        }
+
+        // Lọc theo nhân viên
         if (filterEmpId) baseQuery = baseQuery.eq('created_by', filterEmpId);
 
         const { data: rawData, error } = await baseQuery;
         if (error) throw error;
 
-        // 5. TÍNH TOÁN CHỈ SỐ
+        // 5. TÍNH TOÁN CHỈ SỐ (GIỮ NGUYÊN LOGIC CŨ CỦA BẠN)
         let totalRevenue = 0;
         let uniqueOrders = new Set();
         let closedCount = 0;
@@ -6160,7 +6432,7 @@ app.get('/customer-care', requireAuth, async (req, res) => {
             if (!userTotalMap[uid]) userTotalMap[uid] = { id: uid, name: u.full_name || u.email, branch: branch, total: 0 };
             userTotalMap[uid].total += rev;
 
-            // Matrix
+            // Matrix (Tự động gom nhóm theo Branch lấy được từ Logs)
             if (!matrixData[branch]) matrixData[branch] = {};
             if (!matrixData[branch][uid]) matrixData[branch][uid] = { name: u.full_name || u.email, total_care: 0, total_revenue: 0, results: {} };
             
@@ -6171,8 +6443,8 @@ app.get('/customer-care', requireAuth, async (req, res) => {
             allResultTypes.add(result);
         });
 
+        // ... Các phần sort ranking giữ nguyên ...
         const rankingList = Object.values(userTotalMap).sort((a, b) => b.total - a.total);
-        
         let currentRank = '--';
         const targetRankId = filterEmpId || user.id;
         const rankIdx = rankingList.findIndex(x => x.id === targetRankId);
@@ -6183,49 +6455,58 @@ app.get('/customer-care', requireAuth, async (req, res) => {
             return a.localeCompare(b);
         });
 
-        // 6. LẤY DANH SÁCH NHÂN VIÊN
+        // 6. LẤY DANH SÁCH NHÂN VIÊN (ĐỂ FILL DROPDOWN)
         let staffList = [];
         let branchList = [];
 
         if (isManager) {
+            // Lấy danh sách Branch Dropdown
             if (isGlobalAdmin) {
                 const { data: branches } = await supabase.from('users').select('branch_code').neq('branch_code', null);
                 branchList = [...new Set((branches||[]).map(b=>b.branch_code))].sort();
+            } else if (allowedBranches) {
+                branchList = allowedBranches.sort();
+            } else {
+                branchList = [user.branch_code];
             }
             
+            // Lấy danh sách Staff Dropdown
             let staffQuery = supabase.from('users').select('id, email, full_name, branch_code').eq('role', 'staff');
-            if (filterBranch) staffQuery = staffQuery.eq('branch_code', filterBranch);
             
+            if (isGlobalAdmin) {
+                 if (filterBranch) staffQuery = staffQuery.eq('branch_code', filterBranch);
+            } else if (allowedBranches) {
+                 // Regional: Nếu filter 1 branch thì lấy staff branch đó, ko thì lấy hết staff của region
+                 if (filterBranch && allowedBranches.includes(filterBranch)) {
+                     staffQuery = staffQuery.eq('branch_code', filterBranch);
+                 } else {
+                     staffQuery = staffQuery.in('branch_code', allowedBranches);
+                 }
+            }
             const { data: staffs } = await staffQuery;
             staffList = staffs || [];
         }
 
-        // 7. RENDER (SỬA LỖI TẠI ĐÂY: mapping staffList -> branchStaffs)
+        // 7. RENDER
         res.render('customer-care', {
             title: 'Chăm sóc khách hàng',
             currentPage: 'customer-care',
             user: user,
-            
-            isGlobalAdmin,
-            isManager,
+            isGlobalAdmin, isManager,
             branchList,
-            branchStaffs: staffList, // <--- QUAN TRỌNG: Đổi tên biến này cho khớp với EJS
-            
+            branchStaffs: staffList, // Danh sách nhân viên (đã lọc theo Region)
             filters: {
-                start: startDateRaw,
-                end: endDateRaw,
-                branch: filterBranch,
-                emp: filterEmpId,
+                start: startDateRaw, end: endDateRaw,
+                branch: filterBranch, emp: filterEmpId,
                 excludeGrab: req.query.excludeGrab
             },
-
             dashboard: {
                 revenue: totalRevenue,
                 cared_count: uniqueOrders.size,
                 closed_count: closedCount,
                 rank: currentRank,
                 ranking_list: rankingList,
-                matrix_data: matrixData,
+                matrix_data: matrixData, // Data này sẽ tự chia thành 2 bảng nếu logs có cả CP46 và CP67
                 result_columns: resultColumns
             }
         });
@@ -6233,14 +6514,12 @@ app.get('/customer-care', requireAuth, async (req, res) => {
     } catch (e) {
         console.error(e);
         res.render('customer-care', { 
-            title: 'Lỗi', currentPage: 'customer-care', 
-            user: req.session.user, isGlobalAdmin: false, isManager: false,
-            branchList:[], branchStaffs: [], filters: {}, dashboard: {}, 
+            title: 'Lỗi', currentPage: 'customer-care', user: req.session.user, 
+            isGlobalAdmin: false, isManager: false, branchList:[], branchStaffs: [], filters: {}, dashboard: {}, 
             error: e.message 
         });
     }
 });
-
 
 
 // ============================================================
@@ -6287,7 +6566,7 @@ app.get('/api/cskh/search', requireAuth, async (req, res) => {
             else searchClause = `AND LOWER(Customer_full_name) LIKE LOWER(@query)`;
         }
 
-        const tableName = '`nimble-volt-459313-b8.sales.raw_sales_orders`'; 
+        const tableName = '`nimble-volt-459313-b8.sales.raw_sales_orders_all`'; 
         
         const query = `
             WITH OrderSummary AS (
@@ -6625,7 +6904,7 @@ async function getPerformanceStats(options) {
             IFNULL(SUM(Revenue), 0) as total_revenue, 
             IFNULL(SUM(Sale_point), 0) as total_kfi,
             MAX(Report_date) as max_date
-        FROM \`nimble-volt-459313-b8.sales.raw_sales_orders\`
+        FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\`
         ${whereClause}
         ${groupByClause}
     `;
@@ -7015,31 +7294,62 @@ app.get('/api/admin/search-sku-stock', requireAuth, async (req, res) => {
 });
 
 // API: Lấy chi tiết danh sách đơn hàng từ Matrix (Popup)
+// --- API LẤY CHI TIẾT MATRIX (Đã Fix quyền cho Regional Manager) ---
 app.get('/api/cskh/matrix-detail', requireAuth, async (req, res) => {
     try {
         const { userId, resultType, month, branch } = req.query;
         const currentUser = req.session.user;
 
-        // 1. PHÂN QUYỀN (Security)
-        // Nếu là Staff: Chỉ được xem của chính mình
-        if (currentUser.role === 'staff' && currentUser.id !== userId) {
-            return res.status(403).json({ ok: false, error: 'Bạn chỉ có quyền xem dữ liệu của mình.' });
-        }
-        // Nếu là Manager: Chỉ được xem nhân viên thuộc Branch mình (trừ khi là Admin HCM.BD)
-        if (currentUser.role === 'manager' && currentUser.branch_code !== 'HCM.BD') {
-             // Cần check xem userId kia có thuộc branch của manager này không (bỏ qua bước này để tối ưu, giả định UI đã lọc đúng)
-             // Tối thiểu check branch gửi lên phải khớp
-             if (branch && branch !== currentUser.branch_code) {
-                 return res.status(403).json({ ok: false, error: 'Không có quyền truy cập branch này.' });
-             }
+        // ============================================================
+        // 1. PHÂN QUYỀN (FIX LỖI: Hỗ trợ Regional Manager xem branch con)
+        // ============================================================
+        
+        const isGlobalAdmin = currentUser.branch_code === 'HCM.BD';
+        // Lấy danh sách các chi nhánh được phép (VD: TD12 -> ['CP46', 'CP67'])
+        const allowedBranches = getAllowedBranches(currentUser); 
+
+        let hasAccess = false;
+
+        if (currentUser.role === 'staff') {
+            // Staff: Chỉ được xem của chính mình
+            if (currentUser.id === userId) hasAccess = true;
+        } 
+        else if (isGlobalAdmin) {
+            // Admin: Xem tất cả
+            hasAccess = true;
+        } 
+        else if (currentUser.role === 'manager' || currentUser.role === 'admin') {
+            // Manager/Regional Check
+            if (allowedBranches) {
+                // Nếu là Regional (TD12), check xem branch đang xem (CP46) có nằm trong list cho phép không
+                if (allowedBranches.includes(branch)) {
+                    hasAccess = true;
+                }
+            }
+            
+            // Trường hợp fallback: Xem chính branch của mình
+            if (currentUser.branch_code === branch) {
+                hasAccess = true;
+            }
         }
 
-        // 2. Lấy danh sách Order Code từ Supabase (Logs)
+        if (!hasAccess) {
+            console.log(`[Access Denied] User: ${currentUser.branch_code}, Target: ${branch}`);
+            return res.status(403).json({ ok: false, error: 'Không có quyền truy cập branch này.' });
+        }
+
+        // ============================================================
+        // 2. LOGIC LẤY DỮ LIỆU (Giữ nguyên code của bạn)
+        // ============================================================
+
         // Lọc theo User, Result, và Tháng
         const startOfMonth = new Date(month + '-01').toISOString();
-        // Tính ngày cuối tháng
-        const [y, m] = month.split('-').map(Number);
-        const endOfMonth = new Date(y, m, 0, 23, 59, 59).toISOString();
+        // Tính ngày cuối tháng an toàn
+        const d = new Date(month + '-01');
+        d.setMonth(d.getMonth() + 1);
+        d.setDate(0);
+        d.setHours(23, 59, 59, 999);
+        const endOfMonth = d.toISOString();
 
         let logQuery = supabase
             .from('customer_care_logs')
@@ -7052,8 +7362,6 @@ app.get('/api/cskh/matrix-detail', requireAuth, async (req, res) => {
             .eq('created_by', userId)
             .gte('created_at', startOfMonth)
             .lte('created_at', endOfMonth);
-
-
             
         if (resultType) {
             logQuery = logQuery.eq('result', resultType);
@@ -7068,29 +7376,30 @@ app.get('/api/cskh/matrix-detail', requireAuth, async (req, res) => {
 
         const orderCodes = logs.map(l => l.order_code);
 
-        // 3. Lấy thông tin chi tiết (MST, Tên KH, SĐT) từ BigQuery
-        // Vì Supabase log có thể không lưu MST hoặc SĐT mới nhất
+        // 3. Lấy thông tin chi tiết (MST, Tên KH) từ BigQuery
         if (!bigquery) {
-            // Fallback nếu không có BQ: Trả về dữ liệu từ Log
+            // Fallback nếu không có BQ
             return res.json({ ok: true, data: logs.map((l, idx) => ({
                 stt: idx + 1,
                 branch: l.users?.branch_code,
                 salesman: l.users?.full_name,
                 order_code: l.order_code,
-                customer_name: l.customer_full_name || 'N/A', // Cần sửa log query để lấy thêm field này nếu fallback
+                customer_name: 'N/A (No BQ)',
                 phone: l.phone_number || 'N/A',
-                tax_code: 'N/A (No BQ)',
-                revenue: l.revenue_at_care
+                tax_code: '',
+                revenue: l.revenue_at_care,
+                note: l.sale_note
             }))});
         }
 
+        // Query BigQuery để lấy tên khách chuẩn và MST
         const bqQuery = `
             SELECT 
                 Order_code, 
                 MAX(Customer_full_name) as Customer_Name,
                 MAX(Billing_tax_code) as Tax_Code,
                 MAX(Branch_code) as Branch
-            FROM \`nimble-volt-459313-b8.sales.raw_sales_orders\`
+            FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\`
             WHERE Order_code IN UNNEST(@codes)
             GROUP BY 1
         `;
@@ -7112,15 +7421,13 @@ app.get('/api/cskh/matrix-detail', requireAuth, async (req, res) => {
                 salesman: log.users?.full_name || '',
                 order_code: log.order_code,
                 customer_name: bqInfo.Customer_Name || 'Khách lẻ',
-                
-                // [QUAN TRỌNG] Lấy SĐT từ bảng Log User nhập
-                phone: log.phone_number || '', 
-                
+                phone: log.phone_number || '', // Ưu tiên lấy SĐT nhân viên nhập lúc care
                 tax_code: bqInfo.Tax_Code || '',
                 note: log.sale_note || '',
                 revenue: log.revenue_at_care
             };
         });
+
         res.json({ ok: true, data: finalData });
 
     } catch (e) {
@@ -8707,6 +9014,32 @@ app.get('/kfi-program', requireAuth, async (req, res) => {
         res.status(500).send('Lỗi hệ thống: ' + e.message);
     }
 });
+
+
+// [THÊM VÀO server.js]
+
+// 1. API Xoá nhiều (Bulk Delete)
+app.post('/api/promotions/bulk-delete', requireAuth, requireManager, async (req, res) => {
+    try {
+        const { ids } = req.body; // Mảng id: [1, 2, 3]
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ ok: false, error: 'Chưa chọn CTKM nào.' });
+        }
+
+        // Xoá các bảng phụ trước (nếu không setup CASCADE ở DB)
+        await supabase.from('promotion_skus').delete().in('promotion_id', ids);
+        await supabase.from('promotion_excluded_skus').delete().in('promotion_id', ids);
+        
+        // Xoá bảng chính
+        const { error } = await supabase.from('promotions').delete().in('id', ids);
+        if (error) throw error;
+
+        res.json({ ok: true, message: `Đã xoá ${ids.length} CTKM.` });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
 
 
 // ------------------------- Start server / export -------------------------

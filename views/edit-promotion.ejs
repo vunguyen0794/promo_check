@@ -56,6 +56,35 @@
         .sku-link-row { grid-template-columns: 1fr; }
         .detail-grid { display: block; overflow-x: auto; }
     }
+
+    /* --- FIX LAYOUT TIER PRICE --- */
+#tier-price-config {
+    background: #f8fafc;        /* Màu nền nhẹ cho nổi bật */
+    border: 1px solid #3b82f6;   /* Viền xanh chủ đạo */
+    border-radius: 8px;          /* Bo góc */
+    padding: 20px;               /* Đệm bên trong (Fix lỗi dính sát) */
+    margin-top: 20px;            /* Cách bên trên (Fix lỗi chồng chéo) */
+    margin-bottom: 20px;         /* Cách bên dưới */
+    clear: both;                 /* Đảm bảo không bị các phần tử float đè lên */
+}
+
+/* Style cho bảng nhập mốc */
+#tier-price-config table {
+    background: #fff;
+    width: 100%;
+    margin-bottom: 10px;
+}
+#tier-price-config th {
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-size: 13px;
+    padding: 8px;
+}
+#tier-price-config input.tier-qty, 
+#tier-price-config input.tier-disc {
+    text-align: center;
+    font-weight: 600;
+}
 </style>
 
 <div class="edit-promotion-container">
@@ -276,9 +305,92 @@
                 <p class="hint">Các SKU trong combo sẽ tự động được thêm vào phạm vi tìm kiếm.</p>
                 <div id="comboContainer"></div>
                 <div class="add-btn-dashed" onclick="addComboRow()">+ Thêm bộ Combo</div>
+                <div class="form-section" style="background:#f8fafc; border:1px solid #e2e8f0;">
+    <h3 style="color:#2563eb; margin-bottom:15px; border-bottom:1px dashed #cbd5e1; padding-bottom:5px;">
+        🧩 Cấu hình Combo / Ghép SP
+    </h3>
+
+    <div class="form-group">
+        <label>Mã nhóm hàng ghép (Subcat)</label>
+        <input type="text" name="detail[combo_partner_subcat]" class="form-control" placeholder="VD: NH01-02">
+        <small class="text-muted">Nhập mã nhóm hàng để lấy toàn bộ sản phẩm trong nhóm đó.</small>
+    </div>
+
+    <div class="form-group">
+        <label>Hoặc: Danh sách SKU cụ thể (Ưu tiên)</label>
+        <textarea name="detail[combo_sku_list]" class="form-control" rows="3" 
+                  placeholder="Paste danh sách mã SKU vào đây (VD: 23011, 23022...). Nếu nhập ô này, Subcat ở trên sẽ bị bỏ qua."></textarea>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="form-group">
+                <label>Giá trị giảm</label>
+                <input type="number" name="detail[combo_discount_val]" class="form-control" placeholder="0">
             </div>
         </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                <label>Loại giảm</label>
+                <select name="detail[combo_discount_type]" class="form-control">
+                    <option value="amount">VNĐ (đ)</option>
+                    <option value="percent">%</option>
+                </select>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                <label>Đơn tối thiểu (đ)</label>
+                <input type="number" name="detail[combo_min_order]" class="form-control" placeholder="0 = Không giới hạn">
+            </div>
+        </div>
+    </div>
+</div>
 
+
+  <div style="margin-top:10px;" class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="trigger_tier_price" onchange="toggleTierConfig()">
+    <label class="form-check-label fw-bold text-primary" for="trigger_tier_price">
+        📦 Kích hoạt: Mua nhiều giảm sâu (Tier Price)
+    </label>
+</div>
+
+<div id="tier-price-config" style="display: none;">
+    <div style="font-weight: 700; color: #1e40af; margin-bottom: 10px; text-transform: uppercase; border-bottom: 1px dashed #93c5fd; padding-bottom: 5px;">
+        <i class="fas fa-layer-group"></i> Cấu hình Mốc Số Lượng
+    </div>
+
+    <div style="font-size: 13px; color: #1e3a8a; background: #dbeafe; padding: 8px 12px; border-radius: 6px; margin-bottom: 15px;">
+        ℹ️ <strong>Lưu ý:</strong> Bảng giá này sẽ áp dụng cho các sản phẩm bạn chọn ở mục "4. PHẠM VI SẢN PHẨM".
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered text-center align-middle">
+            <thead>
+                <tr>
+                    <th style="width: 30%;">Mua từ số lượng (Min)</th>
+                    <th style="width: 35%;">Mức giảm giá</th>
+                    <th style="width: 25%;">Đơn vị</th>
+                    <th style="width: 10%;">Xóa</th>
+                </tr>
+            </thead>
+            <tbody id="tier-rows">
+                </tbody>
+        </table>
+    </div>
+
+    <button type="button" class="add-btn-dashed" onclick="addTierRow()" style="margin-top:0;">
+        + Thêm mốc số lượng
+    </button>
+    
+    <div style="margin-top: 8px; font-size: 12px; color: #ea580c; font-style: italic;">
+        * Giá trị giảm được tính trên đơn giá mỗi sản phẩm.
+    </div>
+
+
+</div>
+                </div>
+            </div>
         <div class="form-section">
             <h3>3. Nội dung & Quy định</h3>
             <div class="rte-toolbar" id="rteToolbar">
@@ -790,13 +902,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
-
+        
         toggleDiscountInputs();
         toggleScopeFields();
         handlePromoTypeChange();
         setTimeout(() => { window.isEditModeLoading = false; }, 500);
     })();
-
+    
     // --- 6. SUBMIT ---
     const promoForm = document.getElementById('promoForm');
     if (promoForm) {
@@ -809,6 +921,150 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+
+// HÀM BẬT TẮT KHỐI VOLUME
+function toggleVolumeBlock(checkbox) {
+    const block = document.getElementById('volumeSettings');
+    if (block) {
+        block.style.display = checkbox.checked ? 'block' : 'none';
+    }
+}
+
+// BỔ SUNG LOGIC VÀO HÀM LOAD DỮ LIỆU TỰ ĐỘNG
+// Tìm đoạn: setTimeout(() => { window.isEditModeLoading = false; }, 500);
+// Và chèn đoạn này vào NGAY TRƯỚC dòng đó:
+
+/* --- [MỚI] Tự động bật khối Volume nếu có dữ liệu cũ --- */
+const volSubcat = document.querySelector('input[name="detail[volume_subcat]"]');
+if (volSubcat && volSubcat.value) {
+    const chk = document.getElementById('chkVolumeToggle');
+    if (chk) {
+        chk.checked = true;
+        toggleVolumeBlock(chk);
+    }
+}
+/* ----------------------------------------------------- */
+
+
+</script>
+<script>
+    // 1. Toggle hiển thị
+    function toggleTierConfig() {
+        const checkbox = document.getElementById('trigger_tier_price');
+        const container = document.getElementById('tier-price-config');
+        if (checkbox && container) {
+            container.style.display = checkbox.checked ? 'block' : 'none';
+            // Nếu bật lên mà trống thì thêm dòng mẫu
+            const tbody = document.getElementById('tier-rows');
+            if (checkbox.checked && tbody.children.length === 0 && !window.isLoadingData) {
+                addTierRow();
+            }
+        }
+    }
+
+    // 2. Thêm dòng mốc (Chỉ vẽ giao diện, chưa tạo input name vội)
+    function addTierRow(data = {}) {
+        const tbody = document.getElementById('tier-rows');
+        const tr = document.createElement('tr');
+        tr.className = 'tier-data-row'; // Class để dễ select khi submit
+        
+        const qty = data.min_qty || 2;
+        const disc = data.discount || 0;
+        const type = data.type || 'amount';
+
+        tr.innerHTML = `
+            <td>
+                <input type="number" class="form-control text-center tier-qty" value="${qty}" min="1" placeholder="SL">
+            </td>
+            <td>
+                <input type="number" class="form-control text-end tier-disc" value="${disc}" min="0" placeholder="Giảm">
+            </td>
+            <td>
+                <select class="form-control tier-type">
+                    <option value="amount" ${type === 'amount' ? 'selected' : ''}>VNĐ (đ)</option>
+                    <option value="percent" ${type === 'percent' ? 'selected' : ''}>%</option>
+                </select>
+            </td>
+            <td style="text-align:center;">
+                <button type="button" onclick="this.closest('tr').remove()" style="color:red; border:none; background:none; cursor:pointer;">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    // 3. Load dữ liệu cũ
+    document.addEventListener('DOMContentLoaded', function() {
+        window.isLoadingData = true;
+        try {
+            var details = <%- JSON.stringify(promotion.detail_fields || {}) %>;
+            
+            // Check Tier Price
+            if (details.tiers && Array.isArray(details.tiers) && details.tiers.length > 0) {
+                const chk = document.getElementById('trigger_tier_price');
+                if(chk) {
+                    chk.checked = true;
+                    toggleTierConfig();
+                }
+                const tbody = document.getElementById('tier-rows');
+                if(tbody) {
+                    tbody.innerHTML = ''; 
+                    details.tiers.forEach(t => addTierRow(t));
+                }
+            }
+        } catch (e) { console.error(e); }
+        window.isLoadingData = false;
+    });
+
+    // 4. [QUAN TRỌNG NHẤT] Xử lý trước khi Submit
+    // Tạo dynamic input name="detail[tiers][0][min_qty]" để backend hiểu là array
+    const formPromo = document.getElementById('promoForm') || document.querySelector('form[action^="/edit-promotion"]');
+    
+    if (formPromo) {
+        formPromo.addEventListener('submit', function(e) {
+            const checkbox = document.getElementById('trigger_tier_price');
+            
+            // Xóa các input hidden tiers cũ (nếu có) để tránh trùng lặp khi bấm submit nhiều lần
+            document.querySelectorAll('.tier-hidden-input').forEach(el => el.remove());
+
+            if (checkbox && checkbox.checked) {
+                const rows = document.querySelectorAll('.tier-data-row');
+                let validCount = 0;
+
+                rows.forEach((row, index) => {
+                    const qty = parseInt(row.querySelector('.tier-qty').value) || 0;
+                    const discount = parseFloat(row.querySelector('.tier-disc').value) || 0;
+                    const type = row.querySelector('.tier-type').value;
+
+                    if (qty > 0) {
+                        // Tạo input hidden ảo để gửi lên server
+                        // name="detail[tiers][0][min_qty]"
+                        createHiddenInput(formPromo, `detail[tiers][${validCount}][min_qty]`, qty);
+                        createHiddenInput(formPromo, `detail[tiers][${validCount}][discount]`, discount);
+                        createHiddenInput(formPromo, `detail[tiers][${validCount}][type]`, type);
+                        validCount++;
+                    }
+                });
+
+                if (validCount === 0) {
+                    alert('Bạn đã bật Mua nhiều giảm sâu nhưng chưa nhập mốc số lượng nào hợp lệ.');
+                    e.preventDefault();
+                    return;
+                }
+            }
+            // Nếu không check -> Không tạo input -> Server nhận detail.tiers = undefined (hoặc không update) -> Đúng ý đồ tắt.
+        });
+    }
+
+    // Helper tạo input hidden
+    function createHiddenInput(form, name, value) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        input.className = 'tier-hidden-input';
+        form.appendChild(input);
+    }
 </script>
 
-<%- include('partials/footer') %>
+<%- include('partials/footer') %>a
