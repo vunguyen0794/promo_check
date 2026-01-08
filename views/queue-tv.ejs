@@ -21,17 +21,56 @@
         .sv-card { background: #fff; border: 2px solid #e5e7eb; border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); transition: all 0.3s ease; position: relative; flex-shrink: 0; }
         .sv-card.type-service { background: #eff6ff; border-color: #1a73e8; }
         .sv-card.type-warranty { background: #fff7ed; border-color: #f59e0b; }
-        .sv-card.type-sales { background: #f0fdfa; border-color: #0d9488; }
+        
+        /* === [UPDATE 1] CSS CHO CARD LẮP RÁP (SALES) === */
+        .sv-card.type-sales { 
+            background: #f0fdfa; 
+            border-color: #0d9488;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+        }
 
         .active-flash { animation: flashBorder 1s infinite; transform: scale(1.02); z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
         @keyframes flashBorder { 0% { border-color: #dc2626; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); } 50% { border-color: #dc2626; box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { border-color: #dc2626; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
 
+        /* Số thứ tự mặc định (To) */
         .c-num { font-size: 55px; font-weight: 800; line-height: 1.1; margin: 5px 0; letter-spacing: -1px; }
+        
+        /* Tên khách mặc định (Vừa) */
+        .c-name { font-size: 22px; font-weight: 700; color: #333; margin-bottom: 5px; }
+
+        /* === [UPDATE 2] ĐIỀU CHỈNH FONT SIZE RIÊNG CHO SALES === */
+        /* Tên khách TO LÊN */
+        .type-sales .c-name {
+            font-size: 36px; 
+            color: #0f766e;
+            line-height: 1.2;
+            margin-bottom: 0;
+        }
+        /* Số thứ tự NHỎ LẠI */
+        .type-sales .c-num {
+            font-size: 24px; 
+            color: #555;
+            margin: 0;
+        }
+        /* Style cho Tên sản phẩm */
+        .product-info {
+            font-size: 18px;
+            color: #333;
+            background: #fff;
+            padding: 8px 10px;
+            border-radius: 8px;
+            margin-top: 8px;
+            border: 1px dashed #0d9488;
+            font-weight: 600;
+            display: inline-block; /* Ôm vừa nội dung */
+        }
+
         .type-service .c-num { color: #1a73e8; }
         .type-warranty .c-num { color: #d97706; }
-        .type-sales .c-num { color: #0f766e; }
-
-        .c-name { font-size: 22px; font-weight: 700; color: #333; margin-bottom: 5px; }
+        
         .c-counter { display: inline-block; background: #fff; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 14px; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 5px; }
         .c-timer { font-size: 16px; font-weight: 600; color: #fff; padding: 6px 15px; border-radius: 8px; display: inline-block; margin-top: 10px; min-width: 150px; }
         .bg-run { background: #10b981; }
@@ -45,43 +84,13 @@
         .list-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         .list-header { font-size: 16px; font-weight: 700; color: #666; margin-bottom: 10px; display: flex; justify-content: space-between; }
         .waiting-scroll { flex: 1; overflow-y: auto; padding-right: 2px; }
-        .w-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 6px; border-radius: 6px; background: #f8fafc; border-left: 3px solid #ccc; }
-        .w-item.t-S { border-left-color: #1a73e8; }
-        .w-item.t-SALES { border-left-color: #0d9488; }
-        .w-num { font-weight: 800; font-size: 18px; color: #333; }
+        .tv-waiting-card { background-color: #fffdf5; border: 2px dashed #f59e0b; border-radius: 12px; padding: 12px 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .tv-waiting-ticket { font-size: 24px; font-weight: 800; color: #333; }
+        .tv-waiting-name { font-size: 18px; font-weight: 600; color: #555; }
 
         #tvcContainer { position:fixed; inset:0; background:#000; z-index:9999; display:none; }
         #ytPlayer { width:100%; height:100%; }
         .empty-col { display: flex; flex:1; align-items: center; justify-content: center; color: #999; font-style: italic; font-size: 18px; }
-    
-        /* Style cho vé ĐANG CHỜ trên TV */
-.tv-waiting-card {
-    background-color: #fffdf5;       /* Nền vàng rất nhạt */
-    border: 2px dashed #f59e0b;      /* Viền nét đứt màu cam */
-    border-radius: 12px;
-    padding: 12px 15px;
-    margin-bottom: 12px;             /* Khoảng cách giữa các vé */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-}
-
-/* Màu số vé */
-.tv-waiting-ticket {
-    font-size: 24px;
-    font-weight: 800;
-    color: #333;
-}
-
-/* Màu tên khách */
-.tv-waiting-name {
-    font-size: 18px;
-    font-weight: 600;
-    color: #555;
-}
-    
-    
     </style>
 </head>
 <body>
@@ -102,14 +111,14 @@
                 <div class="qr-text">Quét mã lấy số và đánh giá<br>sau khi được phục vụ</div>
             </div>
             <div style="margin-top: 5px; padding: 15px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
-    <div style="font-size: 16px; color: #555; margin-bottom: 5px;">Kết nối Wifi miễn phí</div>
-    <div style="font-size: 24px; font-weight: 800; color: #333;">
-        <span style="color: #1a73e8;">Wifi:</span> Phongvu.vn
-    </div>
-    <div style="font-size: 24px; font-weight: 800; color: #333; margin-top: 5px;">
-        <span style="color: #dc3545;">Pass:</span> 18006865
-    </div>
-</div>
+                <div style="font-size: 16px; color: #555; margin-bottom: 5px;">Kết nối Wifi miễn phí</div>
+                <div style="font-size: 24px; font-weight: 800; color: #333;">
+                    <span style="color: #1a73e8;">Wifi:</span> Phongvu.vn
+                </div>
+                <div style="font-size: 24px; font-weight: 800; color: #333; margin-top: 5px;">
+                    <span style="color: #dc3545;">Pass:</span> 18006865
+                </div>
+            </div>
             <div class="list-area">
                 <div class="list-header">
                     <span>Đang chờ</span>
@@ -117,7 +126,7 @@
                 </div>
                 <div class="waiting-scroll" id="waiting-list"></div>
             </div>
-            <div style="text-align:center; margin-top:auto; font-size:30px; font-weight:800; color:#333;" id="clock">00:00</div>
+            <div style="text-align:center; margin-top:auto;" id="clock"></div>
         </div>
     </div>
     <div id="tvcContainer"><div id="ytPlayer"></div></div>
@@ -140,57 +149,39 @@
         }
 
         function onYouTubeIframeAPIReady() {
-    if (!CONFIG.hasVideo) return;
-    player = new YT.Player('ytPlayer', {
-        height: '100%', width: '100%', videoId: videoId,
-        playerVars: { 'autoplay': 1, 'controls': 0, 'mute': 1, 'loop': 1, 'playlist': videoId, 'playsinline': 1 },
-        events: { 
-            'onReady': (e) => { 
-                isPlayerReady = true; 
-                e.target.mute(); 
-                setTimeout(toggleScreen, CONFIG.showQueue);
-                
-                // === [MỚI] LOGIC RÊ CHUỘT DỪNG VIDEO ===
-                const container = document.getElementById('tvcContainer');
-                container.addEventListener('mouseenter', () => {
-                    if(isPlayerReady && player && typeof player.pauseVideo === 'function') {
-                        player.pauseVideo();
-                    }
-                });
-                container.addEventListener('mouseleave', () => {
-                    if(isPlayerReady && player && typeof player.playVideo === 'function') {
-                        player.playVideo();
-                    }
-                });
-                // ========================================
-            } 
+            if (!CONFIG.hasVideo) return;
+            player = new YT.Player('ytPlayer', {
+                height: '100%', width: '100%', videoId: videoId,
+                playerVars: { 'autoplay': 1, 'controls': 0, 'mute': 1, 'loop': 1, 'playlist': videoId, 'playsinline': 1 },
+                events: { 
+                    'onReady': (e) => { 
+                        isPlayerReady = true; e.target.mute(); 
+                        setTimeout(toggleScreen, CONFIG.showQueue);
+                        const container = document.getElementById('tvcContainer');
+                        container.addEventListener('mouseenter', () => { if(isPlayerReady && player) player.pauseVideo(); });
+                        container.addEventListener('mouseleave', () => { if(isPlayerReady && player) player.playVideo(); });
+                    } 
+                }
+            });
         }
-    });
-}
 
         let isTvc = false;
         let toggleTimer = null;
         let lastAnnounced = { SERVICE: {num:'', time:''}, SALES: {num:'', time:''} }; 
         let activeTickets = [];
-        
-        // === CỜ HIỆU LẦN ĐẦU TẢI TRANG ===
         let isFirstLoad = true;
 
-setInterval(() => {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
-    const dateStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
-    
-    // SỬA: Thêm dấu gạch đứng | ở giữa
-    document.getElementById('clock').innerHTML = `
-        <div style="display: flex; justify-content: center; align-items: baseline; gap: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-            <span style="font-size: 36px; font-weight: 800; color: #333; line-height: 1;">${timeStr}</span>
-            
-            <span style="font-size: 28px; font-weight: 300; color: #ccc;">|</span>
-            
-            <span style="font-size: 18px; font-weight: 600; color: #777;">${dateStr}</span>
-        </div>`;
-}, 1000);
+        setInterval(() => {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+            const dateStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
+            document.getElementById('clock').innerHTML = `
+                <div style="display: flex; justify-content: center; align-items: baseline; gap: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                    <span style="font-size: 36px; font-weight: 800; color: #333; line-height: 1;">${timeStr}</span>
+                    <span style="font-size: 28px; font-weight: 300; color: #ccc;">|</span>
+                    <span style="font-size: 18px; font-weight: 600; color: #777;">${dateStr}</span>
+                </div>`;
+        }, 1000);
 
         function getDiff(startTime) {
             if(!startTime) return "00:00";
@@ -221,81 +212,83 @@ setInterval(() => {
                 checkAnnounce(data.serving, 'SERVICE');
                 checkAnnounce(data.serving, 'SALES');
 
-                // Sau khi chạy xong lần đầu, tắt cờ đi để các lần sau được phép đọc
                 if(isFirstLoad) isFirstLoad = false;
 
             } catch(e) { console.error(e); }
         }
 
         function renderColumn(colType, allServing) {
-        let list = [];
-        if (colType === 'SERVICE') list = allServing.filter(x => x.service_type === 'REPAIR' || x.service_type === 'WARRANTY');
-        else list = allServing.filter(x => x.service_type === 'SALES');
+            let list = [];
+            // [LOGIC MỚI] Gộp các loại dịch vụ khác vào cột SERVICE
+            if (colType === 'SERVICE') {
+                list = allServing.filter(x => 
+                    x.service_type === 'REPAIR' || 
+                    x.service_type === 'WARRANTY' || 
+                    x.service_type === 'PICKUP' || 
+                    x.service_type === 'CHECK'
+                );
+            } 
+            else list = allServing.filter(x => x.service_type === 'SALES');
 
-        const container = document.getElementById(`col-${colType}`);
-        if (list.length === 0) { container.innerHTML = `<div class="empty-col">Quầy trống</div>`; return; }
+            const container = document.getElementById(`col-${colType}`);
+            if (list.length === 0) { container.innerHTML = `<div class="empty-col">Quầy trống</div>`; return; }
 
-        let sortedList = [...list].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
-        
-        container.innerHTML = sortedList.map(t => {
-            const runTime = getDiff(t.updated_at);
-            let statusText = "Đang phục vụ";
-            let typeClass = "type-service";
+            let sortedList = [...list].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
             
-            // Xử lý hiển thị Order ID (Chỉ cho SALES)
-            let orderInfoHtml = '';
-            
-            if (t.service_type === 'WARRANTY') typeClass = "type-warranty";
-            if (t.service_type === 'SALES') {
-                typeClass = "type-sales";
-                if(t.process_status==='ASSEMBLING') statusText = "Đang lắp ráp";
-                else if(t.process_status==='INSTALLING') statusText = "Đang cài đặt";
-                else if(t.process_status==='HANDOVER') statusText = "Đang bàn giao";
+            container.innerHTML = sortedList.map(t => {
+                const runTime = getDiff(t.updated_at);
+                let statusText = "Đang phục vụ";
                 
-                // Hiển thị Mã Đơn Hàng nếu có
-                if(t.order_id) {
-                    orderInfoHtml = `<div style="font-size:16px; color:#555; margin-top:4px;">Đơn: <b>${t.order_id}</b></div>`;
-                }
-            }
+                // Mặc định cho Service
+                let typeClass = "type-service";
+                let innerHtml = `
+                    <div class="c-counter">📍 ${t.counter_name || 'KTV'}</div>
+                    <div class="c-num">${t.ticket_number}</div>
+                    <div class="c-name">${t.customer_name}</div>
+                    <div class="c-timer bg-run" id="timer-${t.id}">${statusText}: ${runTime}</div>
+                `;
 
-            return `
-            <div id="ticket-${t.id}" class="sv-card ${typeClass}">
-                <div class="c-counter">📍 ${t.counter_name || 'KTV'}</div>
-                <div class="c-num">${t.ticket_number}</div>
-                <div class="c-name">${t.customer_name}</div>
-                ${orderInfoHtml} <div class="c-timer bg-run" id="timer-${t.id}">${statusText}: ${runTime}</div>
-            </div>`;
-        }).join('');
-    }
+                if (t.service_type === 'WARRANTY' || t.service_type === 'CHECK') typeClass = "type-warranty";
+                
+                // === [UPDATE 3] LAYOUT RIÊNG CHO SALES ===
+                if (t.service_type === 'SALES') {
+                    typeClass = "type-sales";
+                    if(t.process_status==='ASSEMBLING') statusText = "Đang lắp ráp";
+                    else if(t.process_status==='INSTALLING') statusText = "Đang cài đặt";
+                    else if(t.process_status==='HANDOVER') statusText = "Đang bàn giao";
+                    
+                    // Layout SALES: Tên To -> Số Nhỏ -> Sản Phẩm
+                    innerHtml = `
+                        <div class="c-counter">📍 ${t.counter_name || 'KTV'}</div>
+                        <div class="c-name">${t.customer_name}</div>
+                        <div class="c-num">${t.ticket_number}</div>
+                        ${ t.product_name ? `<div class="product-info">📦 ${t.product_name}</div>` : '' }
+                        <div class="c-timer bg-run" id="timer-${t.id}">${statusText}: ${runTime}</div>
+                    `;
+                }
+
+                return `<div id="ticket-${t.id}" class="sv-card ${typeClass}">${innerHtml}</div>`;
+            }).join('');
+        }
 
         function renderWaitingList(allWaiting) {
-    const container = document.getElementById('waiting-list');
-    document.getElementById('total-waiting').innerText = allWaiting.length;
-
-    if (allWaiting.length === 0) { 
-        container.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">Không có khách chờ</div>'; 
-        return;
-    }
-
-    // --- SỬA ĐOẠN NÀY ---
-    // Sử dụng class 'tv-waiting-card' đã định nghĩa trong CSS
-    container.innerHTML = allWaiting.map(t => {
-        return `
-        <div class="tv-waiting-card">
-            <div class="tv-waiting-ticket">
-                ${t.ticket_number}
-            </div>
-            <div class="tv-waiting-name">
-                ${t.customer_name || 'Khách lẻ'}
-            </div>
-        </div>`;
-    }).join('');
-}
+            const container = document.getElementById('waiting-list');
+            document.getElementById('total-waiting').innerText = allWaiting.length;
+            if (allWaiting.length === 0) { container.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">Không có khách chờ</div>'; return; }
+            container.innerHTML = allWaiting.map(t => `
+                <div class="tv-waiting-card">
+                    <div class="tv-waiting-ticket">${t.ticket_number}</div>
+                    <div class="tv-waiting-name">${t.customer_name || 'Khách lẻ'}</div>
+                </div>`).join('');
+        }
 
         function checkForInterrupt(allServing) {
             let hasNew = false;
             ['SERVICE', 'SALES'].forEach(type => {
-                let list = (type==='SERVICE') ? allServing.filter(x=>x.service_type!=='SALES') : allServing.filter(x=>x.service_type==='SALES');
+                let list = (type === 'SERVICE') 
+                    ? allServing.filter(x => x.service_type !== 'SALES') 
+                    : allServing.filter(x => x.service_type === 'SALES');
+                
                 if (list.length > 0) {
                     const newest = [...list].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
                     if (newest.ticket_number !== lastAnnounced[type].num || newest.updated_at !== lastAnnounced[type].time) {
@@ -311,25 +304,16 @@ setInterval(() => {
             if (hasNew) toggleScreen(true);
         }
 
-        // --- HÀM CHECK LOA ĐÃ FIX TRIỆT ĐỂ ---
         function checkAnnounce(allServing, type) {
-            let list = (type === 'SERVICE') ? allServing.filter(x => x.service_type !== 'SALES') : allServing.filter(x => x.service_type === 'SALES');
+            let list = (type === 'SERVICE') 
+                ? allServing.filter(x => x.service_type !== 'SALES') 
+                : allServing.filter(x => x.service_type === 'SALES');
             
             if (list.length > 0) {
-                // Lấy vé mới nhất
                 const newest = [...list].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
-                
-                // Nếu có sự thay đổi so với lần trước
                 if (newest.ticket_number !== lastAnnounced[type].num || newest.updated_at !== lastAnnounced[type].time) {
-                    
-                    // Cập nhật trạng thái
                     lastAnnounced[type] = { num: newest.ticket_number, time: newest.updated_at };
-
-                    // === FIX 1: NẾU LÀ LẦN TẢI TRANG ĐẦU TIÊN -> BỎ QUA LUÔN ===
                     if (isFirstLoad) return;
-
-                    // === FIX 2: KIỂM TRA THỜI GIAN (Backup nếu mạng lag) ===
-                    // Nếu lệnh gọi đã quá 20 giây -> BỎ QUA, KHÔNG ĐỌC
                     const diffSec = Math.abs(new Date() - new Date(newest.updated_at)) / 1000;
                     if (diffSec > 20) return; 
 
@@ -345,40 +329,31 @@ setInterval(() => {
             }
         }
 
+        // === [UPDATE 4] HÀM ĐỌC TIẾNG VIỆT ===
         function speakNumber(num, type, status, counterName) {
-        if (!window.speechSynthesis) return;
-        
-        // Hủy các câu đang nói dở để tránh chồng chéo
-        window.speechSynthesis.cancel();
+            if (!window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
 
-        const numText = num.replace('-', ' ');
-        let text = "";
-        
-        // Logic đọc câu thông báo
-        const dest = counterName ? `đến Kỹ thuật viên ${counterName}` : `đến quầy phục vụ`;
-        
-        if (type === 'SALES' && status === 'HANDOVER') {
-            text = `Mời số ${numText} nhận bàn giao sản phẩm`;
-        } else {
-            text = `Mời số ${numText} ${dest}`;
+            const numText = num.replace('-', ' ');
+            let text = "";
+            const dest = counterName ? `đến Kỹ thuật viên ${counterName}` : `đến quầy phục vụ`;
+            
+            if (type === 'SALES' && status === 'HANDOVER') {
+                text = `Mời số ${numText} nhận bàn giao sản phẩm`;
+            } else {
+                text = `Mời số ${numText} ${dest}`;
+            }
+
+            const u = new SpeechSynthesisUtterance(text);
+            const voices = window.speechSynthesis.getVoices();
+            // Ưu tiên giọng Google tiếng Việt
+            const vnVoice = voices.find(v => v.lang === 'vi-VN' || v.name.includes('Google tiếng Việt'));
+            if (vnVoice) u.voice = vnVoice;
+            u.lang = 'vi-VN';
+            u.rate = 0.9;
+            window.speechSynthesis.speak(u);
         }
-
-        const u = new SpeechSynthesisUtterance(text);
-        
-        // === FIX QUAN TRỌNG: Tìm giọng đọc tiếng Việt ===
-        const voices = window.speechSynthesis.getVoices();
-        // Ưu tiên giọng Google tiếng Việt hoặc bất kỳ giọng 'vi-VN' nào
-        const vnVoice = voices.find(v => v.lang === 'vi-VN' || v.name.includes('Google tiếng Việt'));
-        
-        if (vnVoice) u.voice = vnVoice;
-        u.lang = 'vi-VN';
-        u.rate = 0.9; // Tốc độ đọc vừa phải
-        
-        window.speechSynthesis.speak(u);
-    }
-    
-    // Hack: Chrome cần load voice async, nên gọi hàm này 1 lần khi load trang
-    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 
         setInterval(() => {
             activeTickets.forEach(t => {

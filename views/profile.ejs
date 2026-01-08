@@ -1,5 +1,5 @@
 <%- include('partials/header', {title: 'Hồ sơ & Hiệu suất', currentPage: 'profile'}) %>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
     /* --- LAYOUT --- */
     .profile-top-section { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; margin-bottom: 30px; }
@@ -100,6 +100,11 @@
                 <div class="dashboard-header">
                     <h3 class="dash-title" style="margin:0; border:none; font-size:18px;">
                         📊 Hiệu suất <%= filterBranch ? filterBranch : (role.isGlobalAdmin ? 'Toàn Hệ Thống' : 'Chi Nhánh') %>
+                        <% if (locals.dataDate) { %>
+        <span style="font-size: 12px; font-weight: normal; color: #dc2626; margin-left: 8px; font-style: italic;">
+            (Dữ liệu đến: <%= dataDate %>)
+        </span>
+    <% } %>
                     </h3>
                     
                     <form method="GET" action="/profile" class="filter-container" id="filterForm">
@@ -126,7 +131,7 @@
             <option value="today" <%= period.value === 'today' ? 'selected' : '' %>>Hôm nay</option>
             <option value="week" <%= period.value === 'week' ? 'selected' : '' %>>Tuần này</option>
             <option value="year" <%= period.value === 'year' ? 'selected' : '' %>>Năm nay</option>
-            
+            <option value="last_year" <%= period.value === 'last_year' ? 'selected' : '' %>>Năm trước</option>
             <% if(period.value.includes('-')) { %>
                 <option value="<%= period.value %>" selected style="display:none;">Tháng <%= period.value %></option>
             <% } %>
@@ -142,11 +147,14 @@
                         <div class="kpi-sub">Đã trừ đơn hoàn</div>
                     </div>
                     <div class="kpi-card border-l-blue">
-                        <div class="kpi-title">Doanh thu (No VAT)</div>
-                        <div class="kpi-value val-blue" title="<%= new Intl.NumberFormat('vi-VN').format(dashboard.revenue) %> ₫">
-                            <%= formatCompact(dashboard.revenue) %> ₫
-                        </div>
-                    </div>
+    <div class="kpi-title">Doanh thu (NO VAT, IPHONE 60%)</div> <div class="kpi-value val-blue" title="Thực tế: <%= new Intl.NumberFormat('vi-VN').format(dashboard.raw_revenue) %> ₫">
+        <%= formatCompact(dashboard.revenue) %> ₫
+    </div>
+    <div class="kpi-sub" style="font-size: 11px; color: #64748b;">
+        iPhone: <%= formatCompact(dashboard.iphone_revenue) %> ₫ | 
+        Khác: <%= formatCompact(dashboard.raw_revenue - dashboard.iphone_revenue) %> ₫
+    </div>
+</div>
                     <div class="kpi-card border-l-orange">
                         <div class="kpi-title">Tổng điểm KFI</div>
                         <div class="kpi-value val-orange"><%= new Intl.NumberFormat('vi-VN').format(dashboard.kfi) %></div>
@@ -208,7 +216,10 @@
                                     <th width="50" style="text-align:center">Hạng</th>
                                     <th>Chi Nhánh</th>
                                     <th style="text-align:right">Target</th>
-                                    <th style="text-align:right">Doanh thu</th>
+                                    <th style="text-align:right">
+    Doanh thu <br>
+    <span style="font-size:10px; font-weight:normal; color:#64748b; text-transform:none;">(Trong đó iPhone)</span>
+</th>
                                     <th style="text-align:center">% HT</th>
                                     <th style="text-align:right">Còn thiếu</th>
                                     <th style="text-align:right; background:#ecfeff;">Dự kiến đạt</th>
@@ -221,7 +232,19 @@
                                         <td style="text-align:center"><span class="rank-badge <%= index < 3 ? 'rank-' + (index+1) : '' %>"><%= index + 1 %></span></td>
                                         <td style="font-weight:700; color:#0369a1"><%= row.branch %></td>
                                         <td style="text-align:right; color:#64748b"><%= formatCompact(row.target) %></td>
-                                        <td style="text-align:right; font-weight:700; color:#2563eb"><%= formatCompact(row.revenue) %></td>
+                                        <td style="text-align:right;">
+    <div style="font-weight:700; color:#2563eb; font-size: 14px;">
+        <%= formatCompact(row.revenue) %>
+    </div>
+    
+    <% if(row.iphone_revenue > 0) { %>
+        <div style="font-size:11px; color:#64748b; margin-top: 2px;">
+            IP: <%= formatCompact(row.iphone_revenue) %>
+        </div>
+    <% } else { %>
+        <div style="font-size:11px; color:#cbd5e1; margin-top: 2px;">-</div>
+    <% } %>
+</td>
                                         <td style="text-align:center">
                                             <span class="status-tag <%= row.percent_completion >= 100 ? 'st-done' : 'st-uncared' %>"><%= row.percent_completion %>%</span>
                                         </td>
@@ -273,7 +296,19 @@
                                         <td><div style="font-weight:700; color:#1e293b"><%= row.salesman %></div></td>
                                         <td><%= row.msnv %></td>
                                         <td style="text-align:right; color:#64748b"><%= formatCompact(row.target) %></td>
-                                        <td style="text-align:right; font-weight:700; color:#2563eb"><%= formatCompact(row.revenue) %></td>
+                                        <td style="text-align:right;">
+    <div style="font-weight:700; color:#2563eb; font-size: 14px;">
+        <%= formatCompact(row.revenue) %>
+    </div>
+    
+    <% if(row.iphone_revenue > 0) { %>
+        <div style="font-size:11px; color:#64748b; margin-top: 2px;">
+            IP: <%= formatCompact(row.iphone_revenue) %>
+        </div>
+    <% } else { %>
+        <div style="font-size:11px; color:#cbd5e1; margin-top: 2px;">-</div>
+    <% } %>
+</td>
                                         <td style="text-align:center"><span class="status-tag <%= row.percent_completion >= 100 ? 'st-done' : 'st-uncared' %>"><%= row.percent_completion %>%</span></td>
                                         <td style="text-align:center; font-weight:600"><%= new Intl.NumberFormat('vi-VN').format(row.kfi) %></td>
                                         <td style="text-align:right; color:#16a34a; font-weight:600"><%= new Intl.NumberFormat('vi-VN').format(row.bonus_total) %></td>
@@ -288,4 +323,71 @@
         </div>
     </div>
 </div>
+
+<% if (role.isStaff && staffChartData) { %>
+    <div class="table-section" style="padding: 20px; margin-top: 20px;">
+        <div class="table-header-title" style="border:none; padding-left:0; margin-bottom:15px;">📈 Biểu đồ Tăng trưởng (Năm nay)</div>
+        <div style="height: 300px;">
+            <canvas id="staffPerformanceChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('staffPerformanceChart').getContext('2d');
+        const chartData = <%- JSON.stringify(staffChartData) %>;
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: chartData.map(d => d.month),
+                datasets: [
+                    {
+                        type: 'line',
+                        label: '% Đạt',
+                        data: chartData.map(d => d.percent),
+                        borderColor: '#16a34a',
+                        borderWidth: 2,
+                        yAxisID: 'y1',
+                        tension: 0.3
+                    },
+                    {
+                        type: 'bar',
+                        label: 'Doanh thu (Quy đổi)',
+                        data: chartData.map(d => d.revenue),
+                        backgroundColor: 'rgba(37, 99, 235, 0.7)',
+                        yAxisID: 'y',
+                        borderRadius: 4
+                    },
+                    {
+                        type: 'line',
+                        label: 'Target (Tham khảo)',
+                        data: chartData.map(d => d.target),
+                        borderColor: '#94a3b8',
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        yAxisID: 'y',
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        position: 'left',
+                        title: { display: true, text: 'Doanh thu (VNĐ)' }
+                    },
+                    y1: {
+                        beginAtZero: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: '% Hoàn thành' }
+                    }
+                }
+            }
+        });
+    </script>
+<% } %>
 <%- include('partials/footer') %>

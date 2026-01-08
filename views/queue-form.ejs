@@ -73,6 +73,27 @@
         .btn-submit.warranty:hover { background: #d97706; }
         
         .btn-sub-text { display: block; font-size: 12px; font-weight: 400; text-transform: none; font-style: italic; opacity: 0.9; }
+        /* [CSS MỚI] Style cho nút "Tôi không rõ" nằm ngang */
+.btn-full {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: row; /* Icon và chữ nằm ngang */
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    height: auto;
+    padding: 15px;
+    width: 100%;
+    box-sizing: border-box; /* Đảm bảo padding không làm vỡ layout */
+}
+
+/* Màu riêng cho nút CHECK khi Active (Màu xám đậm hoặc xanh tùy ý) */
+.btn-opt[data-type="CHECK"].active {
+    border-color: #4b5563;
+    background: #f3f4f6;
+    color: #1f2937;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
     </style>
 </head>
 <body>
@@ -97,20 +118,29 @@
                     <label class="label">Số điện thoại <span class="en-sub">/ Phone Number</span></label>
                     <input type="tel" name="customer_phone" class="input" placeholder="09xx...">
                 </div>
+                <div class="grid-btns" style="grid-template-columns: 1fr 1fr 1fr;"> 
+    <div class="btn-opt" data-type="REPAIR" onclick="choose('REPAIR')">
+        <span class="icon">🛠️</span>
+        <span class="name">Sửa chữa</span>
+    </div>
+    <div class="btn-opt" data-type="WARRANTY" onclick="choose('WARRANTY')">
+        <span class="icon">🛡️</span>
+        <span class="name">Bảo hành</span>
+    </div>
+    <div class="btn-opt" data-type="PICKUP" onclick="choose('PICKUP')">
+        <span class="icon">📦</span>
+        <span class="name">Lấy máy</span>
+    </div>
+</div>
 
-                <label class="label" style="margin-top: 20px;">Dịch vụ yêu cầu? <span class="en-sub">/ Service Requested?</span></label>
-                <div class="grid-btns">
-                    <div class="btn-opt" data-type="REPAIR" onclick="choose('REPAIR')">
-                        <span class="icon">🛠️</span>
-                        <span class="name">Sửa chữa</span>
-                        <span class="name-en">Repair</span>
-                    </div>
-                    <div class="btn-opt" data-type="WARRANTY" onclick="choose('WARRANTY')">
-                        <span class="icon">🛡️</span>
-                        <span class="name">Bảo hành</span>
-                        <span class="name-en">Warranty</span>
-                    </div>
-                </div>
+<div class="btn-opt btn-full" data-type="CHECK" onclick="choose('CHECK')">
+    <span class="icon" style="font-size: 24px;">🤔</span>
+    <div style="text-align: left;">
+        <span class="name">Tôi không rõ / Cần tư vấn</span>
+        <span class="name-en">Not sure / Need advice</span>
+    </div>
+</div>
+                
 
                 <div id="errorSection">
                     <label class="label">Mô tả lỗi <span class="en-sub">/ Issue Description</span></label>
@@ -147,27 +177,34 @@
 
     <script>
         function choose(type) {
-            document.getElementById('serviceType').value = type;
-            document.querySelectorAll('.btn-opt').forEach(el => el.classList.remove('active'));
+        document.getElementById('serviceType').value = type;
+        document.querySelectorAll('.btn-opt').forEach(el => el.classList.remove('active'));
+        
+        // Nếu chọn 3 nút trên thì highlight, chọn text link thì thôi hoặc highlight kiểu khác
+        if(type !== 'CHECK') {
             document.querySelector(`.btn-opt[data-type="${type}"]`).classList.add('active');
-
-            document.getElementById('errorSection').style.display = 'block';
-            
-            const btn = document.getElementById('submitBtn');
-            btn.style.display = 'block';
-            const btnMainText = btn.querySelector('span:first-child');
-            const btnSubText = btn.querySelector('.btn-sub-text');
-            
-            if(type === 'REPAIR') {
-                btnMainText.innerText = 'LẤY SỐ SỬA CHỮA';
-                btnSubText.innerText = 'GET REPAIR TICKET';
-                btn.className = 'btn-submit';
-            } else {
-                btnMainText.innerText = 'LẤY SỐ BẢO HÀNH';
-                btnSubText.innerText = 'GET WARRANTY TICKET';
-                btn.className = 'btn-submit warranty';
-            }
         }
+
+        document.getElementById('errorSection').style.display = 'block';
+        const btn = document.getElementById('submitBtn');
+        btn.style.display = 'block';
+        const btnText = btn.querySelector('span:first-child');
+
+        // Đổi màu nút Submit cho dễ nhìn
+        if(type === 'REPAIR') {
+            btnText.innerText = 'LẤY SỐ SỬA CHỮA';
+            btn.className = 'btn-submit';
+        } else if (type === 'WARRANTY') {
+            btnText.innerText = 'LẤY SỐ BẢO HÀNH';
+            btn.className = 'btn-submit warranty';
+        } else if (type === 'PICKUP') {
+            btnText.innerText = 'LẤY SỐ NHẬN MÁY';
+            btn.className = 'btn-submit'; 
+        } else if (type === 'CHECK') {
+            btnText.innerText = 'LẤY SỐ TƯ VẤN / KIỂM TRA';
+            btn.className = 'btn-submit'; 
+        }
+    }
     </script>
 </body>
 </html>

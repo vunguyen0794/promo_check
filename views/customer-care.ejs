@@ -997,9 +997,21 @@
             else statusBadge = '<span class="status-tag st-uncared">Chưa care</span>';
 
             // Badge báo hiệu khách được Gán
-            const assignedBadge = cust.is_assigned_group 
-                ? `<span class="badge bg-warning text-dark" style="font-size:10px; margin-left:5px;">QLSR Gán</span>` 
-                : ``;
+            // [UPDATE] Badge nổi bật cho QLSR Gán
+const assignedBadge = cust.is_assigned_group 
+    ? `<span class="badge" 
+             style="background: linear-gradient(135deg, #ef4444, #f97316); 
+                    color: white; 
+                    font-weight: 700; 
+                    font-size: 11px; 
+                    margin-left: 8px; 
+                    padding: 5px 10px; 
+                    border-radius: 12px; 
+                    box-shadow: 0 3px 6px rgba(249, 115, 22, 0.3);
+                    border: 1px solid rgba(255,255,255,0.4);">
+         <i class="bi bi-bell-fill"></i> QLSR Gán
+       </span>` 
+    : ``;
 
             // Lấy đơn mới nhất
             const sortedOrders = (cust.Orders || []).sort((a, b) => new Date(b.Report_date) - new Date(a.Report_date));
@@ -1425,12 +1437,13 @@ async function openMatrixDetail(userId, resultType, branchName) {
     }
 }
 
-// Hàm hỗ trợ: Bấm vào mã đơn trong Modal -> Tìm kiếm ở Worklist
+// --- HÀM TÌM KIẾM TỪ MODAL (ĐÃ FIX: RESET BỘ LỌC) ---
 function searchOrderFromModal(orderCode) {
     // 1. Đóng Modal hiện tại
-    document.getElementById('matrixDetailModal').style.display = 'none';
+    const modal = document.getElementById('matrixDetailModal');
+    if (modal) modal.style.display = 'none';
 
-    // 2. Điền dữ liệu vào bộ lọc chính
+    // 2. Điền thông tin vào ô tìm kiếm
     const searchType = document.getElementById('searchType');
     const searchInput = document.getElementById('searchInput');
 
@@ -1438,13 +1451,44 @@ function searchOrderFromModal(orderCode) {
         searchType.value = 'order_code'; // Chuyển loại tìm kiếm thành Mã đơn
         searchInput.value = orderCode;   // Điền mã đơn
         
-        // 3. Gọi hàm load dữ liệu (Tìm kiếm)
+        // 3. [QUAN TRỌNG] Reset tất cả bộ lọc về "Tất cả"
+        // Để đảm bảo tìm thấy đơn hàng dù nó ở tháng cũ hay trạng thái khác
+        
+        // Reset Tháng -> Toàn thời gian
+        const wlMonth = document.getElementById('wlMonth');
+        if (wlMonth) wlMonth.value = 'all';
+
+        // Reset Trạng thái -> Tất cả
+        const wlStatus = document.getElementById('wlStatus');
+        if (wlStatus) wlStatus.value = 'all';
+
+        // Reset Loại thuế -> Tất cả
+        const wlTax = document.getElementById('wlTax');
+        if (wlTax) wlTax.value = 'all';
+
+        // Reset Chi nhánh (cho Manager) -> Tất cả
+        const wlBranch = document.getElementById('wlBranch');
+        if (wlBranch) wlBranch.value = 'all';
+
+        // Reset Nhân viên (nếu có) -> Tất cả
+        if (typeof $ !== 'undefined' && $('#filterEmail').length > 0) {
+            $('#filterEmail').val(null).trigger('change'); 
+        } else {
+            const filterEmail = document.getElementById('filterEmail');
+            if (filterEmail) filterEmail.value = '';
+        }
+        
+        // 4. Gọi hàm load dữ liệu
         loadWorkList(1);
         
-        // Cuộn màn hình xuống phần danh sách để user thấy ngay
-        document.querySelector('.dash-card').scrollIntoView({ behavior: 'smooth' });
+        // 5. Cuộn màn hình xuống phần danh sách để user thấy ngay
+        const targetSection = document.querySelector('.dash-card');
+        if (targetSection) {
+            targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
 }
+
 
 // Đóng modal khi click ngoài
 window.addEventListener('click', function(e) {
@@ -1489,8 +1533,7 @@ window.addEventListener('click', function(e) {
         updateBulkAction();
     };
 
-    // Gửi yêu cầu gán khách
-    window.submitAssignment = async function() {
+   window.submitAssignment = async function() {
         const targetSelect = document.getElementById('targetEmployeeSelect');
         const targetUserId = targetSelect ? targetSelect.value : null;
 
@@ -1507,13 +1550,18 @@ window.addEventListener('click', function(e) {
 
         if (!confirm(`Bạn chắc chắn muốn phân bổ ${orderCodes.length} khách hàng này?`)) return;
 
-        try {
-            // Hiệu ứng loading nút bấm
-            const btn = document.querySelector('#actionBar button.btn-primary');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '⏳ Đang xử lý...';
+        // [FIX LỖI TẠI ĐÂY] Chọn đúng class .btn-assign
+        const btn = document.querySelector('#actionBar .btn-assign');
+        let originalText = '';
+        
+        if (btn) {
+            originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Đang xử lý...';
             btn.disabled = true;
+            btn.style.opacity = '0.7';
+        }
 
+        try {
             const res = await fetch('/api/cskh/assign', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1529,18 +1577,26 @@ window.addEventListener('click', function(e) {
                 alert(data.message);
                 loadWorkList(currentPage); // Tải lại trang hiện tại
                 // Ẩn action bar
-                document.getElementById('actionBar').style.display = 'none';
+                const actionBar = document.getElementById('actionBar');
+                if (actionBar) actionBar.style.display = 'none';
+                
+                // Reset checkbox header
+                const headerCheck = document.querySelector('thead input[type="checkbox"]');
+                if (headerCheck) headerCheck.checked = false;
             } else {
                 alert('Lỗi: ' + data.error);
             }
-            
-            // Reset nút bấm
-            btn.innerHTML = originalText;
-            btn.disabled = false;
 
         } catch (e) {
             alert('Lỗi hệ thống: ' + e.message);
             console.error(e);
+        } finally {
+            // [FIX] Reset nút bấm dù thành công hay thất bại
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
         }
     };
 </script>

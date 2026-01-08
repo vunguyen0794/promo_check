@@ -1,16 +1,13 @@
 <%- include('partials/header', { title: 'Tạo Báo giá Nhanh', currentPage: 'quote-builder' }) %>
 
 <style>
-  /* === CSS GỐC (GIỮ NGUYÊN ĐỂ ĐẢM BẢO ĐẸP) === */
+  /* === CSS GỐC === */
   .pc-builder-layout { display: flex; flex-direction: column; gap: 20px; }
-  
-  /* Cột bên phải (Sidebar) */
   .price-summary-sticky { position: sticky; top: 80px; }
   
-  /* Item trong giỏ hàng */
   .summary-item {
-    display: flex; flex-direction: column; /* Xếp dọc để chứa nhiều info hơn */
-    padding: 12px; border-bottom: 1px dashed #e2e8f0; background: #fff;
+    display: flex; flex-direction: column; padding: 12px; 
+    border-bottom: 1px dashed #e2e8f0; background: #fff;
     transition: background 0.2s;
   }
   .summary-item:hover { background: #f8fafc; }
@@ -21,7 +18,6 @@
   
   .summary-item-controls { display: flex; justify-content: space-between; align-items: center; width: 100%; }
   
-  /* Nút số lượng đẹp */
   .quantity-controls { display: flex; align-items: center; gap: 4px; background: #f1f5f9; padding: 2px; border-radius: 6px; }
   .qty-btn {
     width: 24px; height: 24px; border: 1px solid #cbd5e1; background-color: #fff; color: #475569;
@@ -30,7 +26,6 @@
   .qty-btn:hover { background-color: #e2e8f0; color: #0f172a; }
   .qty-display { font-weight: 600; padding: 0 6px; min-width: 20px; text-align: center; font-size: 13px; }
 
-  /* Ô nhập giảm giá từng món (MỚI) */
   .item-discount-wrapper { display: flex; align-items: center; gap: 4px; margin-left: 10px; }
   .item-discount-label { font-size: 10px; color: #e53935; font-weight: 600; text-transform: uppercase; }
   .item-discount-input {
@@ -39,20 +34,14 @@
   }
   .item-discount-input:focus { border-color: #e53935; box-shadow: 0 0 0 2px rgba(229,57,53,0.1); }
 
-  /* Giá tiền */
   .price-column { text-align: right; }
-  .unit-price { font-size: 12px; color: #64748b; text-decoration: line-through; opacity: 0.8; display: none; } /* Giá gốc ẩn đi nếu chưa giảm */
   .final-line-price { font-weight: 700; color: #2563eb; font-size: 14px; }
 
-  /* Controls chung (Sửa giá, Lịch sử, Xóa) */
   .action-buttons { display: flex; gap: 2px; }
   .btn-icon { background: none; border: none; cursor: pointer; padding: 4px; opacity: 0.6; transition: 0.2s; font-size: 14px; }
   .btn-icon:hover { opacity: 1; transform: scale(1.1); }
-  
-  /* Input sửa giá gốc */
   .price-edit-input { width: 90px; padding: 4px; border: 1px solid #2563eb; border-radius: 4px; font-size: 13px; }
 
-  /* KHU VỰC CẤU HÌNH ĐƠN HÀNG (MỚI) */
   .order-settings { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 15px; }
   .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13px; }
   .setting-label { font-weight: 600; color: #475569; }
@@ -61,48 +50,45 @@
   .global-discount-input { border: none; padding: 6px 10px; width: 80px; text-align: right; outline: none; font-size: 13px; }
   .global-discount-select { border: none; border-left: 1px solid #cbd5e1; background: #f1f5f9; padding: 0 8px; font-size: 12px; font-weight: 600; color: #475569; outline: none; cursor: pointer;}
 
-  /* Radio template */
   .template-selector { display: flex; flex-direction: column; gap: 6px; }
   .radio-option { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #334155; }
   .radio-option input { accent-color: #2563eb; cursor: pointer; }
 
-  /* MODAL Styles (Giữ nguyên) */
-  .component-item {
-    display: flex;
-    flex-direction: column; /* Xếp dọc trước */
-    align-items: stretch; /* Kéo giãn ra */
-    padding: 12px;
-    border-bottom: 1px solid #f1f5f9;
+  /* === [MỚI] CSS CHO AUTOCOMPLETE SEARCH === */
+  .quick-search-wrapper { position: relative; margin-bottom: 20px; }
+  .quick-search-input {
+      width: 100%; padding: 12px 15px; font-size: 14px; 
+      border: 1px solid #cbd5e1; border-radius: 8px; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02); outline: none;
+      transition: border 0.2s;
   }
-  .component-item-main-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start; /* Căn trên để tránh nút bị kéo */
-    width: 100%;
-    gap: 15px;
+  .quick-search-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  
+  .autocomplete-results {
+      position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+      background: white; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 350px; overflow-y: auto;
+      display: none;
   }
-  .component-item-info { 
-    font-size: 14px; 
-    flex-grow: 1;
-    line-height: 1.5; /* Tăng khoảng cách dòng */
+  .ac-item {
+      padding: 10px 15px; border-bottom: 1px solid #f1f5f9; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
   }
-  .component-item-action {
-    display: flex;
-    flex-direction: column; /* Xếp giá và nút dọc */
-    align-items: flex-end; /* Căn phải */
-    gap: 8px;
-    flex-shrink: 0;
-    min-width: 100px;
+  .ac-item:hover { background-color: #f8fafc; }
+  .ac-item:last-child { border-bottom: none; }
+  
+  .ac-info { display: flex; flex-direction: column; }
+  .ac-sku { font-size: 12px; color: #64748b; font-weight: 600; }
+  .ac-name { font-size: 14px; color: #1e293b; font-weight: 600; }
+  .ac-meta { font-size: 11px; color: #94a3b8; }
+  .ac-price { font-weight: 700; color: #e53935; font-size: 13px; }
+
+  .ac-add-new {
+      padding: 12px 15px; background-color: #f0fdfa; color: #0d9488;
+      font-weight: 700; cursor: pointer; text-align: center;
+      border-top: 1px dashed #ccfbf1;
   }
-  .component-item-price { font-weight: 700; color: #e53935; text-align: right; }
-  .btn-select-item { 
-    padding: 6px 16px; font-size: 13px; font-weight: 600; 
-    border-radius: 6px; cursor: pointer; white-space: nowrap; 
-  }
-  .btn-select-item { padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; background-color: #10b981; color: white; transition: 0.2s; }
-  .btn-select-item:hover { background-color: #059669; }
-  .btn-select-item.selected { background-color: #94a3b8; cursor: not-allowed; }
-  .btn-select-item:disabled { opacity: 0.7; }
+  .ac-add-new:hover { background-color: #ccfbf1; }
 
   /* Responsive */
   @media (min-width: 992px) {
@@ -116,21 +102,17 @@
   
   <div class="builder-main">
     <div class="dash-card">
-      <div class="dash-title" style="display:flex; justify-content:space-between; align-items:center;">
-        <span>Tạo báo giá nhanh</span>
-        <button class="btn btn-primary" id="btnOpenSearchModal" style="padding: 8px 16px; font-size: 13px;">
-          <i class="fas fa-plus"></i> Thêm sản phẩm
-        </button>
-      </div>
+      <div class="dash-title">Tạo báo giá nhanh</div>
       
-      <p style="margin: 10px 0 20px; color: #64748b; font-size: 13px;">
-        Thêm sản phẩm, điều chỉnh giá/số lượng và thiết lập giảm giá bên cột phải trước khi xuất file.
-      </p>
+      <div class="quick-search-wrapper">
+          <input type="text" id="quickSearchInput" class="quick-search-input" placeholder="🔍 Nhập mã SKU hoặc tên sản phẩm để thêm nhanh..." autocomplete="off">
+          <div id="quickSearchResults" class="autocomplete-results"></div>
+      </div>
 
       <div id="empty-cart-msg" class="dash-muted" style="text-align: center; padding: 40px; border: 2px dashed #e2e8f0; border-radius: 8px;">
         <div style="font-size: 40px; margin-bottom: 10px;">🛒</div>
-        Chưa có sản phẩm nào trong báo giá.<br>
-        Bấm nút "Thêm sản phẩm" để bắt đầu.
+        Chưa có sản phẩm nào.<br>
+        Hãy nhập từ khóa vào ô tìm kiếm ở trên.
       </div>
 
       <div id="summary-list" style="display:none;"></div>
@@ -201,22 +183,6 @@
   </div>
 </div> 
 
-<div class="modal" id="componentModal" style="display: none;">
-  <div class="modal-content" style="max-width: 800px;">
-    <span class="close" id="componentModalClose">&times;</span>
-    <h3 id="componentModalTitle" style="margin-top: 0;">Thêm sản phẩm</h3>
-    
-    <div style="display:flex; gap:10px; margin-bottom:15px;">
-        <input type="text" id="componentSearch" class="search-input" placeholder="Tìm theo Tên hoặc SKU..." style="flex: 2; padding: 10px; border:1px solid #cbd5e1; border-radius:6px;">
-        <select id="filterCategory" style="flex:1; border:1px solid #cbd5e1; border-radius:6px; padding:0 10px;"><option value="">-- Ngành hàng --</option></select>
-    </div>
-    
-    <div id="componentModalList" style="max-height: 55vh; overflow-y: auto; border-top: 1px solid #f1f5f9;">
-        <div class="dash-muted" style="padding: 20px; text-align: center;">Nhập từ khóa để tìm kiếm...</div>
-    </div>
-  </div>
-</div>
-
 <div id="priceHistoryModal" class="modal" style="display:none">
   <div class="modal-content" style="max-width: 600px;">
     <span id="phClose" class="close">&times;</span>
@@ -266,7 +232,6 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // BIẾN TOÀN CỤC
   let currentBuildConfig = {}; 
-  let productCache = [];
 
   // LẤY ELEMENTS
   const summaryList = document.getElementById('summary-list');
@@ -280,15 +245,159 @@ document.addEventListener('DOMContentLoaded', function() {
   const globalDiscountType = document.getElementById('globalDiscountType');
   const quoteValidity = document.getElementById('quoteValidity');
   
+  // Elements tìm kiếm
+  const searchInput = document.getElementById('quickSearchInput');
+  const resultsContainer = document.getElementById('quickSearchResults');
+  
   // Helpers
   const formatVND = (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + ' VNĐ';
   const debounce = (fn, delay) => { let id; return (...args) => { clearTimeout(id); id = setTimeout(() => fn(...args), delay); }; };
 
   // ==========================================
-  // 1. LOGIC RENDER & TÍNH TOÁN (CORE)
+  // 1. TÌM KIẾM & THÊM SKU MỚI (TÍCH HỢP)
+  // ==========================================
+  searchInput.addEventListener('input', debounce(async (e) => {
+      const value = e.target.value.trim();
+      if (!value) { 
+          resultsContainer.style.display = 'none'; 
+          return; 
+      }
+
+      try {
+          // Gọi API tìm kiếm
+          const response = await fetch(`/api/skus?q=${encodeURIComponent(value)}`);
+          const data = await response.json(); 
+          
+          resultsContainer.innerHTML = '';
+          let exactMatch = false;
+
+          // A. Hiển thị kết quả tìm được
+          if (data && data.length > 0) {
+              data.forEach(item => {
+                  if (String(item.sku).toLowerCase() === value.toLowerCase()) exactMatch = true;
+
+                  const div = document.createElement('div');
+                  div.className = 'ac-item';
+                  div.innerHTML = `
+                      <div class="ac-info">
+                          <div class="ac-name">${item.product_name || 'Không tên'}</div>
+                          <div class="ac-sku">SKU: ${item.sku}</div>
+                          <div class="ac-meta">${item.brand || ''} | ${item.category || ''}</div>
+                      </div>
+                      <div class="ac-price">${item.list_price ? formatVND(item.list_price) : 'Liên hệ'}</div>
+                  `;
+                  
+                  div.addEventListener('click', () => {
+                      addItemToCart(item);
+                      clearSearch();
+                  });
+                  resultsContainer.appendChild(div);
+              });
+          }
+
+          // B. Tùy chọn THÊM SKU MỚI (nếu không trùng khớp hoàn toàn)
+          if (!exactMatch && value.length > 0) {
+              const addNewDiv = document.createElement('div');
+              addNewDiv.className = 'ac-add-new';
+              addNewDiv.innerHTML = `➕ Thêm SKU mới: <strong>${value}</strong>`;
+              
+              addNewDiv.addEventListener('click', async () => {
+                  await createNewSku(value);
+              });
+              resultsContainer.appendChild(addNewDiv);
+          }
+
+          resultsContainer.style.display = 'block';
+      } catch (err) {
+          console.error('Lỗi tìm kiếm:', err);
+      }
+  }, 300));
+
+  function clearSearch() {
+      searchInput.value = '';
+      resultsContainer.style.display = 'none';
+      searchInput.focus();
+  }
+
+  // Hàm tạo SKU mới
+  async function createNewSku(skuCode) {
+      resultsContainer.style.display = 'none';
+      
+      const name = prompt(`Nhập tên sản phẩm cho mã [${skuCode}]:`, skuCode);
+      if (name === null) return; 
+
+      const priceRaw = prompt('Nhập giá niêm yết (VNĐ):', '0');
+      if (priceRaw === null) return;
+      const price = Number(priceRaw.replace(/\D/g, '')) || 0;
+
+      const brand = prompt('Nhập Thương hiệu (Brand):', '') || null;
+      const category = prompt('Nhập Ngành hàng (VD: NH01):', '') || null;
+      const subcat = prompt('Nhập Nhóm hàng (VD: Máy in):', '') || null;
+
+      try {
+          const res = await fetch('/api/skus/upsert', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  sku: skuCode,
+                  product_name: name,
+                  list_price: price,
+                  brand: brand,
+                  category: category,
+                  subcat: subcat
+              })
+          });
+
+          const js = await res.json();
+          
+          if (js.ok) {
+              // Dữ liệu item mới
+              const newItem = js.sku || {
+                  sku: skuCode,
+                  product_name: name,
+                  list_price: price,
+                  brand: brand,
+                  category: category,
+                  subcat: subcat
+              };
+              
+              // Thêm ngay vào giỏ
+              addItemToCart(newItem);
+              clearSearch();
+              if(typeof showToast === 'function') showToast('Đã tạo & thêm sản phẩm mới!', 'success');
+          } else {
+              alert('Lỗi tạo sản phẩm: ' + js.error);
+          }
+      } catch (e) {
+          console.error(e);
+          alert('Lỗi kết nối server!');
+      }
+  }
+
+  // Hàm thêm vào giỏ (Local)
+  function addItemToCart(item) {
+      const sku = item.sku;
+      // Nếu đã có -> Tăng số lượng
+      if (currentBuildConfig[sku]) {
+          currentBuildConfig[sku].quantity = (currentBuildConfig[sku].quantity || 1) + 1;
+      } else {
+          // Nếu chưa có -> Thêm mới
+          currentBuildConfig[sku] = { ...item, quantity: 1, item_discount: 0 };
+      }
+      updateSummaryAndTotal();
+  }
+
+  // Đóng dropdown khi click ra ngoài
+  document.addEventListener('click', (e) => {
+      if (!e.target.closest('.quick-search-wrapper')) resultsContainer.style.display = 'none';
+  });
+
+
+  // ==========================================
+  // 2. LOGIC RENDER & TÍNH TOÁN GIÁ
   // ==========================================
   function updateSummaryAndTotal() {
-    let sumItemTotal = 0; // Tổng tiền hàng sau khi trừ KM từng món
+    let sumItemTotal = 0; 
     let html = '';
     
     const skus = Object.keys(currentBuildConfig).sort();
@@ -309,17 +418,11 @@ document.addEventListener('DOMContentLoaded', function() {
       const item = currentBuildConfig[sku];
       const qty = item.quantity || 1;
       
-      // Giá gốc (có VAT) - Ưu tiên giá đã sửa nếu có
       const originalPrice = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
-      
-      // Giảm giá riêng cho món này
       const itemDiscount = item.item_discount || 0;
-      
-      // Thành tiền dòng = (Giá gốc - Giảm món) * Số lượng
       const lineTotal = (originalPrice - itemDiscount) * qty;
       sumItemTotal += lineTotal;
 
-      // HTML cho Giá & Nút Sửa/Lịch sử
       let priceHtml = '';
       if (item.isEditingPrice) {
           priceHtml = `
@@ -360,14 +463,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
             <div style="flex:1; display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
                 ${priceHtml}
-                
                 <div class="item-discount-wrapper">
                     <span class="item-discount-label">Giảm:</span>
                     <input type="number" class="item-discount-input" 
                            value="${itemDiscount}" min="0" placeholder="0"
                            onchange="changeItemDiscount('${sku}', this.value)">
                 </div>
-                
                 <div class="final-line-price">${formatVND(lineTotal)}</div>
             </div>
         </div>
@@ -376,7 +477,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     summaryList.innerHTML = html;
 
-    // Tính GIẢM GIÁ TOÀN ĐƠN (Global Discount)
     const gVal = Number(globalDiscountVal.value) || 0;
     const gType = globalDiscountType.value;
     let globalDiscountAmt = 0;
@@ -387,19 +487,16 @@ document.addEventListener('DOMContentLoaded', function() {
         globalDiscountAmt = gVal;
     }
     
-    // Validate không giảm quá tổng tiền
     if (globalDiscountAmt > sumItemTotal) globalDiscountAmt = sumItemTotal;
-    
     const finalTotal = sumItemTotal - globalDiscountAmt;
 
-    // Render số liệu tổng
     subTotalPriceEl.textContent = formatVND(sumItemTotal);
     discountAmountEl.textContent = globalDiscountAmt > 0 ? `-${formatVND(globalDiscountAmt)}` : '0 VNĐ';
     finalTotalPriceEl.textContent = formatVND(finalTotal);
   }
 
   // ==========================================
-  // 2. CÁC HÀM XỬ LÝ SỰ KIỆN (Window Scope)
+  // 3. CÁC HÀM TIỆN ÍCH (Window Scope)
   // ==========================================
   window.changeQty = (sku, delta) => {
     if (currentBuildConfig[sku]) {
@@ -420,42 +517,31 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
 
-  // Event Listeners cho Global Inputs
   globalDiscountVal.addEventListener('input', updateSummaryAndTotal);
   globalDiscountType.addEventListener('change', updateSummaryAndTotal);
 
-  // ==========================================
-  // 3. XỬ LÝ SỰ KIỆN NÚT SỬA GIÁ / LỊCH SỬ
-  // ==========================================
+  // Xử lý nút Sửa/Lịch sử giá
   summaryList.addEventListener('click', async (e) => {
     const btn = e.target.closest('button'); 
     if (!btn) return;
     const sku = btn.dataset.sku;
     const action = btn.dataset.action;
 
-    // A. Bật chế độ sửa giá
     if (btn.classList.contains('btn-edit-price')) { 
         currentBuildConfig[sku].isEditingPrice = true; 
         updateSummaryAndTotal(); 
-        setTimeout(() => { 
-            const inp = document.getElementById(`price-input-${sku}`);
-            if(inp) inp.focus();
-        }, 50);
     }
     
-    // B. Xem lịch sử
     if (btn.classList.contains('btn-history-price')) {
         showPriceHistoryModal(sku); 
     }
     
-    // C. Lưu giá mới
     if (action === 'save-price') { 
         const input = document.getElementById(`price-input-${sku}`);
         const newP = Number(input.value);
         if (newP < 0) return alert('Giá không hợp lệ');
         
         try {
-            // Gọi API lưu giá (Optional: Nếu bạn muốn lưu vào DB)
             const res = await fetch(`/api/sku/${sku}/price`, {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ new_price: newP })
@@ -463,7 +549,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const d = await res.json();
             if(!d.ok) throw new Error(d.error);
             
-            // Cập nhật local
             currentBuildConfig[sku].edited_price = newP; 
             currentBuildConfig[sku].isEditingPrice = false; 
             if(typeof showToast === 'function') showToast('Đã cập nhật giá gốc!', 'success');
@@ -471,101 +556,13 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSummaryAndTotal();
     }
     
-    // D. Hủy sửa
     if (action === 'cancel-price') { 
         currentBuildConfig[sku].isEditingPrice = false; 
         updateSummaryAndTotal(); 
     }
   });
 
-  // ==========================================
-  // 4. MODAL TÌM KIẾM & BỘ LỌC
-  // ==========================================
-  const btnOpenSearchModal = document.getElementById('btnOpenSearchModal');
-  const modal = document.getElementById('componentModal');
-  const modalClose = document.getElementById('componentModalClose');
-  const modalList = document.getElementById('componentModalList');
-  const componentSearch = document.getElementById('componentSearch');
-  const filterCategory = document.getElementById('filterCategory');
-  
-  // Tải bộ lọc (Chỉ tải 1 lần)
-  let filtersLoaded = false;
-  async function loadFilters() {
-     if(filtersLoaded) return;
-     try {
-         const res = await fetch('/api/quote/filter-options');
-         const d = await res.json();
-         if(d.ok) {
-             filterCategory.innerHTML = '<option value="">-- Tất cả ngành hàng --</option>' + d.categories.map(c=>`<option value="${c}">${c}</option>`).join('');
-             filtersLoaded = true;
-         }
-     } catch(e){}
-  }
-  
-  // Tìm kiếm
-  async function search() {
-      const q = componentSearch.value.trim();
-      const cat = filterCategory.value; 
-      
-      // Nếu chưa nhập gì, hiện 20 sp mới nhất
-      modalList.innerHTML = '<div class="dash-muted" style="text-align:center; padding:20px;">Đang tải dữ liệu...</div>';
-      
-      try {
-          const res = await fetch(`/api/quote/search-products?q=${q}&category=${cat}`);
-          const d = await res.json();
-          productCache = d.products || [];
-          
-          if(productCache.length === 0) {
-              modalList.innerHTML = '<div class="dash-muted" style="text-align:center; padding:20px;">Không tìm thấy sản phẩm nào.</div>';
-              return;
-          }
-
-          modalList.innerHTML = productCache.map(p => {
-              const added = !!currentBuildConfig[p.sku];
-              return `
-              <div class="component-item">
-                <div class="component-item-info">
-                    <strong>${p.product_name}</strong><br>
-                    <span>SKU: ${p.sku} | Brand: ${p.brand||'-'}</span>
-                </div>
-                <div class="component-item-action">
-                    <span class="component-item-price">${formatVND(p.list_price)}</span>
-                    <button class="btn-select-item ${added?'selected':''}" onclick="selectItem('${p.sku}')" ${added?'disabled':''}>
-                        ${added?'Đã thêm':'Chọn'}
-                    </button>
-                </div>
-              </div>`;
-          }).join('');
-      } catch(e){ modalList.innerHTML = `<div class="error-message">Lỗi: ${e.message}</div>`; }
-  }
-
-  // Chọn sản phẩm
-  window.selectItem = (sku) => {
-      const p = productCache.find(x => x.sku === sku);
-      if(p) { 
-          // Thêm vào giỏ với giá trị mặc định
-          currentBuildConfig[sku] = { ...p, quantity: 1, item_discount: 0 }; 
-          updateSummaryAndTotal();
-          
-          // Cập nhật lại nút trong modal
-          const btns = document.querySelectorAll(`button[onclick="selectItem('${sku}')"]`);
-          btns.forEach(b => {
-              b.textContent = 'Đã thêm';
-              b.classList.add('selected');
-              b.disabled = true;
-          });
-          if(typeof showToast === 'function') showToast('Đã thêm sản phẩm!', 'success');
-      }
-  };
-
-  btnOpenSearchModal.onclick = () => { modal.style.display = 'flex'; componentSearch.focus(); loadFilters(); search(); };
-  modalClose.onclick = () => modal.style.display = 'none';
-  componentSearch.oninput = debounce(search, 400);
-  filterCategory.onchange = search;
-
-  // ==========================================
-  // 5. MODAL LỊCH SỬ GIÁ
-  // ==========================================
+  // Modal Lịch sử giá
   const priceHistoryModal = document.getElementById('priceHistoryModal');
   const phTbody = document.querySelector('#phTable tbody');
   const phSku = document.getElementById('phSku');
@@ -590,7 +587,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('phClose').onclick = () => priceHistoryModal.style.display = 'none';
 
   // ==========================================
-  // 6. XỬ LÝ NÚT TẠO BÁO GIÁ & TẢI PDF
+  // 4. XỬ LÝ TẠO BÁO GIÁ & TẢI PDF
   // ==========================================
   const quoteModal = document.getElementById('quoteModal');
   const quoteClose = document.getElementById('quoteClose');
@@ -601,8 +598,6 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('mainQuoteButton').onclick = () => {
       if(Object.keys(currentBuildConfig).length === 0) return alert('Vui lòng thêm ít nhất 1 sản phẩm.');
       quoteModal.style.display = 'flex';
-      
-      // Reset form
       btnDownload.style.display = 'block'; 
       btnDownload.disabled = false;
       quoteLoading.style.display = 'none';
@@ -611,7 +606,6 @@ document.addEventListener('DOMContentLoaded', function() {
   
   if(quoteClose) quoteClose.onclick = () => quoteModal.style.display = 'none';
   window.onclick = (e) => { 
-      if(e.target == modal) modal.style.display = 'none'; 
       if(e.target == priceHistoryModal) priceHistoryModal.style.display = 'none'; 
       if(e.target == quoteModal) quoteModal.style.display = 'none'; 
   };
@@ -626,21 +620,17 @@ document.addEventListener('DOMContentLoaded', function() {
           return;
       }
 
-      // UI Loading
       btnDownload.style.display = 'none'; 
       quoteLoading.style.display = 'block';
       downloadError.style.display = 'none';
       
-      // Chuẩn bị dữ liệu gửi đi
       const payload = {
           buildConfig: currentBuildConfig,
           customerName: name, 
           customerPhone: phone, 
           contactInfo: contact,
-          isGeneralQuote: true, // Đánh dấu là báo giá nhanh
-          sendEmail: false,     // Chỉ tải PDF
+          isGeneralQuote: true, 
           
-          // Dữ liệu mới
           globalDiscount: { 
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
@@ -661,21 +651,18 @@ document.addEventListener('DOMContentLoaded', function() {
               throw new Error(err.error || 'Lỗi kết nối server');
           }
           
-          // Xử lý File Blob
           const blob = await res.blob();
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.style.display = 'none'; 
           a.href = url; 
           
-          // Tên file an toàn
           const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g,'_');
           a.download = `BaoGia_${safeName}.pdf`;
           
           document.body.appendChild(a); 
           a.click();
           
-          // Cleanup
           setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
           
           quoteModal.style.display = 'none';
@@ -691,7 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
   };
 
-  // Khởi tạo lần đầu
+  // Khởi tạo
   updateSummaryAndTotal();
 });
 </script>

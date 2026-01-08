@@ -5,7 +5,7 @@
     <style>
         body { background: #f0f2f5; overflow-y: auto; }
         .admin-layout { display: flex; gap: 20px; padding: 20px; min-height: 500px; height: auto; }
-        .col-panel { flex: 1; background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); height: 600px; /* Thêm chiều cao cho panel con */ }
+        .col-panel { flex: 1; background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); height: 600px; }
         .col-header { padding: 15px 20px; color: white; font-weight: 800; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
         .list-wrap { flex: 1; overflow-y: auto; padding: 15px; background: #f8fafc; }
         
@@ -22,6 +22,7 @@
         .tag-type { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-left: 5px; }
         .tag-repair { background: #e0f2fe; color: #0369a1; }
         .tag-warranty { background: #ffedd5; color: #c2410c; }
+        .tag-check { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
 
         .btn-call-header { background: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; color: #333; display: flex; align-items: center; gap: 5px; }
         .btn-action { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 700; color: white; cursor: pointer; margin-top: 10px; }
@@ -63,26 +64,30 @@
         .btn-confirm { background: #1a73e8; color: white; }
         .btn-cancel { background: #f3f4f6; color: #333; }
         
-        /* Ẩn TVC Bar theo yêu cầu */
-        .tvc-bar { display: none; } 
         .action-list { display: flex; flex-direction: column; gap: 8px; border: 1px solid #eee; padding: 10px; border-radius: 8px; max-height: 250px; overflow-y: auto; }
-    .action-item { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 5px; border-radius: 4px; transition: background 0.2s; }
-    .action-item:hover { background: #f9fafb; }
-    .action-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin-top: 2px;flex-shrink: 0;}
-    .action-item span { font-size: 14px; color: #333; line-height: 1.4; }
+        .action-item { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 5px; border-radius: 4px; transition: background 0.2s; }
+        .action-item:hover { background: #f9fafb; }
+        .action-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin-top: 2px;flex-shrink: 0;}
+        .action-item span { font-size: 14px; color: #333; line-height: 1.4; }
     </style>
 </head>
 <body>
     <div class="admin-layout">
-        <% 
-       // 1. Lọc và Sắp xếp danh sách Sửa chữa / Bảo hành
-       const serviceList = tickets.filter(t => t.service_type === 'REPAIR' || t.service_type === 'WARRANTY'); 
+       <% 
+       // 1. Lọc danh sách Dịch vụ (Gồm: Sửa chữa, Bảo hành, Lấy máy, và Kiểm tra)
+       const serviceList = tickets.filter(t => 
+           t.service_type === 'REPAIR' || 
+           t.service_type === 'WARRANTY' || 
+           t.service_type === 'PICKUP' || 
+           t.service_type === 'CHECK'
+       ); 
        serviceList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1));
 
        // 2. Lọc và Sắp xếp danh sách Lắp ráp
        const salesList = tickets.filter(t => t.service_type === 'SALES'); 
        salesList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1));
-    %>
+       %>
+       
         <div class="col-panel col-service">
             <div class="col-header">
                 <span>🛠 SỬA CHỮA / BẢO HÀNH (<%= serviceList.length %>)</span>
@@ -91,7 +96,6 @@
                 </button>
             </div>
             <div class="list-wrap">
-            
                 <% if(serviceList.length===0) { %><div style="text-align:center;color:#999;margin-top:30px">📭 Trống</div><% } %>
 
                 <% serviceList.forEach(t => { %>
@@ -100,34 +104,52 @@
                         
                         <div style="display:flex; justify-content:space-between;">
                             <span style="font-size:20px; font-weight:800; color:#1a73e8;"><%= t.ticket_number %></span>
-                            <span class="tag-type <%= t.service_type==='REPAIR'?'tag-repair':'tag-warranty' %>">
-                                <%= t.service_type==='REPAIR'?'SỬA CHỮA':'BẢO HÀNH' %>
+                            <% 
+                                let typeName = 'KHÁC';
+                                let typeClass = 'tag-repair';
+                                if(t.service_type === 'REPAIR') { typeName = 'SỬA CHỮA'; typeClass = 'tag-repair'; }
+                                else if(t.service_type === 'WARRANTY') { typeName = 'BẢO HÀNH'; typeClass = 'tag-warranty'; }
+                                else if(t.service_type === 'PICKUP') { typeName = 'LẤY MÁY'; typeClass = 'tag-repair'; }
+                                else if(t.service_type === 'CHECK') { typeName = 'KIỂM TRA'; typeClass = 'tag-check'; }
+                            %>
+                            <span class="tag-type <%= typeClass %>">
+                                <%= typeName %>
                             </span>
                         </div>
                         <div style="font-weight:700;"><%= t.customer_name %></div>
                         <div style="font-size:12px; color:#555; margin-top:4px; display:flex; justify-content:space-between;">
-    <span><%= t.customer_phone || '---' %></span>
-    <span><%= new Date(t.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %></span>
-</div>
+                            <span><%= t.customer_phone || '---' %></span>
+                            <span><%= new Date(t.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %></span>
+                        </div>
                         <% if(t.error_description) { %><div style="font-style:italic; font-size:13px; color:#c00;">"<%= t.error_description %>"</div><% } %>
 
                         <% if(t.status === 'SERVING') { %>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                                <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %>')">
-    ✅ Xong
-</button>
+                                <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %>', '<%= t.service_type %>')">
+                                    ✅ Xong
+                                </button>
                                 <button class="btn-action" style="background:#f59e0b;" onclick="control('RECALL', '<%= t.id %>', '<%= t.service_type %>')">🔊 Gọi lại</button>
                             </div>
                             <button class="btn-action btn-skip" style="padding: 8px; font-size: 12px;" onclick="control('SKIP', '<%= t.id %>', '<%= t.service_type %>')">❌ Khách vắng</button>
                         <% } else { %>
                             <div style="font-size:12px; color:#1a73e8; margin-top:5px; font-weight:600; text-align:right;">Đang chờ...</div>
+                            
+                            <% if (t.service_type === 'CHECK') { %>
+                                <div style="background:#fff3cd; color:#856404; font-size:11px; padding:5px; margin-top:5px; border-radius:4px; text-align:center; border: 1px solid #ffeeba;">
+                                    ⚠️ Khách chưa rõ loại
+                                </div>
+                            <% } %>
+
+                            <button class="btn-action" style="background: #1a73e8; margin-top: 8px;" 
+                                    onclick="callSpecific('<%= t.id %>')">
+                                📞 Gọi khách này
+                            </button>
                         <% } %>
                         <div style="margin-top: 10px; border-top: 1px dashed #eee; padding-top: 5px; text-align: right;">
-                            
                             <button onclick="deleteTicket('<%= t.id %>')" style="background: none; border: none; color: #d93025; font-size: 12px; cursor: pointer; text-decoration: underline;">
-        🗑 Xóa vé này
-    </button>
-</div>
+                                🗑 Xóa vé này
+                            </button>
+                        </div>
                     </div>
                 <% }) %>
             </div>
@@ -147,8 +169,6 @@
             </div>
             
             <div class="list-wrap">
-                
-                
                 <% if(salesList.length===0) { %><div style="text-align:center;color:#999;margin-top:30px">📦 Chưa có đơn</div><% } %>
 
                 <% salesList.forEach(t => { %>
@@ -157,7 +177,6 @@
                         <div style="font-size:20px; font-weight:800; color:#0d9488;"><%= t.ticket_number %></div>
 
                         <div style="font-weight:700;"><%= t.customer_name %></div>
-                        
                         <div style="font-size:13px;"><%= t.product_name %></div>
                         
                         <% if(t.status === 'SERVING') { %>
@@ -167,16 +186,16 @@
                                 <button class="wf-btn <%= t.process_status==='HANDOVER'?'active':'' %>" onclick="updateProcess('<%= t.id %>', 'HANDOVER')">3. Giao</button>
                             </div>
                             <% if(t.process_status === 'HANDOVER') { %>
-                                <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %> / <%= t.product_name %>')">
-    ✅ HOÀN THÀNH
-</button>
-                                <% } %>
+                                <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %> / <%= t.product_name %>', '<%= t.service_type %>')">
+                                    ✅ HOÀN THÀNH
+                                </button>
+                            <% } %>
                         <% } %>
                         <div style="margin-top: 10px; border-top: 1px dashed #eee; padding-top: 5px; text-align: right;">
-    <button onclick="deleteTicket('<%= t.id %>')" style="background: none; border: none; color: #d93025; font-size: 12px; cursor: pointer; text-decoration: underline;">
-        🗑 Xóa vé này
-    </button>
-</div>
+                            <button onclick="deleteTicket('<%= t.id %>')" style="background: none; border: none; color: #d93025; font-size: 12px; cursor: pointer; text-decoration: underline;">
+                                🗑 Xóa vé này
+                            </button>
+                        </div>
                     </div>
                 <% }) %>
             </div>
@@ -186,13 +205,10 @@
    <div id="callModal" class="modal-overlay">
         <div class="modal-box">
             <h3 style="margin-top:0; color:#1a73e8;">Chọn Người / Quầy phục vụ</h3>
-            
             <div class="form-group">
                 <label class="form-label">Kỹ thuật viên:</label>
-                
                 <select id="ktvSelect" class="form-select" onchange="checkKtvOther(this)">
                     <option value="" disabled selected>-- Chọn tên KTV --</option>
-                    
                     <% if(staffList && staffList.length > 0) { %>
                         <% staffList.forEach(user => { %>
                             <option value="<%= user.full_name || user.email %>">
@@ -200,13 +216,10 @@
                             </option>
                         <% }) %>
                     <% } %>
-
                     <option value="other" style="font-weight:bold; color:#d93025;">✏️ Nhập tên khác...</option>
                 </select>
-
                 <input id="ktvInput" class="form-input" placeholder="Nhập tên KTV..." style="display:none; margin-top:10px;">
             </div>
-
             <div class="form-group">
                 <label class="form-label">Tại Quầy / Bàn số:</label>
                 <select id="counterSelect" class="form-select">
@@ -221,215 +234,242 @@
                     <option value="Quầy B">Quầy B</option>
                 </select>
             </div>
-
             <div class="modal-btns">
                 <button class="btn-modal btn-cancel" onclick="closeModal()">Hủy</button>
                 <button class="btn-modal btn-confirm" onclick="confirmCall()"> GỌI TÊN NGAY</button>
             </div>
         </div>
     </div>
+
     <div class="history-panel" style="margin: 0 20px 20px 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-    <h3 style="margin-top:0; color:#333; display:flex; justify-content:space-between; align-items:center;">
-        📋 DANH SÁCH KHÁCH ĐÃ PHỤC VỤ HÔM NAY
-        <button onclick="loadHistory(1)" style="font-size:12px; padding:5px 10px; cursor:pointer;">🔄 Làm mới</button>
-    </h3>
-    
-    <div style="overflow-x: auto;">
-        <table style="width:100%; border-collapse: collapse; font-size:14px;">
-            <thead>
-    <tr style="background:#f8fafc; color:#555; text-align:left; border-bottom:2px solid #eee;">
-        <th style="padding:12px;">STT</th>
-        <th style="padding:12px;">Chi nhánh</th> <th style="padding:12px;">Thời gian</th>
-        <th style="padding:12px;">Loại DV</th>
-        <th style="padding:12px;">Khách hàng</th>
-        <th style="padding:12px;">SĐT / Đơn hàng</th>
-        <th style="padding:12px;">KTV Phục vụ</th>
-        <th style="padding:12px;">Tổng thời gian</th> <th style="padding:12px;">Đánh giá</th>
-    </tr>
-</thead>
-            <tbody id="historyTableBody">
-                </tbody>
-        </table>
+        <h3 style="margin-top:0; color:#333; display:flex; justify-content:space-between; align-items:center;">
+            📋 DANH SÁCH KHÁCH ĐÃ PHỤC VỤ HÔM NAY
+            <button onclick="loadHistory(1)" style="font-size:12px; padding:5px 10px; cursor:pointer;">🔄 Làm mới</button>
+        </h3>
+        <div style="overflow-x: auto;">
+            <table style="width:100%; border-collapse: collapse; font-size:14px;">
+                <thead>
+                    <tr style="background:#f8fafc; color:#555; text-align:left; border-bottom:2px solid #eee;">
+                        <th style="padding:12px;">STT</th>
+                        <th style="padding:12px;">Chi nhánh</th> <th style="padding:12px;">Thời gian</th>
+                        <th style="padding:12px;">Loại DV</th>
+                        <th style="padding:12px;">Khách hàng</th>
+                        <th style="padding:12px;">SĐT / Đơn hàng</th>
+                        <th style="padding:12px;">KTV Phục vụ</th>
+                        <th style="padding:12px;">Tổng thời gian</th> <th style="padding:12px;">Đánh giá</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody"></tbody>
+            </table>
+        </div>
+        <div id="pagination" style="margin-top:15px; display:flex; justify-content:center; gap:10px;"></div>
     </div>
 
-    <div id="pagination" style="margin-top:15px; display:flex; justify-content:center; gap:10px;"></div>
-</div>
-<div id="feedbackModal" class="modal-overlay">
-    <div class="modal-box">
-        <h3 style="margin: 0 0 15px 0; color: #1a73e8;">📋 Báo cáo công việc</h3>
-        
-        <div class="form-group">
-            <label class="form-label">Mã số nhân viên (MSNV) <span style="color:red">*</span></label>
-            <input type="text" id="modalMsnv" class="form-input" placeholder="Nhập mã nhân viên...">
-        </div>
-
-        <div class="form-group">
-            <label class="form-label">Tên KH / Mã ĐH</label>
-            <input type="text" id="modalCustomerInfo" class="form-input" readonly style="background: #f9fafb; color: #6b7280;">
-        </div>
-
-        <div class="form-group">
-            <label class="form-label">Bạn đã làm gì để khách hàng hài lòng? (Chọn ít nhất 1) <span style="color:red">*</span></label>
+    <div id="feedbackModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 style="margin: 0 0 15px 0; color: #1a73e8;">📋 Báo cáo công việc</h3>
             
-        <div class="action-list">
-    <label class="action-item">
-        <input type="checkbox" name="workAction" value="Vệ sinh ngoại quan">
-        <span>Vệ sinh ngoại quan</span>
-    </label>
-    
-    <label class="action-item">
-        <input type="checkbox" name="workAction" value="Tư vấn Zalo OA để hỗ trợ sau bán hàng">
-        <span>Tư vấn Zalo OA để hỗ trợ sau bán hàng</span>
-    </label>
-    
-    <label class="action-item">
-        <input type="checkbox" name="workAction" value="Khiêng hàng cồng kềnh / giúp khách ràng hàng hóa lên xe">
-        <span>Khiêng hàng cồng kềnh / giúp khách ràng hàng hóa lên xe</span>
-    </label>
-    
-    <label class="action-item">
-        <input type="checkbox" name="workAction" value="Đóng hàng kỹ / bọc màng PE nếu thời tiết chuyển mưa">
-        <span>Đóng hàng kỹ / bọc màng PE nếu thời tiết chuyển mưa</span>
-    </label>
-    
-    <label class="action-item">
-        <input type="checkbox" name="workAction" value="Chủ động hỏi kỹ về nhu cầu sử dụng để tư vấn/ cài đặt thêm">
-        <span>Chủ động hỏi kỹ về nhu cầu sử dụng để tư vấn/ cài đặt thêm</span>
-    </label>
-    
-    <label class="action-item">
-        <input type="checkbox" name="workAction" value="Chủ động hướng dẫn sử dụng máy và các phần mềm cơ bản">
-        <span>Chủ động hướng dẫn sử dụng máy và các phần mềm cơ bản</span>
-    </label>
+            <div class="form-group">
+                <label class="form-label">Mã số nhân viên (MSNV) <span style="color:red">*</span></label>
+                <input type="text" id="modalMsnv" class="form-input" placeholder="Nhập mã nhân viên...">
+            </div>
 
-    <label class="action-item">
-        <input type="checkbox" name="workAction" value="Hỗ trợ qua Zalo OA">
-        <span>Hỗ trợ Khách hàng qua kênh chat Zalo OA</span>
-    </label>
-</div>
+            <div class="form-group">
+                <label class="form-label">Tên KH / Mã ĐH</label>
+                <input type="text" id="modalCustomerInfo" class="form-input" readonly style="background: #f9fafb; color: #6b7280;">
+            </div>
 
-        <div class="form-group">
-            <label class="form-label">Các hành động khác (Nhập thêm nếu có)</label>
-            <input type="text" id="modalOtherAction" class="form-input" placeholder="Ghi chú thêm...">
-        </div>
+            <div class="form-group">
+                <label class="form-label">Bạn đã làm gì để khách hàng hài lòng? (Chọn ít nhất 1) <span style="color:red">*</span></label>
+                <div class="action-list">
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Vệ sinh ngoại quan"><span>Vệ sinh ngoại quan</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Tư vấn Zalo OA"><span>Tư vấn Zalo OA</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Khiêng hàng cồng kềnh"><span>Khiêng hàng cồng kềnh</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Đóng hàng kỹ"><span>Đóng hàng kỹ</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Tư vấn cài đặt thêm"><span>Tư vấn cài đặt thêm</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Hướng dẫn sử dụng"><span>Hướng dẫn sử dụng</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Hỗ trợ Zalo OA"><span>Hỗ trợ qua Zalo OA</span></label>
+                </div>
+            </div>
 
-        <div class="modal-btns">
-            <button class="btn-modal btn-cancel" onclick="closeLogModal()">Hủy bỏ</button>
-            <button class="btn-modal btn-confirm" id="btnConfirmLog" onclick="submitWorkLog()">✅ Xác nhận & Hoàn thành</button>
+            <div class="form-group">
+                <label class="form-label">Các hành động khác (Nhập thêm nếu có)</label>
+                <input type="text" id="modalOtherAction" class="form-input" placeholder="Ghi chú thêm...">
+            </div>
+
+            <div id="reclassifySection" class="form-group" style="display:none; background:#fff8e1; padding:10px; border:1px dashed #f59e0b; border-radius:8px;">
+                <label class="form-label" style="color:#d97706;">⚠️ Xác nhận loại dịch vụ thực tế: <span style="color:red">*</span></label>
+                <div style="display:flex; gap:10px;">
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
+                        <input type="radio" name="finalType" value="REPAIR"> 🛠 Sửa chữa
+                    </label>
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
+                        <input type="radio" name="finalType" value="WARRANTY"> 🛡 Bảo hành
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-btns">
+                <button class="btn-modal btn-cancel" onclick="closeLogModal()">Hủy bỏ</button>
+                <button class="btn-modal btn-confirm" id="btnConfirmLog" onclick="submitWorkLog()">✅ Xác nhận & Hoàn thành</button>
+            </div>
         </div>
     </div>
-</div>
+
     <script>
        let currentCallType = ''; 
+       let currentLogServiceType = ''; 
+       let logTicketId = null; 
+       const logModal = document.getElementById('feedbackModal');
+       const msnvInput = document.getElementById('modalMsnv');
 
-        // Mở Modal & Tự động điền tên cũ đã lưu
+       document.addEventListener('DOMContentLoaded', () => {
+           const savedMsnv = localStorage.getItem('user_msnv');
+           if (savedMsnv && msnvInput) msnvInput.value = savedMsnv;
+       });
+
+        // Hàm mở modal Báo cáo
+        window.openLogModal = function(ticketId, customerInfo, serviceType) {
+            logTicketId = ticketId;
+            currentLogServiceType = serviceType; // Lưu loại dịch vụ
+            document.getElementById('modalCustomerInfo').value = customerInfo || 'N/A';
+            
+            // Reset form
+            document.querySelectorAll('input[name="workAction"]').forEach(cb => cb.checked = false);
+            document.getElementById('modalOtherAction').value = '';
+            
+            // Reset radio chọn lại loại
+            document.querySelectorAll('input[name="finalType"]').forEach(rb => rb.checked = false);
+
+            // [LOGIC MỚI] Ẩn/Hiện phần chọn lại loại dịch vụ
+            const reclassifyDiv = document.getElementById('reclassifySection');
+            if (serviceType === 'CHECK') {
+                reclassifyDiv.style.display = 'block';
+            } else {
+                reclassifyDiv.style.display = 'none';
+            }
+            
+            logModal.classList.add('open');
+        }
+
+        window.closeLogModal = function() {
+            logModal.classList.remove('open');
+            logTicketId = null;
+        }
+
+        // Hàm gửi dữ liệu Báo cáo & Hoàn thành
+        window.submitWorkLog = async function() {
+            const msnv = msnvInput.value.trim();
+            const otherAction = document.getElementById('modalOtherAction').value.trim();
+            const customerInfo = document.getElementById('modalCustomerInfo').value;
+            const checkedBoxes = document.querySelectorAll('input[name="workAction"]:checked');
+            let selectedActions = Array.from(checkedBoxes).map(cb => cb.value);
+
+            if (!msnv) { alert("⚠️ Vui lòng nhập Mã số nhân viên!"); msnvInput.focus(); return; }
+            if (selectedActions.length === 0 && !otherAction) { alert("⚠️ Vui lòng chọn ít nhất 1 hành động!"); return; }
+
+            // [LOGIC MỚI] Kiểm tra chọn lại loại dịch vụ
+            let newServiceType = null;
+            if (currentLogServiceType === 'CHECK') {
+                const selectedType = document.querySelector('input[name="finalType"]:checked');
+                if (!selectedType) {
+                    alert("⚠️ Vé này khách chưa rõ loại.\nVui lòng xác nhận thực tế là SỬA CHỮA hay BẢO HÀNH!");
+                    return;
+                }
+                newServiceType = selectedType.value;
+            }
+
+            const actionDesc = selectedActions.join(', ');
+            localStorage.setItem('user_msnv', msnv);
+
+            const btn = document.getElementById('btnConfirmLog');
+            const oldText = btn.innerText;
+            btn.innerText = "⏳ Đang xử lý..."; 
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/queue/log-and-complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ticket_id: logTicketId,
+                        msnv: msnv,
+                        customer_info: customerInfo,
+                        action_desc: actionDesc,
+                        other_action: otherAction,
+                        new_service_type: newServiceType // Gửi loại mới (nếu có)
+                    })
+                });
+
+                const data = await res.json();
+                if (data.ok) {
+                    closeLogModal();
+                    window.location.reload(); 
+                } else {
+                    alert("❌ Lỗi server: " + data.message);
+                }
+            } catch (e) { alert("❌ Lỗi kết nối mạng!"); } 
+            finally { btn.innerText = oldText; btn.disabled = false; }
+        }
+
+        // Các hàm Modal Gọi Khách (Giữ nguyên)
         function openCallModal(type) {
             currentCallType = type;
-            const modal = document.getElementById('callModal');
-            modal.classList.add('open');
-
-            // 1. Lấy dữ liệu đã lưu trong trình duyệt (LocalStorage)
+            document.getElementById('callModal').classList.add('open');
             const savedKtv = localStorage.getItem('last_ktv') || '';
             const savedCounter = localStorage.getItem('last_counter') || '';
-
             const ktvSelect = document.getElementById('ktvSelect');
             const ktvInput = document.getElementById('ktvInput');
             
-            // 2. Logic "Nhớ" thông minh
             let foundInList = false;
-            
-            // Duyệt qua danh sách để xem tên đã lưu có khớp với ai trong DB không
             for(let i=0; i<ktvSelect.options.length; i++){
                 if(ktvSelect.options[i].value === savedKtv) {
-                    ktvSelect.selectedIndex = i; // Có trong list -> Chọn luôn
-                    foundInList = true;
-                    break;
+                    ktvSelect.selectedIndex = i; 
+                    foundInList = true; break;
                 }
             }
-
-            // 3. Xử lý hiển thị
             if(savedKtv && !foundInList) {
-                // Nếu có tên lưu mà KHÔNG nằm trong list DB -> Chọn "Nhập khác" và điền vào input
-                ktvSelect.value = 'other';
-                ktvInput.style.display = 'block';
-                ktvInput.value = savedKtv;
+                ktvSelect.value = 'other'; ktvInput.style.display = 'block'; ktvInput.value = savedKtv;
             } else if (foundInList) {
-                // Nếu có trong list -> Ẩn input nhập tay
                 ktvInput.style.display = 'none';
             } else {
-                // Lần đầu chưa lưu gì -> Reset về mặc định
-                ktvSelect.selectedIndex = 0; 
-                ktvInput.style.display = 'none';
+                ktvSelect.selectedIndex = 0; ktvInput.style.display = 'none';
             }
-
-            // 4. Set lại bàn/quầy đã lưu
             document.getElementById('counterSelect').value = savedCounter;
         }
 
-        function closeModal() {
-            document.getElementById('callModal').classList.remove('open');
-        }
+        function closeModal() { document.getElementById('callModal').classList.remove('open'); }
 
-        // Xử lý khi chọn "Nhập tên khác"
         function checkKtvOther(select) {
             const input = document.getElementById('ktvInput');
-            if(select.value === 'other') {
-                input.style.display = 'block';
-                input.focus();
-                input.value = ''; // Reset để người dùng nhập mới
-            } else {
-                input.style.display = 'none';
-            }
+            input.style.display = (select.value === 'other') ? 'block' : 'none';
+            if(select.value === 'other') { input.focus(); input.value = ''; }
         }
 
         async function confirmCall() {
             const ktvSelect = document.getElementById('ktvSelect');
             const ktvInput = document.getElementById('ktvInput');
             const counterSelect = document.getElementById('counterSelect');
-
-            // Lấy tên KTV (từ dropdown hoặc từ input nhập tay)
             let ktvName = ktvSelect.value === 'other' ? ktvInput.value.trim() : ktvSelect.value;
             
-            if(!ktvName || (ktvSelect.value === 'other' && !ktvName)) {
-                alert("Vui lòng chọn hoặc nhập tên KTV!");
-                return;
-            }
-
+            if(!ktvName) { alert("Vui lòng chọn tên KTV!"); return; }
             let counterVal = counterSelect.value;
-            
-            // Ghép chuỗi hiển thị: "Vũ (Bàn 1)"
-            let finalName = ktvName;
-            if (counterVal) finalName = `${ktvName} (${counterVal})`;
+            let finalName = ktvName + (counterVal ? ` (${counterVal})` : '');
 
-            // === LƯU LẠI LỰA CHỌN VÀO TRÌNH DUYỆT ===
             localStorage.setItem('last_ktv', ktvName);
             localStorage.setItem('last_counter', counterVal);
 
-            // Gửi API
             try {
                 const btn = document.querySelector('.btn-confirm');
                 btn.innerText = "Đang gọi..."; btn.disabled = true;
-
                 const res = await fetch('/api/queue/control', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        action: 'CALL_NEXT', 
-                        service_type: currentCallType, 
-                        counter_name: finalName 
-                    })
+                    body: JSON.stringify({ action: 'CALL_NEXT', service_type: currentCallType, counter_name: finalName })
                 });
                 const data = await res.json();
-                
                 if(data.ok) window.location.reload();
-                else {
-                    alert(data.message);
-                    btn.innerText = "📞 GỌI NGAY"; btn.disabled = false;
-                    closeModal();
-                }
-            } catch(e) { 
-                alert('Lỗi kết nối'); 
-                closeModal();
-            }
+                else { alert(data.message); btn.innerText = "GỌI NGAY"; btn.disabled = false; closeModal(); }
+            } catch(e) { alert('Lỗi kết nối'); closeModal(); }
         }
 
         async function control(action, id, type) {
@@ -441,214 +481,107 @@
             await fetch('/api/queue/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'UPDATE_PROCESS', ticket_id: id, process_step: step}) });
             window.location.reload();
         }
-        
 
-       let currentPage = 1;
+        // [MỚI] Hàm gọi số cụ thể (Chỉ gọi, không hỏi loại)
+        async function callSpecific(ticketId) {
+            const savedKtv = localStorage.getItem('last_ktv') || 'Quầy Kỹ Thuật';
+            if(!confirm(`Bạn muốn gọi vé này vào quầy ${savedKtv}?`)) return;
 
-    async function loadHistory(page = 1) {
-        currentPage = page;
-        const tbody = document.getElementById('historyTableBody');
-        const pagDiv = document.getElementById('pagination');
-        
-        // Hiển thị trạng thái đang tải
-        if(tbody.innerHTML.trim() === '') {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
+            try {
+                const res = await fetch('/api/queue/control', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'CALL_SPECIFIC', ticket_id: ticketId, counter_name: savedKtv })
+                });
+                const data = await res.json();
+                if(data.ok) window.location.reload();
+                else alert(data.message);
+            } catch(e) { alert('Lỗi kết nối'); }
         }
 
-        try {
-            // Gọi API
-            const res = await fetch(`/api/queue/history?branch=<%= user.branch_code %>&page=${page}`);
-            const json = await res.json();
-            
-            if(!json.ok || !json.data || json.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">📭 Chưa có khách nào hoàn thành hôm nay.</td></tr>';
-                pagDiv.innerHTML = '';
-                return;
+        // --- History Logic ---
+        let currentPage = 1;
+        async function loadHistory(page = 1) {
+            currentPage = page;
+            const tbody = document.getElementById('historyTableBody');
+            const pagDiv = document.getElementById('pagination');
+            if(tbody.innerHTML.trim() === '') tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
+
+            try {
+                const res = await fetch(`/api/queue/history?branch=<%= user.branch_code || '' %>&page=${page}`);
+                const json = await res.json();
+                if(!json.ok || !json.data || json.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">📭 Chưa có khách nào hoàn thành hôm nay.</td></tr>';
+                    pagDiv.innerHTML = '';
+                    return;
+                }
+                tbody.innerHTML = json.data.map((item, index) => {
+                    const stt = (page - 1) * 10 + index + 1;
+                    const dateObj = new Date(item.updated_at);
+                    const timeStr = dateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+                    
+                    let typeInfo = '';
+                    if(item.service_type === 'REPAIR') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Sửa chữa</span>';
+                    else if(item.service_type === 'WARRANTY') typeInfo = '<span style="color:#d97706; font-weight:700;">Bảo hành</span>';
+                    else if(item.service_type === 'PICKUP') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Lấy máy</span>';
+                    else typeInfo = '<span style="color:#0d9488; font-weight:700;">Lắp ráp</span>';
+
+                    let feedbackHtml = '<span style="color:#ccc;">--</span>';
+                    if(item.service_feedback && item.service_feedback.length > 0) {
+                        const fb = item.service_feedback[0];
+                        const stars = '⭐'.repeat(fb.service_score || 5);
+                        feedbackHtml = `<div>${stars}</div><div style="font-size:11px; color:#666;">${fb.comment || ''}</div>`;
+                    }
+                    let durationMin = 0;
+                    if (item.created_at && item.updated_at) {
+                        const durationMs = new Date(item.updated_at) - new Date(item.created_at);
+                        durationMin = Math.floor(durationMs / 60000);
+                    }
+                    return `
+                        <tr style="border-bottom:1px solid #eee;">
+                            <td style="padding:12px; text-align:center;">${stt}</td>
+                            <td style="padding:12px; font-weight:bold; color:#555;">${item.branch_code || '--'}</td> 
+                            <td style="padding:12px;">${timeStr}</td>
+                            <td style="padding:12px;">${typeInfo}<br><small style="color:#555">${item.ticket_number}</small></td>
+                            <td style="padding:12px; font-weight:600;">${item.customer_name}</td>
+                            <td style="padding:12px;">
+                                ${item.customer_phone || ''}
+                                ${item.order_id ? `<br><span style="color:#0d9488; font-size:11px;">Đơn: ${item.order_id}</span>` : ''}
+                            </td>
+                            <td style="padding:12px;">${item.counter_name || '---'}</td>
+                            <td style="padding:12px; text-align:center; font-weight:bold;">${durationMin} phút</td> 
+                            <td style="padding:12px;">${feedbackHtml}</td>
+                        </tr>
+                    `;
+                }).join('');
+                const { totalPages } = json.pagination;
+                let pagHtml = '';
+                if(page > 1) pagHtml += `<button onclick="loadHistory(${page-1})" style="padding:5px 10px; cursor:pointer;">Pop trước</button>`;
+                pagHtml += `<span style="padding:0 10px; font-weight:bold; color:#555;">Trang ${page}/${totalPages}</span>`;
+                if(page < totalPages) pagHtml += `<button onclick="loadHistory(${page+1})" style="padding:5px 10px; cursor:pointer;">Tiếp theo</button>`;
+                pagDiv.innerHTML = pagHtml;
+            } catch (e) {
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center;">❌ Lỗi tải dữ liệu.</td></tr>';
             }
-
-            // Render dữ liệu ra bảng
-tbody.innerHTML = json.data.map((item, index) => {
-    const stt = (page - 1) * 10 + index + 1;
-    
-    const dateObj = new Date(item.updated_at);
-    const timeStr = dateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
-    
-    let typeInfo = '';
-    if(item.service_type === 'REPAIR') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Sửa chữa</span>';
-    else if(item.service_type === 'WARRANTY') typeInfo = '<span style="color:#d97706; font-weight:700;">Bảo hành</span>';
-    else typeInfo = '<span style="color:#0d9488; font-weight:700;">Lắp ráp</span>';
-
-    let feedbackHtml = '<span style="color:#ccc;">--</span>';
-    if(item.service_feedback && item.service_feedback.length > 0) {
-        const fb = item.service_feedback[0];
-        const stars = '⭐'.repeat(fb.service_score || 5);
-        feedbackHtml = `<div>${stars}</div><div style="font-size:11px; color:#666;">${fb.comment || ''}</div>`;
-    }
-
-    // Tính thời gian phục vụ (Phút)
-    let durationMin = 0;
-    if (item.created_at && item.updated_at) {
-        const durationMs = new Date(item.updated_at) - new Date(item.created_at);
-        durationMin = Math.floor(durationMs / 60000);
-    }
-
-    return `
-        <tr style="border-bottom:1px solid #eee;">
-            <td style="padding:12px; text-align:center;">${stt}</td>
-            <td style="padding:12px; font-weight:bold; color:#555;">${item.branch_code || '--'}</td> <td style="padding:12px;">${timeStr}</td>
-            <td style="padding:12px;">${typeInfo}<br><small style="color:#555">${item.ticket_number}</small></td>
-            <td style="padding:12px; font-weight:600;">${item.customer_name}</td>
-            <td style="padding:12px;">
-                ${item.customer_phone || ''}
-                ${item.order_id ? `<br><span style="color:#0d9488; font-size:11px;">Đơn: ${item.order_id}</span>` : ''}
-            </td>
-            <td style="padding:12px;">${item.counter_name || '---'}</td>
-            <td style="padding:12px; text-align:center; font-weight:bold;">${durationMin} phút</td> <td style="padding:12px;">${feedbackHtml}</td>
-        </tr>
-    `;
-}).join('');
-
-            // Render Phân trang
-            const { totalPages } = json.pagination;
-            let pagHtml = '';
-            if(page > 1) pagHtml += `<button onclick="loadHistory(${page-1})" style="padding:5px 10px; cursor:pointer;">Pop trước</button>`;
-            pagHtml += `<span style="padding:0 10px; font-weight:bold; color:#555;">Trang ${page}/${totalPages}</span>`;
-            if(page < totalPages) pagHtml += `<button onclick="loadHistory(${page+1})" style="padding:5px 10px; cursor:pointer;">Tiếp theo</button>`;
-            pagDiv.innerHTML = pagHtml;
-
-        } catch (e) {
-            console.error(e);
-            tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center;">❌ Lỗi tải dữ liệu. Hãy kiểm tra server.</td></tr>';
-        }
-    }
-
-    // [MỚI] Hàm xóa vé
-    async function deleteTicket(id) {
-        if (!confirm('⚠️ CẢNH BÁO: Bạn có chắc muốn XÓA vé này không?\nHành động này không thể hoàn tác.')) return;
-
-        try {
-            const res = await fetch('/api/queue/control', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'DELETE', ticket_id: id })
-            });
-            
-            const data = await res.json();
-            if (data.ok) {
-                // Xóa thành công thì reload lại trang
-                window.location.reload();
-            } else {
-                alert("Lỗi khi xóa: " + (data.message || 'Unknown'));
-            }
-        } catch (e) {
-            alert("Lỗi kết nối server!");
-        }
-    }
-
-
-   let logTicketId = null; 
-    const logModal = document.getElementById('feedbackModal');
-    const msnvInput = document.getElementById('modalMsnv');
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const savedMsnv = localStorage.getItem('user_msnv');
-        if (savedMsnv && msnvInput) msnvInput.value = savedMsnv;
-    });
-
-    // Hàm mở modal
-    window.openLogModal = function(ticketId, customerInfo) {
-        logTicketId = ticketId;
-        document.getElementById('modalCustomerInfo').value = customerInfo || 'N/A';
-        
-        // Reset form: bỏ chọn tất cả checkbox
-        document.querySelectorAll('input[name="workAction"]').forEach(cb => cb.checked = false);
-        document.getElementById('modalOtherAction').value = '';
-        
-        logModal.classList.add('open');
-    }
-
-    // Hàm đóng modal
-    window.closeLogModal = function() {
-        logModal.classList.remove('open');
-        logTicketId = null;
-    }
-
-    // Hàm gửi dữ liệu
-    window.submitWorkLog = async function() {
-        const msnv = msnvInput.value.trim();
-        const otherAction = document.getElementById('modalOtherAction').value.trim();
-        const customerInfo = document.getElementById('modalCustomerInfo').value;
-
-        // 1. Lấy danh sách các checkbox đã chọn
-        const checkedBoxes = document.querySelectorAll('input[name="workAction"]:checked');
-        
-        // Chuyển thành mảng các giá trị chuỗi
-        let selectedActions = Array.from(checkedBoxes).map(cb => cb.value);
-
-        // Kiểm tra lỗi
-        if (!msnv) {
-            alert("⚠️ Vui lòng nhập Mã số nhân viên (MSNV)!");
-            msnvInput.focus();
-            return;
-        }
-        if (selectedActions.length === 0 && !otherAction) {
-            alert("⚠️ Vui lòng chọn ít nhất 1 hành động đã làm!");
-            return;
         }
 
-        // Gộp các hành động thành 1 chuỗi để gửi đi (ví dụ: "Vệ sinh, Hướng dẫn sử dụng")
-        const actionDesc = selectedActions.join(', ');
-
-        localStorage.setItem('user_msnv', msnv);
-
-        const btn = document.getElementById('btnConfirmLog');
-        const oldText = btn.innerText;
-        btn.innerText = "⏳ Đang xử lý..."; 
-        btn.disabled = true;
-
-        try {
-            console.log("Đang gửi:", { ticket_id: logTicketId, msnv, action_desc: actionDesc }); // Debug log
-
-            const res = await fetch('/api/queue/log-and-complete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ticket_id: logTicketId,
-                    msnv: msnv,
-                    customer_info: customerInfo,
-                    action_desc: actionDesc, // Gửi chuỗi đã gộp
-                    other_action: otherAction
-                })
-            });
-
-            const data = await res.json();
-            
-            if (data.ok) {
-                closeLogModal();
-                window.location.reload(); 
-            } else {
-                alert("❌ Lỗi server: " + (data.message || 'Không thể lưu'));
-                console.error(data);
-            }
-        } catch (e) {
-            console.error("Lỗi fetch:", e);
-            alert("❌ Lỗi kết nối mạng hoặc Server!");
-        } finally {
-            btn.innerText = oldText; 
-            btn.disabled = false;
+        async function deleteTicket(id) {
+            if (!confirm('⚠️ CẢNH BÁO: Bạn có chắc muốn XÓA vé này không?')) return;
+            try {
+                const res = await fetch('/api/queue/control', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'DELETE', ticket_id: id })
+                });
+                const data = await res.json();
+                if (data.ok) window.location.reload();
+                else alert("Lỗi khi xóa: " + (data.message || 'Unknown'));
+            } catch (e) { alert("Lỗi kết nối server!"); }
         }
-    }
-    // --- 3. KÍCH HOẠT ---
-    // Gọi hàm ngay khi vào trang
-    loadHistory(); 
 
-    // Tự động cập nhật bảng sau mỗi 10 giây (Không load lại trang)
-    setInterval(() => loadHistory(currentPage), 10000);
-    
-    // Tự động reload trang sau 60 giây để cập nhật vé mới ở 2 cột trên (thay thế reload 15s cũ)
-    setTimeout(() => window.location.reload(), 60000);
-        //setTimeout(() => window.location.reload(), 15000);
+        // Init
+        loadHistory(); 
+        setInterval(() => loadHistory(currentPage), 10000);
+        setTimeout(() => window.location.reload(), 60000);
     </script>
-
 </body>
 </html>
