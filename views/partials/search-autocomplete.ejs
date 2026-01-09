@@ -1,3 +1,115 @@
+<style>
+/* 1. CSS Ô Tìm kiếm dài rộng & đẹp hơn */
+.search-wrapper {
+    max-width: 800px; /* Độ rộng tối đa */
+    margin: 20px auto; /* Căn giữa */
+    position: relative;
+    width: 90%; /* Trên mobile chiếm 90% */
+}
+
+.custom-search-input {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 50px; /* Bo tròn viên thuốc */
+    outline: none;
+    transition: all 0.3s ease;
+    background-color: #fff;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.custom-search-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.search-icon-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #3b82f6;
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 2. CSS Kết quả gợi ý */
+#autocompleteResults {
+    position: absolute;
+    top: 110%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-height: 500px;
+    overflow-y: auto;
+    display: none; /* Mặc định ẩn */
+}
+
+.autocomplete-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.1s;
+}
+
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover, .autocomplete-item.active { background-color: #eff6ff; }
+
+.ac-left { flex: 1; margin-right: 15px; }
+.ac-right { text-align: right; white-space: nowrap; }
+
+.ac-sku { 
+    font-size: 11px; font-weight: 700; color: #64748b; 
+    background: #f1f5f9; padding: 2px 6px; border-radius: 4px; 
+    display: inline-block; margin-bottom: 4px;
+}
+.ac-name { font-size: 14px; color: #1e293b; line-height: 1.4; display: block; }
+.ac-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; font-style: italic;}
+
+.ac-price { font-weight: 700; color: #dc2626; font-size: 14px; }
+.ac-noprice { font-weight: 500; color: #94a3b8; font-size: 12px; }
+
+/* Highlight text */
+.hl-text { background-color: #fef08a; color: #854d0e; font-weight: 600; padding: 0 2px; border-radius: 2px; }
+/* Class dùng để tô đậm từ khóa tìm kiếm */
+.hl-match {
+    background-color: #fef08a; /* Màu vàng nhạt */
+    color: #854d0e; 
+    font-weight: 700;
+    border-radius: 2px;
+}
+
+</style>
+
+<div class="search-wrapper">
+  <form id="searchForm" action="/search-promotion" method="GET">
+    <div style="position: relative;">
+      <input id="skuSearch" name="query" class="custom-search-input" 
+             placeholder="🔍 Nhập SKU, Tên sản phẩm, hoặc từ khóa..." autocomplete="off">
+      
+      <button type="submit" class="search-icon-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </button>
+    </div>
+    <div id="autocompleteResults"></div>
+  </form>
+</div>
+
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.getElementById('skuSearch');
@@ -5,84 +117,171 @@
     const searchForm = document.getElementById('searchForm');
     let timeoutId;
 
-    function fmtVND(n) { return new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + ' VNĐ'; }
+    // Hàm format tiền tệ
+    function fmtVND(n) { 
+        if (n == null || n === '' || n === 0) return '<span style="color:#999; font-size:12px;">Liên hệ</span>';
+        return new Intl.NumberFormat('vi-VN').format(Number(n)) + ' đ'; 
+    }
+
+    // Hàm highlight thông minh (Tô đậm từ khóa)
+    function smartHighlight(text, query) {
+        if (!text) return '';
+        if (!query) return text;
+        
+        // Tách từ khóa, sắp xếp từ dài đến ngắn để ưu tiên khớp từ dài trước
+        const terms = query.trim().split(/\s+/).filter(t => t.length > 0)
+            .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // Escape ký tự đặc biệt
+            .sort((a, b) => b.length - a.length);
+
+        if (terms.length === 0) return text;
+
+        // Tạo Regex gộp
+        const regex = new RegExp(`(${terms.join('|')})`, 'gi');
+        
+        // Thay thế bằng class CSS hl-match
+        return text.replace(regex, '<span class="hl-match">$1</span>');
+    }
 
     searchInput.addEventListener('input', function (e) {
       clearTimeout(timeoutId);
       const value = e.target.value.trim();
 
-      if (!value) { resultsContainer.style.display = 'none'; return; }
+      if (!value) { 
+          resultsContainer.style.display = 'none'; 
+          return; 
+      }
 
       timeoutId = setTimeout(async () => {
         try {
+          // Hiển thị trạng thái đang tìm
+          resultsContainer.style.display = 'block';
+          resultsContainer.innerHTML = '<div style="padding:10px; text-align:center; color:#666;">⏳ Đang tìm kiếm...</div>';
+
           const response = await fetch(`/api/skus?q=${encodeURIComponent(value)}`);
-          const data = await response.json();   // kỳ vọng mảng [{sku, product_name, list_price, ...}]
+          const data = await response.json();
+          
           resultsContainer.innerHTML = '';
-          let exact = false;
-
-          (data || []).forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'autocomplete-item';
-            div.innerHTML = `
-            <div><strong>${item.sku}</strong> - ${item.product_name || ''}</div>
-            <div style="font-size:12px;color:#666">${item.brand || ''} | ${item.category || ''} | ${item.subcat || ''}</div>
-            <div style="font-size:12px;color:#e53935;font-weight:bold">${item.list_price != null ? fmtVND(item.list_price) : 'N/A'}</div>
-          `;
-            div.addEventListener('click', function () {
-              searchInput.value = item.sku;
-              resultsContainer.style.display = 'none';
-              searchForm.submit();
-            });
-            resultsContainer.appendChild(div);
-            if (String(item.sku) === value) exact = true;
-          });
-
-          // ➕ Thêm SKU mới khi không khớp exact
-          if (!exact && value) {
-            const add = document.createElement('div');
-            add.className = 'autocomplete-item';
-            add.style.color = '#0d9488';
-            add.style.fontWeight = '600';
-            add.textContent = `➕ Thêm SKU mới: ${value}`;
-            add.addEventListener('click', async () => {
-              resultsContainer.style.display = 'none';
-              const name = prompt('Tên sản phẩm cho SKU ' + value + ':', '');
-              if (name === null) return;
-              const brand = prompt('Brand ' + value + ':', '');
-              if (brand === null) return;
-              const category = prompt('Category ' + value + ':', '');
-              if (category === null) return;
-              const subcat = prompt('Subcat ' + value + ':', '');
-              if (subcat === null) return;
-              const priceRaw = prompt('Giá niêm yết (VNĐ):', '');
-              if (priceRaw === null) return;
-              const price = Number(String(priceRaw).replace(/\D/g, '')) || 0;
-
-              const res = await fetch('/api/skus/upsert', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sku: value, product_name: name || value, list_price: price, brand: brand || null,category: category || null, subcat: subcat || null })
-              });
-              const js = await res.json();
-              if (!js.ok) { alert('Lỗi thêm SKU: ' + (js.error || 'unknown')); return; }
-              // chuyển thẳng sang màn hình search kết quả
-              window.location.href = `/search-promotion?sku=${encodeURIComponent(value)}`;
-            });
-            resultsContainer.appendChild(add);
+          
+          if(data.length === 0) {
+             resultsContainer.innerHTML = `<div style="padding:10px; text-align:center;">Không tìm thấy sản phẩm nào khớp với "<b>${value}</b>"</div>`;
           }
 
-          resultsContainer.style.display = resultsContainer.children.length ? 'block' : 'none';
+          let exactMatchFound = false;
+
+          // Render danh sách kết quả
+          data.forEach(item => {
+            if (String(item.sku).toLowerCase() === value.toLowerCase()) exactMatchFound = true;
+
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            // CSS inline cho item
+            div.style.cssText = "padding: 10px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.1s;";
+            
+            // Hiệu ứng hover
+            div.onmouseover = () => { div.style.backgroundColor = '#f8fafc'; };
+            div.onmouseout = () => { div.style.backgroundColor = 'white'; };
+
+            // Highlight tên và SKU
+            const hlName = smartHighlight(item.product_name, value);
+            const hlSku = smartHighlight(item.sku, value);
+
+            div.innerHTML = `
+            <div style="flex: 1; margin-right: 10px;">
+                <div style="font-size: 14px; color: #333; margin-bottom: 4px; line-height: 1.4;">
+                    <strong style="color:#2563eb; font-size:12px; background:#eff6ff; padding:2px 6px; border-radius:4px; margin-right: 5px; border: 1px solid #dbeafe;">${hlSku}</strong> 
+                    ${hlName}
+                </div>
+                <div style="font-size:11px; color:#64748b;">
+                    ${item.brand || 'NoBrand'} | ${item.category || ''} | ${item.subcat || ''}
+                </div>
+            </div>
+            <div style="text-align: right; min-width: 90px;">
+                <div style="font-size:13px; color:#dc2626; font-weight:700;">
+                    ${fmtVND(item.list_price)}
+                </div>
+            </div>
+          `;
+            
+            div.addEventListener('click', function () {
+              searchInput.value = item.sku; 
+              resultsContainer.style.display = 'none';
+              window.location.href = `/search-promotion?sku=${encodeURIComponent(item.sku)}`;
+            });
+            
+            resultsContainer.appendChild(div);
+          });
+
+          // --- NÚT THÊM MỚI (Đã khôi phục logic) ---
+          if (!exactMatchFound && value.length > 0) {
+             const addDiv = document.createElement('div');
+             addDiv.className = 'autocomplete-item';
+             addDiv.style.cssText = "padding: 12px; border-top: 2px dashed #e2e8f0; cursor: pointer; color: #059669; font-weight: 600; text-align: center; background: #f0fdf4; margin-top: 5px;";
+             addDiv.innerHTML = `<span>➕ Tạo mới SKU: "<b>${value}</b>"</span>`;
+             
+             addDiv.onclick = async () => {
+                  resultsContainer.style.display = 'none';
+                  
+                  // Quy trình nhập thông tin (Giữ nguyên logic cũ của bạn)
+                  const name = prompt('Tên sản phẩm cho SKU ' + value + ':', '');
+                  if (name === null) return;
+                  
+                  const brand = prompt('Brand ' + value + ':', '');
+                  if (brand === null) return;
+                  
+                  const category = prompt('Category ' + value + ':', '');
+                  if (category === null) return;
+                  
+                  const subcat = prompt('Subcat ' + value + ':', '');
+                  if (subcat === null) return;
+                  
+                  const priceRaw = prompt('Giá niêm yết (VNĐ):', '');
+                  if (priceRaw === null) return;
+                  
+                  const price = Number(String(priceRaw).replace(/\D/g, '')) || 0;
+
+                  try {
+                      // Gọi API tạo mới
+                      const res = await fetch('/api/skus/upsert', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            sku: value, 
+                            product_name: name || value, 
+                            list_price: price,
+                            brand: brand || null,
+                            category: category || null,
+                            subcat: subcat || null
+                        })
+                      });
+                      
+                      const js = await res.json();
+                      if (js.ok) {
+                          // Thành công -> Chuyển hướng sang trang chi tiết
+                          window.location.href = `/search-promotion?sku=${encodeURIComponent(value)}`;
+                      } else {
+                          alert('Lỗi thêm SKU: ' + (js.error || 'unknown'));
+                      }
+                  } catch(e) { 
+                      alert('Lỗi kết nối đến server.');
+                      console.error(e);
+                  }
+             };
+             resultsContainer.appendChild(addDiv);
+          }
+
         } catch (err) {
-          console.error('Autocomplete error:', err);
+          console.error('Lỗi tìm kiếm:', err);
           resultsContainer.style.display = 'none';
         }
-      }, 300);
+      }, 300); // Debounce 300ms
     });
 
+    // Ẩn khi click ra ngoài
     document.addEventListener('click', function (e) {
-      if (!e.target.closest('.autocomplete-container')) resultsContainer.style.display = 'none';
+      if (!e.target.closest('.search-wrapper')) resultsContainer.style.display = 'none';
     });
-
+    
+    // Xử lý phím Enter
     searchInput.addEventListener('keypress', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); searchForm.submit(); }
     });

@@ -1235,25 +1235,72 @@ app.get('/api/sku/:sku/price-history', requireAuth, async (req, res) => {
 
 
 // ------------------------- API SKUs -------------------------
+// --- [SERVER.JS] --- Fix logic tìm kiếm thông minh (AND Logic) ---
+
 app.get('/api/skus', async (req, res) => {
   try {
-    const searchTerm = req.query.q;
-    let query = supabase
+    const rawQuery = (req.query.q || '').trim();
+    if (!rawQuery) return res.json([]);
+
+    // 1. Tách từ khóa và loại bỏ ký tự đặc biệt
+    // Ví dụ: "Laptop   acer  i5" -> ["laptop", "acer", "i5"]
+    const terms = rawQuery.replace(/[&|!():<]/g, '').split(/\s+/).filter(Boolean);
+    
+    let dbQuery = supabase
       .from('skus')
-      .select('sku, product_name, brand, category, subcat, list_price')
-      .order('sku')
-      .limit(10);
+      .select('sku, product_name, brand, category, subcat, list_price');
 
-    if (searchTerm && searchTerm.trim() !== '') {
-      query = query.or(
-        `sku.ilike.%${searchTerm}%,product_name.ilike.%${searchTerm}%,brand.ilike.%${searchTerm}%`
-      );
-    }
+    // 2. [QUAN TRỌNG] Xây dựng bộ lọc "AND"
+    // Với mỗi từ khóa, bắt buộc SKU hoặc Tên phải chứa từ đó.
+    // Supabase: Chaining .or() sẽ hoạt động như AND giữa các nhóm điều kiện.
+    // Logic: (SKU like term1 OR Name like term1) AND (SKU like term2 OR Name like term2)...
+    terms.forEach(term => {
+        dbQuery = dbQuery.or(`sku.ilike.%${term}%,product_name.ilike.%${term}%`);
+    });
 
-    const { data, error } = await query;
+    // 3. Lấy dữ liệu (Tăng limit để có không gian sắp xếp)
+    // Không sort giá ở DB nữa để tránh mất các sản phẩm khớp tên nhưng giá thấp/null
+    const { data, error } = await dbQuery.limit(100);
+    
     if (error) throw error;
-    res.json(data || []);
+    let results = data || [];
+
+    // 4. THUẬT TOÁN CHẤM ĐIỂM & SẮP XẾP (Ranking)
+    const lowerQuery = rawQuery.toLowerCase();
+    
+    results.forEach(item => {
+        let score = 0;
+        const sSku = String(item.sku).toLowerCase();
+        const sName = String(item.product_name || '').toLowerCase();
+
+        // Tiêu chí 1: Khớp chính xác SKU (Điểm cao nhất - Tuyệt đối)
+        if (sSku === lowerQuery) score += 10000;
+        else if (sSku.startsWith(lowerQuery)) score += 5000;
+
+        // Tiêu chí 2: Có giá bán (Ưu tiên hàng đang kinh doanh)
+        const hasPrice = (item.list_price !== null && item.list_price > 0);
+        if (hasPrice) score += 2000;
+
+        // Tiêu chí 3: Giá trị sản phẩm (Ưu tiên giá cao - thường là hàng chính)
+        if (hasPrice) {
+            // Cộng thêm 1 điểm cho mỗi 1 triệu đồng (để phân loại nhẹ)
+            score += Math.floor(item.list_price / 1000000); 
+        }
+
+        // Tiêu chí 4: Vị trí từ khóa trong tên (Khớp đầu câu điểm cao hơn)
+        if (sName.startsWith(lowerQuery)) score += 500;
+
+        item._score = score;
+    });
+
+    // 5. Sắp xếp dựa trên điểm số
+    results.sort((a, b) => b._score - a._score);
+
+    // Trả về kết quả (Bỏ trường _score trước khi gửi nếu muốn gọn, hoặc để nguyên cũng không sao)
+    res.json(results);
+
   } catch (error) {
+    console.error("Search API Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1295,7 +1342,7 @@ app.get('/api/components', requireAuth, async (req, res) => {
     }
 
     // Thực thi query
-    const { data: components, error } = await query.limit(100);
+    const { data: components, error } = await query.limit(1000);
 
     // [LOGIC MỚI - BACKUP] Nếu tìm Subcat không thấy -> Thử tìm chính xác SKU
     // (Phòng trường hợp bạn nhập nhầm mã SKU vào ô Subcat)
@@ -1323,46 +1370,72 @@ app.get('/api/components', requireAuth, async (req, res) => {
   }
 });
 
-// HÀM PHỤ TRỢ: XỬ LÝ TỒN KHO & TRẢ VỀ JSON
+// Thay thế hàm processResult trong server.js
 async function processResult(res, components, userBranch, userRole, REGIONAL_MAP) {
     if (!components || components.length === 0) {
         return res.json({ ok: true, components: [] });
     }
 
-    const skuList = components.map(c => c.sku);
+    const skuList = components.map(c => String(c.sku).trim().toUpperCase());
     let stockMap = {};
     
     try {
-        // Hàm lấy tồn kho cũ của bạn
         stockMap = await getSkuNewStockByBranch(skuList);
     } catch (e) { console.error("Lỗi Stock:", e.message); }
 
-    const finalData = components.map(p => {
-        const stocks = stockMap[p.sku] || {};
-        const absTotal = Object.values(stocks).reduce((a, b) => a + b, 0);
-        let visible = 0;
+    const myBranchKey = userBranch ? String(userBranch).trim().toUpperCase() : '';
 
-        // Phân quyền tồn kho
-        if (userBranch === 'HCM.BD') visible = absTotal;
+    const finalData = components.map(p => {
+        const lookupKey = String(p.sku).trim().toUpperCase();
+        const rawStocks = stockMap[lookupKey] || {};
+        
+        // Chuẩn hóa key stock
+        const stocks = {};
+        let absTotal = 0;
+        Object.keys(rawStocks).forEach(k => {
+            stocks[k] = rawStocks[k];
+            absTotal += rawStocks[k];
+        });
+
+        // Tồn kho của chính User (để sort) - ÁP DỤNG CHO CẢ MANAGER
+        const myStock = (myBranchKey && stocks[myBranchKey]) ? stocks[myBranchKey] : 0;
+
+        // Tồn kho hiển thị
+        let visible = 0;
+        if (myBranchKey === 'HCM.BD') visible = absTotal; // Admin thấy hết
         else if (userRole === 'manager' && REGIONAL_MAP[userBranch]) {
-            REGIONAL_MAP[userBranch].forEach(br => visible += (stocks[br] || 0));
+            // Regional Manager thấy tổng các kho con
+            REGIONAL_MAP[userBranch].forEach(br => {
+                const brKey = String(br).trim().toUpperCase();
+                visible += (stocks[brKey] || 0);
+            });
         } else {
-            visible = stocks[userBranch] || 0;
+            // Còn lại thấy kho mình
+            visible = myStock;
         }
 
         return { 
             ...p, 
             stock_by_branch: stocks, 
             total_stock: visible,
-            real_total_stock: absTotal
+            real_total_stock: absTotal,
+            my_stock: myStock 
         };
     });
 
-    // Sắp xếp: Còn tồn hiển thị trước
-    finalData.sort((a, b) => b.total_stock - a.total_stock);
+    // SẮP XẾP ƯU TIÊN (Logic bạn yêu cầu)
+    finalData.sort((a, b) => {
+        // Ưu tiên 1: Tồn kho tại chi nhánh User giảm dần
+        if (b.my_stock !== a.my_stock) {
+            return b.my_stock - a.my_stock;
+        }
+        // Ưu tiên 2: Tổng tồn toàn hệ thống giảm dần
+        return b.real_total_stock - a.real_total_stock;
+    });
 
     res.json({ ok: true, components: finalData });
 }
+
 
 // ===== BẮT ĐẦU: SỬA TOÀN BỘ API CHECK PROMOS (CÓ CẢNH BÁO) =====
 app.post('/api/pc-builder/check-promos', requireAuth, async (req, res) => {
@@ -1415,11 +1488,11 @@ app.post('/api/pc-builder/check-promos', requireAuth, async (req, res) => {
     ];
     
     const tiers = [
+      { min: 100000000, discount: 2000000, code: 'PVBPC26015' }, // Đưa 100tr lên đầu
       { min: 50000000, discount: 1000000, code: 'PVBPC26014' },
       { min: 30000000, discount: 600000,  code: 'PVBPC26013' },
       { min: 20000000, discount: 400000,  code: 'PVBPC26012' },
-      { min: 10000000, discount: 200000,  code: 'PVBPC26011' },
-      { min: 100000000, discount: 2000000,  code: 'PVBPC26015' }
+      { min: 10000000, discount: 200000,  code: 'PVBPC26011' }
     ];
 
     // --- BƯỚC 2: KIỂM TRA CÁC ĐIỀU KIỆN ---
@@ -3933,105 +4006,72 @@ const { final_sku, components_list } = req.body;
   }
 });
 
-// app.get('/tien-ich', requireAuth, (req, res) => {
-  // res.render('tien-ich', { user: req.user || null });
-// });
-
-// ===== BẮT ĐẦU SỬA LẠI TOÀN BỘ HÀM (Build PC) - FIX LOGIC CHECKED_OUT =====
 /**
- * Lấy tồn HÀNG BÁN MỚI theo branch cho nhiều SKU (ĐÃ SỬA LỖI LOGIC)
- * Dùng cho trang Build PC.
+ * Lấy tồn HÀNG BÁN MỚI (Phiên bản An Toàn - Fix lỗi mất tồn)
  */
 async function getSkuNewStockByBranch(skus) {
-  // 1. Kiểm tra BigQuery
-  if (!bigquery) { 
-    console.warn("BuildPC: Bỏ qua BQ vì chưa cấu hình.");
-    return {};
-  }
-  if (!skus || !skus.length) return {};
+  if (!bigquery) return {};
+  
+  // Chuẩn hóa SKU đầu vào
+  const cleanSkus = (skus || []).map(s => String(s).trim().toUpperCase()).filter(Boolean);
+  if (cleanSkus.length === 0) return {};
 
-  // 2. Sửa Query: Lấy 'Serial' thay vì COUNT(*)
+  // Query: Lấy dữ liệu thô (không ép UPPER bin_zone ở SQL để tránh lỗi font tiếng Việt)
   const query = `
     SELECT
-      CAST(sku AS STRING) AS sku,
+      UPPER(TRIM(CAST(sku AS STRING))) AS sku,
       branch_id,
-      bin_zone,
-      Serial  -- Lấy Serial để kiểm tra
+      bin_zone, 
+      Serial
     FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
-    WHERE CAST(sku AS STRING) IN UNNEST(@skus)
-      AND (Serial IS NOT NULL AND Serial != '') -- Chỉ lấy hàng có serial
-    /* Xóa GROUP BY để lấy từng dòng serial */
+    WHERE UPPER(TRIM(CAST(sku AS STRING))) IN UNNEST(@skus)
+      AND Serial IS NOT NULL AND Serial != ''
   `;
 
-  // 3. Gọi BigQuery
   let rows = [];
   try {
-    const [bqRows] = await bigquery.query({
-      query,
-      params: { skus }
-    });
+    const [bqRows] = await bigquery.query({ query, params: { skus: cleanSkus } });
     rows = bqRows;
   } catch (e) {
-    console.error("Lỗi BQ (getSkuNewStockByBranch):", e.message);
-    return {}; // Trả về rỗng nếu BQ lỗi
+    console.error("Lỗi BQ:", e.message);
+    return {};
   }
 
-  if (rows.length === 0) {
-    return {}; // Không tìm thấy serial nào
-  }
+  if (rows.length === 0) return {};
 
-  // 4. Lấy danh sách serial "Đã xuất" từ SUPABASE (Giống FIFO)
+  // Check serial đã xuất (FIFO)
   const allSerials = [...new Set(rows.map(r => r.Serial))];
   const today = new Date().toISOString().slice(0, 10);
   let checkedOutSerials = new Set();
-
-  const BATCH_SIZE = 500;
-  console.log(`[getSkuNewStockByBranch] Lấy ${allSerials.length} serials, chia thành các batch ${BATCH_SIZE}...`);
   
   try {
-    for (let i = 0; i < allSerials.length; i += BATCH_SIZE) {
-      const batch = allSerials.slice(i, i + BATCH_SIZE);
-      
-      const { data: logData, error } = await supabase
-          .from('serial_check_log')
-          .select('serial')
-          .in('serial', batch) // Chỉ query 1 batch
-          .eq('check_date', today)
-          .eq('checked_out', true);
-      
-      if (error) {
-        // Log lỗi của batch này nhưng vẫn tiếp tục
-        console.error(`Lỗi Supabase batch ${i}:`, error.message);
-      } else {
-        (logData || []).forEach(log => checkedOutSerials.add(log.serial));
+      // Chia nhỏ batch để query không bị lỗi
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < allSerials.length; i += BATCH_SIZE) {
+          const batch = allSerials.slice(i, i + BATCH_SIZE);
+          const { data } = await supabase.from('serial_check_log')
+              .select('serial').in('serial', batch).eq('check_date', today).eq('checked_out', true);
+          (data || []).forEach(log => checkedOutSerials.add(log.serial));
       }
-    }
-  } catch (e) {
-      // Lỗi này là lỗi chung (như 'fetch failed' ban đầu)
-      console.error("Lỗi Supabase (getSkuNewStockByBranch):", e.message);
-  }
+  } catch (e) {}
 
-  console.log(`[getSkuNewStockByBranch] Đã tìm thấy ${checkedOutSerials.size} serial đã xuất hôm nay.`);
-
-  // 5. Lọc bằng JavaScript (Lọc cả bin_zone và serial đã xuất)
+  // Tổng hợp kết quả
   const result = {};
-  const allowedZones = ['Trưng bày hàng bán mới', 'Lưu kho hàng bán mới'];
-  
+  // Danh sách các khu vực được phép bán (So sánh linh hoạt)
+  const allowedZones = ['trưng bày hàng bán mới', 'lưu kho hàng bán mới', 'hàng mkt'];
+
   for (const row of rows) {
-    // LỌC 1: Bỏ qua nếu serial đã bị check out
-    if (checkedOutSerials.has(row.Serial)) {
-      continue;
-    }
+    if (checkedOutSerials.has(row.Serial)) continue;
     
-    // LỌC 2: Chỉ lấy 2 bin_zone bán hàng
-    if (allowedZones.includes((row.bin_zone || '').trim())) { 
+    // Chuẩn hóa zone về chữ thường để so sánh
+    const currentZone = String(row.bin_zone || '').trim().toLowerCase();
+    
+    if (allowedZones.includes(currentZone)) { 
       const sku = row.sku;
-      const br = row.branch_id;
+      const br = String(row.branch_id || '').trim().toUpperCase(); // Chuẩn hóa mã chi nhánh
       
       if (!result[sku]) result[sku] = {};
-      
-      // Cộng dồn
-      result[sku][br] = (result[sku][br] || 0) + 1; // +1 cho mỗi serial hợp lệ
+      result[sku][br] = (result[sku][br] || 0) + 1;
     }
   }
   return result;
