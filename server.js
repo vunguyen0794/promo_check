@@ -9188,8 +9188,92 @@ app.post('/api/promotions/bulk-delete', requireAuth, requireManager, async (req,
     }
 });
 
+// --- [UPDATED] MIDDLEWARE: Lấy thông báo (Có Log Debug & Lấy tin chung) ---
+app.use(async (req, res, next) => {
+    res.locals.notifications = [];
+    res.locals.unreadCount = 0;
 
+    // Chỉ chạy nếu user đã đăng nhập
+    if (req.session && req.session.user) {
+        const userEmail = req.session.user.email;
+        
+        // [DEBUG LOG] Xem server đang lọc theo user nào
+        console.log(`>>> Checking notifications for: ${userEmail}`);
 
+        try {
+            // 1. Đếm số lượng chưa đọc
+            // Logic: user_ref là email của user HOẶC là 'All' (tin chung)
+            const { count, error: countError } = await supabase
+                .from('notifications')
+                .select('*', { count: 'exact', head: true })
+                .or(`user_ref.eq.${userEmail},user_ref.eq.All`) // <--- QUAN TRỌNG: Lấy cả tin cho 'All'
+                .eq('is_read', false);
+
+            if (countError) console.error('Lỗi đếm notif:', countError.message);
+
+            // 2. Lấy danh sách 4 thông báo mới nhất
+            const { data: notifs, error: listError } = await supabase
+                .from('notifications')
+                .select('*')
+                .or(`user_ref.eq.${userEmail},user_ref.eq.All`) // <--- QUAN TRỌNG
+                .order('created_at', { ascending: false })
+                .limit(4);
+
+            if (listError) console.error('Lỗi lấy list notif:', listError.message);
+
+            // [DEBUG LOG] Xem kết quả trả về có gì không
+            if (notifs) {
+                console.log(`>>> Found ${notifs.length} notifications. Unread: ${count}`);
+            }
+
+            if (!countError && !listError) {
+                res.locals.unreadCount = count || 0;
+                res.locals.notifications = notifs || [];
+            }
+        } catch (err) {
+            console.error('CRITICAL ERROR Notif Middleware:', err.message);
+        }
+    }
+    next();
+});
+// --- [NEW] API: Đánh dấu 1 tin là đã đọc ---
+app.post('/api/notifications/mark-read', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: 'Missing ID' });
+
+    try {
+        const { error } = await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('id', id);
+
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- [NEW] API: Đánh dấu TẤT CẢ là đã đọc ---
+app.post('/api/notifications/mark-all-read', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const userEmail = req.session.user.email;
+
+    try {
+        const { error } = await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('user_ref', userEmail)
+            .eq('is_read', false);
+
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {

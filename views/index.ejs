@@ -1,14 +1,19 @@
 <%- include('partials/header', {title: 'Trang chủ', currentPage: 'home', time: time}) %>
 
-<div class="search-box">
-  <form id="searchForm" action="/search-promotion" method="GET" class="search-form">
-    <div class="autocomplete-container">
-      <input id="skuSearch" name="query" class="search-input" placeholder="Nhập SKU hoặc tên SP" autocomplete="off">
-      <div id="autocompleteResults" class="autocomplete-results"></div>
+<div class="search-wrapper">
+  <form id="searchForm" action="/search-promotion" method="GET">
+    <div style="position: relative;">
+      <input id="skuSearch" name="query" class="custom-search-input" 
+             placeholder="🔍 Nhập SKU, Tên sản phẩm, hoặc từ khóa..." autocomplete="off">
+      
+      <button type="submit" class="search-icon-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </button>
     </div>
-    <button class="search-btn" type="submit">Tìm kiếm</button>
+    <div id="autocompleteResults"></div>
   </form>
 </div>
+
 
 <div class="dash-card">
   <div class="dash-title">Danh sách sản phẩm</div>

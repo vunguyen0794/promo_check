@@ -46,9 +46,17 @@
             // Nếu là KFI và Role KHÔNG PHẢI là 'manager' -> Bỏ qua (Không vẽ thẻ này)
             // ================================================================
             if (isKFI) {
-                // Lưu ý: Nếu muốn admin cũng thấy thì dùng: if (userRole !== 'manager' && userRole !== 'admin')
-                if (typeof userRole === 'undefined' || userRole !== 'manager') {
-                    return; // Lệnh này sẽ skip qua item này trong vòng lặp forEach
+                // 1. Lấy user an toàn: Kiểm tra biến 'user' có tồn tại không trước khi dùng
+                const currentUser = (typeof user !== 'undefined') ? user : null;
+
+                // 2. Debug: In thử ra console trình duyệt để biết server có gửi user xuống không
+                // (Bạn có thể xóa dòng console.log này sau khi fix xong)
+                if (!currentUser) console.log('DEBUG: User bị null khi load Ajax!');
+                else console.log('DEBUG: User role is:', currentUser.role);
+
+                // 3. Logic ẩn hiện
+                if (!currentUser || currentUser.role !== 'manager') {
+                    return; // Nếu không có user hoặc không phải manager thì ẩn ngay
                 }
             }
 
@@ -67,7 +75,7 @@
         %>
 
         <a class="promo-item" href="<%= linkHref %>" 
-           style="<%= isKFI ? 'border:1px solid #fbcfe8; background:#fff0f6;' : '' %>">
+           style="position: relative; <%= isKFI ? 'border:1px solid #fbcfe8; background:#fff0f6;' : '' %>">
             
             <div class="promo-item__content">
                 <div class="promo-name" style="<%= isKFI ? 'color:#be185d;' : '' %>">
