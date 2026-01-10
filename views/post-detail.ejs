@@ -74,7 +74,7 @@
 
 <div class="post-detail-container">
 
-  <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
+  <% if (user && (user.role === 'admin' || (user.role === 'manager' && user.branch_code === 'HCM.BD'))) { %>
     <div class="admin-actions">
       <a href="/admin/edit-post/<%= post.id %>" class="btn-edit">
         ✏️ Sửa bài
@@ -96,9 +96,9 @@
     <img src="<%= post.cover_image_url %>" alt="<%= post.title %>" class="post-cover-image">
   <% } %>
 
-  <div class="post-content">
-    <%- post.content %>
-  </div>
+<div class="post-content">
+    <%- post.content %> 
+</div>
 
 </div>
 

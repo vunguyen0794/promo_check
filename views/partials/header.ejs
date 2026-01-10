@@ -82,6 +82,23 @@
       .notif-modal-footer { padding: 15px; border-top: 1px solid #eee; text-align: right; background: white; }
       .btn-close-modal { padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; color: #475569; cursor: pointer; }
       .btn-close-modal:hover { background: #cbd5e1; }
+
+      /* Style cho nút Truy cập ngay trong Modal */
+.btn-action-modal {
+    padding: 8px 16px;
+    background: #2563eb; /* Màu xanh nổi bật */
+    color: white !important;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background 0.2s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+}
+.btn-action-modal:hover {
+    background: #1d4ed8;
+}
   </style>
 </head>
 <body>
@@ -110,6 +127,9 @@
                     <div class="dropdown-menu" id="utilitiesDropdownMenu">
                         <% if (user && ['vu.nt1@phongvu-mna.vn', 'thu.hm@phongvu-mna.vn'].includes(user.email)) { %>
                         <a href="/refunds" class="<%= currentPage === 'refund_dashboard' ? 'active' : '' %>">💸 Hoàn tiền</a>
+                        <a href="/admin/send-notification" class="news-filters button" style="background-color: #6366f1; color: white;">
+            🔔 Gửi Noti
+        </a>
                         <% } %>
                         <div class="dropdown-submenu">
                             <a href="#" class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;"><span>👨‍🔧 Technician</span></a>
@@ -176,11 +196,11 @@
                 <div class="notif-list" id="notifListContainer">
                     <% displayNotifs.forEach(n => { %>
                         <div class="notif-item <%= n.is_read ? 'read' : 'unread' %>" 
-                             style="cursor: pointer;"
-                             onclick="openNotifModal(this)"
-                             data-id="<%= n.id %>" 
-                             data-read="<%= n.is_read %>"
-                             data-title="<%= n.title %>"
+                            style="cursor: pointer;"
+     onclick="handleNotificationClick(this)"  
+     data-id="<%= n.id %>" 
+     data-read="<%= n.is_read %>"
+     data-link="<%= n.link || '' %>"  data-title="<%= n.title %>"
                              data-time="<%= new Date(n.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %>"
                              data-date="<%= new Date(n.created_at).toLocaleDateString('vi-VN') %>"
                              data-user="<%= n.user_ref %>"
@@ -200,10 +220,18 @@
                                 <% } %>
                             </div>
                             <div class="notif-row-2">
-                                <span><%= new Date(n.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %></span>
-                                <span class="notif-dot"></span>
-                                <span><%= new Date(n.created_at).toLocaleDateString('vi-VN') %></span>
-                            </div>
+    <span><%= new Date(n.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %></span>
+    <span class="notif-dot"></span>
+    
+    <span style="display: flex; align-items: center; gap: 3px; margin-right: 5px;" title="<%= n.view_count %> người đã xem">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #64748b;">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <%= n.view_count || 0 %>
+    </span>
+    <span><%= new Date(n.created_at).toLocaleDateString('vi-VN') %></span>
+</div>
                         </div>
                     <% }) %>
                     
@@ -258,12 +286,20 @@
 
         <div class="notif-modal-body">
             <h3 id="modal-title">Tiêu đề</h3>
-            <div class="notif-user-info">Gửi bởi: <strong id="modal-user">System</strong></div>
+            
+            <div class="notif-user-info">
+    Gửi bởi: <strong>Ban Quản Trị</strong> <span style="color: #ccc">|</span>
+    Gửi đến: <strong id="modal-user">User</strong>
+</div>
             <hr style="margin: 15px 0; border:0; border-top:1px solid #eee;">
             <div id="modal-content" class="notif-content-text">...</div>
         </div>
 
-        <div class="notif-modal-footer">
+        <div class="notif-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+            <a id="modal-action-btn" href="#" class="btn-action-modal" style="display: none;">
+                Truy cập ngay ➜
+            </a>
+            
             <button onclick="closeNotifModal()" class="btn-close-modal">Đóng</button>
         </div>
     </div>
@@ -273,40 +309,22 @@
     // --- KHAI BÁO HÀM TOÀN CỤC (GLOBAL) ĐỂ HTML GỌI ĐƯỢC ---
 
     // 1. Hàm mở modal & GỌI API ĐÁNH DẤU ĐÃ ĐỌC
-    window.openNotifModal = async function(element) {
-        const modalOverlay = document.getElementById('notif-modal-overlay');
-        const notifDropdown = document.getElementById('notifDropdown');
-        
-        // Lấy dữ liệu
+    // --- [UPDATED] XỬ LÝ CLICK: LUÔN HIỆN MODAL + NÚT LINK (NẾU CÓ) ---
+    window.handleNotificationClick = async function(element) {
         const id = element.getAttribute('data-id');
         const isRead = element.getAttribute('data-read') === 'true';
-        
-        // Đổ dữ liệu vào Modal
-        document.getElementById('modal-title').innerText = element.getAttribute('data-title');
-        document.getElementById('modal-content').innerHTML = element.getAttribute('data-content');
-        document.getElementById('modal-time').innerText = element.getAttribute('data-time') + ' - ' + element.getAttribute('data-date');
-        document.getElementById('modal-user').innerText = element.getAttribute('data-user');
-        const badge = document.getElementById('modal-badge');
-        badge.innerText = element.getAttribute('data-type');
-        badge.className = 'n-badge ' + element.getAttribute('data-type-class');
+        const link = element.getAttribute('data-link'); // Lấy link từ data attribute
 
-        // Hiện modal & Ẩn dropdown
-        if (modalOverlay) modalOverlay.classList.add('show');
-        if (notifDropdown) notifDropdown.classList.remove('show');
-
-        // --- XỬ LÝ GỌI API UPDATE ---
-        // Chỉ gọi nếu tin này CHƯA ĐỌC
+        // 1. GỌI API ĐÁNH DẤU ĐÃ ĐỌC (Giữ nguyên logic cũ)
         if (!isRead && id) {
             try {
-                // 1. Gọi API ngầm (Không cần chờ response để update giao diện cho nhanh)
                 fetch('/api/notifications/mark-read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: id })
                 });
 
-                // 2. Cập nhật UI ngay lập tức
-                // - Giảm số badge
+                // Cập nhật UI Badge (ẩn chấm đỏ, giảm số)
                 const badgeCount = document.getElementById('badge-count');
                 if (badgeCount) {
                     let currentCount = parseInt(badgeCount.innerText) || 0;
@@ -316,20 +334,50 @@
                         if (currentCount === 0) badgeCount.style.display = 'none';
                     }
                 }
-
-                // - Đổi style dòng đó
+                // Làm mờ dòng thông báo
                 element.style.opacity = '0.7';
                 element.style.background = 'transparent';
-                element.setAttribute('data-read', 'true'); // Cập nhật lại attribute để lần sau ko gọi nữa
+                element.setAttribute('data-read', 'true');
                 const titleEl = element.querySelector('.n-title');
                 if(titleEl) titleEl.style.fontWeight = '400';
                 const dot = element.querySelector('.unread-dot');
                 if(dot) dot.style.display = 'none';
-
-            } catch (err) {
-                console.error('Lỗi API mark-read:', err);
-            }
+            } catch (err) { console.error('Lỗi mark read:', err); }
         }
+
+        // 2. [LOGIC MỚI] ĐỔ DỮ LIỆU VÀO MODAL
+        const modalOverlay = document.getElementById('notif-modal-overlay');
+        const notifDropdown = document.getElementById('notifDropdown');
+        const btnAction = document.getElementById('modal-action-btn'); // Nút truy cập
+
+        document.getElementById('modal-title').innerText = element.getAttribute('data-title');
+        // Render HTML nội dung
+        document.getElementById('modal-content').innerHTML = element.getAttribute('data-content');
+        const timeStr = element.getAttribute('data-time'); // Ví dụ: 10:30
+        const dateStr = element.getAttribute('data-date'); // Ví dụ: 20/10/2025
+        document.getElementById('modal-time').innerText = `${timeStr} - ${dateStr}`; // Kết quả: 10:30 - 20/10/2025
+
+        document.getElementById('modal-user').innerText = element.getAttribute('data-user');
+
+        
+        const badge = document.getElementById('modal-badge');
+        badge.innerText = element.getAttribute('data-type');
+        badge.className = 'n-badge ' + element.getAttribute('data-type-class');
+
+        // 3. XỬ LÝ NÚT LIÊN KẾT
+        if (link && link !== '' && link !== 'null') {
+            // Nếu có link -> Hiện nút và gán href
+            btnAction.style.display = 'inline-flex';
+            btnAction.href = link;
+        } else {
+            // Nếu không có link -> Ẩn nút
+            btnAction.style.display = 'none';
+            btnAction.href = '#';
+        }
+
+        // 4. HIỆN MODAL
+        if (modalOverlay) modalOverlay.classList.add('show');
+        if (notifDropdown) notifDropdown.classList.remove('show');
     };
 
     // 2. Hàm Đọc Tất Cả
@@ -410,16 +458,41 @@
         }
 
         // Logic Sync BQ
+        // Logic Sync BQ
         const syncButton = document.getElementById('btnSyncBigQuery');
         if (syncButton) {
             syncButton.addEventListener('click', async () => {
-                if (!confirm('Đồng bộ SKUs từ BigQuery?')) return;
-                syncButton.disabled = true; syncButton.textContent = 'Đang sync...';
+                if (!confirm('Bạn có chắc muốn đồng bộ SKUs từ BigQuery?\nViệc này sẽ chèn các SKU mới vào hệ thống.')) return;
+                
+                syncButton.disabled = true;
+                syncButton.textContent = 'Đang sync...';
+                
                 try {
-                    await fetch('/api/admin/sync-bq-skus', { method: 'POST' });
-                    alert('Đồng bộ thành công!');
-                } catch (err) { alert('Lỗi: ' + err.message); }
-                finally { syncButton.disabled = false; syncButton.textContent = 'Sync BQ'; }
+                    // 1. Gọi API
+                    const res = await fetch('/api/admin/sync-bq-skus', { method: 'POST' });
+                    
+                    // 2. QUAN TRỌNG: Phải đọc dữ liệu JSON trả về từ server
+                    const data = await res.json(); 
+
+                    if (!res.ok) throw new Error(data.error || 'Lỗi không xác định');
+
+                    // 3. Hiển thị thông báo có kèm số lượng (data.new_skus)
+                    // Nếu server trả về data.new_skus = 0 thì báo "Không có mới", ngược lại báo số lượng.
+                    if (data.new_skus > 0) {
+                        alert(`✅ Đồng bộ thành công!\n📦 Đã thêm mới: ${data.new_skus} SKU.`);
+                    } else {
+                        alert(`✅ Đồng bộ thành công!\n(Không phát hiện SKU mới nào)`);
+                    }
+
+                    // Tải lại trang để cập nhật dữ liệu mới nếu cần
+                    // window.location.reload(); 
+
+                } catch (err) {
+                    alert('❌ Lỗi đồng bộ: ' + err.message);
+                } finally {
+                    syncButton.disabled = false;
+                    syncButton.textContent = 'Sync BQ';
+                }
             });
         }
     });

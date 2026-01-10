@@ -1,6 +1,117 @@
 <%- include('partials/header', {title: 'CTKM theo SKU' , currentPage: 'promotion' , time: time}) %>
 
 <style>
+
+ <style>
+/* --- [FIX FINAL] SEARCH BLOCK (SỬA LỖI TRÀN VIỀN + HIỆN GỢI Ý) --- */
+    .modern-search-wrapper {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08); 
+        
+        /* [THAY ĐỔI QUAN TRỌNG] Dùng border thật thay vì ::before */
+        border: 1px solid #e2e8f0;
+        border-left: 5px solid #2563eb; /* Đường xanh tích hợp vào viền */
+        
+        padding: 24px;
+        margin-bottom: 25px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        position: relative;
+        
+        /* Đảm bảo dropdown hiện lên trên */
+        z-index: 50; 
+    }
+
+    /* [QUAN TRỌNG] XÓA bỏ đoạn .modern-search-wrapper::before cũ đi */
+    /* .modern-search-wrapper::before { ... } -> KHÔNG CẦN NỮA */
+
+    .ms-title {
+        font-family: 'Be Vietnam Pro', sans-serif;
+        font-size: 18px; 
+        font-weight: 800; 
+        color: #1e293b;
+        margin: 0;
+        display: flex; align-items: center; gap: 10px;
+    }
+
+    .ms-form {
+        display: flex; gap: 10px; align-items: center; width: 100%;
+        position: relative; /* Neo dropdown */
+    }
+
+    .ms-input-group {
+        flex-grow: 1; 
+        position: relative;
+        /* Đảm bảo ô input nằm trên layer nền */
+        z-index: 51; 
+    }
+
+    /* Dropdown gợi ý */
+    .autocomplete-results {
+        position: absolute;
+        top: 100%; /* Hiện ngay dưới ô input */
+        left: 0;
+        width: 100%;
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        border-top: none;
+        border-bottom-left-radius: 8px;
+        border-bottom-right-radius: 8px;
+        /* Đổ bóng đậm hơn để nổi bật trên nền trắng */
+        box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.15);
+        /* Z-index cao nhất để đè lên mọi thứ bên dưới */
+        z-index: 9999; 
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .autocomplete-item {
+        padding: 12px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 14px;
+        color: #334155;
+        transition: background 0.1s;
+    }
+    .autocomplete-item:hover {
+        background-color: #f0f9ff;
+        color: #2563eb;
+    }
+    
+    /* ... Giữ nguyên các class .ms-input, .ms-btn, .ms-icon cũ ... */
+    .ms-input {
+        width: 100%;
+        height: 48px;
+        padding: 0 15px 0 45px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 15px;
+        font-family: 'Inter', sans-serif;
+        color: #0f172a;
+        background: #f8fafc;
+        transition: all 0.2s ease;
+    }
+    .ms-input:focus {
+        outline: none; background: #fff; border-color: #2563eb;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+    .ms-icon {
+        position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+        font-size: 18px; color: #64748b; pointer-events: none;
+    }
+    .ms-btn {
+        height: 48px; padding: 0 24px; background: #2563eb; color: #fff;
+        border: none; border-radius: 8px; font-weight: 700; font-family: 'Be Vietnam Pro', sans-serif;
+        font-size: 14px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+        white-space: nowrap;
+    }
+    .ms-btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+    @media (max-width: 600px) {
+        .ms-form { flex-direction: column; gap: 12px; }
+        .ms-input-group, .ms-btn { width: 100%; }
+    }
 /* --- VOUCHER TICKET CARD (SEARCH PAGE) --- */
 .voucher-tear {
     background: linear-gradient(to right, #eff6ff, #f0f9ff);
@@ -1562,27 +1673,59 @@ document.addEventListener("DOMContentLoaded", async function() {
 let currentModalData = [];
 
 // 3. Hàm mở Modal "Xem tất cả"
-async function openComboModal(subcatCode) {
+// [FIXED] Hàm mở Modal Combo - Xử lý danh sách SKU thông minh
+async function openComboModal(subcatCode, skuListRaw) {
     const modal = document.getElementById('comboModal');
     const listDiv = document.getElementById('modalList');
     const title = document.getElementById('modalTitle');
+    const searchInput = document.getElementById('modalSearch');
     
-    title.innerText = `Sản phẩm nhóm: ${subcatCode}`;
-    listDiv.innerHTML = '<div style="text-align:center; padding:20px;">⏳ Đang tải toàn bộ danh sách...</div>';
+    // Reset search input
+    if(searchInput) searchInput.value = '';
+
+    // Update Modal Title based on context
+    if (skuListRaw && skuListRaw.trim()) {
+        title.innerText = 'Danh sách sản phẩm Combo (Theo SKU)';
+    } else {
+        title.innerText = `Sản phẩm nhóm: ${subcatCode}`;
+    }
+    
+    listDiv.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">⏳ Đang tải dữ liệu...</div>';
     modal.style.display = 'block';
 
     try {
-        // [SỬA LỖI] Gọi đúng API components
-        const res = await fetch(`/api/components?subcat=${encodeURIComponent(subcatCode)}`);
-        const json = await res.json();
-        const data = json.components || [];
+        let apiUrl = '';
         
-        currentModalData = data; // Lưu lại để filter client-side
+        // [IMPORTANT] SKU List Processing Logic
+        // Automatically splits by: newline (\n), comma (,), semicolon (;), or whitespace (\s)
+        if (skuListRaw && skuListRaw.trim() !== '') {
+            const cleanList = skuListRaw.split(/[\n\r,;\s]+/) // Split by any separator
+                                        .map(s => s.trim())   // Trim whitespace
+                                        .filter(s => s.length > 0) // Remove empty strings
+                                        .join(',');           // Join with standard comma
+                                        
+            apiUrl = `/api/components?skus=${encodeURIComponent(cleanList)}`;
+        } else {
+            apiUrl = `/api/components?subcat=${encodeURIComponent(subcatCode)}`;
+        }
+
+        console.log("Calling API:", apiUrl); // Debug log
+
+        const res = await fetch(apiUrl);
+        const json = await res.json();
+        
+        // Store data for client-side filtering
+        currentModalData = json.components || [];
+        
+        // Render the list
         renderModalItems(currentModalData);
+        
     } catch (e) {
-        listDiv.innerHTML = '<p style="color:red; text-align:center;">Lỗi kết nối server.</p>';
+        console.error(e);
+        listDiv.innerHTML = '<div style="text-align:center; padding:20px; color:#ef4444;">⚠️ Lỗi kết nối server. Vui lòng thử lại.</div>';
     }
 }
+
 
 // 4. Hàm vẽ lại items trong Modal
 function renderModalItems(items) {

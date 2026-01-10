@@ -275,114 +275,105 @@ const BRANCH_CONFIG = {
 };
 
 
-// ======================= MIDDLEWARE LẤY CÀI ĐẶT CHUNG =======================
-// Middleware này sẽ chạy TRƯỚC TẤT CẢ các route (app.get, app.post)
+// ======================= MIDDLEWARE LẤY CÀI ĐẶT CHUNG & THÔNG BÁO (NÂNG CẤP) =======================
 app.use(async (req, res, next) => {
-  
-  // === [THÊM MỚI] KIỂM TRA TRẠNG THÁI EVENT CỦA CHI NHÁNH ===
-  res.locals.isBranchEventActive = false; // Mặc định là ẩn
-
-  if (res.locals.user && res.locals.user.branch_code) {
-    try {
-      const { data: evStatus } = await supabase
-        .from('branch_event_status')
-        .select('is_event_active')
-        .eq('branch_code', res.locals.user.branch_code)
-        .maybeSingle(); // Dùng maybeSingle để không lỗi nếu chưa cấu hình
-
-      if (evStatus && evStatus.is_event_active) {
-        res.locals.isBranchEventActive = true;
-      }
-    } catch (e) {
-      console.error("Lỗi check event active:", e.message);
-    }
-  }
-  
-  // Gắn user (từ code cũ) và thời gian vào res.locals
   res.locals.user = req.session?.user || null;
-  res.locals.time = new Date().toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  // 1. Cập nhật 'last_seen' cho user hiện tại (nếu đã đăng nhập)
-  // Chúng ta không 'await' để nó chạy ngầm, không làm chậm request
+  res.locals.time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  res.locals.isBranchEventActive = false;
+  res.locals.globalTickerText = null;
+  res.locals.onlineUserCount = null;
   
+  res.locals.notifications = []; 
+  res.locals.unreadCount = 0;    
+
+  // LOGIC LẤY THÔNG BÁO MỚI
   if (res.locals.user) {
-    supabase
-      .from('users')
-      .update({ last_seen: new Date().toISOString() })
-      .eq('id', res.locals.user.id)
-      .then(result => {
-        if (result.error) {
-          console.error('Lỗi cập nhật last_seen:', result.error.message);
+    const userEmail = res.locals.user.email;
+    const userBranch = res.locals.user.branch_code;
+
+    try {
+      // 1. Lấy 10 thông báo mới nhất (Của riêng User hoặc All)
+      const { data: notifs, error: notifErr } = await supabase
+        .from('notifications')
+        .select('*')
+        .or(`user_ref.eq.${userEmail},user_ref.eq.All`) 
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!notifErr && notifs && notifs.length > 0) {
+        
+        // 2. Lấy danh sách ID các thông báo này
+        const notifIds = notifs.map(n => n.id);
+
+        // 3. Kiểm tra xem User hiện tại đã đọc những thông báo nào?
+        const { data: readRecords } = await supabase
+            .from('notification_reads')
+            .select('notification_id')
+            .eq('user_email', userEmail)
+            .in('notification_id', notifIds);
+            
+        // Tạo Set chứa các ID đã đọc để tra cứu cho nhanh
+        const readSet = new Set(readRecords ? readRecords.map(r => r.notification_id) : []);
+
+        // 4. [TÍNH NĂNG MỚI] Đếm số lượt xem của từng thông báo
+        // (Lấy tổng số dòng trong notification_reads theo ID)
+        const { data: viewCounts } = await supabase
+            .from('notification_reads')
+            .select('notification_id')
+            .in('notification_id', notifIds);
+            
+        // Map đếm số lượng: { '123': 5, '124': 10 ... }
+        const countMap = {};
+        if (viewCounts) {
+            viewCounts.forEach(r => {
+                countMap[r.notification_id] = (countMap[r.notification_id] || 0) + 1;
+            });
         }
-        // Cập nhật thành công, không cần làm gì
-      })
-      .catch(err => console.error('Lỗi nghiêm trọng last_seen:', err.message));
-  }
 
-  // 2. Lấy số user online (chỉ khi user là manager hoặc admin)
-  res.locals.onlineUserCount = null; // Khởi tạo là null
+        // 5. Ghép dữ liệu lại
+        res.locals.notifications = notifs.map(n => {
+            return {
+                ...n,
+                // Ghi đè trạng thái is_read dựa trên bảng mới (bỏ qua cột is_read cũ trong bảng notifications)
+                is_read: readSet.has(n.id),
+                // Thêm trường view_count
+                view_count: countMap[n.id] || 0
+            };
+        });
 
-  const isManagerOrAdmin = res.locals.user && (res.locals.user.role === 'manager' || res.locals.user.role === 'admin');
-  
-  if (isManagerOrAdmin) {
-    try {
-      // Định nghĩa "online" là 5 phút gần nhất
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        // Đếm lại số chưa đọc thực tế
+        res.locals.unreadCount = res.locals.notifications.filter(n => !n.is_read).length;
 
-      const { count, error } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true }) // Chỉ đếm
-        .gt('last_seen', fiveMinutesAgo); // Lớn hơn 5 phút trước
+      } 
+      
+      // ... (Giữ nguyên các logic Last seen, Online count, Event status cũ ở dưới) ...
+      // --- B. CẬP NHẬT LAST SEEN ---
+      supabase.from('users').update({ last_seen: new Date().toISOString() }).eq('id', res.locals.user.id).then();
 
-      if (error) throw error;
-
-      res.locals.onlineUserCount = count;
-
-    } catch (e) {
-      console.error("Lỗi đếm user online:", e.message);
-    }
-  }
-  // --- KẾT THÚC PHẦN THÊM MỚI ---
-
-  // Lấy dòng chữ chạy từ Supabase
-  try {
-    const { data } = await supabase
-      .from('site_settings')
-      .select('value')
-      .eq('id', 'ticker_text')
-      .single();
-
-    // Lưu nó vào res.locals để TẤT CẢ file EJS đều dùng được
-    res.locals.globalTickerText = data ? data.value : null;
-
-  } catch (e) {
-    console.error("Lỗi lấy global ticker:", e.message);
-    res.locals.globalTickerText = null;
-  }
-
-
-  // === [THÊM MỚI] KIỂM TRA TRẠNG THÁI EVENT CỦA CHI NHÁNH ===
-  res.locals.isBranchEventActive = false; // Mặc định là ẩn
-
-  if (res.locals.user && res.locals.user.branch_code) {
-    try {
-      const { data: evStatus } = await supabase
-        .from('branch_event_status')
-        .select('is_event_active')
-        .eq('branch_code', res.locals.user.branch_code)
-        .maybeSingle(); // Dùng maybeSingle để không lỗi nếu chưa cấu hình
-
-      if (evStatus && evStatus.is_event_active) {
-        res.locals.isBranchEventActive = true;
+      // --- C. ĐẾM ONLINE USER ---
+      if (res.locals.user.role === 'manager' || res.locals.user.role === 'admin') {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { count } = await supabase.from('users').select('*', { count: 'exact', head: true }).gt('last_seen', fiveMinutesAgo);
+        res.locals.onlineUserCount = count;
       }
+
+      // --- D. CHECK EVENT STATUS ---
+      if (userBranch) {
+        const { data: evStatus } = await supabase.from('branch_event_status').select('is_event_active').eq('branch_code', userBranch).maybeSingle();
+        if (evStatus && evStatus.is_event_active) res.locals.isBranchEventActive = true;
+      }
+
     } catch (e) {
-      console.error("Lỗi check event active:", e.message);
+      console.error("Middleware Error:", e.message);
     }
   }
-  // Cho phép request đi tiếp đến các route (ví dụ: app.get('/'))
+
+  // ... (Logic Global Ticker giữ nguyên) ...
+  try {
+    const { data: ticker } = await supabase.from('site_settings').select('value').eq('id', 'ticker_text').single();
+    if (ticker) res.locals.globalTickerText = ticker.value;
+  } catch (e) {}
+
   next();
 });
 // ======================= END MIDDLEWARE =======================
@@ -1844,9 +1835,12 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
   let finalPrice = 0;
   let comparisonCount = 0;
 
-  const skuInput = (
-    req.method === 'POST' ? (req.body?.sku || req.body?.query) : (req.query?.query || req.query?.sku) || ''
-  ).toString().trim();
+// [FIXED] Dùng String() bao trọn cụm logic để tránh lỗi .toString() của undefined
+  const rawInput = req.method === 'POST' 
+      ? (req.body?.sku || req.body?.query) 
+      : (req.query?.query || req.query?.sku);
+      
+  const skuInput = String(rawInput || '').trim();
 
   try {
     console.log(`\n--- [DEBUG] BẮT ĐẦU TÌM KIẾM CHO SKU: ${skuInput} ---`);
@@ -5035,6 +5029,21 @@ app.post('/admin/create-post', requireManager, async (req, res) => {
 
     if (status === 'published') { // 1. Chỉ gửi khi bài đã published
           
+          // --- [NEW] TẠO THÔNG BÁO CHO TOÀN HỆ THỐNG ('All') ---
+        try {
+            await supabase.from('notifications').insert({
+                title: `📰 Bảng tin mới: ${title}`,
+                content: subtitle || 'Xem chi tiết tại mục Bảng tin.',
+                type: 'info',       
+                user_ref: 'All',
+                is_read: false,
+                created_at: new Date(),
+                link: `/newsfeed/post/${newPostId}` // <--- THÊM DÒNG NÀY (Link đến bài viết)
+            });
+        } catch (notifErr) {
+            console.error('Lỗi tạo thông báo bảng tin:', notifErr.message);
+        }
+
           // 2. Luôn lấy email bổ sung
           const extraEmails = (extra_emails || '')
             .split(',')
@@ -5266,6 +5275,7 @@ app.post('/admin/edit-post/:id', requireManager, async (req, res) => {
 
 // Route 1 (GET): Hiển thị trang danh sách (Read)
 app.get('/admin/ranking', requireManager, async (req, res) => {
+  
   try {
     const { data, error } = await supabase
       .from('newsfeed_ranking')
@@ -5610,134 +5620,141 @@ app.get('/api/quote/filter-options', requireAuth, async (req, res) => {
   }
 });
 
-// (Trong file server.js, gần cuối)
-
-// (Trong file server.js)
-
 // API MỚI: Đồng bộ SKUs từ BigQuery (ĐÃ SỬA LỖI PAGINATION LẦN CUỐI)
+// --- [UPDATED] API SYNC BQ (Có insert Notification) ---
 app.post('/api/admin/sync-bq-skus', requireAuth, requireManager, async (req, res) => {
-  if (!bigquery) {
-    return res.status(500).json({ ok: false, error: 'BigQuery client chưa được cấu hình trên server.' });
-  }
-  
-  console.log('[SYNC] Bắt đầu đồng bộ SKUs từ BigQuery...');
-
-  try {
-    // 1. Query BigQuery (Đã tối ưu TRIM)
-    const bqQuery = `
-      SELECT
-        TRIM(CAST(SKU AS STRING)) AS sku,
-        MAX(SKU_name) AS product_name,
-        MAX(Brand) AS brand,
-        MAX(Category_ID) AS category,
-        MAX(SubCategory_ID) AS subcat
-      FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
-      WHERE SKU IS NOT NULL AND TRIM(CAST(SKU AS STRING)) != ''
-      GROUP BY 1
-    `;
-    
-    const [bqRowsRaw] = await bigquery.query({
-      query: bqQuery,
-      location: 'asia-southeast1',
-    });
-
-    if (!bqRowsRaw || bqRowsRaw.length === 0) {
-      return res.status(404).json({ ok: false, error: 'Không tìm thấy dữ liệu SKU nào từ BigQuery.' });
+    // Kiểm tra biến bigquery global
+    if (!global.bigquery && !bigquery) {
+        return res.status(500).json({ ok: false, error: 'BigQuery client chưa được cấu hình.' });
     }
-    
-    const bqRows = bqRowsRaw.map(row => ({
-      sku: (row.sku || '').trim(),
-      product_name: (row.product_name || '').trim(),
-      brand: (row.brand || '').trim() || null,
-      category: (row.category || '').trim() || null,
-      subcat: (row.subcat || '').trim() || null
-    })).filter(row => row.sku);
+    // Fallback nếu biến global tên khác
+    const bqClient = global.bigquery || bigquery;
 
-    console.log(`[SYNC] Lấy và dọn dẹp ${bqRows.length} SKU duy nhất từ BigQuery.`);
+    console.log('[SYNC] Bắt đầu đồng bộ SKUs từ BigQuery...');
 
-    // 2. Lấy *TẤT CẢ* SKUs hiện có trong Supabase (XỬ LÝ PAGINATION)
-    const existingSkuSet = new Set();
-    
-    // === SỬA LỖI: ĐẶT PAGE_SIZE = 1000 (ĐÚNG THEO GIỚI HẠN CỦA SERVER) ===
-    const PAGE_SIZE = 1000; 
-    // ===================================================================
-    
-    let page = 0;
-    let keepFetching = true;
+    try {
+        // 1. Query BigQuery (Đã cập nhật: Subcat_ID_lowest_level)
+        const bqQuery = `
+            SELECT
+                TRIM(CAST(SKU AS STRING)) AS sku,
+                MAX(SKU_name) AS product_name,
+                MAX(Brand) AS brand,
+                MAX(Category_ID) AS category,
+                MAX(Subcat_ID_lowest_level) AS subcat
+            FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
+            WHERE SKU IS NOT NULL AND TRIM(CAST(SKU AS STRING)) != ''
+            GROUP BY 1
+        `;
 
-    console.log(`[SYNC] Bắt đầu lấy SKUs hiện có từ Supabase (mỗi trang ${PAGE_SIZE} SKU)...`);
-    
-    while(keepFetching) {
-      const { data: skuPage, error: supabaseError } = await supabase
-        .from('skus')
-        .select('sku')
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-      if (supabaseError) throw supabaseError;
-
-      if (!skuPage || skuPage.length === 0) {
-        keepFetching = false; // Dừng lại khi không còn dữ liệu
-      } else {
-        skuPage.forEach(s => {
-          if (s.sku) existingSkuSet.add(s.sku.trim()); 
+        const [bqRowsRaw] = await bqClient.query({
+            query: bqQuery,
+            location: 'asia-southeast1',
         });
-        
-        // Logic đúng: Nếu server trả về *ít hơn* số ta yêu cầu, đó mới là trang cuối
-        if (skuPage.length < PAGE_SIZE) { 
-          keepFetching = false;
+
+        if (!bqRowsRaw || bqRowsRaw.length === 0) {
+            return res.status(404).json({ ok: false, error: 'Không tìm thấy dữ liệu SKU nào từ BigQuery.' });
         }
-        
-        // Tăng trang để lấy lượt tiếp theo
-        page++; 
-      }
+
+        const bqRows = bqRowsRaw.map(row => ({
+            sku: (row.sku || '').trim(),
+            product_name: (row.product_name || '').trim(),
+            brand: (row.brand || '').trim() || null,
+            category: (row.category || '').trim() || null,
+            subcat: (row.subcat || '').trim() || null
+        })).filter(row => row.sku);
+
+        console.log(`[SYNC] Lấy ${bqRows.length} SKU từ BigQuery.`);
+
+        // 2. Lấy SKUs hiện có (Pagination Logic - Chuẩn)
+        const existingSkuSet = new Set();
+        const PAGE_SIZE = 1000;
+        let page = 0;
+        let keepFetching = true;
+
+        while (keepFetching) {
+            const { data: skuPage, error: supabaseError } = await supabase
+                .from('skus')
+                .select('sku')
+                .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+            if (supabaseError) throw supabaseError;
+
+            if (!skuPage || skuPage.length === 0) {
+                keepFetching = false;
+            } else {
+                skuPage.forEach(s => {
+                    if (s.sku) existingSkuSet.add(s.sku.trim());
+                });
+                if (skuPage.length < PAGE_SIZE) keepFetching = false;
+                page++;
+            }
+        }
+        console.log(`[SYNC] Supabase hiện có ${existingSkuSet.size} SKU.`);
+
+        // 3. Lọc SKU mới
+        const newSkuPayloads = bqRows.filter(bqRow => !existingSkuSet.has(bqRow.sku));
+        let totalInsertedCount = 0;
+
+        // 4. Insert nếu có mới
+        if (newSkuPayloads.length > 0) {
+            console.log(`[SYNC] Chuẩn bị chèn ${newSkuPayloads.length} SKU mới...`);
+            const BATCH_SIZE = 1000;
+
+            for (let i = 0; i < newSkuPayloads.length; i += BATCH_SIZE) {
+                const batch = newSkuPayloads.slice(i, i + BATCH_SIZE);
+                // Map lại tên cột cho khớp DB nếu cần
+                const finalBatch = batch.map(b => ({
+                    sku: b.sku,
+                    product_name: b.product_name || b.sku, // Nếu ko có tên thì lấy SKU làm tên tạm
+                    brand: b.brand,
+                    category: b.category,
+                    subcat: b.subcat // Map 'subcat' từ BQ sang 'sub_category' trong DB (kiểm tra lại tên cột DB của bạn)
+                }));
+
+                const { error: insertError, count } = await supabase
+                    .from('skus')
+                    .insert(finalBatch); // select() để trả về data count nếu cần chính xác
+
+                if (insertError) throw new Error(`Lỗi insert batch ${i}: ${insertError.message}`);
+                
+                // Nếu insert thành công mà không trả về count (tùy config), ta cộng thủ công
+                totalInsertedCount += batch.length;
+            }
+        }
+
+        const resultMessage = totalInsertedCount > 0 
+            ? `Đồng bộ hoàn tất. Đã thêm ${totalInsertedCount} SKU mới.` 
+            : `Đồng bộ hoàn tất. Không có SKU mới nào.`;
+
+        console.log(`[SYNC] ${resultMessage}`);
+
+        // --- [NEW] 5. TẠO THÔNG BÁO (NOTIFICATION) ---
+        // Insert vào bảng notifications để hiện lên chuông
+        try {
+            await supabase.from('notifications').insert({
+                title: 'Kết quả đồng bộ BigQuery',
+                content: resultMessage,
+                type: 'update', // Loại thông báo (hiện màu xanh)
+                user_ref: req.session.user.email, // Gửi riêng cho người bấm nút
+                is_read: false,
+                created_at: new Date()
+            });
+        } catch (notifErr) {
+            console.error('[SYNC] Không thể tạo notification:', notifErr.message);
+            // Không throw lỗi ở đây để tránh làm fail cả request sync
+        }
+
+        // 6. Trả kết quả về cho Frontend alert()
+        res.json({ 
+            ok: true, 
+            message: resultMessage, 
+            new_skus: totalInsertedCount 
+        });
+
+    } catch (e) {
+        console.error('[SYNC] Lỗi Critical:', e.message);
+        res.status(500).json({ ok: false, error: e.message });
     }
-    console.log(`[SYNC] Đã có tổng cộng ${existingSkuSet.size} SKU (đã dọn dẹp) trong Supabase.`);
-
-
-    // 3. Lọc ra những SKU mới
-    const newSkuPayloads = bqRows.filter(bqRow => !existingSkuSet.has(bqRow.sku));
-
-    if (newSkuPayloads.length === 0) {
-      const message = 'Đồng bộ hoàn tất. Không có SKU nào mới.';
-      console.log(`[SYNC] ${message}`);
-      return res.json({ ok: true, message: message, new_skus: 0 });
-    }
-
-    // 4. CHỈ INSERT những SKU mới
-    console.log(`[SYNC] Chuẩn bị chèn ${newSkuPayloads.length} SKU mới...`);
-    
-    const BATCH_SIZE = 1000; // Giữ nguyên batch insert là 1000
-    let totalInsertedCount = 0;
-
-    for (let i = 0; i < newSkuPayloads.length; i += BATCH_SIZE) {
-      const batch = newSkuPayloads.slice(i, i + BATCH_SIZE);
-      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-      
-      const finalBatch = batch.map(b => ({
-        ...b,
-        product_name: b.product_name || b.sku
-      }));
-
-      const { error: insertError, count } = await supabase
-        .from('skus')
-        .insert(finalBatch);
-
-      if (insertError) {
-        console.error(`[SYNC] Lỗi khi chèn batch ${batchNum}:`, insertError.message);
-        throw new Error(`Lỗi khi chèn batch ${batchNum}: ${insertError.message}`);
-      }
-      
-      totalInsertedCount += (count || batch.length); 
-    }
-    
-    const message = `Đồng bộ hoàn tất. Đã chèn ${totalInsertedCount} SKU mới.`;
-    console.log(`[SYNC] ${message}`);
-    res.json({ ok: true, message: message, new_skus: totalInsertedCount });
-
-  } catch (e) {
-    console.error('[SYNC] Lỗi đồng bộ BigQuery:', e.message);
-    res.status(500).json({ ok: false, error: e.message });
-  }
 });
 
 /**
@@ -9236,44 +9253,207 @@ app.use(async (req, res, next) => {
     }
     next();
 });
-// --- [NEW] API: Đánh dấu 1 tin là đã đọc ---
-app.post('/api/notifications/mark-read', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
-    
+// ------------------------- NOTIFICATION APIS -------------------------
+
+// API: Đánh dấu 1 tin là đã đọc
+// API: Đánh dấu 1 tin là đã đọc (Logic Mới)
+app.post('/api/notifications/mark-read', requireAuth, async (req, res) => {
     const { id } = req.body;
+    const userEmail = req.session.user.email;
+
     if (!id) return res.status(400).json({ error: 'Missing ID' });
 
     try {
+        // Insert vào bảng lịch sử đọc
+        // Dùng upsert để nếu đã có rồi thì không báo lỗi
         const { error } = await supabase
-            .from('notifications')
-            .update({ is_read: true })
-            .eq('id', id);
+            .from('notification_reads')
+            .upsert({ 
+                notification_id: id, 
+                user_email: userEmail 
+            }, { onConflict: 'notification_id, user_email' });
 
         if (error) throw error;
         res.json({ success: true });
     } catch (err) {
+        console.error("Lỗi mark read:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// --- [NEW] API: Đánh dấu TẤT CẢ là đã đọc ---
-app.post('/api/notifications/mark-all-read', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+// API: Đánh dấu TẤT CẢ (Logic Mới - Hơi phức tạp hơn chút)
+app.post('/api/notifications/mark-all-read', requireAuth, async (req, res) => {
     const userEmail = req.session.user.email;
-
     try {
-        const { error } = await supabase
+        // 1. Lấy tất cả ID thông báo chưa đọc của user này
+        // (Đây là truy vấn đơn giản hóa, thực tế có thể dùng query phức tạp hơn nhưng tạm thời làm cách này cho dễ hiểu)
+        const { data: notifs } = await supabase
             .from('notifications')
-            .update({ is_read: true })
-            .eq('user_ref', userEmail)
-            .eq('is_read', false);
+            .select('id')
+            .or(`user_ref.eq.${userEmail},user_ref.eq.All`);
+            
+        if (notifs && notifs.length > 0) {
+            // Chuẩn bị dữ liệu insert
+            const records = notifs.map(n => ({
+                notification_id: n.id,
+                user_email: userEmail
+            }));
 
-        if (error) throw error;
+            // Insert hàng loạt (bỏ qua nếu trùng)
+            const { error } = await supabase
+                .from('notification_reads')
+                .upsert(records, { onConflict: 'notification_id, user_email' });
+                
+            if (error) throw error;
+        }
+
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
+
+
+// --- [NEW] Trang Xem Tất Cả Thông Báo ---
+app.get('/notifications', requireAuth, async (req, res) => {
+  try {
+    const userEmail = req.session.user.email;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = 20;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    // Lấy thông báo (Cả riêng và chung 'All')
+    const { data: notifs, count, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact' })
+      .or(`user_ref.eq.${userEmail},user_ref.eq.All`)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+
+    const totalPages = Math.ceil((count || 0) / limit);
+
+    res.render('notifications', {
+      title: 'Tất cả thông báo',
+      currentPage: 'notifications', // Không active menu nào cụ thể
+      notifications: notifs || [],
+      page,
+      totalPages,
+      time: res.locals.time
+    });
+
+  } catch (e) {
+    console.error('Lỗi trang notifications:', e);
+    res.redirect('/');
+  }
+});
+// --- [NEW] TRANG GỬI THÔNG BÁO NHANH (ADMIN/MANAGER) ---
+
+// 1. Hiển thị form soạn thông báo
+app.get('/admin/send-notification', requireAuth, async (req, res) => {
+    // Check quyền: Chỉ Admin hoặc Manager HCM.BD
+    const user = req.session.user;
+    if (user.role !== 'admin' && (user.role !== 'manager' || user.branch_code !== 'HCM.BD')) {
+        return res.status(403).send('Bạn không có quyền truy cập.');
+    }
+
+    res.render('admin/send-notification', {
+        title: 'Gửi thông báo hệ thống',
+        currentPage: 'admin-tools',
+        time: res.locals.time,
+        user: user,
+        error: null,
+        success: null
+    });
+});
+
+// 2. Xử lý gửi thông báo
+app.post('/admin/send-notification', requireAuth, async (req, res) => {
+    // Lấy thêm target_mode và target_emails từ form
+    const { title, content, type, link, target_mode, target_emails } = req.body;
+    
+    try {
+        if (!title || !content) throw new Error('Vui lòng nhập tiêu đề và nội dung.');
+
+        let notificationsToInsert = [];
+
+        // TRƯỜNG HỢP 1: Gửi cho Tất cả (All)
+        if (target_mode === 'all') {
+            notificationsToInsert.push({
+                title, content, type: type || 'info',
+                user_ref: 'All', // Gửi chung
+                link: link || null,
+                is_read: false,
+                created_at: new Date()
+            });
+        } 
+        
+        // TRƯỜNG HỢP 2: Gửi theo Danh sách Email
+        else if (target_mode === 'list') {
+            if (!target_emails || target_emails.trim() === '') {
+                throw new Error('Bạn chưa nhập danh sách email.');
+            }
+
+            // 1. Tách chuỗi thành mảng (hỗ trợ dấu phẩy, chấm phẩy, xuống dòng, khoảng trắng)
+            const emailList = target_emails
+                .split(/[\n,;\s]+/)            // Regex tách ký tự phân cách
+                .map(e => e.trim())            // Xóa khoảng trắng thừa
+                .filter(e => e.includes('@')); // Chỉ lấy chuỗi có chứ @ (là email)
+
+            if (emailList.length === 0) {
+                throw new Error('Danh sách email không hợp lệ.');
+            }
+
+            // 2. Tạo mảng object để insert 1 lần (Bulk Insert)
+            notificationsToInsert = emailList.map(email => ({
+                title, 
+                content, 
+                type: type || 'info',
+                user_ref: email, // Gửi riêng cho email này
+                link: link || null,
+                is_read: false,
+                created_at: new Date()
+            }));
+        }
+
+        // THỰC HIỆN INSERT VÀO DB
+        if (notificationsToInsert.length > 0) {
+            const { error } = await supabase
+                .from('notifications')
+                .insert(notificationsToInsert);
+
+            if (error) throw error;
+        }
+
+        // Render lại trang thành công
+        const successMsg = target_mode === 'list' 
+            ? `Đã gửi thông báo đến ${notificationsToInsert.length} người dùng.` 
+            : 'Đã gửi thông báo toàn hệ thống thành công!';
+
+        res.render('admin/send-notification', {
+            title: 'Gửi thông báo hệ thống',
+            currentPage: 'admin-tools',
+            time: res.locals.time,
+            user: req.session.user,
+            error: null,
+            success: successMsg
+        });
+
+    } catch (err) {
+        res.render('admin/send-notification', {
+            title: 'Gửi thông báo hệ thống',
+            currentPage: 'admin-tools',
+            time: res.locals.time,
+            user: req.session.user,
+            error: err.message,
+            success: null
+        });
+    }
+});
+
+
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {

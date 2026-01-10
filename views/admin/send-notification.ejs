@@ -1,0 +1,118 @@
+<%- include('../partials/header', {title: title, currentPage: currentPage, time: time}) %>
+
+<style>
+  .admin-form {
+    max-width: 600px; /* Form nhỏ gọn hơn form bài viết */
+    margin: 40px auto;
+    padding: 30px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: #334155; }
+  .form-control {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid #cbd5e1; border-radius: 6px;
+    font-size: 14px; box-sizing: border-box;
+    transition: border 0.2s;
+  }
+  .form-control:focus { border-color: #3b82f6; outline: none; }
+  
+  .btn-submit {
+    width: 100%; padding: 12px;
+    background: #2563eb; color: white;
+    border: none; border-radius: 6px;
+    font-weight: 600; font-size: 16px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn-submit:hover { background: #1d4ed8; }
+
+  .alert-msg { padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; }
+  .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+</style>
+
+<div class="container">
+    <div class="admin-form">
+        <h2 style="text-align: center; margin-bottom: 25px; color: #0f172a;">📢 Gửi Thông Báo Hệ Thống</h2>
+
+        <% if (error) { %>
+            <div class="alert-msg alert-error">❌ <%= error %></div>
+        <% } %>
+        <% if (success) { %>
+            <div class="alert-msg alert-success">✅ <%= success %></div>
+        <% } %>
+
+        <form action="/admin/send-notification" method="POST">
+            
+            <div class="form-group">
+                <label>Tiêu đề thông báo (Ngắn gọn)</label>
+                <input type="text" name="title" class="form-control" placeholder="VD: Bảo trì hệ thống..." required>
+            </div>
+
+            <div class="form-group">
+                <label>Nội dung chi tiết</label>
+                <textarea name="content" class="form-control" rows="4" placeholder="Nhập nội dung nhắc nhở..." required></textarea>
+            </div>
+
+            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Loại thông báo</label>
+                    <select name="type" class="form-control">
+                        <option value="info">🔵 Thông tin (Xanh dương)</option>
+                        <option value="alert">🔴 Cảnh báo (Đỏ)</option>
+                        <option value="update">🟢 Cập nhật (Xanh lá)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="flex: 1;">
+                    <label>Đối tượng nhận tin</label>
+                    
+                    <div style="margin-bottom: 10px; display: flex; gap: 15px;">
+                        <label style="font-weight: 400; cursor: pointer;">
+                            <input type="radio" name="target_mode" value="all" checked onclick="toggleEmailArea(false)"> 
+                            Tất cả (All)
+                        </label>
+                        <label style="font-weight: 400; cursor: pointer;">
+                            <input type="radio" name="target_mode" value="list" onclick="toggleEmailArea(true)"> 
+                            Danh sách cụ thể
+                        </label>
+                    </div>
+
+                    <div id="email-list-area" style="display: none;">
+                        <textarea name="target_emails" class="form-control" rows="3" 
+                            placeholder="Dán danh sách email vào đây...&#10;Ví dụ:&#10;vu.nt1@phongvu.vn&#10;thu.hm@phongvu.vn"></textarea>
+                        <small style="color: #64748b; font-size: 11px;">
+                            Phân cách bằng dấu phẩy (,) hoặc xuống dòng.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Link chức năng (Nếu có)</label>
+                <input type="text" name="link" class="form-control" placeholder="VD: /fifo-checking hoặc /price-battle">
+                <small style="color: #64748b;">Để trống nếu chỉ là thông báo văn bản.</small>
+            </div>
+
+            <button type="submit" class="btn-submit">🚀 Gửi Ngay</button>
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="/newsfeed" style="color: #64748b; text-decoration: none; font-size: 14px;">← Quay lại Bảng tin</a>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+                function toggleEmailArea(show) {
+                    const area = document.getElementById('email-list-area');
+                    if (show) {
+                        area.style.display = 'block';
+                        area.querySelector('textarea').required = true; // Bắt buộc nhập nếu chọn list
+                    } else {
+                        area.style.display = 'none';
+                        area.querySelector('textarea').required = false;
+                    }
+                }
+            </script>
+<%- include('../partials/footer') %>

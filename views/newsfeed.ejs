@@ -1,40 +1,92 @@
 <%- include('partials/header', {title: title, currentPage: currentPage, time: time}) %>
+<%
+  // Hàm loại bỏ thẻ HTML để lấy văn bản thuần
+  function stripTags(input) {
+    if (!input) return '';
+    return input.replace(/<[^>]*>?/gm, ''); // Regex xóa hết thẻ <...>
+  }
+%>
+<style>
+/* Container cho nội dung xem trước */
+.news-description-html {
+    color: #4b5563;
+    font-size: 14px;
+    line-height: 1.5em; /* Chiều cao mỗi dòng */
+    margin-top: 8px;
+    
+    /* 1. Logic cắt dòng hiện đại (WebKit) */
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* Số dòng muốn hiện */
+    -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
+    
+    /* 2. Logic cắt dòng dự phòng (An toàn tuyệt đối) */
+    /* Nếu trình duyệt không hiểu line-clamp thì nó sẽ cắt bằng max-height */
+    max-height: 4.5em; /* 1.5em * 3 dòng = 4.5em */
+    overflow: hidden; 
+    
+    /* Trang trí thêm */
+    word-break: break-word; /* Ngắt từ dài để không tràn ngang */
+}
+
+/* Ẩn tuyệt đối tất cả ảnh/video/iframe trong phần xem trước */
+.news-description-html img, 
+.news-description-html video, 
+.news-description-html iframe,
+.news-description-html figure {
+    display: none !important; 
+}
+
+/* Ép thẻ p hiển thị như văn bản thường để nối dòng liền mạch */
+.news-description-html p,
+.news-description-html div,
+.news-description-html h1, .news-description-html h2, .news-description-html h3 {
+    margin: 0 !important; 
+    padding: 0 !important;
+    display: inline; /* Biến thành inline để nối chữ lại với nhau */
+}
+.news-description-html br {
+    display: none; /* Ẩn xuống dòng thừa */
+}
+</style>
 
 <div class="newsfeed-container">
 
   <div class="dash-card">
-  <form class="news-filters" action="/newsfeed" method="GET">
+    <form class="news-filters" action="/newsfeed" method="GET">
 
-    <select name="period" id="filter-period">
-      <option value="">Chọn Chu kỳ BXH</option>
-      <% allPeriods.forEach(function(period) { %>
-        <option value="<%= period %>" <%= selectedPeriod === period ? 'selected' : '' %>>
-          <%= period %>
-        </option>
-      <% }) %>
-    </select>
+      <select name="period" id="filter-period">
+        <option value="">Chọn Chu kỳ BXH</option>
+        <% allPeriods.forEach(function(period) { %>
+          <option value="<%= period %>" <%= selectedPeriod === period ? 'selected' : '' %>>
+            <%= period %>
+          </option>
+        <% }) %>
+      </select>
 
-    <select name="category" id="filter-category">
-      <option value="">Tất cả Chủ đề</option>
-      <% allCategories.forEach(function(cat) { %>
-        <option value="<%= cat %>" <%= selectedCategory === cat ? 'selected' : '' %>>
-          <%= cat %>
-        </option>
-      <% }) %>
-    </select>
+      <select name="category" id="filter-category">
+        <option value="">Tất cả Chủ đề</option>
+        <% allCategories.forEach(function(cat) { %>
+          <option value="<%= cat %>" <%= selectedCategory === cat ? 'selected' : '' %>>
+            <%= cat %>
+          </option>
+        <% }) %>
+      </select>
 
-    <input type="search" name="q" id="filter-search" placeholder="Tìm theo tiêu đề, phụ đề..." value="<%= searchQuery %>">
+      <input type="search" name="q" id="filter-search" placeholder="Tìm theo tiêu đề..." value="<%= searchQuery %>">
 
-    <button type="submit">Lọc / Tìm kiếm</button>
+      <button type="submit">Lọc / Tìm kiếm</button>
 
-    <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
-      <a href="/admin/create-post" class="news-filters button admin-btn" >+ Soạn bài mới</a>
-      <a href="/admin/ranking" class="news-filters button">
-        🏆 Quản lý BXH
-      </a>
-    <% } %>
-  </form>
-</div>
+      <% if (user && (user.role === 'admin' || user.role === 'manager')) { %>
+        <a href="/admin/create-post" class="news-filters button admin-btn">+ Soạn bài mới</a>
+      <% } %>
+
+      <% if (user && (user.role === 'admin' || (user.role === 'manager' && user.branch_code === 'HCM.BD'))) { %>
+        <a href="/admin/ranking" class="news-filters button">🏆 Quản lý BXH</a>
+      <% } %>
+
+    </form>
+  </div>
   
   <% if (error) { %>
     <div class="dash-card" style="background-color: #ffebee; color: #c62828; padding: 16px;">
@@ -58,17 +110,15 @@
           <p class="subtitle"><%= featuredPost.subtitle %></p>
         <% } %>
 
-        <% /* --- DÒNG MỚI --- */ %>
-<p class="dash-muted" style="font-size: 14px; margin-bottom: 12px;">
-  Đăng ngày: <%= new Date(featuredPost.published_at).toLocaleDateString('vi-VN') %>
-</p>
-<% /* --- HẾT DÒNG MỚI --- */ %>
+        <p class="dash-muted" style="font-size: 14px; margin-bottom: 12px;">
+          Đăng ngày: <%= new Date(featuredPost.published_at).toLocaleDateString('vi-VN') %>
+        </p>
         
         <% if (featuredPost.content) { %>
-          <p class="excerpt">
-            <%= featuredPost.content %>
-          </p>
-        <% } %>
+  <p class="news-description" style="color: #4b5563; font-size: 14px; margin-top: 8px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
+    <%= stripTags(featuredPost.content).substring(0, 300) %>...
+  </p>
+<% } %>
       </div>
     </a>
   <% } else if (!error) { %>
@@ -90,11 +140,16 @@
               <p class="subtitle"><%= post.subtitle %></p>
             <% } %>
 
-            <% /* --- DÒNG MỚI --- */ %>
-<p class="dash-muted" style="font-size: 13px; margin-top: 8px;">
-  <%= new Date(post.published_at).toLocaleDateString('vi-VN') %>
-</p>
-<% /* --- HẾT DÒNG MỚI --- */ %>
+            <p class="dash-muted" style="font-size: 13px; margin-top: 8px;">
+              <%= new Date(post.published_at).toLocaleDateString('vi-VN') %>
+            </p>
+
+            <% if (post.content) { %>
+  <p class="news-description" style="color: #64748b; font-size: 13px; margin-top: 6px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+    <%= stripTags(post.content).substring(0, 150) %>...
+  </p>
+<% } %>
+
           </div>
         </a>
       <% }) %>
@@ -117,8 +172,8 @@
             <div class="rank-name"><%= rankingTop1.full_name %></div>
             <div class="rank-info">
               <% if (rankingTop1.sales_percentage) { %>
-    <span style="color: #c62828; font-weight: 700;">Đạt: <strong><%= rankingTop1.sales_percentage %>%</strong></span>
-  <% } %>
+                <span style="color: #c62828; font-weight: 700;">Đạt: <strong><%= rankingTop1.sales_percentage %>%</strong></span>
+              <% } %>
 
               <% if (rankingTop1.store) { %>
                 <span>Cửa hàng: <strong><%= rankingTop1.store %></strong></span>
@@ -141,10 +196,10 @@
               <div class="rank-label">TOP <%= person.rank_order %></div>
               <div class="rank-name"><%= person.full_name %></div>
               <% if (person.sales_percentage) { %>
-  <div class="rank-info" style="color: #c62828; font-weight: 700; margin-bottom: 4px;">
-    Đạt: <%= person.sales_percentage %>%
-  </div>
-<% } %>
+                <div class="rank-info" style="color: #c62828; font-weight: 700; margin-bottom: 4px;">
+                  Đạt: <%= person.sales_percentage %>%
+                </div>
+              <% } %>
               <div class="rank-info">
                 <%= person.store || '' %><br>
                 <%= person.department || '' %>
@@ -160,4 +215,5 @@
     <div class="dash-card"><p class="dash-muted">Chưa có dữ liệu Bảng xếp hạng.</p></div>
   <% } %>
 
-</div> <%- include('partials/footer') %>
+</div> 
+<%- include('partials/footer') %>
