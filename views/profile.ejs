@@ -20,7 +20,6 @@
     
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
     
-    /* Style Card mới: Hiệu ứng hover + Border trái màu */
     .kpi-card { 
         background: white; padding: 20px; border-radius: 12px; 
         border: 1px solid #e2e8f0; 
@@ -36,7 +35,6 @@
         border-color: #bfdbfe;
     }
     
-    /* Đường kẻ màu bên trái Card để phân loại */
     .border-l-blue { border-left: 4px solid #2563eb; }
     .border-l-orange { border-left: 4px solid #f97316; }
     .border-l-green { border-left: 4px solid #16a34a; }
@@ -44,14 +42,10 @@
     .border-l-cyan { border-left: 4px solid #06b6d4; }
 
     .kpi-title { font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-    
-    /* Value số liệu: Dùng font mono cho số để thẳng hàng, hoặc sans-serif đậm */
     .kpi-value { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.2; word-break: break-word; }
-    
     .kpi-sub { font-size: 12px; margin-top: 6px; color: #94a3b8; font-weight: 500; }
     .val-green { color: #16a34a; } .val-red { color: #dc2626; } .val-blue { color: #2563eb; } .val-orange { color: #d97706; } .val-cyan { color: #0891b2; }
 
-    /* Forecast Card Style */
     .forecast-card { background: #ecfeff; border: 1px solid #a5f3fc; border-left: 4px solid #06b6d4; }
     
     /* --- TABLE --- */
@@ -59,7 +53,14 @@
     .table-header-title { padding: 15px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; font-size: 15px; font-weight: 800; color: #1e293b; }
     .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .data-table th { background: #f1f5f9; padding: 12px 15px; text-align: left; color: #475569; font-weight: 700; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
-    .data-table td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; color: #334155; font-weight: 500; white-space: nowrap; }
+    .data-table td { 
+    padding: 12px 15px; 
+    border-bottom: 1px solid #f1f5f9; 
+    color: #334155; 
+    font-weight: 500; 
+    white-space: normal; /* <--- SỬA THÀNH NORMAL ĐỂ TỰ XUỐNG DÒNG */
+    vertical-align: top; /* Căn text lên trên cho đẹp */
+}
     .data-table tr:hover td { background: #f8fafc; }
     
     .rank-badge { width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; color: #64748b; background: #f1f5f9; }
@@ -67,11 +68,9 @@
     .status-tag { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
     .st-done { background: #dcfce7; color: #16a34a; } .st-uncared { background: #fee2e2; color: #dc2626; }
 
-    /* --- FILTER --- */
     .filter-container { display: flex; gap: 10px; flex-wrap: wrap; }
     .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; color: #334155; background-color: #f8fafc; cursor: pointer; outline: none; }
     .filter-select:hover { border-color: #2563eb; background: #fff; }
-    /* Input tháng */
     input[type="month"] { padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; color: #334155; font-family: inherit; font-weight: 600; background: #f8fafc; outline: none; cursor: pointer; }
 </style>
 
@@ -101,43 +100,43 @@
                     <h3 class="dash-title" style="margin:0; border:none; font-size:18px;">
                         📊 Hiệu suất <%= filterBranch ? filterBranch : (role.isGlobalAdmin ? 'Toàn Hệ Thống' : 'Chi Nhánh') %>
                         <% if (locals.dataDate) { %>
-        <span style="font-size: 12px; font-weight: normal; color: #dc2626; margin-left: 8px; font-style: italic;">
-            (Dữ liệu đến: <%= dataDate %>)
-        </span>
-    <% } %>
+                            <span style="font-size: 12px; font-weight: normal; color: #dc2626; margin-left: 8px; font-style: italic;">
+                                (Dữ liệu đến: <%= dataDate %>)
+                            </span>
+                        <% } %>
                     </h3>
                     
                     <form method="GET" action="/profile" class="filter-container" id="filterForm">
-    <% if(role.isGlobalAdmin) { %>
-        <select name="branch" class="filter-select" onchange="this.form.submit()">
-            <option value="">-- Tất cả Chi Nhánh --</option>
-            <% branchList.forEach(br => { %>
-                <option value="<%= br %>" <%= filterBranch === br ? 'selected' : '' %>><%= br %></option>
-            <% }) %>
-        </select>
-    <% } %>
+                        <% if(role.isGlobalAdmin) { %>
+                            <select name="branch" class="filter-select" onchange="this.form.submit()">
+                                <option value="">-- Tất cả Chi Nhánh --</option>
+                                <% branchList.forEach(br => { %>
+                                    <option value="<%= br %>" <%= filterBranch === br ? 'selected' : '' %>><%= br %></option>
+                                <% }) %>
+                            </select>
+                        <% } %>
 
-    <div style="display:flex; gap:5px;">
-        <input type="month" 
-               name="custom_month" 
-               value="<%= period.value.includes('-') ? period.value : '' %>"
-               class="filter-select"
-               style="width: 130px;"
-               onchange="document.getElementById('periodSelect').name=''; this.name='period'; this.form.submit();" 
-               title="Chọn tháng cụ thể">
+                        <div style="display:flex; gap:5px;">
+                            <input type="month" 
+                                   name="custom_month" 
+                                   value="<%= period.value.includes('-') ? period.value : '' %>"
+                                   class="filter-select"
+                                   style="width: 130px;"
+                                   onchange="document.getElementById('periodSelect').name=''; this.name='period'; this.form.submit();" 
+                                   title="Chọn tháng cụ thể">
 
-        <select name="period" id="periodSelect" class="filter-select" onchange="this.form.submit()">
-            <option value="month" <%= period.value === 'month' ? 'selected' : '' %>>Tháng này</option>
-            <option value="today" <%= period.value === 'today' ? 'selected' : '' %>>Hôm nay</option>
-            <option value="week" <%= period.value === 'week' ? 'selected' : '' %>>Tuần này</option>
-            <option value="year" <%= period.value === 'year' ? 'selected' : '' %>>Năm nay</option>
-            <option value="last_year" <%= period.value === 'last_year' ? 'selected' : '' %>>Năm trước</option>
-            <% if(period.value.includes('-')) { %>
-                <option value="<%= period.value %>" selected style="display:none;">Tháng <%= period.value %></option>
-            <% } %>
-        </select>
-    </div>
-</form>
+                            <select name="period" id="periodSelect" class="filter-select" onchange="this.form.submit()">
+                                <option value="month" <%= period.value === 'month' ? 'selected' : '' %>>Tháng này</option>
+                                <option value="today" <%= period.value === 'today' ? 'selected' : '' %>>Hôm nay</option>
+                                <option value="week" <%= period.value === 'week' ? 'selected' : '' %>>Tuần này</option>
+                                <option value="year" <%= period.value === 'year' ? 'selected' : '' %>>Năm nay</option>
+                                <option value="last_year" <%= period.value === 'last_year' ? 'selected' : '' %>>Năm trước</option>
+                                <% if(period.value.includes('-')) { %>
+                                    <option value="<%= period.value %>" selected style="display:none;">Tháng <%= period.value %></option>
+                                <% } %>
+                            </select>
+                        </div>
+                    </form>
                 </div>
 
                 <div class="kpi-grid">
@@ -147,20 +146,21 @@
                         <div class="kpi-sub">Đã trừ đơn hoàn</div>
                     </div>
                     <div class="kpi-card border-l-blue">
-    <div class="kpi-title">Doanh thu (NO VAT, IPHONE 60%)</div> <div class="kpi-value val-blue" title="Thực tế: <%= new Intl.NumberFormat('vi-VN').format(dashboard.raw_revenue) %> ₫">
-        <%= formatCompact(dashboard.revenue) %> ₫
-    </div>
-    <div class="kpi-sub" style="font-size: 11px; color: #64748b;">
-        iPhone: <%= formatCompact(dashboard.iphone_revenue) %> ₫ | 
-        Khác: <%= formatCompact(dashboard.raw_revenue - dashboard.iphone_revenue) %> ₫
-    </div>
-</div>
+                        <div class="kpi-title">Doanh thu (NO VAT, IPHONE 60%)</div> 
+                        <div class="kpi-value val-blue" title="Thực tế: <%= new Intl.NumberFormat('vi-VN').format(dashboard.raw_revenue) %> ₫">
+                            <%= formatCompact(dashboard.revenue) %> ₫
+                        </div>
+                        <div class="kpi-sub" style="font-size: 11px; color: #64748b;">
+                            iPhone: <%= formatCompact(dashboard.iphone_revenue) %> ₫ | 
+                            Khác: <%= formatCompact(dashboard.raw_revenue - dashboard.iphone_revenue) %> ₫
+                        </div>
+                    </div>
                     <div class="kpi-card border-l-orange">
                         <div class="kpi-title">Tổng điểm KFI</div>
                         <div class="kpi-value val-orange"><%= new Intl.NumberFormat('vi-VN').format(dashboard.kfi) %></div>
                     </div>
 
-                    <% if (dashboard.target > 0) { %>
+                    <% if (dashboard.target > 0 || role.isManager || role.isGlobalAdmin) { %>
                         <div class="kpi-card" style="background: #f8fafc;">
                             <div class="kpi-title">Mục tiêu (Target)</div>
                             <div class="kpi-value"><%= formatCompact(dashboard.target) %> ₫</div>
@@ -201,6 +201,28 @@
                             </div>
                         <% } %>
                     <% } %>
+                <div class="kpi-card" style="background: #fffbeb; border-left: 4px solid #f59e0b; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.15);">
+                        <div class="kpi-title" style="color:#b45309; font-weight: 800;">
+                            ⭐ % CSI (Chất lượng)
+                        </div>
+                        
+                        <div class="kpi-value" style="color:#d97706;">
+                            <%= csiData.csi_percent %>%
+                        </div>
+                        
+                        <div class="kpi-sub" style="font-size: 11px; color: #92400e; margin-top: 5px; font-weight: 600;">
+                            <% if(csiData.feedback_count > 0) { %>
+                                <span style="color:#dc2626; background: #fee2e2; padding: 2px 6px; border-radius: 4px;">
+                                    Góp ý <%= csiData.feedback_count %> 
+                                </span>
+                                <span style="color:#e2e8f0; margin: 0 4px;">|</span>
+                            <% } else { %>
+                                <span style="color:#16a34a;">✨ Không có góp ý</span>
+                                <span style="color:#e2e8f0; margin: 0 4px;">|</span>
+                            <% } %>
+                            Target: > 95%
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -216,10 +238,7 @@
                                     <th width="50" style="text-align:center">Hạng</th>
                                     <th>Chi Nhánh</th>
                                     <th style="text-align:right">Target</th>
-                                    <th style="text-align:right">
-    Doanh thu <br>
-    <span style="font-size:10px; font-weight:normal; color:#64748b; text-transform:none;">(Trong đó iPhone)</span>
-</th>
+                                    <th style="text-align:right">Doanh thu<br><span style="font-size:10px; font-weight:normal; color:#64748b;">(Iphone 60%)</span></th>
                                     <th style="text-align:center">% HT</th>
                                     <th style="text-align:right">Còn thiếu</th>
                                     <th style="text-align:right; background:#ecfeff;">Dự kiến đạt</th>
@@ -233,18 +252,11 @@
                                         <td style="font-weight:700; color:#0369a1"><%= row.branch %></td>
                                         <td style="text-align:right; color:#64748b"><%= formatCompact(row.target) %></td>
                                         <td style="text-align:right;">
-    <div style="font-weight:700; color:#2563eb; font-size: 14px;">
-        <%= formatCompact(row.revenue) %>
-    </div>
-    
-    <% if(row.iphone_revenue > 0) { %>
-        <div style="font-size:11px; color:#64748b; margin-top: 2px;">
-            IP: <%= formatCompact(row.iphone_revenue) %>
-        </div>
-    <% } else { %>
-        <div style="font-size:11px; color:#cbd5e1; margin-top: 2px;">-</div>
-    <% } %>
-</td>
+                                            <div style="font-weight:700; color:#2563eb; font-size: 14px;"><%= formatCompact(row.revenue) %></div>
+                                            <% if(row.iphone_revenue > 0) { %>
+                                                <div style="font-size:11px; color:#64748b; margin-top: 2px;">IP: <%= formatCompact(row.iphone_revenue) %></div>
+                                            <% } else { %> <div style="font-size:11px; color:#cbd5e1; margin-top: 2px;">-</div> <% } %>
+                                        </td>
                                         <td style="text-align:center">
                                             <span class="status-tag <%= row.percent_completion >= 100 ? 'st-done' : 'st-uncared' %>"><%= row.percent_completion %>%</span>
                                         </td>
@@ -279,7 +291,7 @@
                                     <th>Nhân viên</th>
                                     <th>MSNV</th>
                                     <th style="text-align:right">Target</th>
-                                    <th style="text-align:right">Doanh thu</th>
+                                    <th style="text-align:right">Doanh thu<br><span style="font-size:10px; font-weight:normal; color:#64748b;">(Trong đó iPhone)</span></th>
                                     <th style="text-align:center">% HT</th>
                                     <th style="text-align:center">KFI</th>
                                     <th style="text-align:right">Thưởng</th>
@@ -297,18 +309,11 @@
                                         <td><%= row.msnv %></td>
                                         <td style="text-align:right; color:#64748b"><%= formatCompact(row.target) %></td>
                                         <td style="text-align:right;">
-    <div style="font-weight:700; color:#2563eb; font-size: 14px;">
-        <%= formatCompact(row.revenue) %>
-    </div>
-    
-    <% if(row.iphone_revenue > 0) { %>
-        <div style="font-size:11px; color:#64748b; margin-top: 2px;">
-            IP: <%= formatCompact(row.iphone_revenue) %>
-        </div>
-    <% } else { %>
-        <div style="font-size:11px; color:#cbd5e1; margin-top: 2px;">-</div>
-    <% } %>
-</td>
+                                            <div style="font-weight:700; color:#2563eb; font-size: 14px;"><%= formatCompact(row.revenue) %></div>
+                                            <% if(row.iphone_revenue > 0) { %>
+                                                <div style="font-size:11px; color:#64748b; margin-top: 2px;">IP: <%= formatCompact(row.iphone_revenue) %></div>
+                                            <% } else { %> <div style="font-size:11px; color:#cbd5e1; margin-top: 2px;">-</div> <% } %>
+                                        </td>
                                         <td style="text-align:center"><span class="status-tag <%= row.percent_completion >= 100 ? 'st-done' : 'st-uncared' %>"><%= row.percent_completion %>%</span></td>
                                         <td style="text-align:center; font-weight:600"><%= new Intl.NumberFormat('vi-VN').format(row.kfi) %></td>
                                         <td style="text-align:right; color:#16a34a; font-weight:600"><%= new Intl.NumberFormat('vi-VN').format(row.bonus_total) %></td>
@@ -320,11 +325,61 @@
                     </div>
                 </div>
             <% } %>
+             <% if (feedbackList && feedbackList.length > 0) { %>
+                <div class="table-section" style="margin-top: 30px; border-top: 4px solid #f59e0b;">
+                    <div class="table-header-title" style="color: #b45309; background: #fffbeb;">
+                        💬 Ý kiến/Góp ý từ Khách hàng
+                    </div>
+                    <div class="table-scroll-wrapper" style="max-height: 500px; overflow-y: auto;">
+                        <table class="data-table">
+                            <thead style="position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th style="width: 85px;">Ngày mua</th>
+                                    <th style="width: 130px;">Khách hàng</th>
+                                    <th style="width: 90px;">SĐT</th>
+                                    <th style="width: 50px; text-align: center;">SR</th>
+                                    <th style="width: 110px;">NV Bán hàng</th>
+                                    
+                                    <th style="width: 160px;">Nội dung Góp ý</th>
+                                    
+                                    <th style="min-width: 350px;">Ghi chú</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% feedbackList.forEach(fb => { %>
+                                    <tr>
+                                        <td style="font-size: 12px;"><%= fb.Ngay_mua_hang %></td>
+                                        <td style="font-weight:bold; font-size: 12px;"><%= fb.Nguoi_mua %></td>
+                                        <td style="font-size: 12px;"><%= fb.SDT %></td>
+                                        <td style="text-align: center;">
+                                            <span class="badge" style="padding: 2px 6px; font-size: 11px;">
+                                                <%= fb.Ma_SR %>
+                                            </span>
+                                        </td>
+                                        <td style="font-size: 12px;"><%= fb.Ten_NV_Ban_hang %></td>
+                                        
+                                        <td style="color:#b45309; font-style:italic; font-size: 13px; line-height: 1.5;">
+                                            "<%= fb.Gop_y %>"
+                                        </td>
+                                        
+                                        <td style="font-size:12px; color:#64748b; line-height: 1.5;">
+                                            <%= fb.Ghi_chu %>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <% } %>   
+
         </div>
     </div>
 </div>
 
-<% if (role.isStaff && staffChartData) { %>
+
+
+<% if (staffChartData && staffChartData.length > 0) { %>
     <div class="table-section" style="padding: 20px; margin-top: 20px;">
         <div class="table-header-title" style="border:none; padding-left:0; margin-bottom:15px;">📈 Biểu đồ Tăng trưởng (Năm nay)</div>
         <div style="height: 300px;">

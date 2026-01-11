@@ -6836,16 +6836,30 @@ function getDateFilterCondition(period) {
 
 
 // --- [HELPER] Lấy Target Chi Nhánh từ Sheet ---
-async function getAllBranchTargets(periodInput) {
+// [NÂNG CẤP] Hỗ trợ thêm tham số yearInput để lấy cột theo năm
+async function getAllBranchTargets(periodInput, yearInput = null) {
     try {
         const sheets = await getGlobalSheetsClient();
-        const range = 'Sheet3!A:O'; 
+        
+        // [THAY ĐỔI 1] Mở rộng Range đọc đến cột AA để lấy đủ data 2026
+        const range = 'Sheet3!A:AA'; 
         
         const response = await sheets.spreadsheets.values.get({ spreadsheetId: HR_SPREADSHEET_ID, range });
         const rows = response.data.values;
         if (!rows || rows.length === 0) return {};
 
         const targetMap = {}; 
+
+        // [THAY ĐỔI 2] Xác định cột bắt đầu dựa vào năm
+        // Mặc định năm hiện tại nếu không truyền
+        const currentYear = yearInput || new Date().getFullYear();
+        
+        // Nam 2025: Bat dau tu cot D (Index 3)
+        // Nam 2026: Bat dau tu cot P (Index 15)
+        let startColIndex = 3; 
+        if (currentYear === 2026) {
+            startColIndex = 15;
+        }
 
         // Bỏ qua header, duyệt từng dòng
         for (let i = 1; i < rows.length; i++) {
@@ -6854,21 +6868,26 @@ async function getAllBranchTargets(periodInput) {
             
             if (!branchCode || branchCode === 'TOTAL' || branchCode === 'GRAND TOTAL') continue;
 
+            // Logic Headcount giữ nguyên (Cột C - Index 2)
             const headcount = parseFloat((row[2] || '1').replace(',', '.')) || 1;
             
-            // [MỚI] Lấy chi tiết mảng target 12 tháng
             const monthlyTargets = [];
             let totalYearTarget = 0;
             
-            // Cột D (index 3) là Tháng 1, đến cột O (index 14) là Tháng 12
-            for (let m = 3; m <= 14; m++) {
-                const rawVal = row[m] || '0';
+            // [THAY ĐỔI 3] Vòng lặp động: Quét 12 tháng từ vị trí startColIndex
+            for (let m = 0; m < 12; m++) {
+                const colIndex = startColIndex + m; // Ví dụ 2026: 15 + 0 = 15 (Cột P)
+                
+                const rawVal = row[colIndex] || '0';
+                
+                // Logic tính toán giữ nguyên (xử lý dấu chấm phẩy, nhân 1 tỷ)
                 const val = parseFloat(rawVal.replace(/\./g, '').replace(',', '.')) * 1_000_000_000;
+                
                 monthlyTargets.push(val);
                 totalYearTarget += val;
             }
 
-            // Tính target cho periodInput (Logic cũ để dùng cho KPI Card)
+            // Tính target cho periodInput (Logic cũ giữ nguyên)
             let currentPeriodTarget = 0;
             if (periodInput === 'year') {
                 currentPeriodTarget = totalYearTarget;
@@ -6885,7 +6904,7 @@ async function getAllBranchTargets(periodInput) {
                 headcount: headcount,
                 individual_target: currentPeriodTarget / headcount,
                 
-                // [MỚI] Trả về mảng chi tiết để vẽ biểu đồ
+                // Mảng chi tiết cho biểu đồ (giữ nguyên logic)
                 monthly_targets_arr: monthlyTargets 
             };
         }
@@ -7109,50 +7128,61 @@ app.get('/profile', requireAuth, async (req, res) => {
         const filterBranch = req.query.branch || ''; 
         const dateInfo = getDateFilterCondition(period);
         
-        // Xác định tham số thời gian cho Target
-        let targetPeriodParam = new Date().getMonth(); 
-        
-        // [ĐÃ SỬA] Thêm điều kiện 'last_year' vào đây để lấy tổng Target 12 tháng
-        if (period === 'year' || period === 'last_year') {
-            targetPeriodParam = 'year'; 
+        // --- 1. XÁC ĐỊNH THAM SỐ TARGET (THÁNG & NĂM) ---
+        let targetMonthParam = new Date().getMonth(); 
+        let targetYearParam = new Date().getFullYear(); // Mặc định năm hiện tại
+
+        if (period === 'year') {
+            targetMonthParam = 'year';
+            // targetYearParam giữ nguyên
+        }
+        else if (period === 'last_year') {
+            targetMonthParam = 'year';
+            targetYearParam = new Date().getFullYear() - 1; // Lùi 1 năm
         }
         else if (/^\d{4}-\d{2}$/.test(period)) {
-            targetPeriodParam = parseInt(period.split('-')[1]) - 1;
+            // Trường hợp chọn tháng cụ thể (VD: 2025-11)
+            const parts = period.split('-');
+            targetYearParam = parseInt(parts[0]);
+            targetMonthParam = parseInt(parts[1]) - 1;
         }
         else if (period === 'today' || period === 'week') {
-            targetPeriodParam = new Date().getMonth(); 
+            targetMonthParam = new Date().getMonth(); 
+            // targetYearParam giữ nguyên
         }
 
+        // --- 2. XÁC ĐỊNH ROLE ---
         const isGlobalAdmin = (user.role === 'admin' || user.role === 'manager') && user.branch_code === 'HCM.BD';
         const isManager = user.role === 'manager' && !isGlobalAdmin;
         const isStaff = !isGlobalAdmin && !isManager;
 
-        // 1. Lấy Info NV (1 Request)
-        const empMap = await getAllEmployeesFromSheet();
-        
-        // 2. Lấy Info User (1 Request DB)
+        // --- 3. LẤY DATA CƠ BẢN (Cache & DB) ---
+        // Chạy song song để tối ưu tốc độ
+        const [empMap, { data: userData }] = await Promise.all([
+            getAllEmployeesFromSheet(),
+            supabase.from('users').select('last_seen').eq('id', user.id).single()
+        ]);
+
         const myProfile = empMap[user.email.toLowerCase()] || { full_name: user.full_name, branch: user.branch_code, hrm_id: '---', position: 'N/A' };
-        const { data: userData } = await supabase.from('users').select('last_seen').eq('id', user.id).single();
         const lastSeen = userData?.last_seen ? new Date(userData.last_seen).toLocaleString('vi-VN') : 'N/A';
         
-        // 3. Lấy Target TẤT CẢ Chi Nhánh (CHỈ 1 REQUEST DUY NHẤT)
-        // Thay vì gọi nhiều lần, ta gọi 1 lần rồi tra cứu
-        const allTargetsMap = await getAllBranchTargets(targetPeriodParam);
+        // --- 4. LẤY TARGET TOÀN HỆ THỐNG ---
+        // [QUAN TRỌNG] Truyền cả Month và Year vào hàm mới
+        const allTargetsMap = await getAllBranchTargets(targetMonthParam, targetYearParam);
 
-        // 4. Scale Target
+        // --- 5. TÍNH SCALE & BASE TARGET ---
         let scale = 1;
         if (period === 'today' || period === 'week') scale = dateInfo.scaleFactor;
 
-        // 5. Xác định Target cơ sở cho Card Dashboard
         let baseTargetData = { branch_target: 0, individual_target: 0 };
         
         if (isGlobalAdmin && !filterBranch) {
-            // Admin xem All: Cộng tổng từ Map
+            // Admin xem tổng: Cộng dồn tất cả chi nhánh
             let totalSystem = 0;
             Object.values(allTargetsMap).forEach(t => totalSystem += t.branch_target);
             baseTargetData.branch_target = totalSystem;
         } else {
-            // Xem 1 Branch hoặc Cá nhân: Tra cứu từ Map
+            // Xem chi nhánh/cá nhân: Tra cứu Map
             let targetCode = filterBranch || user.branch_code;
             if (allTargetsMap[targetCode]) {
                 baseTargetData = allTargetsMap[targetCode];
@@ -7162,31 +7192,23 @@ app.get('/profile', requireAuth, async (req, res) => {
         const finalTarget = baseTargetData.branch_target * scale;
         const finalIndTarget = baseTargetData.individual_target * scale;
 
-        // 6. Xử lý dữ liệu
+        // --- 6. XỬ LÝ LOGIC CHÍNH THEO ROLE ---
         let dashboardData = {};
         let tableSales = [];
         let tableBranch = [];
         let lastUpdateStr = '';
-        let staffChartData = null; // [MỚI] Biến chứa data biểu đồ
+        let staffChartData = null; 
 
         if (isStaff) {
+            // --- A. ROLE STAFF ---
             const stats = await getPerformanceStats({ email: user.email, period });
             dashboardData = calculateBonusMetrics(stats, finalIndTarget, true);
             
-            // [MỚI] Lấy dữ liệu biểu đồ cho Staff
+            // [LOGIC CHART STAFF] Lấy data biểu đồ & Map Target
             const chartRaw = await getStaffMonthlyChart(user.email);
-            // Map thêm Target (giả sử target tháng nào cũng giống nhau hoặc lấy từ allTargetsMap theo tháng)
             staffChartData = chartRaw.map(row => {
-                // Lấy tháng từ chuỗi "2025-01" -> 0 (index)
-                const mIndex = parseInt(row.month_str.split('-')[1]) - 1; 
-                // Lấy target tháng đó của chi nhánh (chia đầu người)
-                const tData = Object.values(allTargetsMap).find(t => t.branch_code === myProfile.branch); // Cần logic map đúng branch
-                // Lưu ý: allTargetsMap ở code cũ key là BranchCode. 
+                // Lấy target của Branch mà user đang thuộc về
                 const branchTargetData = allTargetsMap[user.branch_code];
-                
-                // Vì allTargetsMap chỉ trả về target của "period" hiện tại, 
-                // nên để chính xác 100% từng tháng quá khứ cần gọi lại hàm getAllBranchTargets cho từng tháng.
-                // Để đơn giản và nhanh, ta tạm dùng target trung bình tháng hiện tại hoặc 0.
                 const monthlyTarget = branchTargetData ? branchTargetData.individual_target : 0;
 
                 return {
@@ -7196,29 +7218,34 @@ app.get('/profile', requireAuth, async (req, res) => {
                     percent: monthlyTarget > 0 ? ((row.calculated_revenue/monthlyTarget)*100).toFixed(1) : 0
                 };
             });
-        } 
-        else if (isManager || (isGlobalAdmin && filterBranch)) {
+
+        } else if (isManager || (isGlobalAdmin && filterBranch)) {
+            // --- B. ROLE MANAGER / ADMIN FILTER BRANCH ---
             let targetCode = filterBranch || user.branch_code;
             
+            // Lấy số liệu tổng chi nhánh
             const branchStats = await getPerformanceStats({ branch: targetCode, period });
             dashboardData = calculateBonusMetrics(branchStats, finalTarget, false);
 
+            // Lấy danh sách nhân viên trong chi nhánh
             const salesStats = await getPerformanceStats({ branch: targetCode, period, groupBy: 'email' });
+            
+            // Xử lý ngày cập nhật (chỉ lấy ngày hợp lệ)
             if (salesStats && salesStats.length > 0) {
-                // Lấy mảng các ngày (dạng YYYY-MM-DD) và sort giảm dần
                 const dates = salesStats
                     .map(s => s.max_date ? (s.max_date.value || s.max_date) : null)
-                    .filter(Boolean)
+                    .filter(d => d && typeof d === 'string' && d.includes('-')) 
                     .sort().reverse();
                 
                 if (dates.length > 0) {
-                    // Format lại thành DD/MM/YYYY
                     const [y, m, d] = dates[0].split('-'); 
                     lastUpdateStr = `${d}/${m}/${y}`;
                 }
             }
+
             tableSales = salesStats.map(s => {
                 const info = empMap[s.key_id] || { full_name: s.name, hrm_id: '' };
+                // Chỉ hiện nhân viên có chức danh Bán hàng
                 if (!(info.position || '').toLowerCase().includes('bán hàng')) return null;
                 return {
                     salesman: info.full_name, msnv: info.hrm_id,
@@ -7227,46 +7254,43 @@ app.get('/profile', requireAuth, async (req, res) => {
             })
             .filter(Boolean)
             .sort((a,b) => parseFloat(b.percent_completion) - parseFloat(a.percent_completion));
-        } 
-        else if (isGlobalAdmin && !filterBranch) {
+
+        } else if (isGlobalAdmin && !filterBranch) {
+            // --- C. ROLE GLOBAL ADMIN (TOÀN HỆ THỐNG) ---
             const globalStats = await getPerformanceStats({ branch: 'HCM.BD', period });
             dashboardData = calculateBonusMetrics(globalStats, finalTarget, false);
 
-            // --- BẢNG BRANCH: TRA CỨU TỪ MAP (KHÔNG GỌI API) ---
+            // Bảng Branch: Tra cứu Target từ Map đã lấy
             const branchStats = await getPerformanceStats({ branch: 'HCM.BD', period, groupBy: 'branch' });
             tableBranch = branchStats.map(b => {
-                // Tra cứu target từ biến allTargetsMap đã lấy ở trên
                 const tData = allTargetsMap[b.key_id]; 
                 const bTarget = (tData ? tData.branch_target : 0) * scale;
-                
                 const metrics = calculateBonusMetrics(b, bTarget, false);
                 const forecast = calculateForecast(metrics.revenue, bTarget, period);
                 return { branch: b.key_id, ...metrics, ...forecast };
             }).sort((a,b) => parseFloat(b.percent_completion) - parseFloat(a.percent_completion));
 
-            // --- BẢNG SALES: TRA CỨU TỪ MAP ---
+            // Bảng Top Sales toàn hệ thống
             const allSalesStats = await getPerformanceStats({ branch: 'HCM.BD', period, groupBy: 'email' });
+            
             if (allSalesStats && allSalesStats.length > 0) {
                 const dates = allSalesStats
                     .map(s => s.max_date ? (s.max_date.value || s.max_date) : null)
-                    .filter(Boolean)
+                    .filter(d => d && d.includes('-'))
                     .sort().reverse();
-                
                 if (dates.length > 0) {
-                    const [y, m, d] = dates[0].split('-'); 
-                    lastUpdateStr = `${d}/${m}/${y}`;
+                    const [y, m, d] = dates[0].split('-'); lastUpdateStr = `${d}/${m}/${y}`;
                 }
             }
+
             tableSales = allSalesStats.map(s => {
                 const info = empMap[s.key_id] || {};
                 if (!(info.position || '').toLowerCase().includes('bán hàng')) return null;
                 
-                // Tra cứu target cá nhân dựa theo Branch của nhân viên đó
                 let sTarget = 0;
                 if (info.branch && allTargetsMap[info.branch]) {
                     sTarget = allTargetsMap[info.branch].individual_target * scale;
                 }
-
                 return {
                     branch: info.branch, salesman: info.full_name, msnv: info.hrm_id,
                     ...calculateBonusMetrics(s, sTarget, true)
@@ -7274,11 +7298,11 @@ app.get('/profile', requireAuth, async (req, res) => {
             }).filter(Boolean).sort((a,b) => parseFloat(b.percent_completion) - parseFloat(a.percent_completion));
         }
 
+        // --- 7. TÍNH FORECAST & FORMAT ---
         const mainForecast = calculateForecast(dashboardData.revenue, finalTarget, period);
         dashboardData.revenue_forecast = mainForecast.revenue_forecast;
         dashboardData.percent_forecast = mainForecast.percent_forecast;
 
-        // Format compact helper
         const formatCompact = (num) => {
             if (!num) return '0';
             const n = Number(num);
@@ -7288,50 +7312,58 @@ app.get('/profile', requireAuth, async (req, res) => {
             return new Intl.NumberFormat('vi-VN').format(n);
         };
 
+        // --- 8. LẤY DATA CSI & FEEDBACK (BIGQUERY) ---
+        let csiData = { csi_percent: 0, feedback_count: 0 };
+        let feedbackList = [];
+
+        // Logic Filter CSI:
+        // - Staff: Lấy theo Email
+        // - Manager/Admin Filter: Lấy theo Branch
+        // - Admin All: Lấy hết
+        let csiParams = { period: period };
+        
+        if (isStaff) {
+            csiParams.email = user.email;
+        } else {
+            if (filterBranch || (isManager && user.branch_code)) {
+                csiParams.branch = filterBranch || user.branch_code;
+            }
+        }
+
+        // Kiểm tra an toàn trước khi gọi BigQuery
+        if (typeof bigquery !== 'undefined' && bigquery) {
+            const [csi, fbList] = await Promise.all([
+                getCsiStats(csiParams),
+                getFeedbackList(csiParams)
+            ]);
+            csiData = csi;
+            feedbackList = fbList;
+        }
+
+        // --- 9. RENDER VIEW ---
         res.render('profile', {
             title: 'Dashboard Hiệu Suất', currentPage: 'profile', user,
             role: { isStaff, isManager, isGlobalAdmin },
             period: { value: period, label: dateInfo.label },
             filterBranch, 
-            // Chỉ lấy list branch có trong DB Target để hiển thị dropdown cho đẹp
             branchList: Object.keys(allTargetsMap).sort(), 
-            profile: myProfile, onlineTime: lastSeen,
+            profile: myProfile, 
+            onlineTime: lastSeen,
             staffChartData: staffChartData,
-            dashboard: dashboardData, tableSales, tableBranch, formatCompact,dataDate: lastUpdateStr
+            dashboard: dashboardData, 
+            tableSales, 
+            tableBranch, 
+            formatCompact,
+            dataDate: lastUpdateStr,
+            csiData: csiData,
+            feedbackList: feedbackList
         });
 
-    } catch (e) { console.error("Profile Error:", e); res.status(500).send(e.message); }
-});
-
-
-async function syncClearanceData() {
-    console.log('[CRON] Bắt đầu đồng bộ dữ liệu Thanh lý từ Sheet...');
-    try {
-        // 1. Lấy dữ liệu từ Sheet (Sử dụng hàm getAllClearanceItems cũ nhưng chỉnh lại chút để lấy raw data)
-        const items = await getAllClearanceItems(true); // true = mode sync (raw data)
-        
-        if (!items || items.length === 0) {
-            console.log('[CRON] Không có dữ liệu từ Sheet.');
-            return;
-        }
-
-        // 2. Xóa dữ liệu cũ
-        const { error: delError } = await supabase.from('clearance_items').delete().neq('id', 0); // Xóa hết
-        if (delError) throw delError;
-
-        // 3. Insert dữ liệu mới (Chia batch để tránh lỗi payload quá lớn)
-        const BATCH_SIZE = 500;
-        for (let i = 0; i < items.length; i += BATCH_SIZE) {
-            const batch = items.slice(i, i + BATCH_SIZE);
-            const { error: insError } = await supabase.from('clearance_items').insert(batch);
-            if (insError) throw insError;
-        }
-
-        console.log(`[CRON] Đồng bộ thành công ${items.length} sản phẩm thanh lý vào Supabase lúc ${new Date().toLocaleString()}`);
-    } catch (e) {
-        console.error('[CRON] Lỗi đồng bộ thanh lý:', e.message);
+    } catch (e) { 
+        console.error("Profile Error:", e); 
+        res.status(500).render('profile', { error: 'Có lỗi xảy ra: ' + e.message, profile: req.session.user }); 
     }
-}
+});
 
 // --- LÊN LỊCH CRON (8h00 và 14h00 mỗi ngày) ---
 // Format: Phút Giờ Ngày Tháng Thứ
@@ -9282,39 +9314,50 @@ app.post('/api/notifications/mark-read', requireAuth, async (req, res) => {
 });
 
 // API: Đánh dấu TẤT CẢ (Logic Mới - Hơi phức tạp hơn chút)
+// --- [FIXED] API ĐÁNH DẤU TẤT CẢ LÀ ĐÃ ĐỌC ---
 app.post('/api/notifications/mark-all-read', requireAuth, async (req, res) => {
     const userEmail = req.session.user.email;
+    
     try {
-        // 1. Lấy tất cả ID thông báo chưa đọc của user này
-        // (Đây là truy vấn đơn giản hóa, thực tế có thể dùng query phức tạp hơn nhưng tạm thời làm cách này cho dễ hiểu)
-        const { data: notifs } = await supabase
+        // 1. Lấy ID của TẤT CẢ thông báo dành cho user này (Riêng + All)
+        const { data: allNotifs, error: fetchError } = await supabase
             .from('notifications')
             .select('id')
             .or(`user_ref.eq.${userEmail},user_ref.eq.All`);
-            
-        if (notifs && notifs.length > 0) {
-            // Chuẩn bị dữ liệu insert
-            const records = notifs.map(n => ({
+
+        if (fetchError) throw fetchError;
+
+        if (allNotifs && allNotifs.length > 0) {
+            // 2. Chuẩn bị dữ liệu để Insert hàng loạt
+            const readRecords = allNotifs.map(n => ({
                 notification_id: n.id,
-                user_email: userEmail
+                user_email: userEmail,
+                read_at: new Date()
             }));
 
-            // Insert hàng loạt (bỏ qua nếu trùng)
-            const { error } = await supabase
+            // 3. Thực hiện UPSERT (Chèn nếu chưa có, Bỏ qua nếu đã có)
+            // Yêu cầu: DB phải có Constraint Unique(notification_id, user_email)
+            const { error: insertError } = await supabase
                 .from('notification_reads')
-                .upsert(records, { onConflict: 'notification_id, user_email' });
-                
-            if (error) throw error;
+                .upsert(readRecords, { 
+                    onConflict: 'notification_id, user_email', // Cột dùng để check trùng
+                    ignoreDuplicates: true // Nếu trùng thì bỏ qua, không báo lỗi
+                });
+
+            if (insertError) throw insertError;
         }
 
         res.json({ success: true });
+
     } catch (err) {
+        console.error('Lỗi Mark All Read:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
 
 // --- [NEW] Trang Xem Tất Cả Thông Báo ---
+// --- [FIXED] Trang Tất Cả Thông Báo (Có đếm View Count) ---
 app.get('/notifications', requireAuth, async (req, res) => {
   try {
     const userEmail = req.session.user.email;
@@ -9323,25 +9366,76 @@ app.get('/notifications', requireAuth, async (req, res) => {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    // Lấy thông báo (Cả riêng và chung 'All')
-    const { data: notifs, count, error } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact' })
-      .or(`user_ref.eq.${userEmail},user_ref.eq.All`)
+    // Lấy tham số bộ lọc
+    const filterStatus = req.query.status || 'all'; 
+    const filterType = req.query.type || 'all';     
+    const filterTarget = req.query.target || 'all'; 
+
+    // Lấy danh sách đã đọc của user
+    const { data: readIdsData } = await supabase
+      .from('notification_reads')
+      .select('notification_id')
+      .eq('user_email', userEmail);
+    const readIds = readIdsData ? readIdsData.map(r => r.notification_id) : [];
+
+    // Query chính
+    let query = supabase.from('notifications').select('*', { count: 'exact' });
+
+    // Áp dụng bộ lọc (Giữ nguyên logic cũ của bạn)
+    if (filterTarget === 'mine') query = query.eq('user_ref', userEmail);
+    else if (filterTarget === 'global') query = query.eq('user_ref', 'All');
+    else query = query.or(`user_ref.eq.${userEmail},user_ref.eq.All`);
+
+    if (filterType !== 'all') query = query.eq('type', filterType);
+
+    if (filterStatus === 'read') {
+      if (readIds.length === 0) query = query.in('id', [-1]);
+      else query = query.in('id', readIds);
+    } else if (filterStatus === 'unread') {
+      if (readIds.length > 0) query = query.not('id', 'in', `(${readIds.join(',')})`);
+    }
+
+    // Thực thi query
+    const { data: notifs, count, error } = await query
       .order('created_at', { ascending: false })
       .range(from, to);
 
     if (error) throw error;
 
-    const totalPages = Math.ceil((count || 0) / limit);
+    // [NEW] LOGIC ĐẾM VIEW CHO DANH SÁCH NÀY
+    let notifsFinal = [];
+    if (notifs && notifs.length > 0) {
+        const notifIds = notifs.map(n => n.id);
+        
+        // Lấy tổng lượt đọc từ DB
+        const { data: viewCounts } = await supabase
+            .from('notification_reads')
+            .select('notification_id')
+            .in('notification_id', notifIds);
+            
+        const countMap = {};
+        if (viewCounts) {
+            viewCounts.forEach(r => {
+                countMap[r.notification_id] = (countMap[r.notification_id] || 0) + 1;
+            });
+        }
+
+        // Map dữ liệu view_count vào kết quả
+        notifsFinal = notifs.map(n => ({
+            ...n,
+            is_read: readIds.includes(n.id),
+            view_count: countMap[n.id] || 0 // <--- Có biến này thì EJS mới hiện mắt
+        }));
+    }
 
     res.render('notifications', {
       title: 'Tất cả thông báo',
-      currentPage: 'notifications', // Không active menu nào cụ thể
-      notifications: notifs || [],
+      currentPage: 'notifications',
+      notifications: notifsFinal,
       page,
-      totalPages,
-      time: res.locals.time
+      totalPages: Math.ceil((count || 0) / limit),
+      time: res.locals.time,
+      query: req.query 
     });
 
   } catch (e) {
@@ -9377,18 +9471,24 @@ app.post('/admin/send-notification', requireAuth, async (req, res) => {
     try {
         if (!title || !content) throw new Error('Vui lòng nhập tiêu đề và nội dung.');
 
+        // [FIXED] CHUYỂN ĐỔI DẤU XUỐNG DÒNG (\n) THÀNH THẺ <br>
+        // Regex này bắt cả 3 kiểu xuống dòng: \r\n (Windows), \r (Mac cũ), \n (Linux/Unix)
+        const formattedContent = content.replace(/\r\n|\r|\n/g, '<br>');
+
         let notificationsToInsert = [];
 
         // TRƯỜNG HỢP 1: Gửi cho Tất cả (All)
         if (target_mode === 'all') {
             notificationsToInsert.push({
-                title, content, type: type || 'info',
-                user_ref: 'All', // Gửi chung
+                title, 
+                content: formattedContent, // <--- LƯU BIẾN ĐÃ FORMAT VÀO ĐÂY
+                type: type || 'info',
+                user_ref: 'All',
                 link: link || null,
                 is_read: false,
                 created_at: new Date()
             });
-        } 
+        }
         
         // TRƯỜNG HỢP 2: Gửi theo Danh sách Email
         else if (target_mode === 'list') {
@@ -9409,6 +9509,7 @@ app.post('/admin/send-notification', requireAuth, async (req, res) => {
             // 2. Tạo mảng object để insert 1 lần (Bulk Insert)
             notificationsToInsert = emailList.map(email => ({
                 title, 
+                content: formattedContent,
                 content, 
                 type: type || 'info',
                 user_ref: email, // Gửi riêng cho email này
@@ -9454,6 +9555,164 @@ app.post('/admin/send-notification', requireAuth, async (req, res) => {
 });
 
 
+
+// --- [HELPER] Lấy chỉ số CSI từ View đã Map (CẬP NHẬT LOGIC VALUE MỚI) ---
+// --- [HELPER] Lấy chỉ số CSI (PHIÊN BẢN FIX LỖI DATA RÁC) ---
+async function getCsiStats(options) {
+    const { email, branch, period } = options; 
+    const dateFilter = getDateFilterCondition(period); 
+
+    const queryParams = {
+        startDate: dateFilter.start,
+        endDate: dateFilter.end
+    };
+
+    let whereClause = `WHERE PARSE_DATE('%d/%m/%Y', Ngay_KS) BETWEEN @startDate AND @endDate`;
+
+    if (email) {
+        whereClause += ` AND LOWER(Sale_Email_System) = LOWER(@email)`;
+        queryParams.email = email;
+    }
+    // Lọc Branch: Nếu là Manager, nó sẽ tính tổng điểm của Cả Chi Nhánh
+    // Manager có bán hàng hay không thì dữ liệu này vẫn là của tập thể chi nhánh đó.
+    if (branch && branch !== 'HCM.BD') {
+        whereClause += ` AND (Branch_System = @branch OR Ma_SR = @branch)`;
+        queryParams.branch = branch;
+    }
+
+    const query = `
+        SELECT 
+            -- 1. Điểm Chuẩn (Dùng LIKE và TRIM để tránh lỗi dấu cách thừa)
+            COUNT(CASE 
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64) = 6 THEN 1 
+            END) * 3 as standard_score,
+
+            -- 2. Tính Điểm Thưởng (Dùng LIKE '%...%' để bắt đúng từ khóa quan trọng)
+            
+            -- Chào hỏi
+            SUM(CASE 
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Chao_hoi) LIKE 'Có%' THEN 3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Chao_hoi) LIKE 'Không%' THEN -3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Chao_hoi) LIKE '%quên%' THEN 1
+                ELSE 0 
+            END) as score_greeting,
+
+            -- Tư vấn
+            SUM(CASE 
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Tu_van) LIKE '%Tốt%' THEN 3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Tu_van) LIKE 'Tệ%' THEN -3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Tu_van) LIKE 'Bình thường%' THEN 1
+                ELSE 0 
+            END) as score_advice,
+
+            -- Lựa chọn
+            SUM(CASE 
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Lua_chon) LIKE 'Có%' THEN 3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Lua_chon) LIKE 'Không%' THEN -3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Lua_chon) LIKE 'Ko nhớ%' THEN 1
+                ELSE 0 
+            END) as score_choice,
+
+            -- Sản phẩm (Dùng 'Có' thay vì Hài lòng theo data thực tế bạn gửi)
+            SUM(CASE 
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(San_pham) LIKE 'Có%' THEN 3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(San_pham) LIKE 'Không%' THEN -3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(San_pham) LIKE 'Chưa sử dụng%' THEN 1
+                ELSE 0 
+            END) as score_satisfaction,
+
+            -- Giới thiệu
+            SUM(CASE 
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Gioi_thieu) LIKE 'Sẵn sàng%' THEN 3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Gioi_thieu) LIKE 'Không sẵn sàng%' THEN -3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Gioi_thieu) LIKE 'Đang cân nhắc%' THEN 1
+                ELSE 0 
+            END) as score_referral,
+
+            -- Zalo/App
+            SUM(CASE 
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Zalo_App) LIKE 'Có%' THEN 3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Zalo_App) LIKE 'Không%' THEN -3
+                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Zalo_App) LIKE 'Ko nhớ%' THEN 1
+                ELSE 0 
+            END) as score_zalo,
+
+            -- Đếm số góp ý (Dùng Length > 1 để lọc ô chỉ có dấu cách)
+            COUNT(CASE WHEN Gop_y IS NOT NULL AND LENGTH(TRIM(Gop_y)) > 1 THEN 1 END) as feedback_count
+
+        FROM \`nimble-volt-459313-b8.sales.view_csi_final\`
+        ${whereClause}
+    `;
+
+    try {
+        const [rows] = await bigquery.query({ query, params: queryParams });
+        const res = rows[0] || {};
+
+        const totalBonus = (res.score_greeting || 0) * 0.05 + 
+                           (res.score_advice || 0) * 0.30 + 
+                           (res.score_choice || 0) * 0.15 + 
+                           (res.score_satisfaction || 0) * 0.30 + 
+                           (res.score_referral || 0) * 0.15 + 
+                           (res.score_zalo || 0) * 0.05;
+        
+        const standard = res.standard_score || 1; 
+        const csiPercent = (totalBonus / standard) * 100;
+
+        return {
+            csi_percent: csiPercent.toFixed(1),
+            feedback_count: res.feedback_count || 0
+        };
+
+    } catch (e) {
+        console.error("CSI Error:", e.message);
+        return { csi_percent: 0, feedback_count: 0 };
+    }
+}
+
+// --- [HELPER] Lấy danh sách góp ý từ View ---
+async function getFeedbackList(options) {
+    const { email, branch, period } = options;
+    const dateFilter = getDateFilterCondition(period); 
+
+    const queryParams = { startDate: dateFilter.start, endDate: dateFilter.end };
+    let whereClause = `WHERE PARSE_DATE('%d/%m/%Y', Ngay_KS) BETWEEN @startDate AND @endDate AND Gop_y IS NOT NULL AND Gop_y != ''`;
+
+    // 1. Lọc theo Email (Chuẩn xác hơn nhờ View)
+    if (email) {
+        whereClause += ` AND LOWER(Sale_Email_System) = LOWER(@email)`;
+        queryParams.email = email;
+    }
+    // 2. Lọc theo Chi nhánh
+    if (branch && branch !== 'HCM.BD') {
+        whereClause += ` AND (Branch_System = @branch OR Ma_SR = @branch)`;
+        queryParams.branch = branch;
+    }
+
+    const query = `
+        SELECT 
+            Ngay_mua_hang, 
+            -- Ưu tiên lấy tên khách từ hệ thống Sales cho chuẩn, nếu ko có thì lấy từ Sheet
+            COALESCE(Customer_System, Nguoi_mua) as Nguoi_mua, 
+            SDT, 
+            COALESCE(Branch_System, Ma_SR) as Ma_SR, 
+            Ten_NV_Ban_hang, -- Vẫn hiển thị tên nhập tay để tham khảo
+            Sale_Email_System, -- Lấy thêm email hệ thống (nếu cần hiển thị tooltip)
+            Gop_y, 
+            Ghi_chu
+        FROM \`nimble-volt-459313-b8.sales.view_csi_final\` -- [ĐỔI TÊN TABLE THÀNH VIEW]
+        ${whereClause}
+        ORDER BY PARSE_DATE('%d/%m/%Y', Ngay_KS) DESC
+        LIMIT 50
+    `;
+
+    try {
+        const [rows] = await bigquery.query({ query, params: queryParams });
+        return rows;
+    } catch (e) {
+        console.error("Feedback List Error:", e.message);
+        return [];
+    }
+}
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {

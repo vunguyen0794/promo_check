@@ -1,29 +1,54 @@
 <%- include('partials/header', {title: title, currentPage: currentPage, time: time}) %>
 
-<div class="container" style="margin-top: 30px; max-width: 800px;">
+<div class="container" style="margin-top: 30px; max-width: 900px;">
     
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h2 style="margin: 0; color: #1e293b;">🔔 Tất cả thông báo</h2>
-        <button onclick="markAllRead(event)" style="padding: 8px 16px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; color: #2563eb; font-weight: 600;">
+        <button onclick="markAllReadPage(event)" style="padding: 8px 16px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; color: #2563eb; font-weight: 600;">
             Đánh dấu tất cả đã đọc
         </button>
+    </div>
+
+    <div class="dash-card" style="margin-bottom: 20px; padding: 15px;">
+        <form action="/notifications" method="GET" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <select name="status" class="filter-select">
+                <option value="all" <%= query.status === 'all' ? 'selected' : '' %>>Tất cả trạng thái</option>
+                <option value="unread" <%= query.status === 'unread' ? 'selected' : '' %>>✉️ Chưa đọc</option>
+                <option value="read" <%= query.status === 'read' ? 'selected' : '' %>>📩 Đã đọc</option>
+            </select>
+            <select name="type" class="filter-select">
+                <option value="all" <%= query.type === 'all' ? 'selected' : '' %>>Tất cả loại</option>
+                <option value="info" <%= query.type === 'info' ? 'selected' : '' %>>🔵 Thông tin</option>
+                <option value="update" <%= query.type === 'update' ? 'selected' : '' %>>🟢 Cập nhật</option>
+                <option value="alert" <%= query.type === 'alert' ? 'selected' : '' %>>🔴 Cảnh báo</option>
+            </select>
+            <select name="target" class="filter-select">
+                <option value="all" <%= query.target === 'all' ? 'selected' : '' %>>Tất cả nguồn</option>
+                <option value="mine" <%= query.target === 'mine' ? 'selected' : '' %>>👤 Gửi riêng tôi</option>
+                <option value="global" <%= query.target === 'global' ? 'selected' : '' %>>📢 Thông báo chung</option>
+            </select>
+            <button type="submit" style="padding: 8px 15px; background: #0f172a; color: white; border: none; border-radius: 6px; cursor: pointer;">Lọc</button>
+            <a href="/notifications" style="padding: 8px 15px; color: #64748b; text-decoration: none; display: inline-block;">Đặt lại</a>
+        </form>
     </div>
 
     <div class="notif-full-list" style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden;">
         
         <% if (notifications.length === 0) { %>
             <div style="padding: 40px; text-align: center; color: #64748b;">
-                Chưa có thông báo nào.
+                Không tìm thấy thông báo nào phù hợp.
             </div>
         <% } else { %>
             <% notifications.forEach(n => { %>
                 <div class="notif-item-row <%= n.is_read ? 'read' : 'unread' %>" 
-                     onclick="openNotifModal(this)"
+                     onclick="handleClickInPage(this)"
                      style="cursor: pointer; padding: 16px; border-bottom: 1px solid #f1f5f9; display: flex; gap: 15px; align-items: start; transition: background 0.2s;"
                      data-id="<%= n.id %>" 
                      data-read="<%= n.is_read %>"
+                     data-link="<%= n.link || '' %>"
                      data-title="<%= n.title %>"
-                     data-time="<%= new Date(n.created_at).toLocaleString('vi-VN') %>"
+                     data-time="<%= new Date(n.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %>"
+                     data-date="<%= new Date(n.created_at).toLocaleDateString('vi-VN') %>"
                      data-user="<%= n.user_ref %>"
                      data-type="<%= n.type || 'Thông báo' %>"
                      data-type-class="<%= n.type === 'alert' ? 'alert' : (n.type === 'update' ? 'update' : 'info') %>"
@@ -44,13 +69,28 @@
                             <span style="font-size: 15px; color: #0f172a; <%= !n.is_read ? 'font-weight: 700;' : '' %>">
                                 <%= n.title %>
                             </span>
-                            <span style="font-size: 12px; color: #94a3b8;">
-                                <%= new Date(n.created_at).toLocaleDateString('vi-VN') %>
-                            </span>
+                            
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="display: flex; align-items: center; gap: 3px; font-size: 12px; color: #64748b;" title="Đã xem: <%= n.view_count %>">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    <%= n.view_count || 0 %>
+                                </span>
+                                <span style="font-size: 12px; color: #94a3b8;">
+                                    <%= new Date(n.created_at).toLocaleDateString('vi-VN') %>
+                                </span>
+                            </div>
                         </div>
-                        <div style="font-size: 14px; color: #475569; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+
+                        <div style="font-size: 14px; color: #475569; line-height: 1.5; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
                             <%- n.content %>
                         </div>
+                        
+                        <% if (n.link) { %>
+                           <span style="font-size: 12px; color: #2563eb; font-weight: 600;">🔗 Có liên kết đính kèm</span>
+                        <% } %>
                     </div>
                 </div>
             <% }) %>
@@ -60,12 +100,18 @@
 
     <% if (totalPages > 1) { %>
         <div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+            <% const createPageLink = (p) => {
+                    const params = new URLSearchParams(query);
+                    params.set('page', p);
+                    return '/notifications?' + params.toString();
+                } %>
+            
             <% if (page > 1) { %>
-                <a href="/notifications?page=<%= page - 1 %>" style="padding: 8px 12px; background: #e2e8f0; border-radius: 6px; text-decoration: none; color: #333;">&laquo; Trước</a>
+                <a href="<%= createPageLink(page - 1) %>" class="page-link">&laquo; Trước</a>
             <% } %>
             <span style="padding: 8px 12px;">Trang <%= page %> / <%= totalPages %></span>
             <% if (page < totalPages) { %>
-                <a href="/notifications?page=<%= page + 1 %>" style="padding: 8px 12px; background: #e2e8f0; border-radius: 6px; text-decoration: none; color: #333;">Sau &raquo;</a>
+                <a href="<%= createPageLink(page + 1) %>" class="page-link">Sau &raquo;</a>
             <% } %>
         </div>
     <% } %>
@@ -73,15 +119,109 @@
 </div>
 
 <style>
-    .notif-item-row:hover {
-        background-color: #f8fafc;
-    }
-    .notif-item-row.read {
-        opacity: 0.7;
-    }
-    .notif-item-row.unread {
-        background-color: #fff;
-    }
+    .notif-item-row:hover { background-color: #f8fafc; }
+    .notif-item-row.read { opacity: 0.7; }
+    .notif-item-row.unread { background-color: #fff; border-left: 3px solid #2563eb; }
+    .filter-select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+    .page-link { padding: 8px 12px; background: #e2e8f0; border-radius: 6px; text-decoration: none; color: #333; }
 </style>
+
+<script>
+    // --- XỬ LÝ CLICK TỪNG TIN (ĐÃ FIX: ĐỒNG BỘ HEADER NGAY LẬP TỨC) ---
+    async function handleClickInPage(element) {
+        const id = element.getAttribute('data-id');
+        const isRead = element.getAttribute('data-read') === 'true';
+        const link = element.getAttribute('data-link');
+
+        if (!isRead && id) {
+            try {
+                // 1. Gọi API lưu DB
+                await fetch('/api/notifications/mark-read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+                
+                // 2. Update giao diện dòng đó (Mờ đi, mất viền xanh)
+                element.classList.remove('unread');
+                element.classList.add('read');
+                element.setAttribute('data-read', 'true');
+                const title = element.querySelector('span[style*="font-weight: 700"]');
+                if(title) title.style.fontWeight = '400';
+
+                // [QUAN TRỌNG] 3. TÌM BADGE TRÊN HEADER VÀ TRỪ SỐ ĐI 1
+                const badge = document.getElementById('badge-count');
+                if (badge) {
+                    let currentVal = parseInt(badge.innerText) || 0;
+                    if (currentVal > 0) {
+                        currentVal--; // Trừ 1
+                        if (currentVal <= 0) {
+                            badge.style.display = 'none'; // Nếu về 0 thì ẩn luôn
+                            badge.innerText = '0';
+                        } else {
+                            badge.innerText = currentVal > 99 ? '99+' : currentVal;
+                        }
+                    }
+                }
+
+            } catch (err) {
+                console.error('Lỗi mark read:', err);
+            }
+        }
+
+        // 4. Logic chuyển hướng hoặc mở Modal (Giữ nguyên)
+        if (link && link !== '' && link !== 'null') {
+            window.location.href = link;
+        } else {
+            // Tái sử dụng hàm mở modal của header
+            if (typeof window.handleNotificationClick === 'function') {
+                // Set lại data-read để modal không gọi API lần nữa
+                element.setAttribute('data-read', 'true'); 
+                
+                // Mở Modal thủ công
+                const modalOverlay = document.getElementById('notif-modal-overlay');
+                document.getElementById('modal-title').innerText = element.getAttribute('data-title');
+                document.getElementById('modal-content').innerHTML = element.getAttribute('data-content');
+                document.getElementById('modal-time').innerText = element.getAttribute('data-time') + ' - ' + element.getAttribute('data-date');
+                document.getElementById('modal-user').innerText = element.getAttribute('data-user');
+                
+                const badge = document.getElementById('modal-badge');
+                badge.innerText = element.getAttribute('data-type');
+                badge.className = 'n-badge ' + element.getAttribute('data-type-class');
+                
+                const btnAction = document.getElementById('modal-action-btn');
+                if(btnAction) btnAction.style.display = 'none';
+                
+                if (modalOverlay) modalOverlay.classList.add('show');
+            }
+        }
+    }
+
+    // --- XỬ LÝ NÚT ĐỌC TẤT CẢ (ĐÃ FIX: ẨN LUÔN BADGE HEADER) ---
+    async function markAllReadPage(e) {
+        if(!confirm('Bạn có chắc muốn đánh dấu tất cả là đã đọc?')) return;
+        
+        try {
+            await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+            
+            // Cách 1: Reload trang để cập nhật lại tất cả
+            window.location.reload();
+
+            // Cách 2 (Nếu không muốn reload): 
+            /*
+            const badge = document.getElementById('badge-count');
+            if (badge) badge.style.display = 'none';
+            const items = document.querySelectorAll('.notif-item-row');
+            items.forEach(el => {
+                el.classList.remove('unread');
+                el.classList.add('read');
+                // ... logic đổi style ...
+            });
+            */
+        } catch (err) {
+            alert('Lỗi: ' + err.message);
+        }
+    }
+</script>
 
 <%- include('partials/footer') %>

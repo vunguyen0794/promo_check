@@ -381,30 +381,34 @@
     };
 
     // 2. Hàm Đọc Tất Cả
-    window.markAllRead = async function(e) {
+   window.markAllRead = async function(e) {
         e.preventDefault();
-        if(!confirm('Đánh dấu tất cả là đã đọc?')) return;
+        // Xóa dòng confirm nếu thấy phiền
+        // if(!confirm('Đánh dấu tất cả là đã đọc?')) return; 
 
         try {
             const res = await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+            
             if (res.ok) {
-                // Ẩn số badge
+                // Chỉ khi Server báo OK (200) thì mới ẩn số trên giao diện
                 const badgeCount = document.getElementById('badge-count');
                 if (badgeCount) badgeCount.style.display = 'none';
                 
-                // Làm mờ tất cả item trong list
+                // Làm mờ danh sách
                 const items = document.querySelectorAll('.notif-item');
                 items.forEach(item => {
-                    item.style.opacity = '0.7';
-                    item.setAttribute('data-read', 'true');
-                    const t = item.querySelector('.n-title');
-                    if(t) t.style.fontWeight = '400';
-                    const d = item.querySelector('.unread-dot');
-                    if(d) d.style.display = 'none';
+                    item.classList.remove('unread');
+                    item.classList.add('read');
+                    const dot = item.querySelector('.unread-dot');
+                    if(dot) dot.style.display = 'none';
+                    const title = item.querySelector('.n-title');
+                    if(title) title.style.fontWeight = '400';
                 });
+            } else {
+                console.error('Lỗi server khi đánh dấu đọc tất cả');
             }
         } catch (err) {
-            alert('Lỗi kết nối server');
+            console.error('Lỗi kết nối:', err);
         }
     };
 
