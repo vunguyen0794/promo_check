@@ -138,6 +138,15 @@
         font-size: 12px; font-style: italic; color: #94a3b8;
         background: #f8fafc; padding: 8px 24px; text-align: right; border-bottom: 1px solid #f1f5f9;
     }
+    /* Thêm vào phần <style> */
+.th-active {
+    color: var(--accent-blue) !important;
+    background-color: #f1f5f9;
+}
+.sort-icon {
+    font-size: 10px;
+    margin-left: 4px;
+}
 </style>
 
 <div class="kfi-wrapper">
@@ -155,9 +164,14 @@
         <div class="card-header">
             <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
                 <div class="kfi-search-box" style="flex: 1;">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="kfiSearchInput" class="kfi-search-input" placeholder="Lọc nhanh tên, SKU, hãng..." onkeyup="filterTable()">
-                </div>
+    <span class="search-icon">🔍</span>
+    <input type="text" 
+           id="kfiSearchInput" 
+           class="kfi-search-input" 
+           placeholder="Nhập SKU, Tên hoặc Hãng rồi nhấn Enter..." 
+           value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>"
+           onkeydown="handleServerSearch(event)">
+</div>
                 
                 <button class="btn-reset" onclick="resetSort()">
                     <span>🔄</span> Mặc định
@@ -174,17 +188,35 @@
                 <colgroup>
                     <col style="width: 120px;"> <col style="width: auto;">  <col style="width: 90px;">  <col style="width: 100px;"> <col style="width: 100px;"> <col style="width: 80px;">  <col style="width: 70px;">  </colgroup>
 
-                <thead>
-                    <tr>
-                        <th onclick="sortTable(0, 'text')">SKU <span class="sort-icon">⇅</span></th>
-                        <th onclick="sortTable(1, 'text')">Tên sản phẩm <span class="sort-icon">⇅</span></th>
-                        <th onclick="sortTable(2, 'text')">Hãng <span class="sort-icon">⇅</span></th>
-                        <th onclick="sortTable(3, 'number')" style="text-align: right;">User <span class="sort-icon">⇅</span></th>
-                        <th onclick="sortTable(4, 'number')" style="text-align: right;">Dealer <span class="sort-icon">⇅</span></th>
-                        <th onclick="sortTable(5, 'number')" style="text-align: center;">Tồn <span class="sort-icon">⇅</span></th>
-                        <th></th>
-                    </tr>
-                </thead>
+                    <thead>
+            <tr>
+                <th onclick="handleServerSort('sku')" class="<%= currentSort === 'sku' ? 'th-active' : '' %>">
+                    SKU <span class="sort-icon"><%= currentSort === 'sku' ? (currentOrder === 'asc' ? '↑' : '↓') : '⇅' %></span>
+                </th>
+
+                <th onclick="handleServerSort('product_name')" class="<%= currentSort === 'product_name' ? 'th-active' : '' %>">
+                    Tên sản phẩm <span class="sort-icon"><%= currentSort === 'product_name' ? (currentOrder === 'asc' ? '↑' : '↓') : '⇅' %></span>
+                </th>
+
+                <th onclick="handleServerSort('brand')" class="<%= currentSort === 'brand' ? 'th-active' : '' %>">
+                    Hãng <span class="sort-icon"><%= currentSort === 'brand' ? (currentOrder === 'asc' ? '↑' : '↓') : '⇅' %></span>
+                </th>
+
+                <th onclick="handleServerSort('kfi_end_user')" style="text-align: right;" class="<%= currentSort === 'kfi_end_user' ? 'th-active' : '' %>">
+                    User <span class="sort-icon"><%= currentSort === 'kfi_end_user' ? (currentOrder === 'asc' ? '↑' : '↓') : '⇅' %></span>
+                </th>
+
+                <th onclick="handleServerSort('kfi_dealer')" style="text-align: right;" class="<%= currentSort === 'kfi_dealer' ? 'th-active' : '' %>">
+                    Dealer <span class="sort-icon"><%= currentSort === 'kfi_dealer' ? (currentOrder === 'asc' ? '↑' : '↓') : '⇅' %></span>
+                </th>
+
+                <th style="text-align: center; cursor: default; color: #64748b;">
+                    Tồn <span class="sort-icon" style="opacity: 0.3">⇅</span>
+                </th>
+                
+                <th></th>
+            </tr>
+        </thead>
                 <tbody>
                     <% if (kfiList && kfiList.length > 0) { %>
                         <% kfiList.forEach((item, index) => { %>
@@ -295,6 +327,19 @@
         }
     }
 
+    function handleServerSearch(event) {
+        // Chỉ thực hiện khi nhấn phím Enter (Mã phím 13)
+        if (event.key === 'Enter') {
+            const keyword = event.target.value.trim();
+            // Reload trang với tham số q=... và reset về trang 1
+            window.location.href = `/kfi-program?page=1&q=${encodeURIComponent(keyword)}`;
+        }
+    }
+
+    // Hàm reset về mặc định
+    function resetSort() {
+        window.location.href = '/kfi-program';
+    }
     // --- SORT LOGIC ---
     let sortDirection = {}; 
     function resetSort() {
@@ -310,37 +355,24 @@
         sortDirection = {};
     }
 
-    function sortTable(n, type) {
-        const table = document.getElementById("kfiTable");
-        let rows, switching, i, x, y, shouldSwitch;
-        let dir = sortDirection[n] === "asc" ? "desc" : "asc";
-        sortDirection[n] = dir; 
+    function handleServerSort(field) {
+        // Lấy giá trị hiện tại từ Server gửi xuống (nhúng EJS vào JS)
+        const currentSort = '<%= currentSort %>';
+        const currentOrder = '<%= currentOrder %>';
+        
+        let newOrder = 'desc'; // Mặc định click lần đầu là giảm dần (giá cao -> thấp)
 
-        document.querySelectorAll('.sku-table th').forEach(th => th.classList.remove('th-active'));
-        document.querySelectorAll('.sku-table th')[n].classList.add('th-active');
-
-        switching = true;
-        while (switching) {
-            switching = false;
-            const tbody = table.querySelector('tbody');
-            const dataRows = tbody.rows;
-
-            for (i = 0; i < (dataRows.length - 1); i++) {
-                shouldSwitch = false;
-                x = dataRows[i].getElementsByTagName("td")[n].getAttribute("data-value");
-                y = dataRows[i + 1].getElementsByTagName("td")[n].getAttribute("data-value");
-                
-                if (type === 'number') { x = parseFloat(x) || 0; y = parseFloat(y) || 0; } 
-                else { x = (x||"").toLowerCase(); y = (y||"").toLowerCase(); }
-
-                if (dir == "asc") { if (x > y) { shouldSwitch = true; break; } } 
-                else if (dir == "desc") { if (x < y) { shouldSwitch = true; break; } }
-            }
-            if (shouldSwitch) {
-                dataRows[i].parentNode.insertBefore(dataRows[i + 1], dataRows[i]);
-                switching = true;
-            }
+        // Nếu đang sort cột này rồi, thì đảo ngược chiều
+        if (field === currentSort) {
+            newOrder = (currentOrder === 'desc') ? 'asc' : 'desc';
         }
+
+        // Lấy từ khóa tìm kiếm hiện tại để giữ nguyên khi sort
+        const searchQuery = '<%= searchQuery %>';
+
+        // Reload trang với tham số mới
+        // Lưu ý: Luôn reset về page=1 khi đổi cách sắp xếp để tránh lỗi mất dữ liệu
+        window.location.href = `/kfi-program?page=1&q=${encodeURIComponent(searchQuery)}&sort=${field}&order=${newOrder}`;
     }
 </script>
 

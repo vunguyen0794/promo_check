@@ -22,7 +22,6 @@
         .sv-card.type-service { background: #eff6ff; border-color: #1a73e8; }
         .sv-card.type-warranty { background: #fff7ed; border-color: #f59e0b; }
         
-        /* === [UPDATE 1] CSS CHO CARD LẮP RÁP (SALES) === */
         .sv-card.type-sales { 
             background: #f0fdfa; 
             border-color: #0d9488;
@@ -35,27 +34,20 @@
         .active-flash { animation: flashBorder 1s infinite; transform: scale(1.02); z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
         @keyframes flashBorder { 0% { border-color: #dc2626; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); } 50% { border-color: #dc2626; box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { border-color: #dc2626; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
 
-        /* Số thứ tự mặc định (To) */
         .c-num { font-size: 55px; font-weight: 800; line-height: 1.1; margin: 5px 0; letter-spacing: -1px; }
-        
-        /* Tên khách mặc định (Vừa) */
         .c-name { font-size: 22px; font-weight: 700; color: #333; margin-bottom: 5px; }
 
-        /* === [UPDATE 2] ĐIỀU CHỈNH FONT SIZE RIÊNG CHO SALES === */
-        /* Tên khách TO LÊN */
         .type-sales .c-name {
             font-size: 36px; 
             color: #0f766e;
             line-height: 1.2;
             margin-bottom: 0;
         }
-        /* Số thứ tự NHỎ LẠI */
         .type-sales .c-num {
             font-size: 24px; 
             color: #555;
             margin: 0;
         }
-        /* Style cho Tên sản phẩm */
         .product-info {
             font-size: 18px;
             color: #333;
@@ -65,7 +57,7 @@
             margin-top: 8px;
             border: 1px dashed #0d9488;
             font-weight: 600;
-            display: inline-block; /* Ôm vừa nội dung */
+            display: inline-block; 
         }
 
         .type-service .c-num { color: #1a73e8; }
@@ -131,7 +123,16 @@
     </div>
     <div id="tvcContainer"><div id="ytPlayer"></div></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
+        // 1. CẤU HÌNH KẾT NỐI REALTIME
+        const supabaseUrl = '<%= supabaseUrl %>';
+        const supabaseKey = '<%= supabaseKey %>';
+        const client = supabase.createClient(supabaseUrl, supabaseKey);
+        const myBranch = '<%= branchCode %>';
+
+        // 2. CONFIG VIDEO YOUTUBE
         function getYoutubeId(url) {
             if (!url) return null;
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -171,6 +172,7 @@
         let activeTickets = [];
         let isFirstLoad = true;
 
+        // Đồng hồ
         setInterval(() => {
             const now = new Date();
             const timeStr = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
@@ -192,8 +194,10 @@
             return m >= 60 ? `${Math.floor(m/60)}:${(m%60).toString().padStart(2,'0')}:${s}` : `${m}:${s}`;
         }
 
+        // 3. LOGIC LẤY DỮ LIỆU (Chỉ gọi khi Realtime báo tin)
         async function updateQueue(isManualCall = false) {
             try {
+                // Gọi API lấy dữ liệu mới nhất (Đã Cache Control ở Server)
                 const res = await fetch('/api/queue/live-data?branch=<%= branchCode %>');
                 const data = await res.json();
                 if(!data.ok) return;
@@ -217,9 +221,26 @@
             } catch(e) { console.error(e); }
         }
 
+        // 4. [REALTIME LISTENER] - Thay thế cho setInterval
+        console.log("TV đang lắng nghe tín hiệu từ:", myBranch);
+        const channel = client
+            .channel('tv-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'queue_tickets', filter: `branch_code=eq.${myBranch}` },
+                (payload) => {
+                    console.log('⚡ Có biến động! Cập nhật TV ngay...');
+                    updateQueue(); // Chỉ gọi API khi Database báo có thay đổi
+                }
+            )
+            .subscribe();
+
+        // Gọi lần đầu tiên khi mở trang
+        updateQueue();
+
+        // --- CÁC HÀM RENDER GIỮ NGUYÊN ---
         function renderColumn(colType, allServing) {
             let list = [];
-            // [LOGIC MỚI] Gộp các loại dịch vụ khác vào cột SERVICE
             if (colType === 'SERVICE') {
                 list = allServing.filter(x => 
                     x.service_type === 'REPAIR' || 
@@ -239,7 +260,6 @@
                 const runTime = getDiff(t.updated_at);
                 let statusText = "Đang phục vụ";
                 
-                // Mặc định cho Service
                 let typeClass = "type-service";
                 let innerHtml = `
                     <div class="c-counter">📍 ${t.counter_name || 'KTV'}</div>
@@ -250,14 +270,12 @@
 
                 if (t.service_type === 'WARRANTY' || t.service_type === 'CHECK') typeClass = "type-warranty";
                 
-                // === [UPDATE 3] LAYOUT RIÊNG CHO SALES ===
                 if (t.service_type === 'SALES') {
                     typeClass = "type-sales";
                     if(t.process_status==='ASSEMBLING') statusText = "Đang lắp ráp";
                     else if(t.process_status==='INSTALLING') statusText = "Đang cài đặt";
                     else if(t.process_status==='HANDOVER') statusText = "Đang bàn giao";
                     
-                    // Layout SALES: Tên To -> Số Nhỏ -> Sản Phẩm
                     innerHtml = `
                         <div class="c-counter">📍 ${t.counter_name || 'KTV'}</div>
                         <div class="c-name">${t.customer_name}</div>
@@ -329,7 +347,6 @@
             }
         }
 
-        // === [UPDATE 4] HÀM ĐỌC TIẾNG VIỆT ===
         function speakNumber(num, type, status, counterName) {
             if (!window.speechSynthesis) return;
             window.speechSynthesis.cancel();
@@ -346,7 +363,6 @@
 
             const u = new SpeechSynthesisUtterance(text);
             const voices = window.speechSynthesis.getVoices();
-            // Ưu tiên giọng Google tiếng Việt
             const vnVoice = voices.find(v => v.lang === 'vi-VN' || v.name.includes('Google tiếng Việt'));
             if (vnVoice) u.voice = vnVoice;
             u.lang = 'vi-VN';
@@ -388,9 +404,6 @@
             }
         }
         if (CONFIG.hasVideo) setTimeout(toggleScreen, CONFIG.showQueue);
-
-        setInterval(() => updateQueue(), 3000);
-        updateQueue();
 
         document.body.addEventListener('click', () => {
             const u = new SpeechSynthesisUtterance('');

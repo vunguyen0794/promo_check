@@ -647,9 +647,15 @@
                 </div>
 
                 <div class="form-group" id="revenueBox" style="display:none; background:#f0fdf4; padding:10px; border:1px dashed #16a34a; border-radius:6px;">
-                    <label style="color:#16a34a;">💰 Doanh thu phát sinh thêm (VNĐ):</label>
-                    <input type="number" name="revenue" placeholder="0">
-                </div>
+    <label style="color:#16a34a;">💰 Doanh thu phát sinh thêm (VNĐ):</label>
+    
+    <input type="text" 
+           name="revenue" 
+           class="form-control currency-input" 
+           placeholder="0" 
+           autocomplete="off"
+           inputmode="numeric">
+</div>
 
                 <div class="form-group">
                     <label>Ngày hẹn liên hệ lại</label>
@@ -1599,4 +1605,26 @@ window.addEventListener('click', function(e) {
             }
         }
     };
+
+    $(document).on('input', '.currency-input', function(e) {
+        // 1. Lấy giá trị người dùng vừa nhập
+        let inputVal = $(this).val();
+
+        // 2. Xóa mọi ký tự không phải số (giữ lại số 0-9)
+        // Ví dụ: "10,000a" -> "10000"
+        let rawValue = inputVal.replace(/[^0-9]/g, '');
+
+        // 3. Nếu rỗng thì xóa sạch ô input
+        if (rawValue === '') {
+            $(this).val('');
+            return;
+        }
+
+        // 4. Chuyển thành số nguyên để bỏ số 0 ở đầu (VD: 0500 -> 500)
+        // Sau đó format lại có dấu phẩy
+        let formattedValue = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+        // 5. Gán lại giá trị đã format vào ô input
+        $(this).val(formattedValue);
+    });
 </script>

@@ -285,7 +285,8 @@ app.use(async (req, res, next) => {
   
   res.locals.notifications = []; 
   res.locals.unreadCount = 0;    
-
+  res.locals.supabaseUrl = process.env.SUPABASE_URL;
+  res.locals.supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
   // LOGIC LẤY THÔNG BÁO MỚI
   if (res.locals.user) {
     const userEmail = res.locals.user.email;
@@ -6723,6 +6724,12 @@ app.post('/api/cskh/log', requireAuth, async (req, res) => {
             order_code, customer_name, phone, care_stage, 
             contact_method, result, note, revenue, next_date 
         } = req.body;
+        
+        const rawRevenue = String(revenue || '').replace(/,/g, ''); 
+        const cleanRevenue = parseFloat(rawRevenue) || 0;
+
+        // 2. Validate cơ bản
+        if (!order_code) return res.status(400).json({ ok: false, error: 'Thiếu mã đơn hàng' });
 
         const { error } = await supabase.from('customer_care_logs').insert({
             order_code,
@@ -6732,7 +6739,7 @@ app.post('/api/cskh/log', requireAuth, async (req, res) => {
             contact_method,
             result,
             sale_note: note,
-            revenue_at_care: Number(revenue) || 0,
+            revenue_at_care: cleanRevenue,
             next_action_date: next_date || null,
             created_by: req.session.user.id
         });
@@ -7969,6 +7976,9 @@ app.post('/api/queue/warehouse-push', requireAuth, async (req, res) => {
 // 7. TRANG ADMIN (KTV ĐIỀU PHỐI)
 app.get('/queue/admin', requireAuth, async (req, res) => {
     try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         const branchCode = req.session.user.branch_code;
         
         // 1. Lấy vé đang chờ/phục vụ
@@ -8102,7 +8112,8 @@ app.get('/api/queue/live-data', async (req, res) => {
     // if (!req.session.user) return res.json({ ok: false }); 
     
     try {
-        // Ưu tiên lấy từ Query Param (?branch=HCM), nếu không có mới lấy từ Session
+        res.setHeader('Cache-Control', 'public, max-age=10');  
+      // Ưu tiên lấy từ Query Param (?branch=HCM), nếu không có mới lấy từ Session
         let branchCode = req.query.branch;
         
         if (!branchCode && req.session.user) {
@@ -8124,7 +8135,7 @@ app.get('/api/queue/live-data', async (req, res) => {
             .eq('status', 'WAITING')
             .order('id', { ascending: true });
 
-        res.json({ ok: true, serving, waiting });
+        return res.json({ ok: true, serving, waiting }); // Code mới
     } catch (e) { res.status(500).json({ ok: false }); }
 });
 
@@ -8418,6 +8429,7 @@ app.get('/api/queue/check-status/:id', async (req, res) => {
 // [THÊM VÀO server.js] API lấy lịch sử phục vụ trong ngày (kèm đánh giá)
 app.get('/api/queue/history', requireAuth, async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=30');
         const branchCode = req.query.branch || req.session.user.branch_code;
         const page = parseInt(req.query.page) || 1;
         const limit = 10;
@@ -9112,82 +9124,97 @@ app.post('/api/admin/import-kfi', requireAdmin, async (req, res) => {
 
 // ==================================================================
 // === [UPDATE] KFI PROGRAM (PHÂN TRANG + SEARCH CHÍNH XÁC) ===
-// ==================================================================
-// ==================================================================
-// === [UPDATE] KFI PROGRAM (CHUẨN LOGIC BIGQUERY NHƯ TRANG PRODUCT) ===
-// ==================================================================
 app.get('/kfi-program', requireAuth, async (req, res) => {
     try {
         const userBranch = req.session.user.branch_code;
         const userRole = req.session.user.role || ''; // Lấy role để check admin
-        const searchQuery = (req.query.q || '').trim().toLowerCase(); 
         
-        // --- 1. PHÂN TRANG & LẤY LIST KFI ---
+        // 1. NHẬN THAM SỐ TỪ URL (Search & Sort & Page)
+        const searchQuery = (req.query.q || '').trim().toLowerCase();
+        
+        // Logic Sort: Mặc định sắp xếp theo kfi_end_user giảm dần
+        const sortField = req.query.sort || 'kfi_end_user'; 
+        const sortOrder = req.query.order || 'desc';
+        const isAsc = sortOrder === 'asc';
+
+        // Chỉ cho phép sort các cột an toàn để bảo mật DB
+        const allowedSorts = ['sku', 'product_name', 'brand', 'kfi_end_user', 'kfi_dealer'];
+        const finalSortField = allowedSorts.includes(sortField) ? sortField : 'kfi_end_user';
+
+        // Logic Phân trang
         const page = parseInt(req.query.page || '1'); 
         const pageSize = 50; 
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
 
+        // 2. TẠO QUERY SUPABASE
         let query = supabase.from('kfi_list').select('*', { count: 'exact' }); 
         
+        // --- NÂNG CẤP SEARCH: Tìm trong SKU HOẶC Tên HOẶC Hãng ---
         if (searchQuery) {
-            query = query.ilike('sku', `%${searchQuery}%`);
-        } else {
-            query = query.order('kfi_end_user', { ascending: false });
+            query = query.or(`sku.ilike.%${searchQuery}%,product_name.ilike.%${searchQuery}%,brand.ilike.%${searchQuery}%`);
         }
 
+        // --- NÂNG CẤP SORT: Sắp xếp động theo cột click ---
+        // Lưu ý: Cột Tồn kho không sort được ở đây vì nó nằm ở BigQuery
+        query = query.order(finalSortField, { ascending: isAsc });
+
+        // Thực thi query với phân trang
         const { data: kfiList, count, error } = await query.range(from, to);
         if (error) throw error;
 
         const totalItems = count || 0;
         const totalPages = Math.ceil(totalItems / pageSize);
 
-        // --- 2. LẤY TỒN KHO BIGQUERY (THEO CODE MẪU CỦA BẠN) ---
+        // 3. LẤY TỒN KHO BIGQUERY (LOGIC CŨ GIỮ NGUYÊN)
         let stockMap = {};
         
         if (kfiList && kfiList.length > 0) {
             const skuList = kfiList.map(i => i.sku);
             
             try {
-                // a. Chuẩn bị tham số như code mẫu
+                // a. Chuẩn bị tham số
                 const today = new Date().toISOString().split('T')[0];
                 const isGlobalAdmin = (userRole === 'admin' || userBranch === 'HCM.BD');
 
                 // b. Khởi tạo mặc định 0
                 skuList.forEach(sku => stockMap[sku] = 0);
 
-                // c. Gọi hàm BigQuery chuẩn
-                const inventoryMap = await getInventoryCounts(skuList, userBranch, isGlobalAdmin, today);
+                // c. Gọi hàm BigQuery chuẩn (Hàm này đã có trong server.js)
+                if (typeof getInventoryCounts === 'function') {
+                    const inventoryMap = await getInventoryCounts(skuList, userBranch, isGlobalAdmin, today);
 
-                // d. Xử lý dữ liệu trả về
-                skuList.forEach(sku => {
-                    if (inventoryMap.has(sku)) {
-                        const branchMap = inventoryMap.get(sku); // Map<Branch, Data>
+                    // d. Xử lý dữ liệu trả về từ Map
+                    skuList.forEach(sku => {
+                        if (inventoryMap.has(sku)) {
+                            const branchMap = inventoryMap.get(sku); // Map<Branch, Data>
 
-                        if (isGlobalAdmin) {
-                            // --- LOGIC CHO ADMIN/HCM.BD: CỘNG TỔNG TOÀN BỘ ---
-                            // Vì là Admin nên branchMap sẽ chứa dữ liệu của nhiều kho
-                            let totalStock = 0;
-                            branchMap.forEach((val) => {
-                                totalStock += (val.hang_ban_moi || 0);
-                            });
-                            stockMap[sku] = totalStock;
-                        } else {
-                            // --- LOGIC CHO USER THƯỜNG: LẤY ĐÚNG KHO MÌNH ---
-                            if (branchMap.has(userBranch)) {
-                                const counts = branchMap.get(userBranch);
-                                stockMap[sku] = counts.hang_ban_moi || 0;
+                            if (isGlobalAdmin) {
+                                // --- LOGIC CHO ADMIN/HCM.BD: CỘNG TỔNG TOÀN BỘ ---
+                                let totalStock = 0;
+                                branchMap.forEach((val) => {
+                                    totalStock += (val.hang_ban_moi || 0);
+                                });
+                                stockMap[sku] = totalStock;
+                            } else {
+                                // --- LOGIC CHO USER THƯỜNG: LẤY ĐÚNG KHO MÌNH ---
+                                if (branchMap.has(userBranch)) {
+                                    const counts = branchMap.get(userBranch);
+                                    stockMap[sku] = counts.hang_ban_moi || 0;
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                } else {
+                    console.warn('Hàm getInventoryCounts chưa được định nghĩa hoặc BigQuery chưa sẵn sàng.');
+                }
 
             } catch (errBQ) {
                 console.error('Lỗi lấy tồn kho BigQuery (KFI):', errBQ.message);
             }
         }
 
-        // 3. Render
+        // 4. RENDER VIEW
         res.render('kfi-program', {
             title: 'Chương trình KFI Focus',
             currentPage: 'kfi-program',
@@ -9202,12 +9229,17 @@ app.get('/kfi-program', requireAuth, async (req, res) => {
             totalItems,
 
             qrCodeUrl: '', 
+            
+            // Truyền lại các tham số lọc/sort để EJS hiển thị đúng trạng thái
             searchQuery,
+            currentSort: finalSortField,
+            currentOrder: sortOrder,
+
             time: new Date().toLocaleTimeString('vi-VN')
         });
 
     } catch (e) {
-        console.error(e);
+        console.error('Lỗi route /kfi-program:', e);
         res.status(500).send('Lỗi hệ thống: ' + e.message);
     }
 });

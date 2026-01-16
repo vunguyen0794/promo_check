@@ -9,11 +9,9 @@
         .col-header { padding: 15px 20px; color: white; font-weight: 800; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
         .list-wrap { flex: 1; overflow-y: auto; padding: 15px; background: #f8fafc; }
         
-        /* Màu sắc cột */
         .col-service .col-header { background: #1a73e8; }
         .col-sales .col-header { background: #0d9488; }
 
-        /* Card vé */
         .card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
         .card.serving { border: 2px solid; background: #f0f9ff; transform: scale(1.01); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         .col-service .card.serving { border-color: #1a73e8; }
@@ -34,7 +32,6 @@
         .wf-btn { flex: 1; padding: 8px 0; font-size: 11px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 4px; }
         .wf-btn.active { background: #0d9488; color: white; border-color: #0d9488; }
         
-        /* === MODAL POPUP STYLES === */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.5); z-index: 1000;
@@ -74,7 +71,6 @@
 <body>
     <div class="admin-layout">
        <% 
-       // 1. Lọc danh sách Dịch vụ (Gồm: Sửa chữa, Bảo hành, Lấy máy, và Kiểm tra)
        const serviceList = tickets.filter(t => 
            t.service_type === 'REPAIR' || 
            t.service_type === 'WARRANTY' || 
@@ -83,7 +79,6 @@
        ); 
        serviceList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1));
 
-       // 2. Lọc và Sắp xếp danh sách Lắp ráp
        const salesList = tickets.filter(t => t.service_type === 'SALES'); 
        salesList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1));
        %>
@@ -316,7 +311,36 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
+       // 1. Cấu hình Realtime
+       const supabaseUrl = '<%= supabaseUrl %>';
+       const supabaseKey = '<%= supabaseKey %>';
+       const client = supabase.createClient(supabaseUrl, supabaseKey);
+       const myBranch = '<%= branchCode %>'; 
+
+       console.log("Admin đang lắng nghe chi nhánh:", myBranch);
+
+       // 2. Lắng nghe thay đổi
+       const channel = client
+           .channel('admin-realtime')
+           .on(
+               'postgres_changes',
+               { event: '*', schema: 'public', table: 'queue_tickets', filter: `branch_code=eq.${myBranch}` },
+               (payload) => {
+                   // Chỉ reload khi tab đang mở để tiết kiệm
+                   if (!document.hidden) {
+                       console.log("⚡ Data changed -> Reloading Admin...");
+                       // Reload nhẹ nhàng để cập nhật danh sách chờ
+                       window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                   }
+               }
+           )
+           .subscribe();
+
+       // --- CÁC HÀM XỬ LÝ LOGIC CŨ (GIỮ NGUYÊN) ---
+       
        let currentCallType = ''; 
        let currentLogServiceType = ''; 
        let logTicketId = null; 
@@ -328,27 +352,20 @@
            if (savedMsnv && msnvInput) msnvInput.value = savedMsnv;
        });
 
-        // Hàm mở modal Báo cáo
         window.openLogModal = function(ticketId, customerInfo, serviceType) {
             logTicketId = ticketId;
-            currentLogServiceType = serviceType; // Lưu loại dịch vụ
+            currentLogServiceType = serviceType; 
             document.getElementById('modalCustomerInfo').value = customerInfo || 'N/A';
-            
-            // Reset form
             document.querySelectorAll('input[name="workAction"]').forEach(cb => cb.checked = false);
             document.getElementById('modalOtherAction').value = '';
-            
-            // Reset radio chọn lại loại
             document.querySelectorAll('input[name="finalType"]').forEach(rb => rb.checked = false);
 
-            // [LOGIC MỚI] Ẩn/Hiện phần chọn lại loại dịch vụ
             const reclassifyDiv = document.getElementById('reclassifySection');
             if (serviceType === 'CHECK') {
                 reclassifyDiv.style.display = 'block';
             } else {
                 reclassifyDiv.style.display = 'none';
             }
-            
             logModal.classList.add('open');
         }
 
@@ -357,7 +374,6 @@
             logTicketId = null;
         }
 
-        // Hàm gửi dữ liệu Báo cáo & Hoàn thành
         window.submitWorkLog = async function() {
             const msnv = msnvInput.value.trim();
             const otherAction = document.getElementById('modalOtherAction').value.trim();
@@ -368,7 +384,6 @@
             if (!msnv) { alert("⚠️ Vui lòng nhập Mã số nhân viên!"); msnvInput.focus(); return; }
             if (selectedActions.length === 0 && !otherAction) { alert("⚠️ Vui lòng chọn ít nhất 1 hành động!"); return; }
 
-            // [LOGIC MỚI] Kiểm tra chọn lại loại dịch vụ
             let newServiceType = null;
             if (currentLogServiceType === 'CHECK') {
                 const selectedType = document.querySelector('input[name="finalType"]:checked');
@@ -397,14 +412,17 @@
                         customer_info: customerInfo,
                         action_desc: actionDesc,
                         other_action: otherAction,
-                        new_service_type: newServiceType // Gửi loại mới (nếu có)
+                        new_service_type: newServiceType 
                     })
                 });
 
                 const data = await res.json();
                 if (data.ok) {
                     closeLogModal();
-                    window.location.reload(); 
+                    // Load lại lịch sử ngay (không cần reload trang)
+                    loadHistory(1); 
+                    // Reload trang để cập nhật danh sách chờ (đã được xử lý bởi Realtime ở trên, nhưng gọi thêm để chắc chắn)
+                    window.location.href = window.location.pathname + '?t=' + new Date().getTime();
                 } else {
                     alert("❌ Lỗi server: " + data.message);
                 }
@@ -412,7 +430,6 @@
             finally { btn.innerText = oldText; btn.disabled = false; }
         }
 
-        // Các hàm Modal Gọi Khách (Giữ nguyên)
         function openCallModal(type) {
             currentCallType = type;
             document.getElementById('callModal').classList.add('open');
@@ -467,22 +484,42 @@
                     body: JSON.stringify({ action: 'CALL_NEXT', service_type: currentCallType, counter_name: finalName })
                 });
                 const data = await res.json();
-                if(data.ok) window.location.reload();
+                if(data.ok) {
+                     window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                }
                 else { alert(data.message); btn.innerText = "GỌI NGAY"; btn.disabled = false; closeModal(); }
             } catch(e) { alert('Lỗi kết nối'); closeModal(); }
         }
 
         async function control(action, id, type) {
-            if(action==='COMPLETE' && !confirm('Xác nhận hoàn thành?')) return;
-            await fetch('/api/queue/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action, ticket_id: id, service_type: type}) });
-            window.location.reload();
+            if(action === 'COMPLETE' && !confirm('Xác nhận hoàn thành?')) return;
+            
+            try {
+                const res = await fetch('/api/queue/control', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({action, ticket_id: id, service_type: type}) 
+                });
+                
+                const data = await res.json();
+                
+                if (data.ok) {
+                    if (action === 'COMPLETE') {
+                        loadHistory(1); 
+                    }
+                    window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                } else {
+                    alert('Lỗi: ' + data.message);
+                }
+            } catch(e) { 
+                alert("Lỗi kết nối server!"); 
+            }
         }
         async function updateProcess(id, step) {
             await fetch('/api/queue/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'UPDATE_PROCESS', ticket_id: id, process_step: step}) });
-            window.location.reload();
+            // Không cần reload ở đây, vì Realtime sẽ tự bắt sự kiện update và reload
         }
 
-        // [MỚI] Hàm gọi số cụ thể (Chỉ gọi, không hỏi loại)
         async function callSpecific(ticketId) {
             const savedKtv = localStorage.getItem('last_ktv') || 'Quầy Kỹ Thuật';
             if(!confirm(`Bạn muốn gọi vé này vào quầy ${savedKtv}?`)) return;
@@ -493,7 +530,7 @@
                     body: JSON.stringify({ action: 'CALL_SPECIFIC', ticket_id: ticketId, counter_name: savedKtv })
                 });
                 const data = await res.json();
-                if(data.ok) window.location.reload();
+                if(data.ok) window.location.href = window.location.pathname + '?t=' + new Date().getTime();
                 else alert(data.message);
             } catch(e) { alert('Lỗi kết nối'); }
         }
@@ -573,15 +610,14 @@
                     body: JSON.stringify({ action: 'DELETE', ticket_id: id })
                 });
                 const data = await res.json();
-                if (data.ok) window.location.reload();
+                if (data.ok) window.location.href = window.location.pathname + '?t=' + new Date().getTime();
                 else alert("Lỗi khi xóa: " + (data.message || 'Unknown'));
             } catch (e) { alert("Lỗi kết nối server!"); }
         }
 
         // Init
         loadHistory(); 
-        setInterval(() => loadHistory(currentPage), 10000);
-        setTimeout(() => window.location.reload(), 60000);
+        
     </script>
 </body>
 </html>
