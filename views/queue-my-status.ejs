@@ -57,7 +57,16 @@
             <div style="font-size:13px; text-transform:uppercase; color:#555;">Số thứ tự của bạn</div>
             <div class="ticket-number"><%= ticket.ticket_number %></div>
             <div class="ticket-type">
-                <%= ticket.service_type === 'SALES' ? 'Lắp ráp và cài đặt' : (ticket.service_type === 'WARRANTY' ? 'Bảo hành' : 'Sửa chữa') %>
+                <% 
+                   const labels = {
+                       'SALES': 'Lắp ráp và cài đặt',
+                       'WARRANTY': 'Bảo hành',
+                       'CHECK': 'Kiểm tra',
+                       'PICKUP': 'Lấy máy',
+                       'REPAIR': 'Sửa chữa'
+                   };
+                %>
+                <%= labels[ticket.service_type] || 'Sửa chữa' %>
             </div>
         </div>
 
@@ -120,25 +129,39 @@
     <script>
         const currentStatus = '<%= ticket.status %>';
         const ticketId = '<%= ticket.id %>';
+        const branchCode = '<%= ticket.branch_code %>';
+
+        // 0. Lưu trạng thái vào localStorage để quay lại sau
+        if (currentStatus === 'WAITING' || currentStatus === 'SERVING') {
+            localStorage.setItem('active_ticket_id', ticketId);
+            localStorage.setItem('active_ticket_branch', branchCode);
+        } else {
+            // Xóa nếu đã hoàn thành/hủy
+            localStorage.removeItem('active_ticket_id');
+            localStorage.removeItem('active_ticket_branch');
+        }
 
         // --- AUTO REFRESH LOGIC ---
         // Chỉ chạy khi trạng thái là WAITING hoặc SERVING
         if (currentStatus === 'WAITING' || currentStatus === 'SERVING') {
             setInterval(async () => {
-                try {
-                    const res = await fetch(`/api/queue/check-status/${ticketId}`);
-                    const data = await res.json();
-                    
-                    if (data) {
-                        // Nếu trạng thái thay đổi so với hiện tại
-                        // WAITING -> SERVING: Reload để hiện thông báo đến quầy
-                        // SERVING -> COMPLETED: Reload để hiện form đánh giá
-                        if (data.status !== currentStatus) {
-                            window.location.reload();
-                        }
-                    }
-                } catch (e) { console.error("Polling error", e); }
-            }, 10000); // Kiểm tra mỗi 3 giây
+                        // CHỈ CHẠY KHI TAB ĐANG MỞ (TIẾT KIỆM CPU VERCEL)
+                        if (document.hidden) return;
+
+                        try {
+                            const res = await fetch(`/api/queue/check-status/${ticketId}`);
+                            const data = await res.json();
+                            
+                            if (data) {
+                                // Nếu trạng thái thay đổi so với hiện tại
+                                // WAITING -> SERVING: Reload để hiện thông báo đến quầy
+                                // SERVING -> COMPLETED: Reload để hiện form đánh giá
+                                if (data.status !== currentStatus) {
+                                    window.location.reload();
+                                }
+                            }
+                        } catch (e) { console.error("Polling error", e); }
+                    }, 12000); // Tăng lên 12 giây để giảm tải
         }
 
         // Logic gửi đánh giá (Giữ nguyên)

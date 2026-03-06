@@ -104,6 +104,13 @@
             <div style="font-size: 13px; margin-top: 8px; opacity: 0.8;">Chi nhánh / Branch: <strong><%= branchCode %></strong></div>
         </div>
         <div class="body">
+            <!-- Nút Quay lại phiếu cũ (Ẩn mặc định) -->
+            <div id="resumeSection" style="display:none; margin-bottom: 25px; padding: 15px; background: #eff6ff; border: 2px solid #1a73e8; border-radius: 12px; text-align: center;">
+                <div style="font-weight: 700; color: #1a73e8; margin-bottom: 10px;">Bạn đang có một phiếu chờ!</div>
+                <button onclick="resumeTicket()" class="btn-submit" style="margin-top:0; padding: 10px; background: #1a73e8;">XEM LỘ TRÌNH PHIẾU CŨ</button>
+                <div style="margin-top: 10px; font-size: 12px; color: #666; cursor: pointer; text-decoration: underline;" onclick="hideResume()">Hoặc đăng ký phiếu mới</div>
+            </div>
+
             <% if(error) { %><div style="color:red; margin-bottom:15px; text-align:center;"><%= error %></div><% } %>
             
             <form action="/api/queue/register" method="POST" id="qForm">
@@ -171,11 +178,67 @@
                     <span>LẤY SỐ NGAY</span>
                     <span class="btn-sub-text">GET TICKET NOW</span>
                 </button>
+
+                <!-- Tra cứu phiếu -->
+                <div style="margin-top: 30px; text-align: center; border-top: 1px solid #eee; padding-top: 20px;">
+                    <button type="button" onclick="toggleLookup()" style="background:none; border:none; color:#1a73e8; font-weight:700; cursor:pointer; font-size:14px;">
+                        🔍 TRA CỨU PHIẾU BẰNG SĐT
+                    </button>
+                    <div id="lookupArea" style="display:none; margin-top: 15px;">
+                        <input type="tel" id="lookupPhone" class="input" placeholder="Nhập SĐT đã đăng ký..." style="margin-bottom: 10px;">
+                        <button type="button" onclick="lookupTicket()" class="btn-submit" style="margin-top:5px; background: #666;">TÌM PHIẾU</button>
+                    </div>
+                </div>
             </form>
         </div>
     </div>
 
     <script>
+        const branchCode = '<%= branchCode %>';
+
+        // 1. Kiểm tra localStorage khi load trang
+        document.addEventListener('DOMContentLoaded', () => {
+            const activeId = localStorage.getItem('active_ticket_id');
+            const activeBranch = localStorage.getItem('active_ticket_branch');
+            
+            if (activeId && activeBranch === branchCode) {
+                document.getElementById('resumeSection').style.display = 'block';
+            }
+        });
+
+        function resumeTicket() {
+            const activeId = localStorage.getItem('active_ticket_id');
+            if (activeId) window.location.href = `/queue/status/${activeId}`;
+        }
+
+        function hideResume() {
+            document.getElementById('resumeSection').style.display = 'none';
+        }
+
+        function toggleLookup() {
+            const area = document.getElementById('lookupArea');
+            area.style.display = (area.style.display === 'none') ? 'block' : 'none';
+        }
+
+        async function lookupTicket() {
+            const phone = document.getElementById('lookupPhone').value.trim();
+            if (!phone) { alert("Vui lòng nhập số điện thoại!"); return; }
+
+            try {
+                const res = await fetch('/api/queue/lookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ branch_code: branchCode, customer_phone: phone })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    window.location.href = `/queue/status/${data.ticket_id}`;
+                } else {
+                    alert(data.message);
+                }
+            } catch (e) { alert("Lỗi kết nối server!"); }
+        }
+
         function choose(type) {
         document.getElementById('serviceType').value = type;
         document.querySelectorAll('.btn-opt').forEach(el => el.classList.remove('active'));

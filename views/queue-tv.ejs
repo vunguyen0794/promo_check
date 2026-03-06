@@ -7,6 +7,47 @@
     <style>
         body { margin:0; overflow:hidden; font-family:'Be Vietnam Pro', sans-serif; background:#f0f2f5; }
         
+        /* CSS for Display Modes */
+        .mode-no-qr .qr-area, .mode-no-qr .wifi-panel { display: none !important; }
+        .mode-no-service .col-service { display: none !important; }
+        .mode-no-sales .col-sales { display: none !important; }
+
+        /* Grid layout for single-column modes */
+        .mode-no-service .v-list, .mode-no-sales .v-list {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-auto-rows: min-content;
+            align-content: start;
+        }
+
+        .mode-selector {
+            position: fixed;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 8px 15px;
+            border-radius: 30px;
+            display: flex;
+            gap: 10px;
+            z-index: 10000;
+            opacity: 0.1;
+            transition: opacity 0.3s;
+        }
+        .mode-selector:hover { opacity: 1; }
+        .btn-mode {
+            background: #fff;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            color: #333;
+            transition: all 0.2s;
+        }
+        .btn-mode.active { background: #1a73e8; color: #fff; }
+
         .tv-layout { display: flex; height: 100vh; width: 100vw; padding: 20px; gap: 20px; box-sizing: border-box; }
         .main-panel { flex: 3; display: flex; gap: 20px; overflow: hidden; }
         
@@ -102,7 +143,7 @@
                 <img src="<%= qrCodeUrl %>" class="qr-img">
                 <div class="qr-text">Quét mã lấy số và đánh giá<br>sau khi được phục vụ</div>
             </div>
-            <div style="margin-top: 5px; padding: 15px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+            <div class="wifi-panel" style="margin-top: 5px; padding: 15px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
                 <div style="font-size: 16px; color: #555; margin-bottom: 5px;">Kết nối Wifi miễn phí</div>
                 <div style="font-size: 24px; font-weight: 800; color: #333;">
                     <span style="color: #1a73e8;">Wifi:</span> Phongvu.vn
@@ -121,6 +162,15 @@
             <div style="text-align:center; margin-top:auto;" id="clock"></div>
         </div>
     </div>
+
+    <!-- Mode Selector Overlay -->
+    <div class="mode-selector">
+        <button class="btn-mode active" id="btn-full" onclick="switchMode('full')">Full View</button>
+        <button class="btn-mode" id="btn-no-qr" onclick="switchMode('no-qr')">Tắt QR</button>
+        <button class="btn-mode" id="btn-no-service" onclick="switchMode('no-service')">Ẩn SC/BH</button>
+        <button class="btn-mode" id="btn-no-sales" onclick="switchMode('no-sales')">Ẩn Lắp Ráp</button>
+    </div>
+
     <div id="tvcContainer"><div id="ytPlayer"></div></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -196,6 +246,8 @@
 
         // 3. LOGIC LẤY DỮ LIỆU (Chỉ gọi khi Realtime báo tin)
         async function updateQueue(isManualCall = false) {
+            // TIẾT KIỆM CPU: Không gọi API nếu tab đang ẩn
+            if (document.hidden && !isManualCall) return;
             try {
                 // Gọi API lấy dữ liệu mới nhất (Đã Cache Control ở Server)
                 const res = await fetch('/api/queue/live-data?branch=<%= branchCode %>');
@@ -409,6 +461,27 @@
             const u = new SpeechSynthesisUtterance('');
             window.speechSynthesis.speak(u);
         }, {once:true});
+
+        // 5. [QUẢN LÝ CHẾ ĐỘ HIỂN THỊ]
+        function switchMode(mode) {
+            // Xóa state cũ
+            document.body.classList.remove('mode-full', 'mode-no-qr', 'mode-no-service', 'mode-no-sales');
+            document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+
+            // Gán state mới
+            document.body.classList.add(`mode-${mode}`);
+            const btn = document.getElementById(`btn-${mode}`);
+            if(btn) btn.classList.add('active');
+
+            // Lưu preference
+            localStorage.setItem('tv_display_mode', mode);
+        }
+
+        // Init mode từ localStorage
+        window.addEventListener('load', () => {
+            const savedMode = localStorage.getItem('tv_display_mode') || 'full';
+            switchMode(savedMode);
+        });
     </script>
 </body>
 </html>

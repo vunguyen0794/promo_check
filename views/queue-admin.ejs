@@ -1,219 +1,500 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
-    <%- include('partials/header', {title: 'Điều phối Kỹ thuật', currentPage: 'queue-admin', time: ''}) %>
-    <style>
-        body { background: #f0f2f5; overflow-y: auto; }
-        .admin-layout { display: flex; gap: 20px; padding: 20px; min-height: 500px; height: auto; }
-        .col-panel { flex: 1; background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); height: 600px; }
-        .col-header { padding: 15px 20px; color: white; font-weight: 800; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
-        .list-wrap { flex: 1; overflow-y: auto; padding: 15px; background: #f8fafc; }
-        
-        .col-service .col-header { background: #1a73e8; }
-        .col-sales .col-header { background: #0d9488; }
+    <%- include('partials/header', {title: 'Điều phối Kỹ thuật' , currentPage: 'queue-admin' , time: '' }) %>
+        <style>
+            body {
+                background: #f0f2f5;
+                overflow-y: auto;
+            }
 
-        .card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
-        .card.serving { border: 2px solid; background: #f0f9ff; transform: scale(1.01); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .col-service .card.serving { border-color: #1a73e8; }
-        .col-sales .card.serving { border-color: #0d9488; }
+            .admin-layout {
+                display: flex;
+                gap: 20px;
+                padding: 20px;
+                min-height: 500px;
+                height: auto;
+            }
 
-        .tag-type { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-left: 5px; }
-        .tag-repair { background: #e0f2fe; color: #0369a1; }
-        .tag-warranty { background: #ffedd5; color: #c2410c; }
-        .tag-check { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+            .col-panel {
+                flex: 1;
+                background: white;
+                border-radius: 12px;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+                height: 600px;
+            }
 
-        .btn-call-header { background: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; color: #333; display: flex; align-items: center; gap: 5px; }
-        .btn-action { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 700; color: white; cursor: pointer; margin-top: 10px; }
-        .btn-done { background: #10b981; } .btn-done:hover { background: #059669; }
-        .btn-recall { background: #f59e0b; color: white; } .btn-recall:hover { background: #d97706; }
-        .btn-skip { background: #ef4444; margin-top: 5px; opacity: 0.8; }
+            .col-header {
+                padding: 15px 20px;
+                color: white;
+                font-weight: 800;
+                font-size: 18px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
 
-        .wf-steps { display: flex; gap: 5px; margin-top: 15px; }
-        .wf-btn { flex: 1; padding: 8px 0; font-size: 11px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 4px; }
-        .wf-btn.active { background: #0d9488; color: white; border-color: #0d9488; }
-        
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.5); z-index: 1000;
-            display: none; align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.2s;
-        }
-        .modal-overlay.open { display: flex; opacity: 1; }
-        
-        .modal-box {
-            background: white; width: 90%; max-width: 400px;
-            padding: 25px; border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            transform: translateY(20px); transition: transform 0.2s;
-        }
-        .modal-overlay.open .modal-box { transform: translateY(0); }
+            .list-wrap {
+                flex: 1;
+                overflow-y: auto;
+                padding: 15px;
+                background: #f8fafc;
+            }
 
-        .form-group { margin-bottom: 15px; }
-        .form-label { display: block; font-weight: 600; margin-bottom: 8px; color: #333; }
-        .form-select, .form-input { 
-            width: 100%; padding: 12px; border: 1px solid #ddd; 
-            border-radius: 8px; font-size: 16px; outline: none; 
-        }
-        .form-select:focus, .form-input:focus { border-color: #1a73e8; }
-        
-        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
-        .btn-modal { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; font-size: 16px; }
-        .btn-confirm { background: #1a73e8; color: white; }
-        .btn-cancel { background: #f3f4f6; color: #333; }
-        
-        .action-list { display: flex; flex-direction: column; gap: 8px; border: 1px solid #eee; padding: 10px; border-radius: 8px; max-height: 250px; overflow-y: auto; }
-        .action-item { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 5px; border-radius: 4px; transition: background 0.2s; }
-        .action-item:hover { background: #f9fafb; }
-        .action-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin-top: 2px;flex-shrink: 0;}
-        .action-item span { font-size: 14px; color: #333; line-height: 1.4; }
-    </style>
+            .col-service .col-header {
+                background: #1a73e8;
+            }
+
+            .col-sales .col-header {
+                background: #0d9488;
+            }
+
+            .card {
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                padding: 15px;
+                margin-bottom: 15px;
+                position: relative;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+            }
+
+            .card.serving {
+                border: 2px solid;
+                background: #f0f9ff;
+                transform: scale(1.01);
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            }
+
+            .col-service .card.serving {
+                border-color: #1a73e8;
+            }
+
+            .col-sales .card.serving {
+                border-color: #0d9488;
+            }
+
+            .tag-type {
+                display: inline-block;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 700;
+                margin-left: 5px;
+            }
+
+            .tag-repair {
+                background: #e0f2fe;
+                color: #0369a1;
+            }
+
+            .tag-warranty {
+                background: #ffedd5;
+                color: #c2410c;
+            }
+
+            .tag-check {
+                background: #fff3cd;
+                color: #856404;
+                border: 1px solid #ffeeba;
+            }
+
+            .btn-call-header {
+                background: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-weight: 700;
+                cursor: pointer;
+                color: #333;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .btn-action {
+                padding: 6px 4px;
+                border: none;
+                border-radius: 6px;
+                font-weight: 700;
+                color: white;
+                cursor: pointer;
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+                white-space: nowrap;
+            }
+
+            .btn-row {
+                display: grid;
+                grid-template-columns: 1.2fr 1fr 1fr 0.8fr;
+                gap: 4px;
+                margin-top: 8px;
+            }
+
+            .btn-done {
+                background: #10b981;
+            }
+
+            .btn-done:hover {
+                background: #059669;
+            }
+
+            .btn-recall {
+                background: #f59e0b;
+                color: white;
+            }
+
+            .btn-recall:hover {
+                background: #d97706;
+            }
+
+            .btn-skip {
+                background: #6b7280;
+            }
+
+            .btn-delete {
+                background: #ef4444;
+            }
+
+            .wf-steps {
+                display: flex;
+                gap: 5px;
+                margin-top: 15px;
+            }
+
+            .wf-btn {
+                flex: 1;
+                padding: 8px 0;
+                font-size: 11px;
+                border: 1px solid #ddd;
+                background: white;
+                cursor: pointer;
+                border-radius: 4px;
+            }
+
+            .wf-btn.active {
+                background: #0d9488;
+                color: white;
+                border-color: #0d9488;
+            }
+
+            .modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 1000;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+
+            .modal-overlay.open {
+                display: flex;
+                opacity: 1;
+            }
+
+            .modal-box {
+                background: white;
+                width: 90%;
+                max-width: 400px;
+                padding: 25px;
+                border-radius: 16px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+                transform: translateY(20px);
+                transition: transform 0.2s;
+            }
+
+            .modal-overlay.open .modal-box {
+                transform: translateY(0);
+            }
+
+            .form-group {
+                margin-bottom: 15px;
+            }
+
+            .form-label {
+                display: block;
+                font-weight: 600;
+                margin-bottom: 8px;
+                color: #333;
+            }
+
+            .form-select,
+            .form-input {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                font-size: 16px;
+                outline: none;
+            }
+
+            .form-select:focus,
+            .form-input:focus {
+                border-color: #1a73e8;
+            }
+
+            .modal-btns {
+                display: flex;
+                gap: 10px;
+                margin-top: 20px;
+            }
+
+            .btn-modal {
+                flex: 1;
+                padding: 12px;
+                border-radius: 8px;
+                border: none;
+                font-weight: 700;
+                cursor: pointer;
+                font-size: 16px;
+            }
+
+            .btn-confirm {
+                background: #1a73e8;
+                color: white;
+            }
+
+            .btn-cancel {
+                background: #f3f4f6;
+                color: #333;
+            }
+
+            .action-list {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                border: 1px solid #eee;
+                padding: 10px;
+                border-radius: 8px;
+                max-height: 250px;
+                overflow-y: auto;
+            }
+
+            .action-item {
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                cursor: pointer;
+                padding: 5px;
+                border-radius: 4px;
+                transition: background 0.2s;
+            }
+
+            .action-item:hover {
+                background: #f9fafb;
+            }
+
+            .action-item input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
+                cursor: pointer;
+                margin-top: 2px;
+                flex-shrink: 0;
+            }
+
+            .action-item span {
+                font-size: 14px;
+                color: #333;
+                line-height: 1.4;
+            }
+        </style>
 </head>
+
 <body>
     <div class="admin-layout">
-       <% 
-       const serviceList = tickets.filter(t => 
-           t.service_type === 'REPAIR' || 
-           t.service_type === 'WARRANTY' || 
-           t.service_type === 'PICKUP' || 
-           t.service_type === 'CHECK'
-       ); 
-       serviceList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1));
+        <% const serviceList=tickets.filter(t=>
+            t.service_type === 'REPAIR' ||
+            t.service_type === 'WARRANTY' ||
+            t.service_type === 'PICKUP' ||
+            t.service_type === 'CHECK'
+            );
+            serviceList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1));
 
-       const salesList = tickets.filter(t => t.service_type === 'SALES'); 
-       salesList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1));
-       %>
-       
-        <div class="col-panel col-service">
-            <div class="col-header">
-                <span>🛠 SỬA CHỮA / BẢO HÀNH (<%= serviceList.length %>)</span>
-                <button class="btn-call-header" onclick="openCallModal('SERVICE_MIX')">
-                    GỌI TÊN KHÁCH
-                </button>
-            </div>
-            <div class="list-wrap">
-                <% if(serviceList.length===0) { %><div style="text-align:center;color:#999;margin-top:30px">📭 Trống</div><% } %>
+            const salesList = tickets.filter(t => t.service_type === 'SALES');
+            salesList.sort((a,b) => (a.status === 'SERVING' ? -1 : 1));
+            %>
 
-                <% serviceList.forEach(t => { %>
-                    <div class="card <%= t.status==='SERVING'?'serving':'' %>">
-                        <% if(t.status === 'SERVING') { %><div style="font-weight:700; color:#1a73e8; margin-bottom:5px;">📍 <%= t.counter_name %></div><% } %>
-                        
-                        <div style="display:flex; justify-content:space-between;">
-                            <span style="font-size:20px; font-weight:800; color:#1a73e8;"><%= t.ticket_number %></span>
-                            <% 
-                                let typeName = 'KHÁC';
-                                let typeClass = 'tag-repair';
-                                if(t.service_type === 'REPAIR') { typeName = 'SỬA CHỮA'; typeClass = 'tag-repair'; }
-                                else if(t.service_type === 'WARRANTY') { typeName = 'BẢO HÀNH'; typeClass = 'tag-warranty'; }
-                                else if(t.service_type === 'PICKUP') { typeName = 'LẤY MÁY'; typeClass = 'tag-repair'; }
-                                else if(t.service_type === 'CHECK') { typeName = 'KIỂM TRA'; typeClass = 'tag-check'; }
-                            %>
-                            <span class="tag-type <%= typeClass %>">
-                                <%= typeName %>
-                            </span>
-                        </div>
-                        <div style="font-weight:700;"><%= t.customer_name %></div>
-                        <div style="font-size:12px; color:#555; margin-top:4px; display:flex; justify-content:space-between;">
-                            <span><%= t.customer_phone || '---' %></span>
-                            <span><%= new Date(t.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %></span>
-                        </div>
-                        <% if(t.error_description) { %><div style="font-style:italic; font-size:13px; color:#c00;">"<%= t.error_description %>"</div><% } %>
-
-                        <% if(t.status === 'SERVING') { %>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                                <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %>', '<%= t.service_type %>')">
-                                    ✅ Xong
-                                </button>
-                                <button class="btn-action" style="background:#f59e0b;" onclick="control('RECALL', '<%= t.id %>', '<%= t.service_type %>')">🔊 Gọi lại</button>
-                            </div>
-                            <button class="btn-action btn-skip" style="padding: 8px; font-size: 12px;" onclick="control('SKIP', '<%= t.id %>', '<%= t.service_type %>')">❌ Khách vắng</button>
-                        <% } else { %>
-                            <div style="font-size:12px; color:#1a73e8; margin-top:5px; font-weight:600; text-align:right;">Đang chờ...</div>
-                            
-                            <% if (t.service_type === 'CHECK') { %>
-                                <div style="background:#fff3cd; color:#856404; font-size:11px; padding:5px; margin-top:5px; border-radius:4px; text-align:center; border: 1px solid #ffeeba;">
-                                    ⚠️ Khách chưa rõ loại
-                                </div>
-                            <% } %>
-
-                            <button class="btn-action" style="background: #1a73e8; margin-top: 8px;" 
-                                    onclick="callSpecific('<%= t.id %>')">
-                                📞 Gọi khách này
-                            </button>
-                        <% } %>
-                        <div style="margin-top: 10px; border-top: 1px dashed #eee; padding-top: 5px; text-align: right;">
-                            <button onclick="deleteTicket('<%= t.id %>')" style="background: none; border: none; color: #d93025; font-size: 12px; cursor: pointer; text-decoration: underline;">
-                                🗑 Xóa vé này
-                            </button>
-                        </div>
-                    </div>
-                <% }) %>
-            </div>
-        </div>
-
-        <div class="col-panel col-sales">
-            <div class="col-header">
-                <span>📦 LẮP RÁP/ CÀI ĐẶT MÁY MỚI (<%= salesList.length %>)</span>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <a href="/queue/warehouse" target="_blank" style="color:white; font-size:12px; text-decoration:underline;">
-                        Trang Kho ↗
-                    </a>
-                    <button class="btn-call-header" onclick="openCallModal('SALES')">
-                        TIẾP NHẬN ĐƠN
+            <div class="col-panel col-service">
+                <div class="col-header">
+                    <span>🛠 SỬA CHỮA / BẢO HÀNH (<%= serviceList.length %>)</span>
+                    <button class="btn-call-header" onclick="openCallModal('SERVICE_MIX')">
+                        GỌI TÊN KHÁCH
                     </button>
                 </div>
-            </div>
-            
-            <div class="list-wrap">
-                <% if(salesList.length===0) { %><div style="text-align:center;color:#999;margin-top:30px">📦 Chưa có đơn</div><% } %>
-
-                <% salesList.forEach(t => { %>
-                    <div class="card <%= t.status==='SERVING'?'serving':'' %>">
-                         <% if(t.status === 'SERVING') { %><div style="font-weight:700; color:#0d9488; margin-bottom:5px;">📍 <%= t.counter_name %></div><% } %>
-                        <div style="font-size:20px; font-weight:800; color:#0d9488;"><%= t.ticket_number %></div>
-
-                        <div style="font-weight:700;"><%= t.customer_name %></div>
-                        <div style="font-size:13px;"><%= t.product_name %></div>
-                        
-                        <% if(t.status === 'SERVING') { %>
-                            <div class="wf-steps">
-                                <button class="wf-btn <%= t.process_status==='ASSEMBLING'?'active':'' %>" onclick="updateProcess('<%= t.id %>', 'ASSEMBLING')">1. Lắp</button>
-                                <button class="wf-btn <%= t.process_status==='INSTALLING'?'active':'' %>" onclick="updateProcess('<%= t.id %>', 'INSTALLING')">2. Cài</button>
-                                <button class="wf-btn <%= t.process_status==='HANDOVER'?'active':'' %>" onclick="updateProcess('<%= t.id %>', 'HANDOVER')">3. Giao</button>
-                            </div>
-                            <% if(t.process_status === 'HANDOVER') { %>
-                                <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %> / <%= t.product_name %>', '<%= t.service_type %>')">
-                                    ✅ HOÀN THÀNH
-                                </button>
-                            <% } %>
+                <div class="list-wrap">
+                    <% if(serviceList.length===0) { %>
+                        <div style="text-align:center;color:#999;margin-top:30px">📭 Trống</div>
                         <% } %>
-                        <div style="margin-top: 10px; border-top: 1px dashed #eee; padding-top: 5px; text-align: right;">
-                            <button onclick="deleteTicket('<%= t.id %>')" style="background: none; border: none; color: #d93025; font-size: 12px; cursor: pointer; text-decoration: underline;">
-                                🗑 Xóa vé này
-                            </button>
-                        </div>
-                    </div>
-                <% }) %>
+
+                            <% serviceList.forEach(t=> { %>
+                                <div class="card <%= t.status==='SERVING'?'serving':'' %>" style="padding: 10px; margin-bottom: 10px;">
+                                    <div style="display:flex; align-items: center; margin-bottom: 5px; gap: 8px;">
+                                        <div style="font-size: 12px; font-weight: 700; color: <%= t.status==='SERVING' ? '#1a73e8' : '#999' %>;">
+                                            📍 <%= t.status === 'SERVING' ? t.counter_name : 'Đang chờ...' %>
+                                        </div>
+                                        <button onclick="openTransferModal('<%= t.id %>')" style="background:none; border:none; color:#6366f1; cursor:pointer; font-size:16px; padding:0;" title="Bàn giao">🔄</button>
+                                    </div>
+
+                                    <div style="display:flex; justify-content:space-between; align-items: center;">
+                                        <span style="font-size:20px; font-weight:800; color:#1a73e8;">
+                                            <%= t.ticket_number %>
+                                        </span>
+                                        <% let typeName='KHÁC' ; let typeClass='tag-repair' ;
+                                            if(t.service_type==='REPAIR' ) { typeName='SỬA CHỮA' ;
+                                            typeClass='tag-repair' ; } else if(t.service_type==='WARRANTY' ) {
+                                            typeName='BẢO HÀNH' ; typeClass='tag-warranty' ; } else
+                                            if(t.service_type==='PICKUP' ) { typeName='LẤY MÁY' ;
+                                            typeClass='tag-repair' ; } else if(t.service_type==='CHECK' ) {
+                                            typeName='KIỂM TRA' ; typeClass='tag-check' ; } %>
+                                            <span class="tag-type <%= typeClass %>">
+                                                <%= typeName %>
+                                            </span>
+                                    </div>
+                                    <div style="font-weight:700; font-size: 15px; margin-top: 2px;">
+                                        <%= t.customer_name %>
+                                        <span style="font-weight:400; color:#666; font-size:13px; margin-left:5px;">
+                                            - <%= t.customer_phone || '---' %>
+                                        </span>
+                                        <span style="float:right; font-weight:400; color:#999; font-size:12px;">
+                                            <%= new Date(t.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %>
+                                        </span>
+                                    </div>
+                                    
+                                    <% if(t.error_description) { %>
+                                        <div style="font-style:italic; font-size:12px; color:#c00; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">"<%= t.error_description %>"</div>
+                                    <% } %>
+
+                                    <div class="btn-row">
+                                        <% if(t.status==='SERVING' ) { %>
+                                            <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %>', '<%= t.service_type %>')">✅ Xong</button>
+                                            <button class="btn-action btn-recall" onclick="control('RECALL', '<%= t.id %>', '<%= t.service_type %>')">🔊 Gọi lại</button>
+                                        <% } else { %>
+                                            <button class="btn-action" style="background:#1a73e8;" onclick="openCallModal('<%= t.service_type %>', '<%= t.id %>')">📞 Gọi khách</button>
+                                            <div style="background:#f1f5f9; border-radius:6px;"></div>
+                                        <% } %>
+                                        <button class="btn-action btn-skip" onclick="control('SKIP', '<%= t.id %>', '<%= t.service_type %>')">❌ Vắng</button>
+                                        <button class="btn-action btn-delete" onclick="deleteTicket('<%= t.id %>')">🗑 Xóa</button>
+                                    </div>
+                                </div>
+                                <% }) %>
+                </div>
             </div>
-        </div>
+
+            <div class="col-panel col-sales">
+                <div class="col-header">
+                    <span>📦 LẮP RÁP/ CÀI ĐẶT MÁY MỚI (<%= salesList.length %>)</span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <a href="/queue/warehouse" target="_blank"
+                            style="color:white; font-size:12px; text-decoration:underline;">
+                            Trang Kho ↗
+                        </a>
+                        <button class="btn-call-header" onclick="openCallModal('SALES')">
+                            TIẾP NHẬN ĐƠN
+                        </button>
+                    </div>
+                </div>
+
+                <div class="list-wrap">
+                    <% if(salesList.length===0) { %>
+                        <div style="text-align:center;color:#999;margin-top:30px">📦 Chưa có đơn</div>
+                        <% } %>
+
+                            <% salesList.forEach(t=> { %>
+                                <div class="card <%= t.status==='SERVING'?'serving':'' %>" style="padding: 10px; margin-bottom: 10px;">
+                                    <div style="display:flex; align-items: center; margin-bottom: 5px; gap: 8px;">
+                                        <div style="font-size: 12px; font-weight: 700; color: <%= t.status==='SERVING' ? '#0d9488' : '#999' %>;">
+                                            📍 <%= t.status === 'SERVING' ? t.counter_name : 'Đang chờ...' %>
+                                        </div>
+                                        <button onclick="openTransferModal('<%= t.id %>')" style="background:none; border:none; color:#6366f1; cursor:pointer; font-size:16px; padding:0;" title="Bàn giao">🔄</button>
+                                    </div>
+
+                                    <div style="display:flex; justify-content:space-between; align-items: center;">
+                                        <span style="font-size:18px; font-weight:800; color:#0d9488;">
+                                            <%= t.ticket_number %>
+                                        </span>
+                                        <span class="tag-type" style="background:#f0fdfa; color:#0f766e;">LẮP RÁP</span>
+                                    </div>
+
+                                    <div style="font-weight:700; font-size: 15px; margin-top: 2px;">
+                                        <%= t.customer_name %>
+                                        <span style="font-weight:400; color:#666; font-size:13px; margin-left:5px;">
+                                            - <%= t.customer_phone || '---' %>
+                                        </span>
+                                    </div>
+                                    <div style="font-size:12px; color:#555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        📦 <%= t.product_name %>
+                                    </div>
+
+                                    <% if(t.status==='SERVING' ) { %>
+                                        <div class="wf-steps" style="margin-top: 8px;">
+                                            <button
+                                                class="wf-btn <%= t.process_status==='ASSEMBLING'?'active':'' %>"
+                                                onclick="updateProcess('<%= t.id %>', 'ASSEMBLING')">1.
+                                                Lắp</button>
+                                            <button
+                                                class="wf-btn <%= t.process_status==='INSTALLING'?'active':'' %>"
+                                                onclick="updateProcess('<%= t.id %>', 'INSTALLING')">2.
+                                                Cài</button>
+                                            <button
+                                                class="wf-btn <%= t.process_status==='HANDOVER'?'active':'' %>"
+                                                onclick="updateProcess('<%= t.id %>', 'HANDOVER')">3.
+                                                Giao</button>
+                                        </div>
+                                    <% } %>
+
+                                    <div class="btn-row">
+                                        <% if(t.status==='SERVING' ) { %>
+                                            <% if(t.process_status==='HANDOVER' ) { %>
+                                                <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %> / <%= t.product_name %>', '<%= t.service_type %>')">✅ Xong</button>
+                                            <% } else { %>
+                                                <button class="btn-action" style="background:#0d9488; opacity: 0.5; cursor: not-allowed;">⏳ Chờ</button>
+                                            <% } %>
+                                            <button class="btn-action btn-recall" onclick="control('RECALL', '<%= t.id %>', '<%= t.service_type %>')">🔊 Gọi lại</button>
+                                        <% } else { %>
+                                            <button class="btn-action" style="background:#0d9488;" onclick="openCallModal('<%= t.service_type %>', '<%= t.id %>')">📞 Gọi nhận đơn</button>
+                                            <div style="background:#f1f5f9; border-radius:6px;"></div>
+                                        <% } %>
+                                        <button class="btn-action btn-skip" onclick="control('SKIP', '<%= t.id %>', '<%= t.service_type %>')">❌ Hủy</button>
+                                        <button class="btn-action btn-delete" onclick="deleteTicket('<%= t.id %>')">🗑 Xóa</button>
+                                    </div>
+                                </div>
+                                <% }) %>
+                </div>
+            </div>
     </div>
-    
-   <div id="callModal" class="modal-overlay">
+
+    <div id="callModal" class="modal-overlay">
         <div class="modal-box">
             <h3 style="margin-top:0; color:#1a73e8;">Chọn Người / Quầy phục vụ</h3>
             <div class="form-group">
                 <label class="form-label">Kỹ thuật viên:</label>
                 <select id="ktvSelect" class="form-select" onchange="checkKtvOther(this)">
                     <option value="" disabled selected>-- Chọn tên KTV --</option>
-                    <% if(staffList && staffList.length > 0) { %>
-                        <% staffList.forEach(user => { %>
+                    <% if(staffList && staffList.length> 0) { %>
+                        <% staffList.forEach(user=> { %>
                             <option value="<%= user.full_name || user.email %>">
                                 <%= user.full_name || user.email %>
                             </option>
-                        <% }) %>
-                    <% } %>
-                    <option value="other" style="font-weight:bold; color:#d93025;">✏️ Nhập tên khác...</option>
+                            <% }) %>
+                                <% } %>
+                                    <option value="other" style="font-weight:bold; color:#d93025;">✏️ Nhập tên khác...
+                                    </option>
                 </select>
-                <input id="ktvInput" class="form-input" placeholder="Nhập tên KTV..." style="display:none; margin-top:10px;">
+                <input id="ktvInput" class="form-input" placeholder="Nhập tên KTV..."
+                    style="display:none; margin-top:10px;">
             </div>
             <div class="form-group">
                 <label class="form-label">Tại Quầy / Bàn số:</label>
@@ -236,22 +517,69 @@
         </div>
     </div>
 
-    <div class="history-panel" style="margin: 0 20px 20px 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+    <!-- MODAL BÀN GIAO -->
+    <div id="transferModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 style="margin-top:0; color:#6366f1;">Bàn giao cho KTV khác</h3>
+            <div class="form-group">
+                <label class="form-label">Chọn KTV tiếp nhận:</label>
+                <select id="transferKtvSelect" class="form-select" onchange="checkTransferKtvOther(this)">
+                    <option value="" disabled selected>-- Chọn tên KTV --</option>
+                    <% if(staffList && staffList.length> 0) { %>
+                        <% staffList.forEach(user=> { %>
+                            <option value="<%= user.full_name || user.email %>">
+                                <%= user.full_name || user.email %>
+                            </option>
+                            <% }) %>
+                                <% } %>
+                                    <option value="other" style="font-weight:bold; color:#d93025;">✏️ Nhập tên khác...
+                                    </option>
+                </select>
+                <input id="transferKtvInput" class="form-input" placeholder="Nhập tên KTV..."
+                    style="display:none; margin-top:10px;">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tại Quầy / Bàn số:</label>
+                <select id="transferCounterSelect" class="form-select">
+                    <option value="">-- Không chọn --</option>
+                    <option value="Bàn 1">Bàn số 1</option>
+                    <option value="Bàn 2">Bàn số 2</option>
+                    <option value="Bàn 3">Bàn số 3</option>
+                    <option value="Bàn 4">Bàn số 4</option>
+                    <option value="Bàn 5">Bàn số 5</option>
+                    <option value="Bàn 6">Bàn số 6</option>
+                    <option value="Quầy A">Quầy A</option>
+                    <option value="Quầy B">Quầy B</option>
+                </select>
+            </div>
+            <div class="modal-btns">
+                <button class="btn-modal btn-cancel" onclick="closeTransferModal()">Hủy</button>
+                <button class="btn-modal btn-confirm" style="background:#6366f1;" onclick="confirmTransfer()">XÁC NHẬN
+                    BÀN GIAO</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="history-panel"
+        style="margin: 0 20px 20px 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
         <h3 style="margin-top:0; color:#333; display:flex; justify-content:space-between; align-items:center;">
             📋 DANH SÁCH KHÁCH ĐÃ PHỤC VỤ HÔM NAY
-            <button onclick="loadHistory(1)" style="font-size:12px; padding:5px 10px; cursor:pointer;">🔄 Làm mới</button>
+            <button onclick="loadHistory(1)" style="font-size:12px; padding:5px 10px; cursor:pointer;">🔄 Làm
+                mới</button>
         </h3>
         <div style="overflow-x: auto;">
             <table style="width:100%; border-collapse: collapse; font-size:14px;">
                 <thead>
                     <tr style="background:#f8fafc; color:#555; text-align:left; border-bottom:2px solid #eee;">
                         <th style="padding:12px;">STT</th>
-                        <th style="padding:12px;">Chi nhánh</th> <th style="padding:12px;">Thời gian</th>
+                        <th style="padding:12px;">Chi nhánh</th>
+                        <th style="padding:12px;">Thời gian</th>
                         <th style="padding:12px;">Loại DV</th>
                         <th style="padding:12px;">Khách hàng</th>
                         <th style="padding:12px;">SĐT / Đơn hàng</th>
                         <th style="padding:12px;">KTV Phục vụ</th>
-                        <th style="padding:12px;">Tổng thời gian</th> <th style="padding:12px;">Đánh giá</th>
+                        <th style="padding:12px;">Tổng thời gian</th>
+                        <th style="padding:12px;">Đánh giá</th>
                     </tr>
                 </thead>
                 <tbody id="historyTableBody"></tbody>
@@ -263,7 +591,7 @@
     <div id="feedbackModal" class="modal-overlay">
         <div class="modal-box">
             <h3 style="margin: 0 0 15px 0; color: #1a73e8;">📋 Báo cáo công việc</h3>
-            
+
             <div class="form-group">
                 <label class="form-label">Mã số nhân viên (MSNV) <span style="color:red">*</span></label>
                 <input type="text" id="modalMsnv" class="form-input" placeholder="Nhập mã nhân viên...">
@@ -271,19 +599,28 @@
 
             <div class="form-group">
                 <label class="form-label">Tên KH / Mã ĐH</label>
-                <input type="text" id="modalCustomerInfo" class="form-input" readonly style="background: #f9fafb; color: #6b7280;">
+                <input type="text" id="modalCustomerInfo" class="form-input" readonly
+                    style="background: #f9fafb; color: #6b7280;">
             </div>
 
             <div class="form-group">
-                <label class="form-label">Bạn đã làm gì để khách hàng hài lòng? (Chọn ít nhất 1) <span style="color:red">*</span></label>
+                <label class="form-label">Bạn đã làm gì để khách hàng hài lòng? (Chọn ít nhất 1) <span
+                        style="color:red">*</span></label>
                 <div class="action-list">
-                    <label class="action-item"><input type="checkbox" name="workAction" value="Vệ sinh ngoại quan"><span>Vệ sinh ngoại quan</span></label>
-                    <label class="action-item"><input type="checkbox" name="workAction" value="Tư vấn Zalo OA"><span>Tư vấn Zalo OA</span></label>
-                    <label class="action-item"><input type="checkbox" name="workAction" value="Khiêng hàng cồng kềnh"><span>Khiêng hàng cồng kềnh</span></label>
-                    <label class="action-item"><input type="checkbox" name="workAction" value="Đóng hàng kỹ"><span>Đóng hàng kỹ</span></label>
-                    <label class="action-item"><input type="checkbox" name="workAction" value="Tư vấn cài đặt thêm"><span>Tư vấn cài đặt thêm</span></label>
-                    <label class="action-item"><input type="checkbox" name="workAction" value="Hướng dẫn sử dụng"><span>Hướng dẫn sử dụng</span></label>
-                    <label class="action-item"><input type="checkbox" name="workAction" value="Hỗ trợ Zalo OA"><span>Hỗ trợ qua Zalo OA</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction"
+                            value="Vệ sinh ngoại quan"><span>Vệ sinh ngoại quan</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Tư vấn Zalo OA"><span>Tư
+                            vấn Zalo OA</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction"
+                            value="Khiêng hàng cồng kềnh"><span>Khiêng hàng cồng kềnh</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Đóng hàng kỹ"><span>Đóng
+                            hàng kỹ</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction"
+                            value="Tư vấn cài đặt thêm"><span>Tư vấn cài đặt thêm</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction"
+                            value="Hướng dẫn sử dụng"><span>Hướng dẫn sử dụng</span></label>
+                    <label class="action-item"><input type="checkbox" name="workAction" value="Hỗ trợ Zalo OA"><span>Hỗ
+                            trợ qua Zalo OA</span></label>
                 </div>
             </div>
 
@@ -292,8 +629,10 @@
                 <input type="text" id="modalOtherAction" class="form-input" placeholder="Ghi chú thêm...">
             </div>
 
-            <div id="reclassifySection" class="form-group" style="display:none; background:#fff8e1; padding:10px; border:1px dashed #f59e0b; border-radius:8px;">
-                <label class="form-label" style="color:#d97706;">⚠️ Xác nhận loại dịch vụ thực tế: <span style="color:red">*</span></label>
+            <div id="reclassifySection" class="form-group"
+                style="display:none; background:#fff8e1; padding:10px; border:1px dashed #f59e0b; border-radius:8px;">
+                <label class="form-label" style="color:#d97706;">⚠️ Xác nhận loại dịch vụ thực tế: <span
+                        style="color:red">*</span></label>
                 <div style="display:flex; gap:10px;">
                     <label style="cursor:pointer; display:flex; align-items:center; gap:5px;">
                         <input type="radio" name="finalType" value="REPAIR"> 🛠 Sửa chữa
@@ -306,7 +645,8 @@
 
             <div class="modal-btns">
                 <button class="btn-modal btn-cancel" onclick="closeLogModal()">Hủy bỏ</button>
-                <button class="btn-modal btn-confirm" id="btnConfirmLog" onclick="submitWorkLog()">✅ Xác nhận & Hoàn thành</button>
+                <button class="btn-modal btn-confirm" id="btnConfirmLog" onclick="submitWorkLog()">✅ Xác nhận & Hoàn
+                    thành</button>
             </div>
         </div>
     </div>
@@ -314,47 +654,46 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-       // 1. Cấu hình Realtime
-       const supabaseUrl = '<%= supabaseUrl %>';
-       const supabaseKey = '<%= supabaseKey %>';
-       const client = supabase.createClient(supabaseUrl, supabaseKey);
-       const myBranch = '<%= branchCode %>'; 
+        // 1. Cấu hình Realtime
+        const supabaseUrl = '<%= supabaseUrl %>';
+        const supabaseKey = '<%= supabaseKey %>';
+        const client = supabase.createClient(supabaseUrl, supabaseKey);
+        const myBranch = '<%= branchCode %>';
 
-       console.log("Admin đang lắng nghe chi nhánh:", myBranch);
+        console.log("Admin đang lắng nghe chi nhánh:", myBranch);
 
-       // 2. Lắng nghe thay đổi
-       const channel = client
-           .channel('admin-realtime')
-           .on(
-               'postgres_changes',
-               { event: '*', schema: 'public', table: 'queue_tickets', filter: `branch_code=eq.${myBranch}` },
-               (payload) => {
-                   // Chỉ reload khi tab đang mở để tiết kiệm
-                   if (!document.hidden) {
-                       console.log("⚡ Data changed -> Reloading Admin...");
-                       // Reload nhẹ nhàng để cập nhật danh sách chờ
-                       window.location.href = window.location.pathname + '?t=' + new Date().getTime();
-                   }
-               }
-           )
-           .subscribe();
+        // 2. Lắng nghe thay đổi
+        const channel = client
+            .channel('admin-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'queue_tickets', filter: `branch_code=eq.${myBranch}` },
+                (payload) => {
+                    // Chỉ reload khi tab đang mở để tiết kiệm
+                    if (!document.hidden) {
+                        console.log("⚡ Data changed -> Reloading Admin...");
+                        // Reload nhẹ nhàng để cập nhật danh sách chờ
+                        window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                    }
+                }
+            )
+            .subscribe();
 
-       // --- CÁC HÀM XỬ LÝ LOGIC CŨ (GIỮ NGUYÊN) ---
-       
-       let currentCallType = ''; 
-       let currentLogServiceType = ''; 
-       let logTicketId = null; 
-       const logModal = document.getElementById('feedbackModal');
-       const msnvInput = document.getElementById('modalMsnv');
+        // --- CÁC HÀM XỬ LÝ LOGIC CŨ (GIỮ NGUYÊN) ---
 
-       document.addEventListener('DOMContentLoaded', () => {
-           const savedMsnv = localStorage.getItem('user_msnv');
-           if (savedMsnv && msnvInput) msnvInput.value = savedMsnv;
-       });
+        let currentLogServiceType = '';
+        let logTicketId = null;
+        const logModal = document.getElementById('feedbackModal');
+        const msnvInput = document.getElementById('modalMsnv');
 
-        window.openLogModal = function(ticketId, customerInfo, serviceType) {
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedMsnv = localStorage.getItem('user_msnv');
+            if (savedMsnv && msnvInput) msnvInput.value = savedMsnv;
+        });
+
+        window.openLogModal = function (ticketId, customerInfo, serviceType) {
             logTicketId = ticketId;
-            currentLogServiceType = serviceType; 
+            currentLogServiceType = serviceType;
             document.getElementById('modalCustomerInfo').value = customerInfo || 'N/A';
             document.querySelectorAll('input[name="workAction"]').forEach(cb => cb.checked = false);
             document.getElementById('modalOtherAction').value = '';
@@ -369,12 +708,12 @@
             logModal.classList.add('open');
         }
 
-        window.closeLogModal = function() {
+        window.closeLogModal = function () {
             logModal.classList.remove('open');
             logTicketId = null;
         }
 
-        window.submitWorkLog = async function() {
+        window.submitWorkLog = async function () {
             const msnv = msnvInput.value.trim();
             const otherAction = document.getElementById('modalOtherAction').value.trim();
             const customerInfo = document.getElementById('modalCustomerInfo').value;
@@ -399,7 +738,7 @@
 
             const btn = document.getElementById('btnConfirmLog');
             const oldText = btn.innerText;
-            btn.innerText = "⏳ Đang xử lý..."; 
+            btn.innerText = "⏳ Đang xử lý...";
             btn.disabled = true;
 
             try {
@@ -412,7 +751,7 @@
                         customer_info: customerInfo,
                         action_desc: actionDesc,
                         other_action: otherAction,
-                        new_service_type: newServiceType 
+                        new_service_type: newServiceType
                     })
                 });
 
@@ -420,32 +759,36 @@
                 if (data.ok) {
                     closeLogModal();
                     // Load lại lịch sử ngay (không cần reload trang)
-                    loadHistory(1); 
+                    loadHistory(1);
                     // Reload trang để cập nhật danh sách chờ (đã được xử lý bởi Realtime ở trên, nhưng gọi thêm để chắc chắn)
                     window.location.href = window.location.pathname + '?t=' + new Date().getTime();
                 } else {
                     alert("❌ Lỗi server: " + data.message);
                 }
-            } catch (e) { alert("❌ Lỗi kết nối mạng!"); } 
+            } catch (e) { alert("❌ Lỗi kết nối mạng!"); }
             finally { btn.innerText = oldText; btn.disabled = false; }
         }
 
-        function openCallModal(type) {
+        let currentCallType = null;
+        let currentCallTicketId = null;
+
+        function openCallModal(type, ticketId = null) {
             currentCallType = type;
+            currentCallTicketId = ticketId;
             document.getElementById('callModal').classList.add('open');
             const savedKtv = localStorage.getItem('last_ktv') || '';
             const savedCounter = localStorage.getItem('last_counter') || '';
             const ktvSelect = document.getElementById('ktvSelect');
             const ktvInput = document.getElementById('ktvInput');
-            
+
             let foundInList = false;
-            for(let i=0; i<ktvSelect.options.length; i++){
-                if(ktvSelect.options[i].value === savedKtv) {
-                    ktvSelect.selectedIndex = i; 
+            for (let i = 0; i < ktvSelect.options.length; i++) {
+                if (ktvSelect.options[i].value === savedKtv) {
+                    ktvSelect.selectedIndex = i;
                     foundInList = true; break;
                 }
             }
-            if(savedKtv && !foundInList) {
+            if (savedKtv && !foundInList) {
                 ktvSelect.value = 'other'; ktvInput.style.display = 'block'; ktvInput.value = savedKtv;
             } else if (foundInList) {
                 ktvInput.style.display = 'none';
@@ -455,12 +798,77 @@
             document.getElementById('counterSelect').value = savedCounter;
         }
 
-        function closeModal() { document.getElementById('callModal').classList.remove('open'); }
+        function closeModal() {
+            document.getElementById('callModal').classList.remove('open');
+            currentCallTicketId = null;
+        }
+
+        let transferTicketId = null;
+        function openTransferModal(ticketId) {
+            transferTicketId = ticketId;
+            document.getElementById('transferModal').classList.add('open');
+            const savedKtv = localStorage.getItem('last_ktv') || '';
+            const savedCounter = localStorage.getItem('last_counter') || '';
+            const ktvSelect = document.getElementById('transferKtvSelect');
+            const ktvInput = document.getElementById('transferKtvInput');
+
+            let foundInList = false;
+            for (let i = 0; i < ktvSelect.options.length; i++) {
+                if (ktvSelect.options[i].value === savedKtv) {
+                    ktvSelect.selectedIndex = i;
+                    foundInList = true; break;
+                }
+            }
+            if (savedKtv && !foundInList) {
+                ktvSelect.value = 'other'; ktvInput.style.display = 'block'; ktvInput.value = savedKtv;
+            } else if (foundInList) {
+                ktvInput.style.display = 'none';
+            } else {
+                ktvSelect.selectedIndex = 0; ktvInput.style.display = 'none';
+            }
+            document.getElementById('transferCounterSelect').value = savedCounter;
+        }
+
+        function closeTransferModal() {
+            document.getElementById('transferModal').classList.remove('open');
+            transferTicketId = null;
+        }
+
+        function checkTransferKtvOther(select) {
+            const input = document.getElementById('transferKtvInput');
+            input.style.display = (select.value === 'other') ? 'block' : 'none';
+            if (select.value === 'other') { input.focus(); input.value = ''; }
+        }
+
+        async function confirmTransfer() {
+            const ktvSelect = document.getElementById('transferKtvSelect');
+            const ktvInput = document.getElementById('transferKtvInput');
+            const counterSelect = document.getElementById('transferCounterSelect');
+            let ktvName = ktvSelect.value === 'other' ? ktvInput.value.trim() : ktvSelect.value;
+
+            if (!ktvName) { alert("Vui lòng chọn tên KTV!"); return; }
+            let counterVal = counterSelect.value;
+            let finalName = ktvName + (counterVal ? ` (${counterVal})` : '');
+
+            try {
+                const btn = document.querySelector('#transferModal .btn-confirm');
+                btn.innerText = "Đang chuyển..."; btn.disabled = true;
+                const res = await fetch('/api/queue/control', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'TRANSFER', ticket_id: transferTicketId, counter_name: finalName })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                }
+                else { alert(data.message); btn.innerText = "XÁC NHẬN BÀN GIAO"; btn.disabled = false; closeTransferModal(); }
+            } catch (e) { alert('Lỗi kết nối'); closeTransferModal(); }
+        }
 
         function checkKtvOther(select) {
             const input = document.getElementById('ktvInput');
             input.style.display = (select.value === 'other') ? 'block' : 'none';
-            if(select.value === 'other') { input.focus(); input.value = ''; }
+            if (select.value === 'other') { input.focus(); input.value = ''; }
         }
 
         async function confirmCall() {
@@ -468,8 +876,8 @@
             const ktvInput = document.getElementById('ktvInput');
             const counterSelect = document.getElementById('counterSelect');
             let ktvName = ktvSelect.value === 'other' ? ktvInput.value.trim() : ktvSelect.value;
-            
-            if(!ktvName) { alert("Vui lòng chọn tên KTV!"); return; }
+
+            if (!ktvName) { alert("Vui lòng chọn tên KTV!"); return; }
             let counterVal = counterSelect.value;
             let finalName = ktvName + (counterVal ? ` (${counterVal})` : '');
 
@@ -479,61 +887,57 @@
             try {
                 const btn = document.querySelector('.btn-confirm');
                 btn.innerText = "Đang gọi..."; btn.disabled = true;
+
+                const payload = { counter_name: finalName };
+                if (currentCallTicketId) {
+                    payload.action = 'CALL_SPECIFIC';
+                    payload.ticket_id = currentCallTicketId;
+                } else {
+                    payload.action = 'CALL_NEXT';
+                    payload.service_type = currentCallType;
+                }
+
                 const res = await fetch('/api/queue/control', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ action: 'CALL_NEXT', service_type: currentCallType, counter_name: finalName })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
-                if(data.ok) {
-                     window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                if (data.ok) {
+                    window.location.href = window.location.pathname + '?t=' + new Date().getTime();
                 }
                 else { alert(data.message); btn.innerText = "GỌI NGAY"; btn.disabled = false; closeModal(); }
-            } catch(e) { alert('Lỗi kết nối'); closeModal(); }
+            } catch (e) { alert('Lỗi kết nối'); closeModal(); }
         }
 
         async function control(action, id, type) {
-            if(action === 'COMPLETE' && !confirm('Xác nhận hoàn thành?')) return;
-            
+            if (action === 'COMPLETE' && !confirm('Xác nhận hoàn thành?')) return;
+
             try {
-                const res = await fetch('/api/queue/control', { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({action, ticket_id: id, service_type: type}) 
+                const res = await fetch('/api/queue/control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ticket_id: id, service_type: type })
                 });
-                
+
                 const data = await res.json();
-                
+
                 if (data.ok) {
                     if (action === 'COMPLETE') {
-                        loadHistory(1); 
+                        loadHistory(1);
                     }
                     window.location.href = window.location.pathname + '?t=' + new Date().getTime();
                 } else {
                     alert('Lỗi: ' + data.message);
                 }
-            } catch(e) { 
-                alert("Lỗi kết nối server!"); 
+            } catch (e) {
+                alert("Lỗi kết nối server!");
             }
         }
         async function updateProcess(id, step) {
-            await fetch('/api/queue/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'UPDATE_PROCESS', ticket_id: id, process_step: step}) });
+            await fetch('/api/queue/control', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'UPDATE_PROCESS', ticket_id: id, process_step: step }) });
             // Không cần reload ở đây, vì Realtime sẽ tự bắt sự kiện update và reload
         }
 
-        async function callSpecific(ticketId) {
-            const savedKtv = localStorage.getItem('last_ktv') || 'Quầy Kỹ Thuật';
-            if(!confirm(`Bạn muốn gọi vé này vào quầy ${savedKtv}?`)) return;
-
-            try {
-                const res = await fetch('/api/queue/control', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ action: 'CALL_SPECIFIC', ticket_id: ticketId, counter_name: savedKtv })
-                });
-                const data = await res.json();
-                if(data.ok) window.location.href = window.location.pathname + '?t=' + new Date().getTime();
-                else alert(data.message);
-            } catch(e) { alert('Lỗi kết nối'); }
-        }
 
         // --- History Logic ---
         let currentPage = 1;
@@ -541,12 +945,12 @@
             currentPage = page;
             const tbody = document.getElementById('historyTableBody');
             const pagDiv = document.getElementById('pagination');
-            if(tbody.innerHTML.trim() === '') tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
+            if (tbody.innerHTML.trim() === '') tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
 
             try {
                 const res = await fetch(`/api/queue/history?branch=<%= user.branch_code || '' %>&page=${page}`);
                 const json = await res.json();
-                if(!json.ok || !json.data || json.data.length === 0) {
+                if (!json.ok || !json.data || json.data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">📭 Chưa có khách nào hoàn thành hôm nay.</td></tr>';
                     pagDiv.innerHTML = '';
                     return;
@@ -554,16 +958,16 @@
                 tbody.innerHTML = json.data.map((item, index) => {
                     const stt = (page - 1) * 10 + index + 1;
                     const dateObj = new Date(item.updated_at);
-                    const timeStr = dateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
-                    
+                    const timeStr = dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
                     let typeInfo = '';
-                    if(item.service_type === 'REPAIR') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Sửa chữa</span>';
-                    else if(item.service_type === 'WARRANTY') typeInfo = '<span style="color:#d97706; font-weight:700;">Bảo hành</span>';
-                    else if(item.service_type === 'PICKUP') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Lấy máy</span>';
+                    if (item.service_type === 'REPAIR') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Sửa chữa</span>';
+                    else if (item.service_type === 'WARRANTY') typeInfo = '<span style="color:#d97706; font-weight:700;">Bảo hành</span>';
+                    else if (item.service_type === 'PICKUP') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Lấy máy</span>';
                     else typeInfo = '<span style="color:#0d9488; font-weight:700;">Lắp ráp</span>';
 
                     let feedbackHtml = '<span style="color:#ccc;">--</span>';
-                    if(item.service_feedback && item.service_feedback.length > 0) {
+                    if (item.service_feedback && item.service_feedback.length > 0) {
                         const fb = item.service_feedback[0];
                         const stars = '⭐'.repeat(fb.service_score || 5);
                         feedbackHtml = `<div>${stars}</div><div style="font-size:11px; color:#666;">${fb.comment || ''}</div>`;
@@ -592,9 +996,9 @@
                 }).join('');
                 const { totalPages } = json.pagination;
                 let pagHtml = '';
-                if(page > 1) pagHtml += `<button onclick="loadHistory(${page-1})" style="padding:5px 10px; cursor:pointer;">Pop trước</button>`;
+                if (page > 1) pagHtml += `<button onclick="loadHistory(${page - 1})" style="padding:5px 10px; cursor:pointer;">Pop trước</button>`;
                 pagHtml += `<span style="padding:0 10px; font-weight:bold; color:#555;">Trang ${page}/${totalPages}</span>`;
-                if(page < totalPages) pagHtml += `<button onclick="loadHistory(${page+1})" style="padding:5px 10px; cursor:pointer;">Tiếp theo</button>`;
+                if (page < totalPages) pagHtml += `<button onclick="loadHistory(${page + 1})" style="padding:5px 10px; cursor:pointer;">Tiếp theo</button>`;
                 pagDiv.innerHTML = pagHtml;
             } catch (e) {
                 console.error(e);
@@ -616,8 +1020,9 @@
         }
 
         // Init
-        loadHistory(); 
-        
+        loadHistory();
+
     </script>
 </body>
+
 </html>

@@ -275,18 +275,35 @@ const BRANCH_CONFIG = {
 };
 
 
+// --- CACHE BIẾN TOÀN CỤC ĐỂ GIẢM TẢI CPU ---
+let globalTickerCache = { value: null, lastFetched: 0 };
+const TICKER_CACHE_TTL = 5 * 60 * 1000; // 5 phút
+
+let branchEventCache = {}; // { 'BRANCH_CODE': { value: bool, lastFetched: 0 } }
+const BRANCH_EVENT_TTL = 1 * 60 * 1000; // 1 phút
+
+let lastSeenCache = {}; // { 'USER_ID': timestamp }
+const LAST_SEEN_THROTTLE = 5 * 60 * 1000; // 5 phút
+
 // ======================= MIDDLEWARE LẤY CÀI ĐẶT CHUNG & THÔNG BÁO (NÂNG CẤP) =======================
 app.use(async (req, res, next) => {
+  // 1. NGĂN CHẶN CHẠY MIDDLEWARE CHO CÁC FILE TĨNH VÀ API NGẦM ĐỂ TIẾT KIỆM CPU
+  const skipPaths = ['/api/', '/public/', '/favicon.ico', '/_next/', '/scripts/'];
+  const isExcluded = skipPaths.some(path => req.path.startsWith(path));
+
   res.locals.user = req.session?.user || null;
   res.locals.time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   res.locals.isBranchEventActive = false;
-  res.locals.globalTickerText = null;
+  res.locals.globalTickerText = globalTickerCache.value; // Dùng cache ngay lập tức
   res.locals.onlineUserCount = null;
   
   res.locals.notifications = []; 
   res.locals.unreadCount = 0;    
   res.locals.supabaseUrl = process.env.SUPABASE_URL;
   res.locals.supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+
+  if (isExcluded) return next();
+
   // LOGIC LẤY THÔNG BÁO MỚI
   if (res.locals.user) {
     const userEmail = res.locals.user.email;
@@ -348,8 +365,13 @@ app.use(async (req, res, next) => {
       } 
       
       // ... (Giữ nguyên các logic Last seen, Online count, Event status cũ ở dưới) ...
-      // --- B. CẬP NHẬT LAST SEEN ---
-      supabase.from('users').update({ last_seen: new Date().toISOString() }).eq('id', res.locals.user.id).then();
+      // --- B. CẬP NHẬT LAST SEEN (THROTTLE - CHỈ CẬP NHẬT MỖI 5 PHÚT) ---
+      const userId = res.locals.user.id;
+      const now = Date.now();
+      if (!lastSeenCache[userId] || (now - lastSeenCache[userId] > LAST_SEEN_THROTTLE)) {
+          lastSeenCache[userId] = now;
+          supabase.from('users').update({ last_seen: new Date().toISOString() }).eq('id', userId).then();
+      }
 
       // --- C. ĐẾM ONLINE USER ---
       if (res.locals.user.role === 'manager' || res.locals.user.role === 'admin') {
@@ -358,10 +380,17 @@ app.use(async (req, res, next) => {
         res.locals.onlineUserCount = count;
       }
 
-      // --- D. CHECK EVENT STATUS ---
+      // --- D. CHECK EVENT STATUS (CÓ CACHE) ---
       if (userBranch) {
-        const { data: evStatus } = await supabase.from('branch_event_status').select('is_event_active').eq('branch_code', userBranch).maybeSingle();
-        if (evStatus && evStatus.is_event_active) res.locals.isBranchEventActive = true;
+        const cache = branchEventCache[userBranch];
+        if (cache && (now - cache.lastFetched < BRANCH_EVENT_TTL)) {
+            res.locals.isBranchEventActive = cache.value;
+        } else {
+            const { data: evStatus } = await supabase.from('branch_event_status').select('is_event_active').eq('branch_code', userBranch).maybeSingle();
+            const isActive = !!(evStatus && evStatus.is_event_active);
+            res.locals.isBranchEventActive = isActive;
+            branchEventCache[userBranch] = { value: isActive, lastFetched: now };
+        }
       }
 
     } catch (e) {
@@ -369,11 +398,18 @@ app.use(async (req, res, next) => {
     }
   }
 
-  // ... (Logic Global Ticker giữ nguyên) ...
-  try {
-    const { data: ticker } = await supabase.from('site_settings').select('value').eq('id', 'ticker_text').single();
-    if (ticker) res.locals.globalTickerText = ticker.value;
-  } catch (e) {}
+  // --- E. LOGIC GLOBAL TICKER (CÓ CACHE) ---
+  const now = Date.now();
+  if (!globalTickerCache.value || (now - globalTickerCache.lastFetched > TICKER_CACHE_TTL)) {
+      try {
+        const { data: ticker } = await supabase.from('site_settings').select('value').eq('id', 'ticker_text').single();
+        if (ticker) {
+            globalTickerCache.value = ticker.value;
+            globalTickerCache.lastFetched = now;
+            res.locals.globalTickerText = ticker.value;
+        }
+      } catch (e) {}
+  }
 
   next();
 });
@@ -1429,6 +1465,43 @@ async function processResult(res, components, userBranch, userRole, REGIONAL_MAP
 }
 
 
+// ===== API CÀI ĐẶT BUILD PC TIERS =====
+const DEFAULT_BUILD_PC_TIERS = [
+  { min: 100000000, discount: 2000000, code: 'PVBPC26015' },
+  { min: 50000000,  discount: 1000000, code: 'PVBPC26014' },
+  { min: 30000000,  discount: 600000,  code: 'PVBPC26013' },
+  { min: 20000000,  discount: 400000,  code: 'PVBPC26012' },
+  { min: 10000000,  discount: 200000,  code: 'PVBPC26011' }
+];
+
+// GET - Lấy cấu hình tiers hiện tại
+app.get('/api/admin/build-pc-tiers', requireAuth, requireManager, async (req, res) => {
+    try {
+        const { data } = await supabase.from('site_settings').select('value').eq('id', 'build_pc_tiers').maybeSingle();
+        const tiers = (data && data.value) ? JSON.parse(data.value) : DEFAULT_BUILD_PC_TIERS;
+        res.json({ ok: true, tiers });
+    } catch (e) {
+        res.json({ ok: true, tiers: DEFAULT_BUILD_PC_TIERS });
+    }
+});
+
+// POST - Lưu cấu hình tiers mới
+app.post('/api/admin/build-pc-tiers', requireAuth, requireManager, async (req, res) => {
+    try {
+        const { tiers } = req.body;
+        if (!Array.isArray(tiers) || tiers.length === 0) {
+            return res.status(400).json({ ok: false, error: 'Dữ liệu không hợp lệ.' });
+        }
+        // Sắp xếp giảm dần theo min để luôn đúng thứ tự
+        const sorted = [...tiers].sort((a, b) => b.min - a.min);
+        await supabase.from('site_settings').upsert({ id: 'build_pc_tiers', value: JSON.stringify(sorted) }, { onConflict: 'id' });
+        res.json({ ok: true, message: 'Đã lưu cấu hình Build PC Tiers.' });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+// ===== KẾT THÚC: API CÀI ĐẶT BUILD PC TIERS =====
+
 // ===== BẮT ĐẦU: SỬA TOÀN BỘ API CHECK PROMOS (CÓ CẢNH BÁO) =====
 app.post('/api/pc-builder/check-promos', requireAuth, async (req, res) => {
   try {
@@ -1479,13 +1552,8 @@ app.post('/api/pc-builder/check-promos', requireAuth, async (req, res) => {
       'NH03-01-06-01'  // Thùng máy
     ];
     
-    const tiers = [
-      { min: 100000000, discount: 2000000, code: 'PVBPC26015' }, // Đưa 100tr lên đầu
-      { min: 50000000, discount: 1000000, code: 'PVBPC26014' },
-      { min: 30000000, discount: 600000,  code: 'PVBPC26013' },
-      { min: 20000000, discount: 400000,  code: 'PVBPC26012' },
-      { min: 10000000, discount: 200000,  code: 'PVBPC26011' }
-    ];
+    const tiers_raw = await supabase.from('site_settings').select('value').eq('id', 'build_pc_tiers').maybeSingle();
+    const tiers = (tiers_raw.data && tiers_raw.data.value) ? JSON.parse(tiers_raw.data.value) : DEFAULT_BUILD_PC_TIERS;
 
     // --- BƯỚC 2: KIỂM TRA CÁC ĐIỀU KIỆN ---
     let failReasons = []; // Mảng chứa các lý do thất bại
@@ -3167,6 +3235,59 @@ async function getAllClearanceItems(isSyncMode = false) {
     console.error(`[Google Sheets] Lỗi lấy danh sách: ${err.message}`);
     return [];
   }
+}
+
+// Hàm đồng bộ dữ liệu thanh lý từ Google Sheets sang Supabase
+async function syncClearanceData() {
+    try {
+        console.log('[SYNC CLEARANCE] Bắt đầu đồng bộ dữ liệu thanh lý...');
+        
+        // 1. Lấy dữ liệu mới nhất từ GSheet
+        const allItems = await getAllClearanceItems(true);
+        if (!allItems || allItems.length === 0) {
+            console.log('[SYNC CLEARANCE] Không có dữ liệu để đồng bộ. Bỏ qua.');
+            return;
+        }
+
+        console.log(`[SYNC CLEARANCE] Đã tải ${allItems.length} sản phẩm từ Sheet. Bắt đầu cập nhật Supabase...`);
+
+        // 2. Xóa toàn bộ dữ liệu cũ trong Supabase
+        // Lưu ý: requireAuth không cần thiết ở đây vì cron/job chạy server-side
+        const { error: deleteError } = await supabase
+            .from('clearance_items')
+            .delete()
+            .neq('sku', 'DUMMY_NEVER_MATCH'); // Hack nhỏ để xóa toàn bộ table
+
+        if (deleteError) {
+            console.error('[SYNC CLEARANCE] Lỗi khi xóa dữ liệu cũ:', deleteError);
+            throw deleteError;
+        }
+
+        console.log('[SYNC CLEARANCE] Đã xóa dữ liệu cũ.');
+
+        // 3. Insert dữ liệu mới theo batch (từng đợt) để tránh lỗi timeout/payload size
+        const batchSize = 500;
+        let insertedCount = 0;
+
+        for (let i = 0; i < allItems.length; i += batchSize) {
+            const batch = allItems.slice(i, i + batchSize);
+            
+            const { error: insertError } = await supabase
+                .from('clearance_items')
+                .insert(batch);
+
+            if (insertError) {
+                console.error(`[SYNC CLEARANCE] Lỗi khi thêm dữ liệu đợt ${i / batchSize + 1}:`, insertError);
+                throw insertError;
+            }
+            insertedCount += batch.length;
+            console.log(`[SYNC CLEARANCE] Tiến độ: Đã insert ${insertedCount}/${allItems.length} sản phẩm.`);
+        }
+
+        console.log('[SYNC CLEARANCE] Đồng bộ HOÀN TẤT thành công!');
+    } catch (error) {
+        console.error('[SYNC CLEARANCE] Đã xảy ra lỗi nghiêm trọng:', error);
+    }
 }
 
 
@@ -5621,139 +5742,138 @@ app.get('/api/quote/filter-options', requireAuth, async (req, res) => {
   }
 });
 
-// API MỚI: Đồng bộ SKUs từ BigQuery (ĐÃ SỬA LỖI PAGINATION LẦN CUỐI)
-// --- [UPDATED] API SYNC BQ (Có insert Notification) ---
-app.post('/api/admin/sync-bq-skus', requireAuth, requireManager, async (req, res) => {
-    // Kiểm tra biến bigquery global
-    if (!global.bigquery && !bigquery) {
-        return res.status(500).json({ ok: false, error: 'BigQuery client chưa được cấu hình.' });
-    }
-    // Fallback nếu biến global tên khác
+// --- [REFACTORED] HÀM CHẠY ĐỒNG BỘ SKU TỪ BIGQUERY ---
+async function runBqSkuSync(triggeredByEmail = 'System Automation') {
     const bqClient = global.bigquery || bigquery;
+    if (!bqClient) {
+        throw new Error('BigQuery client chưa được cấu hình.');
+    }
 
-    console.log('[SYNC] Bắt đầu đồng bộ SKUs từ BigQuery...');
+    console.log(`[SYNC] [By: ${triggeredByEmail}] Bắt đầu đồng bộ SKUs từ BigQuery...`);
+
+    // 1. Query BigQuery
+    const bqQuery = `
+        SELECT
+            TRIM(CAST(SKU AS STRING)) AS sku,
+            MAX(SKU_name) AS product_name,
+            MAX(Brand) AS brand,
+            MAX(Category_ID) AS category,
+            MAX(Subcat_ID_lowest_level) AS subcat
+        FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
+        WHERE SKU IS NOT NULL AND TRIM(CAST(SKU AS STRING)) != ''
+        GROUP BY 1
+    `;
+
+    const [bqRowsRaw] = await bqClient.query({
+        query: bqQuery,
+        location: 'asia-southeast1',
+    });
+
+    if (!bqRowsRaw || bqRowsRaw.length === 0) {
+        throw new Error('Không tìm thấy dữ liệu SKU nào từ BigQuery.');
+    }
+
+    const bqRows = bqRowsRaw.map(row => ({
+        sku: (row.sku || '').trim(),
+        product_name: (row.product_name || '').trim(),
+        brand: (row.brand || '').trim() || null,
+        category: (row.category || '').trim() || null,
+        subcat: (row.subcat || '').trim() || null
+    })).filter(row => row.sku);
+
+    // 2. Lấy SKUs hiện có (Pagination Logic)
+    const existingSkuSet = new Set();
+    const PAGE_SIZE = 1000;
+    let page = 0;
+    let keepFetching = true;
+
+    while (keepFetching) {
+        const { data: skuPage, error: supabaseError } = await supabase
+            .from('skus')
+            .select('sku')
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+        if (supabaseError) throw supabaseError;
+
+        if (!skuPage || skuPage.length === 0) {
+            keepFetching = false;
+        } else {
+            skuPage.forEach(s => {
+                if (s.sku) existingSkuSet.add(s.sku.trim());
+            });
+            if (skuPage.length < PAGE_SIZE) keepFetching = false;
+            page++;
+        }
+    }
+
+    // 3. Lọc SKU mới
+    const newSkuPayloads = bqRows.filter(bqRow => !existingSkuSet.has(bqRow.sku));
+    let totalInsertedCount = 0;
+
+    // 4. Insert nếu có mới
+    if (newSkuPayloads.length > 0) {
+        const BATCH_SIZE = 1000;
+        for (let i = 0; i < newSkuPayloads.length; i += BATCH_SIZE) {
+            const batch = newSkuPayloads.slice(i, i + BATCH_SIZE);
+            const finalBatch = batch.map(b => ({
+                sku: b.sku,
+                product_name: b.product_name || b.sku,
+                brand: b.brand,
+                category: b.category,
+                subcat: b.subcat
+            }));
+
+            const { error: insertError } = await supabase.from('skus').insert(finalBatch);
+            if (insertError) throw new Error(`Lỗi insert batch ${i}: ${insertError.message}`);
+            totalInsertedCount += batch.length;
+        }
+    }
+
+    const resultMessage = totalInsertedCount > 0 
+        ? `Đồng bộ hoàn tất. Đã thêm ${totalInsertedCount} SKU mới.` 
+        : `Đồng bộ hoàn tất. Không có SKU mới nào.`;
+
+    // 5. TẠO THÔNG BÁO (NOTIFICATION)
+    try {
+        await supabase.from('notifications').insert({
+            title: 'Kết quả đồng bộ BigQuery',
+            content: resultMessage,
+            type: 'update',
+            user_ref: triggeredByEmail,
+            is_read: false,
+            created_at: new Date()
+        });
+    } catch (notifErr) {
+        console.error('[SYNC] Không thể tạo notification:', notifErr.message);
+    }
+
+    return { message: resultMessage, new_skus: totalInsertedCount };
+}
+
+// API MỚI: Đồng bộ SKUs từ BigQuery (Manual Trigger)
+app.post('/api/admin/sync-bq-skus', requireAuth, requireManager, async (req, res) => {
+    try {
+        const result = await runBqSkuSync(req.session.user.email);
+        res.json({ ok: true, ...result });
+    } catch (e) {
+        console.error('[SYNC] Lỗi:', e.message);
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+// ROUTE CRON TỰ ĐỘNG: Chạy hằng ngày (Trigger bởi Vercel)
+app.get('/api/cron/sync-bq-skus', async (req, res) => {
+    // Bảo mật: Nếu có CRON_SECRET trong env thì kiểm tra
+    const authHeader = req.headers.authorization;
+    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     try {
-        // 1. Query BigQuery (Đã cập nhật: Subcat_ID_lowest_level)
-        const bqQuery = `
-            SELECT
-                TRIM(CAST(SKU AS STRING)) AS sku,
-                MAX(SKU_name) AS product_name,
-                MAX(Brand) AS brand,
-                MAX(Category_ID) AS category,
-                MAX(Subcat_ID_lowest_level) AS subcat
-            FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
-            WHERE SKU IS NOT NULL AND TRIM(CAST(SKU AS STRING)) != ''
-            GROUP BY 1
-        `;
-
-        const [bqRowsRaw] = await bqClient.query({
-            query: bqQuery,
-            location: 'asia-southeast1',
-        });
-
-        if (!bqRowsRaw || bqRowsRaw.length === 0) {
-            return res.status(404).json({ ok: false, error: 'Không tìm thấy dữ liệu SKU nào từ BigQuery.' });
-        }
-
-        const bqRows = bqRowsRaw.map(row => ({
-            sku: (row.sku || '').trim(),
-            product_name: (row.product_name || '').trim(),
-            brand: (row.brand || '').trim() || null,
-            category: (row.category || '').trim() || null,
-            subcat: (row.subcat || '').trim() || null
-        })).filter(row => row.sku);
-
-        console.log(`[SYNC] Lấy ${bqRows.length} SKU từ BigQuery.`);
-
-        // 2. Lấy SKUs hiện có (Pagination Logic - Chuẩn)
-        const existingSkuSet = new Set();
-        const PAGE_SIZE = 1000;
-        let page = 0;
-        let keepFetching = true;
-
-        while (keepFetching) {
-            const { data: skuPage, error: supabaseError } = await supabase
-                .from('skus')
-                .select('sku')
-                .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-            if (supabaseError) throw supabaseError;
-
-            if (!skuPage || skuPage.length === 0) {
-                keepFetching = false;
-            } else {
-                skuPage.forEach(s => {
-                    if (s.sku) existingSkuSet.add(s.sku.trim());
-                });
-                if (skuPage.length < PAGE_SIZE) keepFetching = false;
-                page++;
-            }
-        }
-        console.log(`[SYNC] Supabase hiện có ${existingSkuSet.size} SKU.`);
-
-        // 3. Lọc SKU mới
-        const newSkuPayloads = bqRows.filter(bqRow => !existingSkuSet.has(bqRow.sku));
-        let totalInsertedCount = 0;
-
-        // 4. Insert nếu có mới
-        if (newSkuPayloads.length > 0) {
-            console.log(`[SYNC] Chuẩn bị chèn ${newSkuPayloads.length} SKU mới...`);
-            const BATCH_SIZE = 1000;
-
-            for (let i = 0; i < newSkuPayloads.length; i += BATCH_SIZE) {
-                const batch = newSkuPayloads.slice(i, i + BATCH_SIZE);
-                // Map lại tên cột cho khớp DB nếu cần
-                const finalBatch = batch.map(b => ({
-                    sku: b.sku,
-                    product_name: b.product_name || b.sku, // Nếu ko có tên thì lấy SKU làm tên tạm
-                    brand: b.brand,
-                    category: b.category,
-                    subcat: b.subcat // Map 'subcat' từ BQ sang 'sub_category' trong DB (kiểm tra lại tên cột DB của bạn)
-                }));
-
-                const { error: insertError, count } = await supabase
-                    .from('skus')
-                    .insert(finalBatch); // select() để trả về data count nếu cần chính xác
-
-                if (insertError) throw new Error(`Lỗi insert batch ${i}: ${insertError.message}`);
-                
-                // Nếu insert thành công mà không trả về count (tùy config), ta cộng thủ công
-                totalInsertedCount += batch.length;
-            }
-        }
-
-        const resultMessage = totalInsertedCount > 0 
-            ? `Đồng bộ hoàn tất. Đã thêm ${totalInsertedCount} SKU mới.` 
-            : `Đồng bộ hoàn tất. Không có SKU mới nào.`;
-
-        console.log(`[SYNC] ${resultMessage}`);
-
-        // --- [NEW] 5. TẠO THÔNG BÁO (NOTIFICATION) ---
-        // Insert vào bảng notifications để hiện lên chuông
-        try {
-            await supabase.from('notifications').insert({
-                title: 'Kết quả đồng bộ BigQuery',
-                content: resultMessage,
-                type: 'update', // Loại thông báo (hiện màu xanh)
-                user_ref: req.session.user.email, // Gửi riêng cho người bấm nút
-                is_read: false,
-                created_at: new Date()
-            });
-        } catch (notifErr) {
-            console.error('[SYNC] Không thể tạo notification:', notifErr.message);
-            // Không throw lỗi ở đây để tránh làm fail cả request sync
-        }
-
-        // 6. Trả kết quả về cho Frontend alert()
-        res.json({ 
-            ok: true, 
-            message: resultMessage, 
-            new_skus: totalInsertedCount 
-        });
-
+        const result = await runBqSkuSync('Automation System');
+        res.json({ ok: true, source: 'cron', ...result });
     } catch (e) {
-        console.error('[SYNC] Lỗi Critical:', e.message);
+        console.error('[CRON SYNC] Fail:', e.message);
         res.status(500).json({ ok: false, error: e.message });
     }
 });
@@ -7071,18 +7191,31 @@ function calculateBonusMetrics(stats, target, isSalesPerson) {
 
 function calculateForecast(revenue, target, period) {
     const now = new Date();
-    const currentDay = now.getDate();
+    
+    // Variables for current Month
+    const currentDayMonth = now.getDate();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    
+    // Variables for current Year
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const msInDay = 1000 * 60 * 60 * 24;
+    const currentDayYear = Math.floor((now - startOfYear) / msInDay) + 1;
+    const daysInYear = (now.getFullYear() % 4 === 0 && (now.getFullYear() % 100 !== 0 || now.getFullYear() % 400 === 0)) ? 366 : 365;
     
     let revenueForecast = 0;
     let percentForecast = 0;
 
-    // Chỉ dự báo nếu đang xem "Tháng này" và chưa hết tháng
-    if (period === 'month' && currentDay < daysInMonth) {
-        // Công thức: (Rev / Ngày hiện tại) * Tổng ngày
-        revenueForecast = (revenue / currentDay) * daysInMonth;
-    } else {
-        revenueForecast = revenue; // Hết tháng hoặc xem quá khứ thì Forecast = Thực tế
+    // Dự đoán nếu dùng "Tháng này" (hay 'month') và chưa hết tháng
+    if (period === 'month' && currentDayMonth < daysInMonth) {
+        revenueForecast = (revenue / currentDayMonth) * daysInMonth;
+    } 
+    // Dự đoán nếu dùng "Năm nay" ('year') và năm chưa kết thúc
+    else if (period === 'year' && currentDayYear < daysInYear) {
+         revenueForecast = (revenue / currentDayYear) * daysInYear;
+    } 
+    // Nếu hết tháng, hết năm, coi năm trước hoặc các khoảng cụ thể khác (today, week, v.v)
+    else {
+        revenueForecast = revenue; // Forecast = Thực tế
     }
 
     if (target > 0) {
@@ -8025,6 +8158,19 @@ app.post('/api/queue/control', requireAuth, async (req, res) => {
             return res.json({ ok: true });
         }
 
+        if (action === 'TRANSFER') {
+            if (!ticket_id || !counter_name) return res.json({ ok: false, message: 'Thiếu thông tin bàn giao' });
+            
+            const { error } = await supabase.from('queue_tickets').update({
+                status: 'SERVING', 
+                counter_name: counter_name,
+                updated_at: new Date().toISOString()
+            }).eq('id', ticket_id);
+
+            if (error) throw error;
+            return res.json({ ok: true });
+        }
+
         if (action === 'CALL_SPECIFIC') {
         if (!ticket_id) return res.json({ ok: false, message: 'Thiếu ID vé' });
 
@@ -8203,25 +8349,37 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
         const prevStartStr = dPrevStart.toISOString().split('T')[0];
         const prevEndStr = dPrevEnd.toISOString().split('T')[0];
 
-        // 3. Hàm Query
+        // 3. Hàm Query (Đã sửa để lấy hết data > 1000 row)
         const queryData = async (s, e) => {
-            let query = supabase
-                .from('queue_tickets')
-                .select(`*, service_feedback(service_score, technician_score, comment)`)
-                .gte('created_at', s + 'T00:00:00')
-                .lte('created_at', e + 'T23:59:59')
-                .order('created_at', { ascending: false })
-                // [LƯU Ý] Lọc status để chỉ đếm khách đã xong hoặc bỏ qua tùy nhu cầu báo cáo
-                // Ở đây lấy tất cả để xem tổng quan
-                ;
+            let allData = [];
+            let from = 0;
+            const step = 1000;
 
-            if (targetBranch) query = query.eq('branch_code', targetBranch);
-            
-            if (keyword && keyword.trim() !== '') {
-                const k = keyword.trim();
-                query = query.or(`customer_phone.ilike.%${k}%,ticket_number.ilike.%${k}%,order_id.ilike.%${k}%`);
+            while (true) {
+                let query = supabase
+                    .from('queue_tickets')
+                    .select(`*, service_feedback(service_score, technician_score, comment)`)
+                    .gte('created_at', s + 'T00:00:00')
+                    .lte('created_at', e + 'T23:59:59')
+                    .order('created_at', { ascending: false })
+                    .range(from, from + step - 1);
+
+                if (targetBranch) query = query.eq('branch_code', targetBranch);
+                
+                if (keyword && keyword.trim() !== '') {
+                    const k = keyword.trim();
+                    query = query.or(`customer_phone.ilike.%${k}%,ticket_number.ilike.%${k}%,order_id.ilike.%${k}%`);
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+                if (!data || data.length === 0) break;
+                
+                allData = allData.concat(data);
+                if (data.length < step) break; // Hết data
+                from += step;
             }
-            return await query;
+            return { data: allData, error: null };
         };
 
         const [currRes, prevRes] = await Promise.all([
@@ -8424,6 +8582,31 @@ app.get('/api/queue/check-status/:id', async (req, res) => {
             .single();
         res.json(data);
     } catch (e) { res.status(500).json(null); }
+});
+
+// API Tra cứu phiếu theo số điện thoại
+app.post('/api/queue/lookup', async (req, res) => {
+    try {
+        const { branch_code, customer_phone } = req.body;
+        if (!customer_phone) return res.json({ ok: false, message: 'Vui lòng nhập số điện thoại' });
+
+        const { data, error } = await supabase
+            .from('queue_tickets')
+            .select('id, status')
+            .eq('branch_code', branch_code)
+            .eq('customer_phone', customer_phone)
+            .in('status', ['WAITING', 'SERVING'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) return res.json({ ok: false, message: 'Không tìm thấy phiếu nào đang hoạt động với số điện thoại này.' });
+
+        res.json({ ok: true, ticket_id: data.id });
+    } catch (e) {
+        res.status(500).json({ ok: false, message: e.message });
+    }
 });
 
 // [THÊM VÀO server.js] API lấy lịch sử phục vụ trong ngày (kèm đánh giá)
