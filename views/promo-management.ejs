@@ -307,7 +307,7 @@
 
             <div class="popover-row">
                 <label>Nhóm</label>
-                <select name="group" id="groupSelect" class="info-select">
+                <select name="group" id="groupSelect" class="info-select" onchange="updateVariantDropdown()">
                     <option value="">-- Nhóm --</option>
                     <% (groups || []).forEach(g=> { %>
                         <option value="<%= g %>" <%=selectedGroup===g ? 'selected' : '' %>><%= g %></option>
@@ -315,14 +315,41 @@
                 </select>
             </div>
             <div class="popover-row">
-                <label>Biến thể</label>
+                <label>Biến thể (CTKM)</label>
                 <select name="subgroup" id="subgroupSelect" class="info-select">
-                    <option value="">-- Biến thể --</option>
-                    <% (subgroups || []).forEach(sg=> { %>
+                    <option value="">-- Chọn CTKM --</option>
+                    <%
+                      const variantList = selectedGroup && (groupSubgroupMap || {})[selectedGroup]
+                        ? (groupSubgroupMap[selectedGroup])
+                        : Object.values(groupSubgroupMap || {}).flat().filter((v,i,a)=>a.indexOf(v)===i).sort();
+                      variantList.forEach(sg=> {
+                    %>
                         <option value="<%= sg %>" <%=selectedSubgroup===sg ? 'selected' : '' %>><%= sg %></option>
                     <% }) %>
                 </select>
             </div>
+            <!-- Embed group->subgroup mapping for dynamic filtering -->
+            <script id="groupSubgroupData" type="application/json"><%- JSON.stringify(groupSubgroupMap || {}) %></script>
+            <script>
+            function updateVariantDropdown() {
+                const group = document.getElementById('groupSelect').value;
+                const sel = document.getElementById('subgroupSelect');
+                const currentVal = '<%= selectedSubgroup || "" %>';
+                let map = {};
+                try { map = JSON.parse(document.getElementById('groupSubgroupData').textContent); } catch(e) {}
+                const variants = group ? (map[group] || []) : Object.values(map).flat().filter((v,i,a)=>a.indexOf(v)===i).sort();
+                sel.innerHTML = '<option value="">-- Chọn CTKM --</option>';
+                variants.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v;
+                    opt.textContent = v;
+                    if (v === currentVal) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+            }
+            // If a group is preselected on load, filter variants accordingly
+            document.addEventListener('DOMContentLoaded', () => updateVariantDropdown());
+            </script>
             <div style="text-align: right;">
                 <button type="submit" class="btn btn-primary">Áp dụng</button>
                 <a class="btn btn-secondary" href="/promo-management">Xóa lọc</a>
@@ -899,9 +926,9 @@
     });
 
     // 4. Xử lý trước khi Submit Form (Gom dữ liệu vào input hidden)
-    const form = document.querySelector('form');
-    if (form) {
-        form.addEventListener('submit', function(e) {
+    const createForm = document.getElementById('createPromoForm');
+    if (createForm) {
+        createForm.addEventListener('submit', function(e) {
             const checkbox = document.getElementById('trigger_tier_price');
             
             // Chỉ xử lý nếu checkbox được kích hoạt
@@ -943,7 +970,7 @@
                 // Nếu không kích hoạt, đảm bảo gửi lên null hoặc object rỗng để server biết đường xóa cũ
                 document.getElementById('detail_json_input').value = JSON.stringify({});
             }
-        });
+        }, true); // true = capture phase runs BEFORE the async handler at bubble phase
     }
 </script>
 

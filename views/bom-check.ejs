@@ -208,7 +208,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Hiển thị tên PCPV
-    let html = `<h3 style="margin-top:0;">SKU Thành phẩm: ${final.name || final.sku}</h3>`;
+    let productName = final.name && final.name !== final.sku ? final.name : 'N/A';
+    let html = `<h3 style="margin-top:0;">SKU Thành phẩm: ${final.sku} <span style="font-weight:normal; font-size:0.85em; color:#64748b;">- ${productName}</span></h3>`;
 
     // (Req 2) Bảng data để thấy list PCPV có thể ráp ở mỗi branch
     html += '<div class="table-scroll-wrapper">';
@@ -259,15 +260,16 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // HÀM RENDER KẾT QUẢ (Req 1: Tra cứu ngược)
   function renderComponentResults(data) {
-    const { component, results } = data;
+    const { component, componentName, results } = data;
 
     if (!results || results.length === 0) {
       resultsContainer.innerHTML = `<div class="dash-muted" style="text-align: center; padding: 20px;">Không tìm thấy PCPV nào sử dụng linh kiện: <strong>${component}</strong></div>`;
       return;
     }
 
-    let html = `<h3 style="margin-top:0;">Linh kiện: ${component}</h3>`;
-    html += `<p>${results.length} SKU Thành phẩm (PCPV) sau sử dụng linh kiện này:</p>`;
+    let html = `<h3 style="margin-top:0;">Linh kiện: ${component} <span style="font-weight:normal; font-size:0.85em; color:#64748b;">- ${componentName || 'N/A'}</span></h3>`;
+    html += `<p>${results.length} SKU Thành phẩm (PCPV) đang sử dụng linh kiện này:</p>`;
+
     
     html += '<table class="info-table"><tbody>';
     results.forEach(final => {

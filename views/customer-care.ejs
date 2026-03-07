@@ -254,6 +254,13 @@
 .btn-assign:active {
     transform: translateY(1px);
 }
+/* Star / Favorite */
+.star-btn { background:none; border:none; cursor:pointer; font-size:18px; line-height:1; padding:0 4px; color:#d1d5db; transition: color 0.15s, transform 0.15s; }
+.star-btn.active { color:#eab308; }
+.star-btn:hover { transform: scale(1.25); }
+/* MST group header row */
+.mst-group-row { background: #f0f9ff; border-left: 4px solid #38bdf8; }
+.mst-group-row td { font-size: 12px; color: #0369a1; font-weight: 700; padding: 6px 10px; }
 </style>
 
 <div class="container">
@@ -523,6 +530,11 @@
                 <option value="date_desc">📅 Mới nhất</option>
                 <option value="date_asc">📅 Cũ nhất</option>
             </select>
+
+            <select id="wlSaved" onchange="loadWorkList(1)" class="custom-select" style="border-left: 3px solid #eab308;">
+                <option value="all">DS Khách hàng</option>
+                <option value="saved">⭐ DS KH Đã lưu</option>
+            </select>
         </div>
 <div id="actionBar" class="action-bar">
     <span class="count-display">
@@ -740,23 +752,54 @@
 
 <script>
     // ==============================================================
+    // FAVORITE / STAR FUNCTIONS
+    // ==============================================================
+    let favoriteTaxCodes = new Set();
+
+    async function loadFavorites() {
+        try {
+            const r = await fetch('/api/cskh/favorites');
+            const j = await r.json();
+            if (j.ok) favoriteTaxCodes = new Set((j.data || []).map(f => f.tax_code));
+        } catch(e) { console.warn('Cannot load favorites', e); }
+    }
+    loadFavorites();
+
+    async function toggleFavorite(taxCode, custName, btn) {
+        const isActive = btn.classList.contains('active');
+        const action = isActive ? 'remove' : 'add';
+        try {
+            const r = await fetch('/api/cskh/favorite', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ tax_code: taxCode, customer_name: custName, action })
+            });
+            const j = await r.json();
+            if (j.ok) {
+                btn.classList.toggle('active', !isActive);
+                btn.textContent = !isActive ? '⭐' : '☆';
+                if (!isActive) favoriteTaxCodes.add(taxCode); else favoriteTaxCodes.delete(taxCode);
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    // ==============================================================
     // 1. LOGIC TÌM KIẾM (BLOCK 2)
     // ==============================================================
     let globalWorkListData = [];
-    let currentSearchPage = 1; 
+    let currentSearchPage = 1;
     let currentData = [];
 
-    // --- HÀM RENDER BẢNG TÌM KIẾM (ĐÃ KHỚP CỘT) ---
     function renderMainTable(data) {
+
         const tbody = document.querySelector('#resultTable tbody');
         
         // Lấy quyền user (để ẩn/hiện cột)
-        const isManager = "<%= user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD' %>" === 'true';
-        const isGlobalAdmin = "<%= typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin %>" === 'true';
+        const _isManager = "<%= user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD' %>" === 'true';
+        const _isGlobalAdmin = "<%= typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin %>" === 'true';
 
         if(!data || !data.length) {
-            // Tính tổng số cột để colspan cho đẹp (Cơ bản 6 cột + 3 cột điều kiện)
-            let totalCols = 6 + (isGlobalAdmin ? 1 : 0) + (isManager ? 1 : 0);
+            let totalCols = 7 + (_isGlobalAdmin ? 1 : 0) + (_isManager ? 1 : 0);
             tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding:20px; color:#64748b;">Không tìm thấy kết quả nào.</td></tr>`;
             return;
         }
@@ -766,6 +809,8 @@
         data.forEach((cust, index) => {
             const totalRev = new Intl.NumberFormat('vi-VN').format(cust.Total_Revenue);
             const rowId = `search-detail-${index}`;
+            const taxCode = cust.Tax_Code || '';
+            const isFav = taxCode && favoriteTaxCodes.has(taxCode);
             
             // Badge trạng thái
             let statusBadge = '';
@@ -773,44 +818,42 @@
             else if (cust.Care_Status === 'partial') statusBadge = '<span class="status-tag st-caring">Đang care</span>';
             else statusBadge = '<span class="status-tag st-uncared">Chưa care</span>';
 
-            // Dữ liệu cho nút Care (Lấy đơn mới nhất làm mốc)
+            // Tên người đầu tiên care (cho dòng MST)
+            let firstCarerName = '';
+            if (cust.Orders) {
+                const caredOrder = cust.Orders.find(o => o.carer_name);
+                if (caredOrder) firstCarerName = caredOrder.carer_name;
+            }
+
+            // Dữ liệu cho nút Care
             const latestOrder = (cust.Orders && cust.Orders.length > 0) ? cust.Orders[0] : {};
-            const modalData = {
-                Order_code: latestOrder.Order_code || '',
-                Customer_full_name: cust.Customer_Name
-            };
+            const modalData = { Order_code: latestOrder.Order_code || '', Customer_full_name: cust.Customer_Name };
 
-            // --- XỬ LÝ CÁC Ô (TD) THEO ĐÚNG THỨ TỰ THEAD ---
-            
-            // 1. Mũi tên
+            // Star button
+            const starBtn = taxCode
+                ? `<button class="star-btn ${isFav ? 'active' : ''}" title="${isFav ? 'Bỏ lưu' : 'Lưu KH'}" onclick="event.stopPropagation(); toggleFavorite('${taxCode}', '${(cust.Customer_Name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}', this)">${isFav ? '⭐' : '☆'}</button>`
+                : '';
+
+            // --- CÁC CỘT ---
             const tdArrow = `<td><span class="toggle-icon">▶</span></td>`;
-            
-            // 2. Ngày
             const tdDate = `<td>${cust.Max_Date ? (cust.Max_Date.value || cust.Max_Date) : '-'}</td>`;
-            
-            // 3. Branch (Nếu là Admin)
-            const tdBranch = isGlobalAdmin ? `<td><span class="badge badge-subgroup">${cust.Branch_Code || '-'}</span></td>` : '';
-            
-            // 4. Salesman (Nếu là Manager)
-            const tdSales = isManager ? `<td style="font-size:12px; color:#64748b;">${cust.Sales_Email || 'N/A'}</td>` : '';
+            const tdBranch = _isGlobalAdmin ? `<td><span class="badge badge-subgroup">${cust.Branch_Code || '-'}</span></td>` : '';
+            const tdSales = _isManager ? `<td style="font-size:12px; color:#64748b;">${cust.Sales_Email || 'N/A'}</td>` : '';
 
-            // 5. Khách hàng
             const tdCustomer = `
                 <td>
-                    <div style="font-weight:700; color:#1e293b; font-size:14px;">${cust.Customer_Name}</div>
-                    ${cust.Tax_Code ? `<div style="font-size:11px; color:#64748b;">MST: ${cust.Tax_Code}</div>` : ''}
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        ${starBtn}
+                        <div>
+                            <div style="font-weight:700; color:#1e293b; font-size:14px;">${cust.Customer_Name}</div>
+                            ${taxCode ? `<div style="font-size:11px; color:#64748b;">MST: ${taxCode}${firstCarerName ? ` &bull; 📌 Care bởi: <strong>${firstCarerName}</strong>` : ''}</div>` : ''}
+                        </div>
+                    </div>
                 </td>`;
 
-            // 6. Số đơn
             const tdCount = `<td style="font-weight:600; color:#2563eb; text-align:center;">${cust.Order_Count} đơn</td>`;
-
-            // 7. Tổng doanh thu
             const tdRevenue = `<td style="font-weight:700; color:#16a34a; text-align:right;">${totalRev} ₫</td>`;
-
-            // 8. Trạng thái
             const tdStatus = `<td>${statusBadge}</td>`;
-
-            // 9. Action (Care & Xem)
             const tdAction = `
                 <td>
                     <div style="display:flex; gap:5px;">
@@ -828,25 +871,15 @@
             // RENDER DÒNG CHA
             html += `
                 <tr class="parent-row" onclick="toggleDetail('${rowId}', this)">
-                    ${tdArrow}
-                    ${tdDate}
-                    ${tdBranch}
-                    ${tdSales}
-                    ${tdCustomer}
-                    ${tdCount}
-                    ${tdRevenue}
-                    ${tdStatus}
-                    ${tdAction}
+                    ${tdArrow}${tdDate}${tdBranch}${tdSales}${tdCustomer}${tdCount}${tdRevenue}${tdStatus}${tdAction}
                 </tr>
             `;
 
-            // --- TÍNH TOÁN COLSPAN CHO DÒNG CON ---
-            // Tổng số cột = 6 cột cứng + số cột điều kiện
-            let colSpanCount = 6; 
-            if (isGlobalAdmin) colSpanCount++;
-            if (isManager) colSpanCount++;
+            let colSpanCount = 7;
+            if (_isGlobalAdmin) colSpanCount++;
+            if (_isManager) colSpanCount++;
 
-            // RENDER DÒNG CON (CHI TIẾT ĐƠN HÀNG)
+            // RENDER DÒNG CON
             html += `<tr id="${rowId}" class="detail-row"><td colspan="${colSpanCount}" style="padding:0; border:none;">`;
             html += `<div class="detail-table-inner">
                         <table style="width:100%;">
@@ -854,7 +887,7 @@
                                 <tr>
                                     <th width="100">Ngày mua</th>
                                     <th width="150">Mã đơn</th>
-                                    <th width="60">CN</th>     
+                                    <th width="60">CN</th>
                                     <th width="120">NV Bán</th>
                                     <th>Sản phẩm chi tiết</th>
                                     <th width="120">Giá trị</th>
@@ -869,24 +902,17 @@
                 seenOrders.add(order.Order_code);
 
                 const orderRev = new Intl.NumberFormat('vi-VN').format(order.Revenue);
-                const orderStatus = order.status === 'Đã chăm sóc' 
-                    ? `<span style="color:#16a34a; font-weight:600; font-size:12px;">${order.result}</span>` 
+                const orderStatus = order.status === 'Đã chăm sóc'
+                    ? `<span style="color:#16a34a; font-weight:600; font-size:12px;">${order.result}${order.carer_name ? ` <em style="color:#64748b">(${order.carer_name})</em>` : ''}</span>`
                     : '<span style="color:#94a3b8; font-size:12px;">-</span>';
                 
-                    const productDisplay = `
-    <div style="font-size:13px; line-height:1.6;">
-        ${order.Product_Display_Html} 
-    </div>
-`;
+                const productDisplay = `<div style="font-size:13px; line-height:1.6;">${order.Product_Display_Html}</div>`;
 
                 html += `
                     <tr>
                         <td>${order.Report_date || '-'}</td>
                         <td><span class="badge badge-subgroup">${order.Branch_code || '-'}</span></td>
-        
-        <td style="font-size:11px; color:#64748b;">
-            ${order.Sales_Email ? order.Sales_Email.split('@')[0] : 'N/A'}
-        </td>
+                        <td style="font-size:11px; color:#64748b;">${order.Sales_Email ? order.Sales_Email.split('@')[0] : 'N/A'}</td>
                         <td style="color:#2563eb; font-weight:600;">${order.Order_code}</td>
                         <td>${productDisplay}</td>
                         <td style="font-weight:700;">${orderRev} ₫</td>
@@ -902,6 +928,7 @@
     }
     // ==============================================================
     // 2. LOGIC WORKLIST (BLOCK 3)
+
     // ==============================================================
     let currentPage = 1;
 
@@ -935,24 +962,31 @@
         container.style.opacity = '0.5';
 
         try {
-            // 2. Tạo URL với tham số showAssigned
-            const url = `/api/cskh/worklist?page=${page}&sort=${sort}&tax=${tax}&status=${status}&month=${month}&branch=${branch}&q=${encodeURIComponent(q)}&type=${type}&emp=${emp}&excludeGrab=${excludeGrab}&showAssigned=${showAssigned}`;
+        // 2. Tạo URL với tham số showAssigned
+            let url = `/api/cskh/worklist?page=${page}&sort=${sort}&tax=${tax}&status=${status}&month=${month}&branch=${branch}&q=${encodeURIComponent(q)}&type=${type}&emp=${emp}&excludeGrab=${excludeGrab}&showAssigned=${showAssigned}`;
+            const savedFilter = document.getElementById('wlSaved') ? document.getElementById('wlSaved').value : 'all';
             
             const res = await fetch(url);
             const json = await res.json();
 
             if (json.ok) {
-                if (json.data.length === 0 && page > 1) {
+                let displayData = json.data;
+                // Client-side filter: Nếu chọn "DS KH Đã lưu", chỉ hiện KH trong favorites
+                if (savedFilter === 'saved') {
+                    displayData = displayData.filter(c => c.Tax_Code && favoriteTaxCodes.has(c.Tax_Code));
+                }
+                if (displayData.length === 0 && page > 1) {
                     alert("Đã hết dữ liệu!");
                 } else {
                     currentPage = page;
                     document.getElementById('pageIndicator').innerText = `Trang ${currentPage}`;
-                    globalWorkListData = json.data;
-                    renderGroupedTable(json.data);
+                    globalWorkListData = displayData;
+                    renderGroupedTable(displayData);
                 }
             } else {
                 container.innerHTML = `<div class="no-data" style="color:red;">${json.error}</div>`;
             }
+
         } catch (e) {
             console.error(e);
         } finally {
@@ -1023,6 +1057,21 @@ const assignedBadge = cust.is_assigned_group
             const sortedOrders = (cust.Orders || []).sort((a, b) => new Date(b.Report_date) - new Date(a.Report_date));
             const latestOrder = sortedOrders.length > 0 ? sortedOrders[0] : {};
             
+            // Tên nhân viên đầu tiên care MST này
+            let firstCarerName = '';
+            if (cust.Orders) {
+                const caredOrder = cust.Orders.find(o => o.carer_name);
+                if (caredOrder) firstCarerName = caredOrder.carer_name;
+            }
+
+            // Star / Favorite button (lớn hơn, dễ thao tác)
+            const taxCode = cust.Tax_Code || '';
+            const isFav = taxCode && favoriteTaxCodes.has(taxCode);
+            const starBtn = taxCode
+                ? `<button class="star-btn ${isFav ? 'active' : ''}" title="${isFav ? 'Bỏ lưu' : 'Lưu KH'}" style="font-size:22px; padding:2px 6px;" onclick="event.stopPropagation(); toggleFavorite('${taxCode}', '${(cust.Customer_Name||'').replace(/'/g,"\\'")}', this)">${isFav ? '⭐' : '☆'}</button>`
+                : '';
+
+
             // Lấy mã Order Code đại diện để gán
             const repOrderCode = latestOrder.Order_code || '';
 
@@ -1044,10 +1093,17 @@ const assignedBadge = cust.is_assigned_group
                     </td>
                     <td><span class="toggle-icon">▶</span></td>
                     <td>
-                        <div style="font-weight:700; color:#1e293b; font-size:14px;">
-                            ${cust.Customer_Name} ${assignedBadge}
+                        <!-- Dòng 1: Tên KH | MST | ⭐ -->
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-weight:700; color:#1e293b; font-size:14px;">${cust.Customer_Name}</span>
+                            ${taxCode ? `<span style="font-size:11px; background:#e0f2fe; color:#0369a1; padding:2px 7px; border-radius:10px; font-weight:600;">${taxCode}</span>` : ''}
+                            ${assignedBadge}
+                            ${starBtn}
                         </div>
-                        ${cust.Tax_Code ? `<div style="font-size:11px; color:#64748b;">MST: ${cust.Tax_Code}</div>` : ''}
+                        <!-- Dòng 2: Care status -->
+                        ${firstCarerName ? `<div style="margin-top:3px; font-size:12px; color:${cust.Care_Status === 'done' ? '#16a34a' : '#d97706'}; font-weight:600;">
+                            ${cust.Care_Status === 'done' ? 'Đã được care bởi' : 'Đang được care bởi'} <strong>${firstCarerName}</strong>
+                        </div>` : ''}
                     </td>
                     <td style="font-weight:600; color:#2563eb; cursor:pointer; text-decoration:underline;" 
                         onclick="event.stopPropagation(); showOrderBreakdown(${index})">
