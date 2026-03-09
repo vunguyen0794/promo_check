@@ -1226,6 +1226,11 @@ app.get('/', requireAuth, async (req, res) => {
       });
     }
 
+    // KFI chỉ dành cho manager
+    if (userRole !== 'manager') {
+      filteredPromos = filteredPromos.filter(p => p.promo_type !== 'KFI');
+    }
+
     // 4. Sắp xếp & Phân trang
     filteredPromos.sort((a, b) => {
       // --- ƯU TIÊN 1: KFI LUÔN LÊN ĐẦU ---
@@ -1257,20 +1262,91 @@ app.get('/', requireAuth, async (req, res) => {
 
     const { data: randomSkus } = await supabase.from('skus').select('*').order('list_price', { ascending: false, nullsFirst: false }).limit(8);
 
+    // 5. Lấy dữ liệu Bảng tin & Bảng xếp hạng cho trang chủ
+    const { data: newsfeedPosts } = await supabase
+      .from('newsfeed_posts')
+      .select('*')
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(5);
+
+    const { data: periodsData } = await supabase
+      .from('newsfeed_ranking')
+      .select('display_period')
+      .neq('display_period', null);
+    const allPeriods = [...new Set((periodsData || []).map(p => p.display_period).filter(Boolean))];
+
+    // Ưu tiên chu kỳ tháng liền kề trước (vd: hiện tại 03/2026 => Tháng 02/2026)
+    const nowForRanking = new Date();
+    const prevMonthDate = new Date(nowForRanking.getFullYear(), nowForRanking.getMonth() - 1, 1);
+    const targetMonth = String(prevMonthDate.getMonth() + 1).padStart(2, '0');
+    const targetYear = String(prevMonthDate.getFullYear());
+    const targetPeriodLabel = `Tháng ${targetMonth}/${targetYear}`;
+
+    const normalizePeriod = (s) => String(s || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .replace(/[.\-]/g, '/')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const normalizedTarget = normalizePeriod(targetPeriodLabel);
+    const altTarget = normalizePeriod(`Tháng ${Number(targetMonth)}/${targetYear}`);
+
+    const matchedTargetPeriod = allPeriods.find((p) => {
+      const n = normalizePeriod(p);
+      return n === normalizedTarget || n === altTarget || n.includes(`${Number(targetMonth)}/${targetYear}`) || n.includes(`${targetMonth}/${targetYear}`);
+    }) || '';
+
+    let rankingTop1 = null;
+    let rankingOthers = [];
+    const rankingQuery = supabase
+      .from('newsfeed_ranking')
+      .select('*')
+      .order('rank_order', { ascending: true })
+      .limit(10);
+
+    let rankingData = [];
+    if (matchedTargetPeriod) {
+      const { data } = await rankingQuery.eq('display_period', matchedTargetPeriod);
+      rankingData = data || [];
+    } else {
+      const fallbackToken = `${Number(targetMonth)}/${targetYear}`;
+      const { data } = await rankingQuery.ilike('display_period', `%${fallbackToken}%`);
+      rankingData = data || [];
+    }
+
+    if (rankingData.length > 0) {
+      rankingTop1 = (rankingData || []).find(r => r.rank_order === 1) || null;
+      rankingOthers = (rankingData || []).filter(r => r.rank_order > 1);
+    }
+
     res.render('index', {
       title: 'Trang chủ', currentPage: 'home',
       featuredPromos: paginatedPromos,
       allGroups,
       selectedGroup,
-      searchQuery, // Truyền lại query để hiển thị trên ô input
+      searchQuery,
       page, totalPages,
+      totalItems,
       matrixRows, competitorCols,
       randomSkus: randomSkus || [],
       userRole: userRole,
+      newsfeedPosts: newsfeedPosts || [],
+      rankingTop1,
+      rankingOthers,
+      selectedPeriod: targetPeriodLabel,
     });
   } catch (e) {
     console.error('Lỗi trang chủ:', e);
-    res.render('index', { title: 'Trang chủ', currentPage: 'home', error: e.message });
+    res.render('index', { 
+      title: 'Trang chủ', currentPage: 'home', error: e.message,
+      featuredPromos: [], allGroups: [], selectedGroup: '', searchQuery: '',
+      page: 1, totalPages: 1, totalItems: 0, matrixRows: [], competitorCols: [],
+      randomSkus: [], userRole: 'branch', newsfeedPosts: [],
+      rankingTop1: null, rankingOthers: [], selectedPeriod: ''
+    });
   }
 });
 
@@ -1282,6 +1358,7 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
     const pageSize = 8;
     const today = new Date().toISOString().slice(0, 10);
+    const userRole = req.session.user?.role || '';
 
     const { data: allPromos } = await supabase
       .from('promotions')
@@ -1327,15 +1404,28 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
       });
     }
 
-    filteredPromos.sort((a, b) => b.__sort_value - a.__sort_value);
+    if (userRole !== 'manager') {
+      filteredPromos = filteredPromos.filter(p => p.promo_type !== 'KFI');
+    }
 
-    const totalPages = Math.ceil(filteredPromos.length / pageSize);
+    filteredPromos.sort((a, b) => {
+      const isKfiA = (a.promo_type === 'KFI');
+      const isKfiB = (b.promo_type === 'KFI');
+      if (isKfiA && !isKfiB) return -1;
+      if (!isKfiA && isKfiB) return 1;
+      return b.__sort_value - a.__sort_value;
+    });
+
+    const totalItems = filteredPromos.length;
+    const totalPages = Math.ceil(totalItems / pageSize);
     const paginatedPromos = filteredPromos.slice((page - 1) * pageSize, page * pageSize);
 
     res.render('partials/_featured-promos', {
       featuredPromos: paginatedPromos,
       page,
       totalPages,
+      totalItems,
+      userRole,
       selectedGroup // Không cần truyền searchQuery xuống partial
     });
   } catch (e) {
@@ -5297,22 +5387,32 @@ app.get('/newsfeed', requireAuth, async (req, res) => {
       .from('newsfeed_ranking')
       .select('display_period')
       .neq('display_period', null);
-    const allPeriods = [...new Set((periodsData || []).map(p => p.display_period))].sort((a, b) => b.localeCompare(a)); // Sắp xếp mới nhất
+    const allPeriods = [...new Set((periodsData || []).map(p => p.display_period).filter(Boolean))];
 
-    // Xác định chu kỳ hiện tại để lọc BXH (ưu tiên cái user chọn, nếu không thì lấy cái mới nhất)
-    // === LOGIC MỚI: Ưu tiên default về tháng hiện tại (NẾU CÓ) ===
+    // Mặc định chọn chu kỳ tháng liền kề trước (vd: hiện tại 03/2026 => Tháng 02/2026)
+    const nowForRanking = new Date();
+    const prevMonthDate = new Date(nowForRanking.getFullYear(), nowForRanking.getMonth() - 1, 1);
+    const targetMonth = String(prevMonthDate.getMonth() + 1).padStart(2, '0');
+    const targetYear = String(prevMonthDate.getFullYear());
+    const targetPeriodLabel = `Tháng ${targetMonth}/${targetYear}`;
 
-    // 1. Tạo chuỗi tháng hiện tại (ví dụ: "Tháng 11.2025")
-    const now = new Date();
-    const currentMonthString = `Tháng ${now.getMonth() + 1}.${now.getFullYear()}`;
+    const normalizePeriod = (s) => String(s || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .replace(/[.\-]/g, '/')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    const defaultPeriod = allPeriods.includes(currentMonthString)
-      ? currentMonthString   // Nếu có, dùng tháng hiện tại
-      : (allPeriods.length > 0 ? allPeriods[0] : ''); // Nếu không, dùng chu kỳ mới nhất
+    const normalizedTarget = normalizePeriod(targetPeriodLabel);
+    const altTarget = normalizePeriod(`Tháng ${Number(targetMonth)}/${targetYear}`);
 
+    const defaultPeriod = allPeriods.find((p) => {
+      const n = normalizePeriod(p);
+      return n === normalizedTarget || n === altTarget || n.includes(`${Number(targetMonth)}/${targetYear}`) || n.includes(`${targetMonth}/${targetYear}`);
+    }) || targetPeriodLabel;
 
     const currentPeriod = selectedPeriod || defaultPeriod;
-    // === KẾT THÚC THAY ĐỔI ===
 
     // === BƯỚC 3: TRUY VẤN BÀI ĐĂNG (ĐÃ LỌC) ===
 
@@ -9074,23 +9174,24 @@ app.post('/api/queue/log-and-complete', async (req, res) => {
         ]]
       }
     });
-    const updatePayload = {
-      status: 'COMPLETED',
-      process_status: 'DONE',
-      updated_at: new Date()
-    };
+    if (ticket_id && ticket_id !== 'null' && ticket_id !== 'undefined' && ticket_id !== '') {
+      const updatePayload = {
+        status: 'COMPLETED',
+        process_status: 'DONE',
+        updated_at: new Date()
+      };
 
-    // [MỚI] Nếu có loại dịch vụ mới (do KTV chọn lại), cập nhật luôn
-    if (new_service_type) {
-      updatePayload.service_type = new_service_type;
+      if (new_service_type) {
+        updatePayload.service_type = new_service_type;
+      }
+
+      const { error } = await supabase
+        .from('queue_tickets')
+        .update(updatePayload)
+        .eq('id', ticket_id);
+
+      if (error) throw error;
     }
-
-    const { error } = await supabase
-      .from('queue_tickets')
-      .update(updatePayload)
-      .eq('id', ticket_id);
-
-    if (error) throw error;
 
     res.json({ ok: true });
 

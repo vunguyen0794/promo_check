@@ -1,182 +1,1281 @@
 <%- include('partials/header', {title: 'Trang chủ', currentPage: 'home', time: time}) %>
 
-<div class="search-wrapper">
-  <form id="searchForm" action="/search-promotion" method="GET">
-    <div style="position: relative;">
-      <input id="skuSearch" name="query" class="custom-search-input" 
-             placeholder="🔍 Nhập SKU, Tên sản phẩm, hoặc từ khóa..." autocomplete="off">
-      
-      <button type="submit" class="search-icon-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      </button>
+<%
+const top2 = (rankingOthers || []).find(function(p) { return p.rank_order === 2; });
+const top3 = (rankingOthers || []).find(function(p) { return p.rank_order === 3; });
+const rankingTail = (rankingOthers || []).filter(function(p) { return p.rank_order > 3; }).slice(0, 7);
+
+let urgentFirstPageCount = 0;
+(featuredPromos || []).forEach(function(p) {
+    if (!p || !p.end_date) return;
+    const endDate = new Date(p.end_date);
+    endDate.setHours(23, 59, 59, 999);
+    const diffDays = Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diffDays >= 0 && diffDays <= 3) urgentFirstPageCount += 1;
+});
+
+const displayTotalItems = Number(totalItems) || 0;
+%>
+
+<div class="home-shell">
+    <div class="home-command search-wrapper">
+        <form id="searchForm" action="/search-promotion" method="GET" class="home-command__form">
+            <div class="home-command__field">
+                <input
+                    id="skuSearch"
+                    name="query"
+                    class="custom-search-input"
+                    placeholder="Nhập SKU, tên sản phẩm, hoặc từ khóa..."
+                    autocomplete="off"
+                >
+                <button type="submit" class="search-icon-btn" aria-label="Tìm kiếm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </button>
+            </div>
+            <div id="autocompleteResults"></div>
+        </form>
     </div>
-    <div id="autocompleteResults"></div>
-  </form>
+
+    <div class="home-layout">
+        <section class="home-panel home-panel--promos" id="featured-promos-container">
+            <div class="panel-head">
+                <div>
+                    <h2>CTKM Nổi Bật</h2>
+                    <p>Ưu tiên theo mức giảm giá và cảnh báo các chương trình sắp hết hạn.</p>
+                </div>
+                <div class="promo-quick-stats">
+                    <div class="quick-stat">
+                        <span class="quick-stat__label">Tổng CTKM</span>
+                        <span class="quick-stat__value" id="promo-total-count"><%= displayTotalItems %></span>
+                    </div>
+                    <div class="quick-stat">
+                        <span class="quick-stat__label">Sắp hết hạn</span>
+                        <span class="quick-stat__value quick-stat__value--alert" id="promo-urgent-count"><%= urgentFirstPageCount %></span>
+                    </div>
+                    <div class="quick-stat">
+                        <span class="quick-stat__label">Trang</span>
+                        <span class="quick-stat__value" id="promo-page-indicator"><%= page %>/<%= Math.max(totalPages, 1) %></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="promo-filters-bar">
+                <div class="promo-filter-col promo-filter-col--group">
+                    <select id="promoGroupSelect" class="info-select">
+                        <option value="">Tất cả nhóm</option>
+                        <% (allGroups || []).forEach(function(group) { %>
+                            <option value="<%= group %>" <%= selectedGroup === group ? 'selected' : '' %>><%= group %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div class="promo-filter-col promo-filter-col--search">
+                    <input
+                        type="text"
+                        id="promoSearchInput"
+                        class="search-input"
+                        placeholder="Tìm theo tên, mô tả, SKU áp dụng..."
+                        value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <label class="promo-filter-toggle" for="promoExpiringOnly">
+                    <input type="checkbox" id="promoExpiringOnly">
+                    <span>Chỉ sắp hết hạn (&lt;=3 ngày)</span>
+                </label>
+            </div>
+
+            <div class="promo-visible-note">Đang hiển thị: <strong id="promo-visible-count"><%= (featuredPromos || []).length %></strong> CTKM trong khung.</div>
+
+            <div id="promo-list-content" class="promo-list-content">
+                <div id="promo-list-viewport">
+                    <%- include('partials/_featured-promos', {
+                        featuredPromos,
+                        page,
+                        totalPages,
+                        totalItems: displayTotalItems,
+                        selectedGroup,
+                        userRole
+                    }) %>
+                </div>
+                <div id="loading-spinner" class="promo-loading-spinner" style="display:none;">Đang tải CTKM...</div>
+            </div>
+            <div class="promo-pagination">
+                <button type="button" class="promo-page-btn" id="promoPrevBtn">← Trước</button>
+                <span class="promo-page-text" id="promo-page-indicator-bottom">Trang <%= page %>/<%= Math.max(totalPages, 1) %></span>
+                <button type="button" class="promo-page-btn" id="promoNextBtn">Sau →</button>
+            </div>
+        </section>
+
+        <aside class="home-right-rail">
+            <section class="home-panel home-news">
+                <div class="panel-head panel-head--compact">
+                    <div>
+                        <h2>Bảng Tin</h2>
+                        <p>Tin nội bộ mới nhất.</p>
+                    </div>
+                    <a href="/newsfeed" class="panel-link">Xem tất cả</a>
+                </div>
+
+                <% if (newsfeedPosts && newsfeedPosts.length > 0) { %>
+                    <% const leadNews = newsfeedPosts[0]; %>
+                    <% const secondaryNews = newsfeedPosts.slice(1, 5); %>
+
+                    <a href="/newsfeed/post/<%= leadNews.id %>" class="news-lead-card">
+                        <div class="news-lead-card__thumb">
+                            <img src="<%= leadNews.cover_image_url || 'https://picsum.photos/800/500' %>" alt="<%= leadNews.title %>">
+                            <% if (leadNews.category) { %>
+                                <span class="news-pill"><%= leadNews.category %></span>
+                            <% } %>
+                        </div>
+                        <div class="news-lead-card__body">
+                            <h3><%= leadNews.title %></h3>
+                            <p><%= new Date(leadNews.published_at).toLocaleDateString('vi-VN') %></p>
+                        </div>
+                    </a>
+
+                    <div class="news-mini-list">
+                        <% secondaryNews.forEach(function(post) { %>
+                            <a href="/newsfeed/post/<%= post.id %>" class="news-mini-item">
+                                <img src="<%= post.cover_image_url || 'https://picsum.photos/140/90' %>" alt="<%= post.title %>">
+                                <div class="news-mini-item__meta">
+                                    <strong><%= post.title %></strong>
+                                    <span><%= new Date(post.published_at).toLocaleDateString('vi-VN') %></span>
+                                </div>
+                            </a>
+                        <% }) %>
+                    </div>
+                <% } else { %>
+                    <div class="panel-empty">Chưa có bài viết mới trong Bảng tin.</div>
+                <% } %>
+            </section>
+
+            <% if (rankingTop1 || (rankingOthers && rankingOthers.length > 0)) { %>
+                <section class="home-panel home-ranking">
+                    <div class="panel-head panel-head--compact">
+                        <div>
+                            <h2>BXH Vinh Danh</h2>
+                            <p>Chu kỳ: <%= selectedPeriod || 'N/A' %></p>
+                        </div>
+                        <a href="/newsfeed" class="panel-link">Xem BXH đầy đủ</a>
+                    </div>
+
+                    <div class="ranking-showcase">
+                        <% if (rankingTop1) { %>
+                            <article class="ranking-champion">
+                                <div class="ranking-champion__avatar-wrap">
+                                    <img src="<%= rankingTop1.avatar_image_url || 'https://picsum.photos/180/180' %>" alt="Top 1">
+                                    <span class="ranking-medal ranking-medal--gold">#1</span>
+                                </div>
+                                <h3><%= rankingTop1.full_name %></h3>
+                                <p><%= rankingTop1.store %></p>
+                                <div class="ranking-score">Đạt <%= Number(rankingTop1.sales_percentage || 0).toFixed(1) %>%</div>
+                            </article>
+                        <% } %>
+
+                        <div class="ranking-runners-up">
+                            <% if (top2) { %>
+                                <article class="runner-card runner-card--silver">
+                                    <div class="runner-card__head">
+                                        <img src="<%= top2.avatar_image_url || 'https://picsum.photos/120/120' %>" alt="Top 2">
+                                        <span>#2</span>
+                                    </div>
+                                    <strong><%= top2.full_name %></strong>
+                                    <small><%= top2.store %></small>
+                                    <div class="runner-card__score">Đạt <%= Number(top2.sales_percentage || 0).toFixed(1) %>%</div>
+                                </article>
+                            <% } %>
+                            <% if (top3) { %>
+                                <article class="runner-card runner-card--bronze">
+                                    <div class="runner-card__head">
+                                        <img src="<%= top3.avatar_image_url || 'https://picsum.photos/120/120' %>" alt="Top 3">
+                                        <span>#3</span>
+                                    </div>
+                                    <strong><%= top3.full_name %></strong>
+                                    <small><%= top3.store %></small>
+                                    <div class="runner-card__score">Đạt <%= Number(top3.sales_percentage || 0).toFixed(1) %>%</div>
+                                </article>
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <% if (rankingTail.length > 0) { %>
+                        <ol class="ranking-tail-list">
+                            <% rankingTail.forEach(function(person) { %>
+                                <li>
+                                    <span class="ranking-tail-list__rank">#<%= person.rank_order %></span>
+                                    <span class="ranking-tail-list__name"><%= person.full_name %></span>
+                                    <span class="ranking-tail-list__store"><%= person.store %> • <%= Number(person.sales_percentage || 0).toFixed(1) %>%</span>
+                                </li>
+                            <% }) %>
+                        </ol>
+                    <% } %>
+                </section>
+            <% } %>
+        </aside>
+    </div>
 </div>
 
+<style>
+:root {
+    --font-ui: 'Roboto', 'Be Vietnam Pro', sans-serif;
+    --bg-page: linear-gradient(120deg, #f3f8ff 0%, #eef6ff 35%, #fff7ec 100%);
+    --panel-bg: #ffffff;
+    --panel-border: #d4e3f5;
+    --ink-main: #0f2038;
+    --ink-muted: #52627a;
+    --brand-main: #0f4c8a;
+    --brand-soft: #e8f3ff;
+    --brand-accent: #d97706;
+    --alert-red: #b91c1c;
+    --success-green: #166534;
+    --shadow-soft: 0 16px 38px -26px rgba(15, 32, 56, 0.44);
+    --radius-xl: 22px;
+}
 
-<div class="dash-card">
-  <div class="dash-title">Danh sách sản phẩm</div>
-  <% if ((randomSkus||[]).length) { %>
-    <div class="c-product-grid">
-      <% randomSkus.forEach(function(s){ %>
-        <a class="product-card" href="/search-promotion?query=<%= s.sku %>">
-          <div class="product-sku">SKU: <strong><%= s.sku %></strong></div>
-          <div class="product-name"><%= s.product_name || '-' %></div>
-          <div class="product-meta">
-            <span class="brand"><%= s.brand || '-' %></span>
-            <span class="price"><%= (typeof s.list_price==='number') ? new Intl.NumberFormat('vi-VN').format(s.list_price) + ' ₫' : '-' %></span>
-          </div>
-        </a>
-      <% }) %>
-    </div>
-    <div style="margin-top:10px"><a class="btn-view-more" href="/products">Xem thêm</a></div>
-  <% } else { %>
-    <div class="dash-muted">Chưa có dữ liệu sản phẩm.</div>
-  <% } %>
-</div>
+.home-shell {
+    width: 100%;
+    max-width: 100%;
+    margin: 22px 0 34px;
+    font-family: var(--font-ui);
+    color: var(--ink-main);
+    background: var(--bg-page);
+    border: 1px solid #dce9f8;
+    border-radius: 28px;
+    padding: 16px;
+    box-shadow: 0 20px 40px -32px rgba(17, 47, 89, 0.55);
+    box-sizing: border-box;
+}
 
-<div class="dash-card" id="featured-promos-container">
-    <div class="dash-title">CTKM nổi bật</div>
-    
-    <div class="promo-filters-bar" style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
-        
-        <div style="flex: 0 0 auto; min-width: 200px;">
-            <select id="promoGroupSelect" class="info-select" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid #e5e7eb; padding: 0 12px; font-weight: 500;">
-                <option value="">📂 Tất cả nhóm</option>
-                <% (allGroups || []).forEach(function(group) { %>
-                    <option value="<%= group %>" <%= selectedGroup === group ? 'selected' : '' %>>
-                        <%= group %>
-                    </option>
-                <% }) %>
-            </select>
-        </div>
+.home-command {
+    margin-top: 2px;
+}
 
-        <div style="flex: 1; position: relative;">
-            <input type="text" id="promoSearchInput" 
-                   class="search-input" 
-                   placeholder="🔍 Tìm theo tên, mô tả, SKU áp dụng..." 
-                   value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>"
-                   autocomplete="off"
-                   style="width: 100%; height: 42px; padding: 8px 14px; border-radius: 8px; border: 1px solid #e5e7eb;">
-        </div>
-    </div>
-    
-    <div id="promo-list-content">
-        <%- include('partials/_featured-promos', { featuredPromos, page, totalPages, selectedGroup }) %>
-    </div>
-</div>
+.home-command__form {
+    margin: 0;
+}
+
+.home-command__field {
+    position: relative;
+}
+
+.home-command .custom-search-input {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 500;
+    height: 50px;
+    border-radius: 14px;
+    border: 1px solid #cfe0f3;
+    padding: 0 50px 0 16px;
+    background: linear-gradient(180deg, #ffffff, #f7fbff);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.home-command .custom-search-input:focus {
+    outline: none;
+    border-color: #7baee8;
+    box-shadow: 0 0 0 3px rgba(123, 174, 232, 0.2);
+}
+
+.home-command .search-icon-btn {
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    border: 1px solid #d6e5f6;
+    color: #19467d;
+    background: #ffffff;
+}
+
+.home-command .search-icon-btn:hover {
+    background: #edf5ff;
+}
+
+.home-layout {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.home-right-rail {
+    display: grid;
+    gap: 16px;
+}
+
+.home-panel {
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-xl);
+    background: var(--panel-bg);
+    box-shadow: var(--shadow-soft);
+    padding: 18px 18px 16px;
+    animation: panel-rise 0.5s ease-out both;
+    position: relative;
+    overflow: hidden;
+}
+
+.home-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 100% 0, rgba(15, 76, 138, 0.08), transparent 42%),
+        radial-gradient(circle at 0 100%, rgba(217, 119, 6, 0.07), transparent 40%);
+}
+
+.home-panel--promos {
+    animation-delay: 0.05s;
+    background: linear-gradient(180deg, #ffffff 0%, #f6faff 100%);
+}
+
+.home-news {
+    animation-delay: 0.1s;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.home-ranking {
+    animation-delay: 0.15s;
+    background: linear-gradient(180deg, #ffffff 0%, #fffbf4 100%);
+}
+
+@keyframes panel-rise {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.panel-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+}
+
+.panel-head h2 {
+    margin: 0;
+    font-size: 25px;
+    letter-spacing: 0.01em;
+    font-family: var(--font-ui);
+    font-weight: 800;
+}
+
+.panel-head p {
+    margin: 6px 0 0;
+    color: var(--ink-muted);
+    font-size: 14px;
+}
+
+.panel-head--compact h2 {
+    font-size: 22px;
+}
+
+.panel-link {
+    text-decoration: none;
+    font-weight: 700;
+    color: #0f4c8a;
+    font-size: 12px;
+    border: 1px solid #cde0f5;
+    border-radius: 999px;
+    padding: 6px 12px;
+    background: #f4f9ff;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.panel-link:hover {
+    color: #0b3d6f;
+    border-color: #a9c8ec;
+    background: #e8f3ff;
+}
+
+.promo-quick-stats {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.quick-stat {
+    min-width: 98px;
+    border: 1px solid #d2e3f6;
+    border-radius: 12px;
+    padding: 8px 11px;
+    background: linear-gradient(180deg, #ffffff, #eef6ff);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.quick-stat__label {
+    font-size: 11px;
+    color: #5b6e87;
+}
+
+.quick-stat__value {
+    font-size: 17px;
+    font-weight: 800;
+    font-family: var(--font-ui);
+}
+
+.quick-stat__value--alert {
+    color: var(--alert-red);
+}
+
+.promo-filters-bar {
+    display: grid;
+    grid-template-columns: minmax(190px, 240px) minmax(0, 1fr) auto;
+    gap: 10px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.promo-filter-col .info-select,
+.promo-filter-col .search-input {
+    width: 100%;
+    height: 44px;
+    border: 1px solid #d0e0f3;
+    border-radius: 12px;
+    padding: 0 12px;
+    font-size: 14px;
+    font-family: var(--font-ui);
+    background: #ffffff;
+}
+
+.promo-filter-col .search-input:focus,
+.promo-filter-col .info-select:focus {
+    outline: none;
+    border-color: #7caee5;
+    box-shadow: 0 0 0 3px rgba(124, 174, 229, 0.2);
+}
+
+.promo-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #d0e0f3;
+    border-radius: 999px;
+    padding: 10px 12px;
+    background: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #25486e;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.promo-filter-toggle input {
+    accent-color: var(--brand-main);
+}
+
+.promo-filter-toggle:hover {
+    background: #edf5ff;
+    border-color: #a9c8ec;
+}
+
+.promo-visible-note {
+    color: #4a607c;
+    font-size: 13px;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.promo-list-content {
+    max-height: 690px;
+    overflow-y: auto;
+    border: 1px solid #d7e7f8;
+    border-radius: 16px;
+    padding: 14px;
+    background: linear-gradient(180deg, #fafdff, #f1f7ff);
+    scroll-behavior: smooth;
+}
+
+.promo-list-content.is-loading {
+    opacity: 0.62;
+}
+
+#promo-list-content .promo-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+#promo-list-content .promo-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-radius: 17px;
+    border: 1px solid #d6e4f4;
+    padding: 14px;
+    text-decoration: none;
+    background: #ffffff;
+    color: inherit;
+    min-height: 180px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+#promo-list-content .promo-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 5px;
+    height: 100%;
+    background: #8bb8ea;
+    opacity: 0.75;
+}
+
+#promo-list-content .promo-item:hover {
+    transform: translateY(-4px);
+    border-color: #88b5e3;
+    box-shadow: 0 20px 24px -22px rgba(15, 23, 42, 0.58);
+}
+
+#promo-list-content .promo-item--urgent {
+    border-color: #fdba74;
+    background: linear-gradient(180deg, #fff7ed, #ffffff);
+}
+
+#promo-list-content .promo-item--urgent::before {
+    background: #f59e0b;
+}
+
+#promo-list-content .promo-item--expired {
+    border-color: #fecaca;
+    background: linear-gradient(180deg, #fff7f7, #ffffff);
+}
+
+#promo-list-content .promo-item--expired::before {
+    background: #ef4444;
+}
+
+.promo-item__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.promo-chip-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.promo-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.promo-chip--group {
+    background: #e1efff;
+    color: #134f8f;
+}
+
+.promo-chip--type {
+    background: #eff4fa;
+    color: #3f5269;
+}
+
+.promo-chip--kfi {
+    background: #dc2626;
+    color: #fff;
+}
+
+.promo-name {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.45;
+    font-weight: 800;
+    font-family: var(--font-ui);
+    color: #0f172a;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.promo-meta {
+    margin-top: auto;
+    color: #334155;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.promo-meta-text {
+    color: #475569;
+}
+
+.promo-price-prefix {
+    color: #0f4c8a;
+    margin-right: 4px;
+    font-weight: 700;
+}
+
+.promo-price-value {
+    color: #b45309;
+    font-size: 16px;
+}
+
+.promo-expiry-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.promo-expiry-badge--safe {
+    background: #dcfce7;
+    color: var(--success-green);
+}
+
+.promo-expiry-badge--urgent {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.promo-expiry-badge--expired {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.promo-item__foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #5f728a;
+    border-top: 1px dashed #c9d9ed;
+    padding-top: 8px;
+}
+
+.promo-link-label {
+    font-weight: 700;
+    color: var(--brand-main);
+}
+
+.promo-days-left {
+    white-space: nowrap;
+}
+
+.promo-empty-state {
+    border: 1px dashed #bfd3ea;
+    border-radius: 16px;
+    padding: 22px;
+    text-align: center;
+    color: #475a70;
+    background: #f4f8fd;
+}
+
+.promo-empty-state__title {
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.promo-empty-state__desc {
+    color: #60748d;
+    font-size: 13px;
+}
+
+.promo-loading-spinner {
+    text-align: center;
+    font-size: 13px;
+    color: #4e6380;
+    padding: 14px 6px 2px;
+    font-weight: 700;
+}
+
+.promo-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.promo-page-btn {
+    border: 1px solid #b8cde6;
+    background: #ffffff;
+    color: #204b74;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.promo-page-btn:hover:not(:disabled) {
+    background: #eaf4ff;
+    border-color: #8cb4df;
+}
+
+.promo-page-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.promo-page-text {
+    font-size: 13px;
+    color: #4a607c;
+    font-weight: 600;
+}
+
+.news-lead-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 18px;
+    border: 1px solid #d5e4f6;
+    overflow: hidden;
+    background: #fff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 14px 24px -24px rgba(19, 52, 97, 0.55);
+}
+
+.news-lead-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 24px -20px rgba(19, 52, 97, 0.65);
+}
+
+.news-lead-card__thumb {
+    position: relative;
+    height: 205px;
+}
+
+.news-lead-card__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.news-pill {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    border-radius: 999px;
+    padding: 4px 10px;
+    background: rgba(15, 76, 138, 0.9);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.news-lead-card__body {
+    padding: 13px;
+    background: linear-gradient(180deg, #ffffff, #f7fbff);
+}
+
+.news-lead-card__body h3 {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.4;
+    font-weight: 700;
+}
+
+.news-lead-card__body p {
+    margin: 8px 0 0;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.news-mini-list {
+    margin-top: 12px;
+    display: grid;
+    gap: 10px;
+}
+
+.news-mini-item {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid #d8e5f5;
+    border-radius: 12px;
+    padding: 8px;
+    background: #ffffff;
+    transition: all 0.2s ease;
+}
+
+.news-mini-item:hover {
+    border-color: #97bdea;
+    background: #f2f7ff;
+    transform: translateY(-1px);
+}
+
+.news-mini-item img {
+    width: 96px;
+    height: 68px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.news-mini-item__meta {
+    min-width: 0;
+}
+
+.news-mini-item__meta strong {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.news-mini-item__meta span {
+    display: block;
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.ranking-showcase {
+    display: grid;
+    gap: 12px;
+}
+
+.ranking-champion {
+    border: 1px solid #f4cd85;
+    border-radius: 18px;
+    padding: 15px;
+    text-align: center;
+    background: linear-gradient(180deg, #fff8ea 0%, #fffef9 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.ranking-champion__avatar-wrap {
+    position: relative;
+    width: 124px;
+    height: 124px;
+    margin: 0 auto 10px;
+}
+
+.ranking-champion__avatar-wrap img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #f6d27a;
+}
+
+.ranking-medal {
+    position: absolute;
+    right: -4px;
+    bottom: 2px;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.ranking-medal--gold {
+    background: #a16207;
+}
+
+.ranking-champion h3 {
+    margin: 0;
+    font-size: 19px;
+    letter-spacing: 0.01em;
+}
+
+.ranking-champion p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.ranking-score {
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #9a3412;
+    background: #fff1d6;
+    border: 1px solid #f7d7a1;
+    border-radius: 999px;
+    display: inline-flex;
+    padding: 4px 10px;
+}
+
+.ranking-runners-up {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.runner-card {
+    border-radius: 15px;
+    border: 1px solid #d6e4f5;
+    padding: 11px 10px;
+    background: #fff;
+    text-align: center;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.runner-card__head {
+    position: relative;
+    width: 74px;
+    height: 74px;
+    margin: 0 auto 8px;
+}
+
+.runner-card__head img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.runner-card__head span {
+    position: absolute;
+    left: 50%;
+    bottom: -7px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    padding: 2px 8px;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.runner-card--silver .runner-card__head img {
+    border: 3px solid #94a3b8;
+}
+
+.runner-card--silver .runner-card__head span {
+    background: #64748b;
+}
+
+.runner-card--bronze .runner-card__head img {
+    border: 3px solid #cd7f32;
+}
+
+.runner-card--bronze .runner-card__head span {
+    background: #9a3412;
+}
+
+.runner-card strong {
+    display: block;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.runner-card small {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.runner-card__score {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #9a3412;
+}
+
+.ranking-tail-list {
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 6px;
+}
+
+.ranking-tail-list li {
+    display: grid;
+    grid-template-columns: 50px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #d9e5f5;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: #f7fbff;
+}
+
+.ranking-tail-list__rank {
+    font-weight: 800;
+    color: #334155;
+}
+
+.ranking-tail-list__name {
+    font-size: 13px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ranking-tail-list__store {
+    font-size: 11px;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.panel-empty {
+    border: 1px dashed #bfd3ea;
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    color: #5f738d;
+    background: #f5f9ff;
+}
+
+@media (max-width: 1220px) {
+    .home-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .home-shell {
+        width: 100%;
+        max-width: 100%;
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 22px;
+    }
+
+    .panel-head {
+        flex-direction: column;
+    }
+
+    .promo-filters-bar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .promo-filter-toggle {
+        width: fit-content;
+    }
+
+    .home-right-rail {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .home-ranking {
+        order: 1;
+    }
+
+    .home-news {
+        order: 2;
+    }
+}
+
+@media (max-width: 680px) {
+    #promo-list-content .promo-list {
+        grid-template-columns: 1fr;
+    }
+
+    .promo-list-content {
+        max-height: 560px;
+        padding: 10px;
+    }
+
+    .ranking-runners-up {
+        grid-template-columns: 1fr;
+    }
+
+    .news-mini-item {
+        grid-template-columns: 80px minmax(0, 1fr);
+    }
+
+    .news-mini-item img {
+        width: 80px;
+        height: 58px;
+    }
+}
+</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const container = document.getElementById('featured-promos-container');
     const contentTarget = document.getElementById('promo-list-content');
+    if (!contentTarget) return;
+
+    const listViewport = document.getElementById('promo-list-viewport');
     const groupSelect = document.getElementById('promoGroupSelect');
     const searchInput = document.getElementById('promoSearchInput');
-    
+    const expiringToggle = document.getElementById('promoExpiringOnly');
+    const spinner = document.getElementById('loading-spinner');
+    const prevBtn = document.getElementById('promoPrevBtn');
+    const nextBtn = document.getElementById('promoNextBtn');
+
+    const visibleCountEl = document.getElementById('promo-visible-count');
+    const totalCountEl = document.getElementById('promo-total-count');
+    const urgentCountEl = document.getElementById('promo-urgent-count');
+    const pageIndicatorEl = document.getElementById('promo-page-indicator');
+    const pageIndicatorBottomEl = document.getElementById('promo-page-indicator-bottom');
+
     let debounceTimer;
-    
-    // Hàm gọi API chung
-    async function fetchPromos(pageToLoad = 1, isAppend = false) {
-        // Lấy giá trị hiện tại của cả 2 input
-        const group = groupSelect.value;
-        const q = searchInput.value.trim();
-        
-        // Tạo URL query
-        const params = new URLSearchParams();
-        if (group) params.append('group', group);
-        if (q) params.append('q', q);
-        params.append('page', pageToLoad);
-        
-        const queryString = params.toString();
-        const url = '/?' + queryString;
-        const apiUrl = '/api/featured-promos?' + queryString;
+    let currentPage = Number(<%= page %>) || 1;
+    let totalPages = Number(<%= totalPages %>) || 1;
+    let totalItems = Number(<%= displayTotalItems %>) || 0;
+    let isLoading = false;
 
-        try {
-            if (!isAppend) {
-                contentTarget.style.opacity = '0.5';
-            }
-            
-            // Cập nhật URL trình duyệt (để reload không mất filter)
-            window.history.replaceState(null, '', url);
+    function updateHeaderCounters() {
+        const cards = Array.from(listViewport.querySelectorAll('.promo-item'));
+        const visibleCards = cards.filter(function(card) { return card.style.display !== 'none'; });
+        const urgentCards = visibleCards.filter(function(card) { return card.dataset.expiryLevel === 'urgent'; });
+        const pageText = `${Math.min(currentPage, totalPages)}/${Math.max(totalPages, 1)}`;
 
-            const response = await fetch(apiUrl);
-            const html = await response.text();
+        if (visibleCountEl) visibleCountEl.textContent = String(visibleCards.length);
+        if (totalCountEl) totalCountEl.textContent = String(totalItems);
+        if (urgentCountEl) urgentCountEl.textContent = String(urgentCards.length);
+        if (pageIndicatorEl) pageIndicatorEl.textContent = pageText;
+        if (pageIndicatorBottomEl) pageIndicatorBottomEl.textContent = `Trang ${pageText}`;
 
-            if (isAppend) {
-                contentTarget.insertAdjacentHTML('beforeend', html);
-            } else {
-                contentTarget.innerHTML = html;
-            }
-        } catch (error) {
-            console.error('Lỗi tải CTKM:', error);
-        } finally {
-            contentTarget.style.opacity = '1';
+        if (prevBtn) prevBtn.disabled = currentPage <= 1 || isLoading;
+        if (nextBtn) nextBtn.disabled = currentPage >= totalPages || isLoading;
+    }
+
+    function syncMeta(scope) {
+        const host = scope || listViewport;
+        const meta = host.querySelector('.promo-fetch-meta');
+        if (!meta) return;
+
+        const parsedTotalPages = Number(meta.dataset.totalPages);
+        const parsedTotalItems = Number(meta.dataset.totalItems);
+
+        if (!Number.isNaN(parsedTotalPages) && parsedTotalPages > 0) {
+            totalPages = parsedTotalPages;
+        }
+        if (!Number.isNaN(parsedTotalItems) && parsedTotalItems >= 0) {
+            totalItems = parsedTotalItems;
         }
     }
 
-    // 1. Sự kiện thay đổi Nhóm -> Reset về trang 1, giữ nguyên từ khóa tìm kiếm
-    groupSelect.addEventListener('change', function() {
-        fetchPromos(1, false);
-    });
+    function applyExpiringFilter() {
+        if (!expiringToggle) return;
 
-    // 2. Sự kiện gõ tìm kiếm -> Debounce -> Reset về trang 1, giữ nguyên nhóm
-    searchInput.addEventListener('input', function() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            fetchPromos(1, false);
-        }, 500); // Đợi 500ms sau khi ngừng gõ
-    });
+        const onlyUrgent = expiringToggle.checked;
+        listViewport.querySelectorAll('.promo-item').forEach(function(card) {
+            const isUrgent = card.dataset.expiryLevel === 'urgent';
+            card.style.display = (onlyUrgent && !isUrgent) ? 'none' : '';
+        });
+    }
 
-    // 3. Sự kiện phân trang (Nút Xem thêm)
-    container.addEventListener('click', function(e) {
-        const link = e.target.closest('a[data-ajax="true"]');
-        if (!link) return;
-        
-        e.preventDefault();
-        
-        // Lấy page từ link (nếu có)
-        const href = link.getAttribute('href');
-        const urlParams = new URLSearchParams(href.split('?')[1]);
-        const nextPage = urlParams.get('page') || 1;
+    function parseChunk(html) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        const chunk = temp.querySelector('.promo-page-chunk');
+        return { temp, chunk };
+    }
 
-        // Xóa nút cũ và tải tiếp
-        if (link.parentElement) link.parentElement.remove();
-        fetchPromos(nextPage, true);
-    });
+    async function fetchPromos(pageToLoad) {
+        if (isLoading) return;
+
+        const nextPage = Number(pageToLoad) || 1;
+        if (nextPage < 1) return;
+        if (totalPages > 0 && nextPage > totalPages) return;
+        const group = groupSelect ? groupSelect.value : '';
+        const q = searchInput ? searchInput.value.trim() : '';
+
+        const params = new URLSearchParams();
+        if (group) params.append('group', group);
+        if (q) params.append('q', q);
+        params.append('page', String(nextPage));
+
+        const queryString = params.toString();
+        const apiUrl = '/api/featured-promos?' + queryString;
+
+        try {
+            isLoading = true;
+            if (spinner) spinner.style.display = 'block';
+            contentTarget.classList.add('is-loading');
+            updateHeaderCounters();
+
+            window.history.replaceState(null, '', queryString ? ('/?' + queryString) : '/');
+
+            const response = await fetch(apiUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) {
+                throw new Error('Không thể tải danh sách CTKM');
+            }
+
+            const html = await response.text();
+            const parsed = parseChunk(html);
+            listViewport.innerHTML = parsed.chunk ? parsed.chunk.outerHTML : html;
+            currentPage = nextPage;
+
+            syncMeta(listViewport);
+            applyExpiringFilter();
+            updateHeaderCounters();
+        } catch (error) {
+            console.error('Lỗi tải CTKM:', error);
+        } finally {
+            isLoading = false;
+            contentTarget.classList.remove('is-loading');
+            if (spinner) spinner.style.display = 'none';
+            updateHeaderCounters();
+        }
+    }
+
+    if (groupSelect) {
+        groupSelect.addEventListener('change', function() {
+            fetchPromos(1);
+        });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                fetchPromos(1);
+            }, 450);
+        });
+    }
+
+    if (expiringToggle) {
+        expiringToggle.addEventListener('change', function() {
+            applyExpiringFilter();
+            updateHeaderCounters();
+        });
+    }
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', function() {
+            fetchPromos(currentPage - 1);
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', function() {
+            fetchPromos(currentPage + 1);
+        });
+    }
+
+    syncMeta(listViewport);
+    applyExpiringFilter();
+    updateHeaderCounters();
 });
 </script>
-
-<div class="dash-card">
-    <div class="dash-title">Sản phẩm có nhiều lượt so sánh giá</div>
-    <% if (matrixRows && matrixRows.length) { %>
-        <div class="table-scroll">
-            <table class="dash-table">
-                <thead>
-                    <tr>
-                        <th>SKU</th><th>Tên SP</th><th>Brand</th>
-                        <% (competitorCols || []).forEach(function(c){ %><th><%= c %></th><% }); %>
-                        <th>Tổng</th><th>Đối thủ nổi bật</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% matrixRows.forEach(function(r){ %>
-                        <tr>
-                            <td><a href="/search-promotion?query=<%= r.sku %>"><strong><%= r.sku %></strong></a></td>
-                            <td><%= r.product_name || '-' %></td>
-                            <td><%= r.brand || '-' %></td>
-                            <% (r.cells || []).forEach(function(n){ %><td><%= n %></td><% }); %>
-                            <td><strong><%= r.total %></strong></td>
-                            <td><span class="pill"><%= r.top_competitor %></span></td>
-                        </tr>
-                    <% }); %>
-                </tbody>
-            </table>
-        </div>
-    <% } else { %>
-        <div class="dash-muted">Chưa có dữ liệu so sánh giá.</div>
-    <% } %>
-</div>
 
 <%- include('partials/search-autocomplete') %>
 <%- include('partials/footer') %>

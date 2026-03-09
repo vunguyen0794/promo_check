@@ -6,6 +6,7 @@
         <style>
             body {
                 background: #f0f2f5;
+                font-family: 'Be Vietnam Pro', system-ui, sans-serif;
                 overflow-y: auto;
             }
 
@@ -13,8 +14,8 @@
                 display: flex;
                 gap: 20px;
                 padding: 20px;
+                height: calc(100vh - 80px);
                 min-height: 500px;
-                height: auto;
             }
 
             .col-panel {
@@ -23,161 +24,145 @@
                 border-radius: 12px;
                 display: flex;
                 flex-direction: column;
-                overflow: hidden;
                 box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-                height: 600px;
+                overflow: hidden;
+                border-top: 6px solid #e5e7eb;
+                height: 100%;
             }
+            .col-panel.col-service { border-top-color: #1a73e8; }
+            .col-panel.col-sales { border-top-color: #0d9488; }
 
             .col-header {
-                padding: 15px 20px;
-                color: white;
+                padding: 16px 20px;
+                background: white;
+                color: #333;
                 font-weight: 800;
-                font-size: 18px;
+                font-size: 16px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+                border-bottom: 1px solid #f1f5f9;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
+            .col-service .col-header { color: #1a73e8; }
+            .col-sales .col-header { color: #0d9488; }
 
             .list-wrap {
                 flex: 1;
                 overflow-y: auto;
-                padding: 15px;
+                padding: 16px;
                 background: #f8fafc;
-            }
-
-            .col-service .col-header {
-                background: #1a73e8;
-            }
-
-            .col-sales .col-header {
-                background: #0d9488;
             }
 
             .card {
                 background: white;
                 border: 1px solid #e2e8f0;
                 border-radius: 10px;
-                padding: 15px;
-                margin-bottom: 15px;
+                padding: 16px;
+                margin-bottom: 12px;
                 position: relative;
-                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+                transition: all 0.2s;
             }
 
             .card.serving {
-                border: 2px solid;
-                background: #f0f9ff;
-                transform: scale(1.01);
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+                border-left: 4px solid;
+                background: #fff;
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
             }
 
-            .col-service .card.serving {
-                border-color: #1a73e8;
-            }
-
-            .col-sales .card.serving {
-                border-color: #0d9488;
-            }
+            .col-service .card.serving { border-left-color: #1a73e8; }
+            .col-sales .card.serving { border-left-color: #0d9488; }
 
             .tag-type {
                 display: inline-block;
-                padding: 2px 6px;
-                border-radius: 4px;
+                padding: 4px 8px;
+                border-radius: 6px;
                 font-size: 11px;
                 font-weight: 700;
-                margin-left: 5px;
+                margin-left: 6px;
             }
 
-            .tag-repair {
-                background: #e0f2fe;
-                color: #0369a1;
-            }
-
-            .tag-warranty {
-                background: #ffedd5;
-                color: #c2410c;
-            }
-
-            .tag-check {
-                background: #fff3cd;
-                color: #856404;
-                border: 1px solid #ffeeba;
-            }
+            .tag-repair { background: #eff6ff; color: #1d4ed8; }
+            .tag-warranty { background: #fff7ed; color: #c2410c; }
+            .tag-check { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
 
             .btn-call-header {
-                background: white;
+                background: #f1f5f9;
                 border: none;
-                padding: 6px 12px;
-                border-radius: 6px;
+                padding: 8px 14px;
+                border-radius: 8px;
                 font-weight: 700;
                 cursor: pointer;
-                color: #333;
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            }
-
-            .btn-action {
-                padding: 6px 4px;
-                border: none;
-                border-radius: 6px;
-                font-weight: 700;
-                color: white;
-                cursor: pointer;
+                color: #334155;
                 font-size: 13px;
                 display: flex;
                 align-items: center;
-                justify-content: center;
-                gap: 2px;
-                white-space: nowrap;
+                gap: 6px;
+                transition: background 0.2s;
             }
+            .btn-call-header:hover { background: #e2e8f0; }
+
+            .btn-action {
+                padding: 6px 4px;
+                border: 1px solid #e2e8f0;
+                background: white;
+                border-radius: 6px;
+                font-weight: 700;
+                color: #475569;
+                cursor: pointer;
+                font-size: 11.5px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                white-space: nowrap;
+                transition: all 0.2s;
+            }
+            .btn-action:hover { opacity: 0.9; }
 
             .btn-row {
                 display: grid;
                 grid-template-columns: 1.2fr 1fr 1fr 0.8fr;
-                gap: 4px;
-                margin-top: 8px;
+                gap: 6px;
+                margin-top: 12px;
             }
 
-            .btn-done {
-                background: #10b981;
-            }
+            .btn-call { background: #1a73e8; color: white; border-color: #1a73e8; }
+            .btn-call:hover { background: #1557b0; }
 
-            .btn-done:hover {
-                background: #059669;
-            }
+            .btn-done { color: #059669; }
+            .btn-done:hover { background: #ecfdf5; border-color: #34d399; }
 
-            .btn-recall {
-                background: #f59e0b;
-                color: white;
-            }
+            .btn-recall { color: #d97706; }
+            .btn-recall:hover { background: #fffbeb; border-color: #fbbf24; }
 
-            .btn-recall:hover {
-                background: #d97706;
-            }
+            .btn-skip { color: #64748b; }
+            .btn-skip:hover { background: #f8fafc; border-color: #cbd5e1; }
 
-            .btn-skip {
-                background: #6b7280;
-            }
-
-            .btn-delete {
-                background: #ef4444;
-            }
+            .btn-delete { color: #dc2626; }
+            .btn-delete:hover { background: #fef2f2; border-color: #f87171; }
 
             .wf-steps {
                 display: flex;
-                gap: 5px;
-                margin-top: 15px;
+                gap: 6px;
+                margin-top: 12px;
             }
 
             .wf-btn {
                 flex: 1;
                 padding: 8px 0;
-                font-size: 11px;
-                border: 1px solid #ddd;
-                background: white;
+                font-size: 12px;
+                font-weight: 600;
+                border: 1px solid #e2e8f0;
+                background: #f8fafc;
+                color: #64748b;
                 cursor: pointer;
-                border-radius: 4px;
+                border-radius: 6px;
+                transition: all 0.2s;
             }
+            .wf-btn:hover { background: #f1f5f9; }
 
             .wf-btn.active {
                 background: #0d9488;
@@ -187,11 +172,9 @@
 
             .modal-overlay {
                 position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0, 0, 0, 0.4);
+                backdrop-filter: blur(4px);
                 z-index: 1000;
                 display: none;
                 align-items: center;
@@ -200,56 +183,50 @@
                 transition: opacity 0.2s;
             }
 
-            .modal-overlay.open {
-                display: flex;
-                opacity: 1;
-            }
+            .modal-overlay.open { display: flex; opacity: 1; }
 
             .modal-box {
                 background: white;
                 width: 90%;
-                max-width: 400px;
-                padding: 25px;
+                max-width: 420px;
+                padding: 24px;
                 border-radius: 16px;
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
                 transform: translateY(20px);
                 transition: transform 0.2s;
             }
 
-            .modal-overlay.open .modal-box {
-                transform: translateY(0);
-            }
+            .modal-overlay.open .modal-box { transform: translateY(0); }
 
-            .form-group {
-                margin-bottom: 15px;
-            }
+            .form-group { margin-bottom: 16px; }
 
             .form-label {
                 display: block;
-                font-weight: 600;
+                font-weight: 700;
                 margin-bottom: 8px;
-                color: #333;
+                color: #334155;
+                font-size: 14px;
             }
 
             .form-select,
             .form-input {
                 width: 100%;
-                padding: 12px;
-                border: 1px solid #ddd;
+                padding: 12px 14px;
+                border: 1px solid #cbd5e1;
                 border-radius: 8px;
-                font-size: 16px;
+                font-size: 15px;
                 outline: none;
+                transition: border-color 0.2s;
+                font-family: inherit;
             }
 
             .form-select:focus,
-            .form-input:focus {
-                border-color: #1a73e8;
-            }
+            .form-input:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1); }
 
             .modal-btns {
                 display: flex;
-                gap: 10px;
-                margin-top: 20px;
+                gap: 12px;
+                margin-top: 24px;
             }
 
             .btn-modal {
@@ -259,26 +236,22 @@
                 border: none;
                 font-weight: 700;
                 cursor: pointer;
-                font-size: 16px;
+                font-size: 15px;
+                transition: background 0.2s;
             }
 
-            .btn-confirm {
-                background: #1a73e8;
-                color: white;
-            }
-
-            .btn-cancel {
-                background: #f3f4f6;
-                color: #333;
-            }
+            .btn-confirm { background: #1a73e8; color: white; }
+            .btn-confirm:hover { background: #1557b0; }
+            .btn-cancel { background: #f1f5f9; color: #475569; }
+            .btn-cancel:hover { background: #e2e8f0; }
 
             .action-list {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
-                border: 1px solid #eee;
-                padding: 10px;
-                border-radius: 8px;
+                border: 1px solid #e2e8f0;
+                padding: 12px;
+                border-radius: 10px;
                 max-height: 250px;
                 overflow-y: auto;
             }
@@ -288,14 +261,12 @@
                 align-items: flex-start;
                 gap: 10px;
                 cursor: pointer;
-                padding: 5px;
-                border-radius: 4px;
+                padding: 6px 8px;
+                border-radius: 6px;
                 transition: background 0.2s;
             }
 
-            .action-item:hover {
-                background: #f9fafb;
-            }
+            .action-item:hover { background: #f8fafc; }
 
             .action-item input[type="checkbox"] {
                 width: 18px;
@@ -303,17 +274,60 @@
                 cursor: pointer;
                 margin-top: 2px;
                 flex-shrink: 0;
+                accent-color: #1a73e8;
             }
 
-            .action-item span {
-                font-size: 14px;
-                color: #333;
-                line-height: 1.4;
+            .action-item span { font-size: 14px; color: #334155; line-height: 1.5; font-weight: 500; }
+
+            /* Admin Display Modes */
+            .admin-mode-bar {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 16px;
+                background: white;
+                margin: 16px 20px 0;
+                border-radius: 10px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.02);
             }
+            .admin-mode-bar span { font-size: 13px; color: #64748b; margin-right: 4px; font-weight: 600; }
+            .admin-mode-btn {
+                padding: 6px 16px;
+                border: 1px solid #e2e8f0;
+                border-radius: 20px;
+                font-weight: 700;
+                font-size: 13px;
+                cursor: pointer;
+                background: white;
+                color: #64748b;
+                transition: all 0.2s;
+            }
+            .admin-mode-btn:hover { border-color: #cbd5e1; background: #f8fafc; color: #334155; }
+            .admin-mode-btn.active { background: #1a73e8; color: white; border-color: #1a73e8; box-shadow: 0 2px 6px rgba(26,115,232,0.2); }
+            body.admin-no-service .col-service { display: none !important; }
+            body.admin-no-service .col-sales .list-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-content: start; }
+            body.admin-no-service .col-sales { height: auto; border-top-width: 0; }
+            body.admin-no-service .col-sales .card { margin-bottom: 0; }
+            body.admin-no-sales .col-sales { display: none !important; }
+            body.admin-no-sales .col-service .list-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-content: start; }
+            body.admin-no-sales .col-service { height: auto; border-top-width: 0; }
+            body.admin-no-sales .col-service .card { margin-bottom: 0; }
         </style>
 </head>
 
 <body>
+    <!-- Admin Mode Selector -->
+    <div class="admin-mode-bar">
+        <span>Chế độ:</span>
+        <button class="admin-mode-btn active" id="adm-full" onclick="switchAdminMode('full')">Full</button>
+        <button class="admin-mode-btn" id="adm-no-service" onclick="switchAdminMode('no-service')">Ẩn SC/BH</button>
+        <button class="admin-mode-btn" id="adm-no-sales" onclick="switchAdminMode('no-sales')">Ẩn Lắp Ráp</button>
+
+        <button class="admin-mode-btn" style="margin-left:auto; background:#1a73e8; color:white; border:none; display:flex; align-items:center; gap:6px;" onclick="openLogModal(null, '', null)">
+            📝 Báo cáo Nâng tầm dịch vụ
+        </button>
+    </div>
     <div class="admin-layout">
         <% const serviceList=tickets.filter(t=>
             t.service_type === 'REPAIR' ||
@@ -340,12 +354,15 @@
                         <% } %>
 
                             <% serviceList.forEach(t=> { %>
-                                <div class="card <%= t.status==='SERVING'?'serving':'' %>" style="padding: 10px; margin-bottom: 10px;">
+                                <div class="card <%= t.status==='SERVING'?'serving':'' %>">
                                     <div style="display:flex; align-items: center; margin-bottom: 5px; gap: 8px;">
-                                        <div style="font-size: 12px; font-weight: 700; color: <%= t.status==='SERVING' ? '#1a73e8' : '#999' %>;">
-                                            📍 <%= t.status === 'SERVING' ? t.counter_name : 'Đang chờ...' %>
+                                        <div
+                                            style="font-size: 12px; font-weight: 700; color: <%= t.status==='SERVING' ? '#1a73e8' : '#999' %>;">
+                                            📍 <%= t.status==='SERVING' ? t.counter_name : 'Đang chờ...' %>
                                         </div>
-                                        <button onclick="openTransferModal('<%= t.id %>')" style="background:none; border:none; color:#6366f1; cursor:pointer; font-size:16px; padding:0;" title="Bàn giao">🔄</button>
+                                        <button onclick="openTransferModal('<%= t.id %>')"
+                                            style="background:none; border:none; color:#6366f1; cursor:pointer; font-size:16px; padding:0;"
+                                            title="Bàn giao">🔄</button>
                                     </div>
 
                                     <div style="display:flex; justify-content:space-between; align-items: center;">
@@ -356,38 +373,50 @@
                                             if(t.service_type==='REPAIR' ) { typeName='SỬA CHỮA' ;
                                             typeClass='tag-repair' ; } else if(t.service_type==='WARRANTY' ) {
                                             typeName='BẢO HÀNH' ; typeClass='tag-warranty' ; } else
-                                            if(t.service_type==='PICKUP' ) { typeName='LẤY MÁY' ;
-                                            typeClass='tag-repair' ; } else if(t.service_type==='CHECK' ) {
-                                            typeName='KIỂM TRA' ; typeClass='tag-check' ; } %>
+                                            if(t.service_type==='PICKUP' ) { typeName='LẤY MÁY' ; typeClass='tag-repair'
+                                            ; } else if(t.service_type==='CHECK' ) { typeName='KIỂM TRA' ;
+                                            typeClass='tag-check' ; } %>
                                             <span class="tag-type <%= typeClass %>">
                                                 <%= typeName %>
                                             </span>
                                     </div>
                                     <div style="font-weight:700; font-size: 15px; margin-top: 2px;">
                                         <%= t.customer_name %>
-                                        <span style="font-weight:400; color:#666; font-size:13px; margin-left:5px;">
-                                            - <%= t.customer_phone || '---' %>
-                                        </span>
-                                        <span style="float:right; font-weight:400; color:#999; font-size:12px;">
-                                            <%= new Date(t.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %>
-                                        </span>
+                                            <span style="font-weight:400; color:#666; font-size:13px; margin-left:5px;">
+                                                - <%= t.customer_phone || '---' %>
+                                            </span>
+                                            <span style="float:right; font-weight:400; color:#999; font-size:12px;">
+                                                <%= new Date(t.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit',
+                                                    minute:'2-digit'}) %>
+                                            </span>
                                     </div>
-                                    
-                                    <% if(t.error_description) { %>
-                                        <div style="font-style:italic; font-size:12px; color:#c00; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">"<%= t.error_description %>"</div>
-                                    <% } %>
 
-                                    <div class="btn-row">
-                                        <% if(t.status==='SERVING' ) { %>
-                                            <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %>', '<%= t.service_type %>')">✅ Xong</button>
-                                            <button class="btn-action btn-recall" onclick="control('RECALL', '<%= t.id %>', '<%= t.service_type %>')">🔊 Gọi lại</button>
-                                        <% } else { %>
-                                            <button class="btn-action" style="background:#1a73e8;" onclick="openCallModal('<%= t.service_type %>', '<%= t.id %>')">📞 Gọi khách</button>
-                                            <div style="background:#f1f5f9; border-radius:6px;"></div>
+                                    <% if(t.error_description) { %>
+                                        <div
+                                            style="font-style:italic; font-size:12px; color:#c00; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            "<%= t.error_description %>"</div>
                                         <% } %>
-                                        <button class="btn-action btn-skip" onclick="control('SKIP', '<%= t.id %>', '<%= t.service_type %>')">❌ Vắng</button>
-                                        <button class="btn-action btn-delete" onclick="deleteTicket('<%= t.id %>')">🗑 Xóa</button>
-                                    </div>
+
+                                            <div class="btn-row">
+                                                <% if(t.status==='SERVING' ) { %>
+                                                    <button class="btn-action btn-done"
+                                                        onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %>', '<%= t.service_type %>')">✅
+                                                        Xong</button>
+                                                    <button class="btn-action btn-recall"
+                                                        onclick="control('RECALL', '<%= t.id %>', '<%= t.service_type %>')">🔊
+                                                        Gọi lại</button>
+                                                    <% } else { %>
+                                                        <button class="btn-action btn-call"
+                                                            onclick="openCallModal('<%= t.service_type %>', '<%= t.id %>')">📞
+                                                            Gọi khách</button>
+                                                        <div style="background:#f1f5f9; border-radius:6px;"></div>
+                                                        <% } %>
+                                                            <button class="btn-action btn-skip"
+                                                                onclick="control('SKIP', '<%= t.id %>', '<%= t.service_type %>')">❌
+                                                                Vắng</button>
+                                                            <button class="btn-action btn-delete"
+                                                                onclick="deleteTicket('<%= t.id %>')">🗑 Xóa</button>
+                                            </div>
                                 </div>
                                 <% }) %>
                 </div>
@@ -398,7 +427,7 @@
                     <span>📦 LẮP RÁP/ CÀI ĐẶT MÁY MỚI (<%= salesList.length %>)</span>
                     <div style="display:flex; align-items:center; gap:10px;">
                         <a href="/queue/warehouse" target="_blank"
-                            style="color:white; font-size:12px; text-decoration:underline;">
+                            style="color:#0d9488; font-size:13px; font-weight: 600; text-decoration:underline;">
                             Trang Kho ↗
                         </a>
                         <button class="btn-call-header" onclick="openCallModal('SALES')">
@@ -413,12 +442,15 @@
                         <% } %>
 
                             <% salesList.forEach(t=> { %>
-                                <div class="card <%= t.status==='SERVING'?'serving':'' %>" style="padding: 10px; margin-bottom: 10px;">
+                                <div class="card <%= t.status==='SERVING'?'serving':'' %>">
                                     <div style="display:flex; align-items: center; margin-bottom: 5px; gap: 8px;">
-                                        <div style="font-size: 12px; font-weight: 700; color: <%= t.status==='SERVING' ? '#0d9488' : '#999' %>;">
-                                            📍 <%= t.status === 'SERVING' ? t.counter_name : 'Đang chờ...' %>
+                                        <div
+                                            style="font-size: 12px; font-weight: 700; color: <%= t.status==='SERVING' ? '#0d9488' : '#999' %>;">
+                                            📍 <%= t.status==='SERVING' ? t.counter_name : 'Đang chờ...' %>
                                         </div>
-                                        <button onclick="openTransferModal('<%= t.id %>')" style="background:none; border:none; color:#6366f1; cursor:pointer; font-size:16px; padding:0;" title="Bàn giao">🔄</button>
+                                        <button onclick="openTransferModal('<%= t.id %>')"
+                                            style="background:none; border:none; color:#6366f1; cursor:pointer; font-size:16px; padding:0;"
+                                            title="Bàn giao">🔄</button>
                                     </div>
 
                                     <div style="display:flex; justify-content:space-between; align-items: center;">
@@ -430,46 +462,58 @@
 
                                     <div style="font-weight:700; font-size: 15px; margin-top: 2px;">
                                         <%= t.customer_name %>
-                                        <span style="font-weight:400; color:#666; font-size:13px; margin-left:5px;">
-                                            - <%= t.customer_phone || '---' %>
-                                        </span>
+                                            <span style="font-weight:400; color:#666; font-size:13px; margin-left:5px;">
+                                                - <%= t.customer_phone || '---' %>
+                                            </span>
                                     </div>
-                                    <div style="font-size:12px; color:#555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    <div
+                                        style="font-size:12px; color:#555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                         📦 <%= t.product_name %>
                                     </div>
 
                                     <% if(t.status==='SERVING' ) { %>
                                         <div class="wf-steps" style="margin-top: 8px;">
-                                            <button
-                                                class="wf-btn <%= t.process_status==='ASSEMBLING'?'active':'' %>"
+                                            <button class="wf-btn <%= t.process_status==='ASSEMBLING'?'active':'' %>"
                                                 onclick="updateProcess('<%= t.id %>', 'ASSEMBLING')">1.
                                                 Lắp</button>
-                                            <button
-                                                class="wf-btn <%= t.process_status==='INSTALLING'?'active':'' %>"
+                                            <button class="wf-btn <%= t.process_status==='INSTALLING'?'active':'' %>"
                                                 onclick="updateProcess('<%= t.id %>', 'INSTALLING')">2.
                                                 Cài</button>
-                                            <button
-                                                class="wf-btn <%= t.process_status==='HANDOVER'?'active':'' %>"
+                                            <button class="wf-btn <%= t.process_status==='HANDOVER'?'active':'' %>"
                                                 onclick="updateProcess('<%= t.id %>', 'HANDOVER')">3.
                                                 Giao</button>
                                         </div>
-                                    <% } %>
-
-                                    <div class="btn-row">
-                                        <% if(t.status==='SERVING' ) { %>
-                                            <% if(t.process_status==='HANDOVER' ) { %>
-                                                <button class="btn-action btn-done" onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %> / <%= t.product_name %>', '<%= t.service_type %>')">✅ Xong</button>
-                                            <% } else { %>
-                                                <button class="btn-action" style="background:#0d9488; opacity: 0.5; cursor: not-allowed;">⏳ Chờ</button>
-                                            <% } %>
-                                            <button class="btn-action btn-recall" onclick="control('RECALL', '<%= t.id %>', '<%= t.service_type %>')">🔊 Gọi lại</button>
-                                        <% } else { %>
-                                            <button class="btn-action" style="background:#0d9488;" onclick="openCallModal('<%= t.service_type %>', '<%= t.id %>')">📞 Gọi nhận đơn</button>
-                                            <div style="background:#f1f5f9; border-radius:6px;"></div>
                                         <% } %>
-                                        <button class="btn-action btn-skip" onclick="control('SKIP', '<%= t.id %>', '<%= t.service_type %>')">❌ Hủy</button>
-                                        <button class="btn-action btn-delete" onclick="deleteTicket('<%= t.id %>')">🗑 Xóa</button>
-                                    </div>
+
+                                            <div class="btn-row">
+                                                <% if(t.status==='SERVING' ) { %>
+                                                    <% if(t.process_status==='HANDOVER' ) { %>
+                                                        <button class="btn-action btn-done"
+                                                            onclick="openLogModal('<%= t.id %>', '<%= t.customer_name %> / <%= t.product_name %>', '<%= t.service_type %>')">✅
+                                                            Xong</button>
+                                                        <% } else { %>
+                                                            <button class="btn-action"
+                                                                style="background:#0d9488; opacity: 0.5; cursor: not-allowed;">⏳
+                                                                Chờ</button>
+                                                            <% } %>
+                                                                <button class="btn-action btn-recall"
+                                                                    onclick="control('RECALL', '<%= t.id %>', '<%= t.service_type %>')">🔊
+                                                                    Gọi lại</button>
+                                                                <% } else { %>
+                                                                    <button class="btn-action"
+                                                                        style="background:#0d9488;"
+                                                                        onclick="openCallModal('<%= t.service_type %>', '<%= t.id %>')">📞
+                                                                        Gọi nhận đơn</button>
+                                                                    <div style="background:#f1f5f9; border-radius:6px;">
+                                                                    </div>
+                                                                    <% } %>
+                                                                        <button class="btn-action btn-skip"
+                                                                            onclick="control('SKIP', '<%= t.id %>', '<%= t.service_type %>')">❌
+                                                                            Hủy</button>
+                                                                        <button class="btn-action btn-delete"
+                                                                            onclick="deleteTicket('<%= t.id %>')">🗑
+                                                                            Xóa</button>
+                                            </div>
                                 </div>
                                 <% }) %>
                 </div>
@@ -597,10 +641,10 @@
                 <input type="text" id="modalMsnv" class="form-input" placeholder="Nhập mã nhân viên...">
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="customerInfoGroup">
                 <label class="form-label">Tên KH / Mã ĐH</label>
-                <input type="text" id="modalCustomerInfo" class="form-input" readonly
-                    style="background: #f9fafb; color: #6b7280;">
+                <input type="text" id="modalCustomerInfo" class="form-input"
+                    style="background: #f9fafb; color: #6b7280;" placeholder="Nhập Tên KH / Mã đơn hàng...">
             </div>
 
             <div class="form-group">
@@ -616,7 +660,8 @@
                     <label class="action-item"><input type="checkbox" name="workAction" value="Đóng hàng kỹ"><span>Đóng
                             hàng kỹ</span></label>
                     <label class="action-item"><input type="checkbox" name="workAction"
-                            value="Chủ động hỏi kỹ về nhu cầu sử dụng để tư vấn/ cài đặt thêm"><span>Tư vấn cài đặt thêm</span></label>
+                            value="Chủ động hỏi kỹ về nhu cầu sử dụng để tư vấn/ cài đặt thêm"><span>Tư vấn cài đặt
+                            thêm</span></label>
                     <label class="action-item"><input type="checkbox" name="workAction"
                             value="Hướng dẫn sử dụng"><span>Hướng dẫn sử dụng</span></label>
                     <label class="action-item"><input type="checkbox" name="workAction" value="Hỗ trợ Zalo OA"><span>Hỗ
@@ -663,6 +708,24 @@
         console.log("Admin đang lắng nghe chi nhánh:", myBranch);
 
         // 2. Lắng nghe thay đổi
+        let isReloadingAdmin = false;
+        async function softReloadAdmin() {
+            if (isReloadingAdmin) return;
+            isReloadingAdmin = true;
+            try {
+                const res = await fetch(window.location.pathname);
+                const html = await res.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newLayout = doc.querySelector('.admin-layout');
+                if (newLayout) {
+                    document.querySelector('.admin-layout').innerHTML = newLayout.innerHTML;
+                }
+            } catch(e) { console.error("Soft reload failed", e); }
+            finally { isReloadingAdmin = false; }
+        }
+
+        let adminReloadTimeout;
         const channel = client
             .channel('admin-realtime')
             .on(
@@ -671,9 +734,11 @@
                 (payload) => {
                     // Chỉ reload khi tab đang mở để tiết kiệm
                     if (!document.hidden) {
-                        console.log("⚡ Data changed -> Reloading Admin...");
-                        // Reload nhẹ nhàng để cập nhật danh sách chờ
-                        window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                        clearTimeout(adminReloadTimeout);
+                        adminReloadTimeout = setTimeout(() => {
+                            console.log("⚡ Data changed -> Soft Reload Admin...");
+                            softReloadAdmin();
+                        }, 500); // 500ms debounce
                     }
                 }
             )
@@ -694,7 +759,18 @@
         window.openLogModal = function (ticketId, customerInfo, serviceType) {
             logTicketId = ticketId;
             currentLogServiceType = serviceType;
-            document.getElementById('modalCustomerInfo').value = customerInfo || 'N/A';
+            
+            const customerInput = document.getElementById('modalCustomerInfo');
+            if (ticketId) {
+                customerInput.value = customerInfo || 'N/A';
+                customerInput.readOnly = true;
+                customerInput.style.background = '#f9fafb';
+            } else {
+                customerInput.value = '';
+                customerInput.readOnly = false;
+                customerInput.style.background = '#ffffff';
+            }
+
             document.querySelectorAll('input[name="workAction"]').forEach(cb => cb.checked = false);
             document.getElementById('modalOtherAction').value = '';
             document.querySelectorAll('input[name="finalType"]').forEach(rb => rb.checked = false);
@@ -721,6 +797,7 @@
             let selectedActions = Array.from(checkedBoxes).map(cb => cb.value);
 
             if (!msnv) { alert("⚠️ Vui lòng nhập Mã số nhân viên!"); msnvInput.focus(); return; }
+            if (!customerInfo) { alert("⚠️ Vui lòng nhập Tên KH / Mã ĐH!"); document.getElementById('modalCustomerInfo').focus(); return; }
             if (selectedActions.length === 0 && !otherAction) { alert("⚠️ Vui lòng chọn ít nhất 1 hành động!"); return; }
 
             let newServiceType = null;
@@ -741,18 +818,23 @@
             btn.innerText = "⏳ Đang xử lý...";
             btn.disabled = true;
 
+            const payload = {
+                msnv: msnv,
+                customer_info: customerInfo,
+                action_desc: actionDesc,
+                other_action: otherAction,
+                new_service_type: newServiceType
+            };
+
+            if (logTicketId && logTicketId !== 'null') {
+                payload.ticket_id = logTicketId;
+            }
+
             try {
                 const res = await fetch('/api/queue/log-and-complete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ticket_id: logTicketId,
-                        msnv: msnv,
-                        customer_info: customerInfo,
-                        action_desc: actionDesc,
-                        other_action: otherAction,
-                        new_service_type: newServiceType
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await res.json();
@@ -760,8 +842,8 @@
                     closeLogModal();
                     // Load lại lịch sử ngay (không cần reload trang)
                     loadHistory(1);
-                    // Reload trang để cập nhật danh sách chờ (đã được xử lý bởi Realtime ở trên, nhưng gọi thêm để chắc chắn)
-                    window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                    // Update danh sách chờ
+                    softReloadAdmin();
                 } else {
                     alert("❌ Lỗi server: " + data.message);
                 }
@@ -859,7 +941,8 @@
                 });
                 const data = await res.json();
                 if (data.ok) {
-                    window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                    softReloadAdmin();
+                    closeTransferModal();
                 }
                 else { alert(data.message); btn.innerText = "XÁC NHẬN BÀN GIAO"; btn.disabled = false; closeTransferModal(); }
             } catch (e) { alert('Lỗi kết nối'); closeTransferModal(); }
@@ -903,7 +986,8 @@
                 });
                 const data = await res.json();
                 if (data.ok) {
-                    window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                    softReloadAdmin();
+                    closeModal();
                 }
                 else { alert(data.message); btn.innerText = "GỌI NGAY"; btn.disabled = false; closeModal(); }
             } catch (e) { alert('Lỗi kết nối'); closeModal(); }
@@ -925,7 +1009,7 @@
                     if (action === 'COMPLETE') {
                         loadHistory(1);
                     }
-                    window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                    softReloadAdmin();
                 } else {
                     alert('Lỗi: ' + data.message);
                 }
@@ -934,8 +1018,15 @@
             }
         }
         async function updateProcess(id, step) {
+            // Optimistic UI update
+            const card = document.querySelector(`.wf-steps button[onclick*="${id}"]`)?.closest('.card');
+            if (card) {
+                card.querySelectorAll('.wf-btn').forEach(b => b.classList.remove('active'));
+                const btn = card.querySelector(`button[onclick="updateProcess('${id}', '${step}')"]`);
+                if (btn) btn.classList.add('active');
+            }
             await fetch('/api/queue/control', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'UPDATE_PROCESS', ticket_id: id, process_step: step }) });
-            // Không cần reload ở đây, vì Realtime sẽ tự bắt sự kiện update và reload
+            // Không cần reload ở đây, vì Realtime sẽ tự bắt sự kiện và soft reload
         }
 
 
@@ -1014,10 +1105,26 @@
                     body: JSON.stringify({ action: 'DELETE', ticket_id: id })
                 });
                 const data = await res.json();
-                if (data.ok) window.location.href = window.location.pathname + '?t=' + new Date().getTime();
+                if (data.ok) softReloadAdmin();
                 else alert("Lỗi khi xóa: " + (data.message || 'Unknown'));
             } catch (e) { alert("Lỗi kết nối server!"); }
         }
+
+        // --- Admin Mode Toggle ---
+        function switchAdminMode(mode) {
+            document.body.classList.remove('admin-no-service', 'admin-no-sales');
+            document.querySelectorAll('.admin-mode-btn').forEach(b => b.classList.remove('active'));
+            if (mode === 'no-service') document.body.classList.add('admin-no-service');
+            if (mode === 'no-sales') document.body.classList.add('admin-no-sales');
+            const btn = document.getElementById(`adm-${mode}`);
+            if (btn) btn.classList.add('active');
+            localStorage.setItem('admin_display_mode', mode);
+        }
+        // Restore saved mode
+        (function () {
+            const saved = localStorage.getItem('admin_display_mode') || 'full';
+            switchAdminMode(saved);
+        })();
 
         // Init
         loadHistory();

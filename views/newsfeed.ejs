@@ -171,9 +171,7 @@
             <div class="rank-label">🏆 TOP 1</div>
             <div class="rank-name"><%= rankingTop1.full_name %></div>
             <div class="rank-info">
-              <% if (rankingTop1.sales_percentage) { %>
-                <span style="color: #c62828; font-weight: 700;">Đạt: <strong><%= rankingTop1.sales_percentage %>%</strong></span>
-              <% } %>
+              <span style="color: #c62828; font-weight: 700;">Đạt: <strong><%= Number(rankingTop1.sales_percentage || 0).toFixed(1) %>%</strong></span>
 
               <% if (rankingTop1.store) { %>
                 <span>Cửa hàng: <strong><%= rankingTop1.store %></strong></span>
@@ -195,11 +193,9 @@
               <div class="rank-person-text-content"></div>
               <div class="rank-label">TOP <%= person.rank_order %></div>
               <div class="rank-name"><%= person.full_name %></div>
-              <% if (person.sales_percentage) { %>
-                <div class="rank-info" style="color: #c62828; font-weight: 700; margin-bottom: 4px;">
-                  Đạt: <%= person.sales_percentage %>%
-                </div>
-              <% } %>
+              <div class="rank-info" style="color: #c62828; font-weight: 700; margin-bottom: 4px;">
+                Đạt: <%= Number(person.sales_percentage || 0).toFixed(1) %>%
+              </div>
               <div class="rank-info">
                 <%= person.store || '' %><br>
                 <%= person.department || '' %>

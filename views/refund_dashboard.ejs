@@ -237,7 +237,7 @@ function applyPrintCols() {
 
 
         document.addEventListener('DOMContentLoaded', () => {
-            const methods = ['Chuyển khoản', 'Tiền mặt', 'VNPay QR', 'Ví điện tử'];
+            const methods = ['Chuyển khoản', 'Tiền mặt', 'Cà thẻ Vietinbank', 'Cà thẻ Vnpay', 'Momo', 'VNPay QR', 'Ví điện tử'];
             document.getElementById('refund-method').innerHTML = methods.map(m => `<option>${m}</option>`).join('');
             
             const today = new Date();
@@ -540,7 +540,7 @@ function applyPrintCols() {
 
         function toggleBank() {
             const v = document.getElementById('refund-method').value;
-            const show = /chuyển|qr|ví/i.test(v);
+            const show = /chuyển|qr|ví|thẻ|momo/i.test(v);
             document.getElementById('bank-section').classList.toggle('hidden', !show);
         }
         function toggleOffset() {

@@ -1,19 +1,41 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
-    <title>Màn hình - <%= branchCode %></title>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <title>Màn hình - <%= branchCode %>
+    </title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
     <style>
-        body { margin:0; overflow:hidden; font-family:'Be Vietnam Pro', sans-serif; background:#f0f2f5; }
-        
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background: #f0f2f5;
+        }
+
         /* CSS for Display Modes */
-        .mode-no-qr .qr-area, .mode-no-qr .wifi-panel { display: none !important; }
-        .mode-no-service .col-service { display: none !important; }
-        .mode-no-sales .col-sales { display: none !important; }
+        .mode-no-qr .qr-area,
+        .mode-no-qr .wifi-panel,
+        .mode-no-service .qr-area,
+        .mode-no-service .wifi-panel,
+        .mode-no-sales .qr-area,
+        .mode-no-sales .wifi-panel {
+            display: none !important;
+        }
+
+        .mode-no-service .col-service {
+            display: none !important;
+        }
+
+        .mode-no-sales .col-sales {
+            display: none !important;
+        }
 
         /* Grid layout for single-column modes */
-        .mode-no-service .v-list, .mode-no-sales .v-list {
+        .mode-no-service .v-list,
+        .mode-no-sales .v-list {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             grid-auto-rows: min-content;
@@ -25,7 +47,7 @@
             bottom: 15px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.7);
+            background: rgba(0, 0, 0, 0.7);
             padding: 8px 15px;
             border-radius: 30px;
             display: flex;
@@ -34,7 +56,11 @@
             opacity: 0.1;
             transition: opacity 0.3s;
         }
-        .mode-selector:hover { opacity: 1; }
+
+        .mode-selector:hover {
+            opacity: 1;
+        }
+
         .btn-mode {
             background: #fff;
             border: none;
@@ -46,95 +72,336 @@
             color: #333;
             transition: all 0.2s;
         }
-        .btn-mode.active { background: #1a73e8; color: #fff; }
 
-        .tv-layout { display: flex; height: 100vh; width: 100vw; padding: 20px; gap: 20px; box-sizing: border-box; }
-        .main-panel { flex: 3; display: flex; gap: 20px; overflow: hidden; }
-        
-        .v-col { flex: 1; display: flex; flex-direction: column; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; border-top: 8px solid #ccc; }
-        .v-col.col-service { border-top-color: #1a73e8; }
-        .v-col.col-sales { border-top-color: #0d9488; }
+        .btn-mode.active {
+            background: #1a73e8;
+            color: #fff;
+        }
 
-        .v-header { padding: 15px; text-align: center; font-size: 22px; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #eee; background: #fff; z-index: 2; flex-shrink: 0; }
-        .v-list { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; scrollbar-width: none; }
-        .v-list::-webkit-scrollbar { display: none; }
+        .tv-layout {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            padding: 20px;
+            gap: 20px;
+            box-sizing: border-box;
+        }
 
-        .sv-card { background: #fff; border: 2px solid #e5e7eb; border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); transition: all 0.3s ease; position: relative; flex-shrink: 0; }
-        .sv-card.type-service { background: #eff6ff; border-color: #1a73e8; }
-        .sv-card.type-warranty { background: #fff7ed; border-color: #f59e0b; }
-        
-        .sv-card.type-sales { 
-            background: #f0fdfa; 
-            border-color: #0d9488;
+        .main-panel {
+            flex: 3;
+            display: flex;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .v-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .v-header {
+            padding: 20px 15px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #ffffff;
+            letter-spacing: 1px;
+            z-index: 2;
+            flex-shrink: 0;
+            margin-bottom: 5px;
+        }
+
+        .col-service .v-header {
+            background: #1a73e8;
+            border-bottom: 4px solid #1557b0;
+        }
+
+        .col-sales .v-header {
+            background: #0d9488;
+            border-bottom: 4px solid #0f766e;
+        }
+
+        .v-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scrollbar-width: none;
+            background: #f8fafc;
+        }
+
+        .v-list::-webkit-scrollbar {
+            display: none;
+        }
+
+        .sv-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 18px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .sv-card.type-service {
+            border-left: 5px solid #1a73e8;
+        }
+
+        .sv-card.type-warranty {
+            border-left: 5px solid #f59e0b;
+        }
+
+        .sv-card.type-sales {
+            border-left: 5px solid #0d9488;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: 5px;
+            gap: 6px;
         }
 
-        .active-flash { animation: flashBorder 1s infinite; transform: scale(1.02); z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
-        @keyframes flashBorder { 0% { border-color: #dc2626; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); } 50% { border-color: #dc2626; box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { border-color: #dc2626; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+        .active-flash {
+            animation: flashBorder 1s infinite;
+            transform: scale(1.02);
+            z-index: 10;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
 
-        .c-num { font-size: 55px; font-weight: 800; line-height: 1.1; margin: 5px 0; letter-spacing: -1px; }
-        .c-name { font-size: 22px; font-weight: 700; color: #333; margin-bottom: 5px; }
+        @keyframes flashBorder {
+            0% {
+                border-color: #dc2626;
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+            }
+
+            50% {
+                border-color: #dc2626;
+                box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+            }
+
+            100% {
+                border-color: #dc2626;
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+            }
+        }        .c-num {
+            font-size: 50px;
+            font-weight: 800;
+            line-height: 1;
+            margin: 0;
+            letter-spacing: -1px;
+        }
+
+        .c-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: #334155;
+            margin-top: 8px;
+            margin-bottom: 4px;
+        }
 
         .type-sales .c-name {
-            font-size: 36px; 
+            font-size: 32px;
             color: #0f766e;
             line-height: 1.2;
             margin-bottom: 0;
+            margin-top: 0;
         }
+
         .type-sales .c-num {
-            font-size: 24px; 
-            color: #555;
+            font-size: 22px;
+            color: #64748b;
             margin: 0;
         }
+
         .product-info {
-            font-size: 18px;
-            color: #333;
-            background: #fff;
-            padding: 8px 10px;
+            font-size: 16px;
+            color: #475569;
+            background: #f8fafc;
+            padding: 6px 12px;
             border-radius: 8px;
             margin-top: 8px;
-            border: 1px dashed #0d9488;
+            border: 1px solid #e2e8f0;
             font-weight: 600;
-            display: inline-block; 
+            display: inline-block;
         }
 
         .type-service .c-num { color: #1a73e8; }
         .type-warranty .c-num { color: #d97706; }
-        
-        .c-counter { display: inline-block; background: #fff; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 14px; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 5px; }
-        .c-timer { font-size: 16px; font-weight: 600; color: #fff; padding: 6px 15px; border-radius: 8px; display: inline-block; margin-top: 10px; min-width: 150px; }
-        .bg-run { background: #10b981; }
-        .bg-wait { background: #f59e0b; }
 
-        .side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; }
-        .qr-area { text-align: center; padding-bottom: 15px; border-bottom: 2px dashed #eee; }
-        .qr-img { width: 220px; height: 220px; border-radius: 12px; border: 5px solid #333; }
-        .qr-text { margin-top: 10px; font-weight: 800; font-size: 20px; color: #333; }
+        .c-counter {
+            display: inline-block;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 13px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 8px;
+        }
 
-        .list-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .list-header { font-size: 16px; font-weight: 700; color: #666; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        .waiting-scroll { flex: 1; overflow-y: auto; padding-right: 2px; }
-        .tv-waiting-card { background-color: #fffdf5; border: 2px dashed #f59e0b; border-radius: 12px; padding: 12px 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .tv-waiting-ticket { font-size: 24px; font-weight: 800; color: #333; }
-        .tv-waiting-name { font-size: 18px; font-weight: 600; color: #555; }
+        .time-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 8px;
+            color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .c-timer {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-top: 10px;
+            min-width: 150px;
+            white-space: nowrap;
+        }
 
-        #tvcContainer { position:fixed; inset:0; background:#000; z-index:9999; display:none; }
-        #ytPlayer { width:100%; height:100%; }
-        .empty-col { display: flex; flex:1; align-items: center; justify-content: center; color: #999; font-style: italic; font-size: 18px; }
+        .bg-run {
+            background: #10b981;
+        }
+
+        .bg-wait {
+            background: #f59e0b;
+        }
+
+        .side-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .qr-area {
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 2px dashed #eee;
+        }
+
+        .qr-img {
+            width: 220px;
+            height: 220px;
+            border-radius: 16px;
+            border: 2px solid #e2e8f0;
+            padding: 10px;
+            background: #fff;
+        }
+
+        .qr-text {
+            margin-top: 10px;
+            font-weight: 800;
+            font-size: 20px;
+            color: #333;
+        }
+
+        .list-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .list-header {
+            font-size: 16px;
+            font-weight: 700;
+            color: #666;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .waiting-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+
+        .tv-waiting-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #94a3b8;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+            transition: transform 0.2s;
+        }
+
+        .tv-waiting-card.w-service { border-left-color: #1a73e8; }
+        .tv-waiting-card.w-warranty { border-left-color: #f59e0b; }
+        .tv-waiting-card.w-sales { border-left-color: #0d9488; }
+
+        .tv-waiting-ticket {
+            font-size: 24px;
+            font-weight: 800;
+            color: #333;
+        }
+
+        .tv-waiting-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        #tvcContainer {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 9999;
+            display: none;
+        }
+
+        #ytPlayer {
+            width: 100%;
+            height: 100%;
+        }
+
+        .empty-col {
+            display: flex;
+            flex: 1;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-style: italic;
+            font-size: 18px;
+        }
     </style>
 </head>
+
 <body>
     <div class="tv-layout" id="queueUI">
         <div class="main-panel">
             <div class="v-col col-service">
-                <div class="v-header" style="color:#1a73e8">🛠 SỬA CHỮA / BẢO HÀNH</div>
+                <div class="v-header">🛠 SỬA CHỮA / BẢO HÀNH</div>
                 <div class="v-list" id="col-SERVICE"></div>
             </div>
             <div class="v-col col-sales">
-                <div class="v-header" style="color:#0d9488">📦 LẮP RÁP VÀ CÀI ĐẶT</div>
+                <div class="v-header">📦 LẮP RÁP VÀ CÀI ĐẶT</div>
                 <div class="v-list" id="col-SALES"></div>
             </div>
         </div>
@@ -143,7 +410,8 @@
                 <img src="<%= qrCodeUrl %>" class="qr-img">
                 <div class="qr-text">Quét mã lấy số và đánh giá<br>sau khi được phục vụ</div>
             </div>
-            <div class="wifi-panel" style="margin-top: 5px; padding: 15px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+            <div class="wifi-panel"
+                style="margin-top: 5px; padding: 15px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
                 <div style="font-size: 16px; color: #555; margin-bottom: 5px;">Kết nối Wifi miễn phí</div>
                 <div style="font-size: 24px; font-weight: 800; color: #333;">
                     <span style="color: #1a73e8;">Wifi:</span> Phongvu.vn
@@ -155,7 +423,8 @@
             <div class="list-area">
                 <div class="list-header">
                     <span>Đang chờ</span>
-                    <span id="total-waiting" style="background:#333; color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
+                    <span id="total-waiting"
+                        style="background:#333; color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
                 </div>
                 <div class="waiting-scroll" id="waiting-list"></div>
             </div>
@@ -171,7 +440,9 @@
         <button class="btn-mode" id="btn-no-sales" onclick="switchMode('no-sales')">Ẩn Lắp Ráp</button>
     </div>
 
-    <div id="tvcContainer"><div id="ytPlayer"></div></div>
+    <div id="tvcContainer">
+        <div id="ytPlayer"></div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -249,8 +520,8 @@
             // TIẾT KIỆM CPU: Không gọi API nếu tab đang ẩn
             if (document.hidden && !isManualCall) return;
             try {
-                // Gọi API lấy dữ liệu mới nhất (Đã Cache Control ở Server)
-                const res = await fetch('/api/queue/live-data?branch=<%= branchCode %>');
+                // Gọi API lấy dữ liệu mới nhất (chống cache với tham số time)
+                const res = await fetch(`/api/queue/live-data?branch=<%= branchCode %>&_t=${new Date().getTime()}`);
                 const data = await res.json();
                 if(!data.ok) return;
 
@@ -275,14 +546,18 @@
 
         // 4. [REALTIME LISTENER] - Thay thế cho setInterval
         console.log("TV đang lắng nghe tín hiệu từ:", myBranch);
+        let queueUpdateTimeout;
         const channel = client
             .channel('tv-realtime')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'queue_tickets', filter: `branch_code=eq.${myBranch}` },
                 (payload) => {
-                    console.log('⚡ Có biến động! Cập nhật TV ngay...');
-                    updateQueue(); // Chỉ gọi API khi Database báo có thay đổi
+                    console.log('⚡ Có biến động! Cập nhật TV (Debounced)...');
+                    clearTimeout(queueUpdateTimeout);
+                    queueUpdateTimeout = setTimeout(() => {
+                        updateQueue(); // Chỉ gọi API khi Database báo có thay đổi và đã chờ 0.5s
+                    }, 500);
                 }
             )
             .subscribe();
@@ -354,7 +629,12 @@
 
         function checkForInterrupt(allServing) {
             let hasNew = false;
+            const currentMode = localStorage.getItem('tv_display_mode') || 'full';
             ['SERVICE', 'SALES'].forEach(type => {
+                // Bỏ qua nếu TV đang ẩn mode tương ứng
+                if (currentMode === 'no-service' && type === 'SERVICE') return;
+                if (currentMode === 'no-sales' && type === 'SALES') return;
+
                 let list = (type === 'SERVICE') 
                     ? allServing.filter(x => x.service_type !== 'SALES') 
                     : allServing.filter(x => x.service_type === 'SALES');
@@ -375,6 +655,11 @@
         }
 
         function checkAnnounce(allServing, type) {
+            // Kiểm tra mode: nếu TV đang ẩn loại này thì không đọc
+            const currentMode = localStorage.getItem('tv_display_mode') || 'full';
+            if (currentMode === 'no-service' && type === 'SERVICE') return;
+            if (currentMode === 'no-sales' && type === 'SALES') return;
+
             let list = (type === 'SERVICE') 
                 ? allServing.filter(x => x.service_type !== 'SALES') 
                 : allServing.filter(x => x.service_type === 'SALES');
@@ -391,7 +676,7 @@
                     if (type === 'SALES' && (newest.process_status === 'ASSEMBLING' || newest.process_status === 'INSTALLING')) isSilent = true;
 
                     if (!isSilent) {
-                        speakNumber(newest.ticket_number, type, newest.process_status, newest.counter_name);
+                        speakNumber(newest.ticket_number, type, newest.process_status, newest.counter_name, newest.customer_name);
                         const el = document.getElementById(`ticket-${newest.id}`);
                         if(el) { el.classList.add('active-flash'); setTimeout(()=>el.classList.remove('active-flash'), 3000); }
                     }
@@ -399,29 +684,58 @@
             }
         }
 
-        function speakNumber(num, type, status, counterName) {
-            if (!window.speechSynthesis) return;
-            window.speechSynthesis.cancel();
+        const vnCharMap = {
+            'A': 'A', 'B': 'Bê', 'C': 'Xê', 'D': 'Đê', 'E': 'E', 'F': 'Ép', 'G': 'Gờ', 'H': 'Hát',
+            'I': 'Y', 'J': 'Ghi', 'K': 'Ca', 'L': 'Lờ', 'M': 'Mờ', 'N': 'Nờ', 'O': 'O', 'P': 'Pê',
+            'Q': 'Quy', 'R': 'Rờ', 'S': 'Ét', 'T': 'Tê', 'U': 'U', 'V': 'Vê', 'W': 'Đúp', 'X': 'Ít',
+            'Y': 'Y dài', 'Z': 'Zét'
+        };
 
-            const numText = num.replace('-', ' ');
+        function speakNumber(num, type, status, counterName, customerName) {
+            // Chuyển ký tự chữ cái tiếng Anh sang âm tiếng Việt (VD: S -> Ét, B -> Bê)
+            const numText = num.split('').map(c => {
+                if (c === '-') return ' ';
+                const upperC = c.toUpperCase();
+                if (vnCharMap[upperC]) return vnCharMap[upperC] + ' ';
+                return c;
+            }).join('');
+
             let text = "";
-            const dest = counterName ? `đến Kỹ thuật viên ${counterName}` : `đến quầy phục vụ`;
+            const dest = counterName ? `đến Quầy ${counterName}` : `đến quầy phục vụ`;
             
             if (type === 'SALES' && status === 'HANDOVER') {
-                text = `Mời số ${numText} nhận bàn giao sản phẩm`;
+                // Bàn giao: gọi tên khách thay vì số
+                const name = customerName || numText;
+                text = `Mời khách hàng ${name} ${dest} để nhận bàn giao sản phẩm`;
             } else {
                 text = `Mời số ${numText} ${dest}`;
             }
 
-            const u = new SpeechSynthesisUtterance(text);
-            const voices = window.speechSynthesis.getVoices();
-            const vnVoice = voices.find(v => v.lang === 'vi-VN' || v.name.includes('Google tiếng Việt'));
-            if (vnVoice) u.voice = vnVoice;
-            u.lang = 'vi-VN';
-            u.rate = 0.9;
-            window.speechSynthesis.speak(u);
+            // Luôn thử native speechSynthesis trước (set lang vi-VN dù có tìm thấy voice hay không)
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'vi-VN';
+                u.rate = 0.9;
+                // Nếu tìm được voice vi-VN thì gán, không thì để trình duyệt tự chọn theo lang
+                const voices = window.speechSynthesis.getVoices();
+                const vnVoice = voices.find(v => v.lang === 'vi-VN' || v.lang.startsWith('vi'));
+                if (vnVoice) u.voice = vnVoice;
+                window.speechSynthesis.speak(u);
+                return;
+            }
+
+            // Fallback: Google Translate TTS (chỉ khi speechSynthesis không tồn tại)
+            try {
+                const audio = new Audio(
+                    `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=${encodeURIComponent(text)}`
+                );
+                audio.play().catch(e => console.warn('TTS fallback failed:', e));
+            } catch(e) { console.warn('TTS error:', e); }
         }
-        window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        if (window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        }
 
         setInterval(() => {
             activeTickets.forEach(t => {
@@ -457,9 +771,12 @@
         }
         if (CONFIG.hasVideo) setTimeout(toggleScreen, CONFIG.showQueue);
 
+        // Kích hoạt audio trên trình duyệt (cần user gesture)
         document.body.addEventListener('click', () => {
-            const u = new SpeechSynthesisUtterance('');
-            window.speechSynthesis.speak(u);
+            if (window.speechSynthesis) {
+                const u = new SpeechSynthesisUtterance('');
+                window.speechSynthesis.speak(u);
+            }
         }, {once:true});
 
         // 5. [QUẢN LÝ CHẾ ĐỘ HIỂN THỊ]
@@ -484,4 +801,5 @@
         });
     </script>
 </body>
+
 </html>

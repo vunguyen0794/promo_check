@@ -1,142 +1,130 @@
 <%
-    // Helper để tính toán thông tin ngày hết hạn
-    function getExpiryInfo(endDateString) {
-        if (!endDateString) {
-            return { badgeClass: '', formattedDate: '' };
-        }
-        
-        const endDate = new Date(endDateString);
-        endDate.setHours(23, 59, 59, 999); 
-
-        const diffTime = endDate.getTime() - new Date().getTime();
-        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-
-        let badgeClass = '';
-        if (diffDays > 3) {
-            badgeClass = 'promo-expiry-badge--safe'; 
-        } else if (diffDays >= 0) {
-            badgeClass = 'promo-expiry-badge--urgent'; 
-        } else {
-            badgeClass = 'promo-expiry-badge--urgent'; 
-        }
-
-        const formattedDate = new Date(endDateString).toLocaleDateString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-
-        return { badgeClass, formattedDate };
+function getExpiryInfo(endDateString) {
+    if (!endDateString) {
+        return {
+            level: 'neutral',
+            badgeClass: '',
+            formattedDate: '',
+            remainingLabel: 'Không giới hạn'
+        };
     }
 
-    
+    const endDate = new Date(endDateString);
+    endDate.setHours(23, 59, 59, 999);
+
+    const now = new Date();
+    const diffTime = endDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let level = 'safe';
+    let badgeClass = 'promo-expiry-badge--safe';
+    let remainingLabel = '';
+
+    if (diffDays < 0) {
+        level = 'expired';
+        badgeClass = 'promo-expiry-badge--expired';
+        remainingLabel = 'Đã hết hạn';
+    } else if (diffDays <= 3) {
+        level = 'urgent';
+        badgeClass = 'promo-expiry-badge--urgent';
+        remainingLabel = diffDays === 0 ? 'Hết hạn hôm nay' : `Còn ${diffDays} ngày`;
+    } else {
+        remainingLabel = `Còn ${diffDays} ngày`;
+    }
+
+    const formattedDate = new Date(endDateString).toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+
+    return { level, badgeClass, formattedDate, remainingLabel };
+}
+
+const currentRole = (typeof userRole !== 'undefined') ? userRole : '';
+const totalPageValue = Number(totalPages) || 1;
+const totalItemValue = Number(totalItems) || (featuredPromos || []).length;
 %>
 
-<div class="promo-list">
-    <% featuredPromos.forEach(function(p){ %>
-        <% 
-            // 1. Tính toán ngày hết hạn
-            const expiry = (typeof getExpiryInfo === 'function') ? getExpiryInfo(p.end_date) : { badgeClass: '', formattedDate: '' };
-            
-            // 2. Kiểm tra xem có phải là KFI không
-            const isKFI = (p.promo_type === 'KFI');
+<div class="promo-page-chunk" data-page="<%= Number(page) || 1 %>">
+    <div class="promo-list">
+        <% if (!featuredPromos || featuredPromos.length === 0) { %>
+            <div class="promo-empty-state">
+                <div class="promo-empty-state__title">Không tìm thấy CTKM phù hợp</div>
+                <div class="promo-empty-state__desc">Thử đổi nhóm lọc hoặc từ khóa tìm kiếm để xem thêm kết quả.</div>
+            </div>
+        <% } %>
 
-            // ================================================================
-            // === [LOGIC MỚI] CHECK QUYỀN MANAGER CHO KFI ===
-            // Nếu là KFI và Role KHÔNG PHẢI là 'manager' -> Bỏ qua (Không vẽ thẻ này)
-            // ================================================================
-            if (isKFI) {
-                // 1. Lấy user an toàn: Kiểm tra biến 'user' có tồn tại không trước khi dùng
-                const currentUser = (typeof user !== 'undefined') ? user : null;
+        <% (featuredPromos || []).forEach(function(p){ %>
+            <% 
+                const expiry = getExpiryInfo(p.end_date);
+                const isKFI = (p.promo_type === 'KFI');
 
-                // 2. Debug: In thử ra console trình duyệt để biết server có gửi user xuống không
-                // (Bạn có thể xóa dòng console.log này sau khi fix xong)
-                if (!currentUser) console.log('DEBUG: User bị null khi load Ajax!');
-                else console.log('DEBUG: User role is:', currentUser.role);
-
-                // 3. Logic ẩn hiện
-                if (!currentUser || currentUser.role !== 'manager') {
-                    return; // Nếu không có user hoặc không phải manager thì ẩn ngay
+                if (isKFI && currentRole !== 'manager') {
+                    return;
                 }
-            }
 
-            // 3. Xử lý Link an toàn (Tránh lỗi khi không có product)
-            let linkHref = "/promotion-detail/" + p.id;
-            let linkText = "Chi tiết >";
-            
-            if (isKFI) {
-                // Kiểm tra xem biến product có tồn tại không (Trang Search vs Trang Home)
-                const currentSku = (typeof product !== 'undefined' && product) ? product.sku : '';
-                
-                // Nếu có SKU -> Link filter theo SKU, Ngược lại -> Link trang chủ KFI
-                linkHref = "/kfi-program" + (currentSku ? "?q=" + currentSku : "");
-                linkText = "Xem tồn kho & Thưởng →";
-            }
-        %>
+                let linkHref = "/promotion-detail/" + p.id;
+                let linkText = "Chi tiết CTKM";
 
-        <a class="promo-item" href="<%= linkHref %>" 
-           style="position: relative; <%= isKFI ? 'border:1px solid #fbcfe8; background:#fff0f6;' : '' %>">
-            
-            <div class="promo-item__content">
-                <div class="promo-name" style="<%= isKFI ? 'color:#be185d;' : '' %>">
-                    <%= p.name %>
+                if (isKFI) {
+                    linkHref = "/kfi-program";
+                    linkText = "Xem tồn kho & thưởng";
+                }
+            %>
+
+            <a class="promo-item promo-item--<%= expiry.level %>" href="<%= linkHref %>" data-expiry-level="<%= expiry.level %>">
+                <div class="promo-item__head">
+                    <div class="promo-chip-stack">
+                        <% if (p.group_name) { %>
+                            <span class="promo-chip promo-chip--group"><%= p.group_name %></span>
+                        <% } %>
+                        <% if (p.promo_type) { %>
+                            <span class="promo-chip promo-chip--type"><%= p.promo_type %></span>
+                        <% } %>
+                    </div>
+                    <% if (isKFI) { %>
+                        <span class="promo-chip promo-chip--kfi">HOT</span>
+                    <% } %>
                 </div>
+
+                <div class="promo-name"><%= p.name %></div>
 
                 <div class="promo-meta">
-    <% 
-        // Danh sách các loại CTKM KHÔNG được hiện giá tiền trực tiếp (ưu tiên hiện text mô tả)
-        const HIDE_PRICE_TYPES = ['Combo', 'Gift', 'Quà tặng (Gift)', 'Trả góp', 'Ưu đãi thanh toán', 'KFI'];
-        
-        // Chỉ hiện giá nếu có discount VÀ không thuộc loại bị ẩn
-        const shouldShowPrice = p.__display_discount && !HIDE_PRICE_TYPES.includes(p.promo_type);
-    %>
+                    <% 
+                        const HIDE_PRICE_TYPES = ['Combo', 'Gift', 'Quà tặng (Gift)', 'Trả góp', 'Ưu đãi thanh toán', 'KFI'];
+                        const shouldShowPrice = p.__display_discount && !HIDE_PRICE_TYPES.includes(p.promo_type);
+                    %>
 
-    <% if (isKFI) { %>
-        <div style="font-size:13px; color:#9d174d; font-weight:600; margin-top: 4px;">
-            <% if (p.description && p.description.includes('Thưởng')) { %>
-                <%= p.description %> 
-            <% } else { %>
-                Xem KFI tháng này & Tồn kho 
-            <% } %>
-        </div>
-
-    <% } else if (shouldShowPrice) { %>
-        <%= p.__display_prefix || '' %>: 
-        <strong>
-            <% if (String(p.__display_discount).includes('%')) { %>
-                <%= p.__display_discount %>
-            <% } else { %>
-                <%= new Intl.NumberFormat('vi-VN').format(p.__display_discount) %>₫
-            <% } %>
-        </strong>
-
-    <% } else { %>
-        <span class="dash-muted" style="font-size:13px; color:#64748b;">
-            <%= p.description ? p.description : (p.promo_type || 'Xem chi tiết') %>
-        </span>
-    <% } %>
-</div>
-            </div>
-
-            <% if (expiry.formattedDate) { %>
-                <div class="promo-expiry-badge <%= expiry.badgeClass %>">
-                    Hết hạn: <%= expiry.formattedDate %>
+                    <% if (isKFI) { %>
+                        <span class="promo-meta-text">
+                            <%= p.description && p.description.includes('Thưởng') ? p.description : 'Theo dõi KFI tháng này và tồn kho liên quan' %>
+                        </span>
+                    <% } else if (shouldShowPrice) { %>
+                        <span class="promo-price-prefix"><%= p.__display_prefix || 'Ưu đãi' %>:</span>
+                        <strong class="promo-price-value">
+                            <% if (String(p.__display_discount).includes('%')) { %>
+                                <%= p.__display_discount %>
+                            <% } else { %>
+                                <%= new Intl.NumberFormat('vi-VN').format(p.__display_discount) %>₫
+                            <% } %>
+                        </strong>
+                    <% } else { %>
+                        <span class="promo-meta-text"><%= p.description ? p.description : (p.promo_type || 'Xem chi tiết') %></span>
+                    <% } %>
                 </div>
-            <% } %>
 
-            <% if (isKFI) { %>
-                <div style="position:absolute; top:10px; right:10px; background:#db2777; color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;">
-                    HOT
+                <% if (expiry.formattedDate) { %>
+                    <div class="promo-expiry-badge <%= expiry.badgeClass %>">HSD: <%= expiry.formattedDate %></div>
+                <% } %>
+
+                <div class="promo-item__foot">
+                    <span class="promo-link-label"><%= linkText %></span>
+                    <span class="promo-days-left"><%= expiry.remainingLabel %></span>
                 </div>
-            <% } %>
-        </a>
-    <% }) %>
-</div>
-
-<% if (totalPages > 1) { %>
-    <div style="margin-top: 20px; display:flex; justify-content: center; gap: 8px;">
-        <% if (page < totalPages) { %>
-            <a class="btn-view-more" href="/?group=<%= encodeURIComponent(selectedGroup) %>&page=<%= page + 1 %>" data-ajax="true">Xem thêm →</a>
-        <% } %>
+            </a>
+        <% }) %>
     </div>
-<% } %>
+
+    <div class="promo-fetch-meta" data-total-pages="<%= totalPageValue %>" data-total-items="<%= totalItemValue %>" style="display:none;"></div>
+</div>

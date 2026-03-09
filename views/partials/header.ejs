@@ -9,7 +9,7 @@
     href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap&subset=vietnamese"
     rel="stylesheet">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -112,14 +112,13 @@
                 
                 <nav class="nav">
                     <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">📦 FIFO</a>
-                    <a href="/newsfeed" class="<%= currentPage === 'newsfeed' ? 'active' : '' %>">📰 Bảng tin</a>
                     <% if (user && (user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
                         <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">⚙️ QL CTKM</a>
                     <% } %>  
                 </nav>
                      
                 <% 
-                    const utilityPages = ['policy', 'pc-builder', 'quote-builder', 'price-battle', 'bom-check', 'bom-dashboard', 'clearance-check', 'event-operations', 'event-orders', 'event-settings', 'customer-care', 'queue-admin', 'queue-tv'];
+                    const utilityPages = ['policy', 'pc-builder', 'quote-builder', 'bom-check', 'bom-dashboard', 'clearance-check', 'event-operations', 'event-orders', 'event-settings', 'customer-care', 'queue-admin', 'queue-tv'];
                 %>
                 <div class="dropdown">
                     <a href="#" id="utilitiesDropdownToggle" style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none; padding: 6px 10px;" class="<%= utilityPages.includes(currentPage) ? 'active' : '' %>">
@@ -145,16 +144,18 @@
                         <a href="/pc-builder"><span class="menu-icon">🖥️</span> Build PC</a>
                         <a href="/quote-builder"><span class="menu-icon">📄</span> Báo giá nhanh</a>
                         <a href="/clearance-check" class="<%= currentPage === 'clearance-check' ? 'active' : '' %>"><span class="menu-icon">🏷️</span> Hàng thanh lý</a>
-                        <a href="/price-battle" class="<%= currentPage === 'price-battle' ? 'active' : '' %>"><span class="menu-icon">⚔️</span> Chiến giá</a>
-                        <a href="/bom-check"><span class="menu-icon">🔍</span> Check BOM</a>
-                        <a href="/bom-dashboard"><span class="menu-icon">📊</span> BOM Dashboard</a>
-                        <% if (locals.isBranchEventActive) { %>
-                            <div style="border-top: 1px solid #eee; margin: 4px 0;"></div>
-                            <a href="/event-operations" class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>"><span class="menu-icon">🎉</span> Vận hành Event</a>
-                        <% } %>
-                        <% if (user && (user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
-                            <% if (!locals.isBranchEventActive) { %> <div style="border-top: 1px solid #eee; margin: 4px 0;"></div> <% } %>
-                            <a href="/admin/event-settings" class="<%= currentPage === 'event-settings' ? 'active' : '' %>"><span class="menu-icon">⚙️</span> Cài đặt Event</a>
+
+                        <% if (user && user.email === 'vu.nt1@phongvu-mna.vn') { %>
+                            <a href="/bom-check"><span class="menu-icon">🔍</span> Check BOM</a>
+                            <a href="/bom-dashboard"><span class="menu-icon">📊</span> BOM Dashboard</a>
+                            <% if (locals.isBranchEventActive) { %>
+                                <div style="border-top: 1px solid #eee; margin: 4px 0;"></div>
+                                <a href="/event-operations" class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>"><span class="menu-icon">🎉</span> Vận hành Event</a>
+                            <% } %>
+                            <% if ((user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
+                                <% if (!locals.isBranchEventActive) { %> <div style="border-top: 1px solid #eee; margin: 4px 0;"></div> <% } %>
+                                <a href="/admin/event-settings" class="<%= currentPage === 'event-settings' ? 'active' : '' %>"><span class="menu-icon">⚙️</span> Cài đặt Event</a>
+                            <% } %>
                         <% } %>
                     </div>
                 </div>
