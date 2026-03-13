@@ -77,6 +77,40 @@ try {
 }
 // -------------------------------------------------------------------
 
+const CSI_BIGQUERY_SOURCES = (
+  process.env.BIGQUERY_CSI_TABLES ||
+  process.env.BIGQUERY_CSI_TABLE ||
+  'nimble-volt-459313-b8.sales.view_csi_final'
+)
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+let csiSourceCachePromise = null;
+
+async function resolveCsiSourceTable() {
+  if (!bigquery) return null;
+  if (!csiSourceCachePromise) {
+    csiSourceCachePromise = (async () => {
+      for (const source of CSI_BIGQUERY_SOURCES) {
+        const clean = source.replace(/`/g, '');
+        const parts = clean.split('.');
+        if (parts.length !== 3) continue;
+        const [, datasetId, tableId] = parts;
+        try {
+          const [exists] = await bigquery.dataset(datasetId).table(tableId).exists();
+          if (exists) return clean;
+        } catch (_) {
+          // Bỏ qua candidate lỗi và thử candidate tiếp theo.
+        }
+      }
+      console.warn(`[CSI] Không tìm thấy nguồn BigQuery hợp lệ. Candidates: ${CSI_BIGQUERY_SOURCES.join(', ')}`);
+      return null;
+    })();
+  }
+  return csiSourceCachePromise;
+}
+
 
 
 // ------------------------- App & core middlewares -------------------------
@@ -7911,7 +7945,7 @@ app.get('/profile', requireAuth, async (req, res) => {
     };
 
     // --- 8. LẤY DATA CSI & FEEDBACK (BIGQUERY) ---
-    let csiData = { csi_percent: 0, feedback_count: 0 };
+    let csiData = { csi_percent: 0, feedback_count: 0, unavailable: false };
     let feedbackList = [];
 
     // Logic Filter CSI:
@@ -8793,6 +8827,11 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
   try {
     const user = req.session.user;
     const { startDate, endDate, branchFilter, keyword } = req.query;
+    const normalizeRating = (value) => {
+      const numeric = Number(value || 0);
+      if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+      return Math.min(numeric, 5);
+    };
 
     // 1. Phân quyền
     let targetBranch = user.branch_code;
@@ -8870,6 +8909,15 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
     const stats = calcStats(tickets);
     const prevStats = calcStats(prevTickets);
 
+    const feedbackTotals = {
+      serviceStars: 0,
+      serviceRatedCount: 0,
+      techStars: 0,
+      techRatedCount: 0,
+      avgServiceStars: 0,
+      avgTechStars: 0
+    };
+
     // 5. [UPDATE] XỬ LÝ BIỂU ĐỒ & LEADERBOARD (Thêm PICKUP)
     let dailyStats = {};
     let branchStats = {};
@@ -8910,16 +8958,40 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
 
           if (t.service_feedback && t.service_feedback.length > 0) {
             const fb = t.service_feedback[0];
+            const techScore = normalizeRating(fb.technician_score);
+            const serviceScore = normalizeRating(fb.service_score);
             ktvMap[cleanName].ratedCount++;
-            ktvMap[cleanName].totalTech += Number(fb.technician_score || 0);
-            ktvMap[cleanName].totalService += Number(fb.service_score || 0);
+            ktvMap[cleanName].totalTech += techScore;
+            ktvMap[cleanName].totalService += serviceScore;
             if (fb.comment) ktvMap[cleanName].latestComment = fb.comment;
+          }
+        }
+
+        if (t.service_feedback && t.service_feedback.length > 0) {
+          const fb = t.service_feedback[0];
+          const serviceScore = normalizeRating(fb.service_score);
+          const techScore = normalizeRating(fb.technician_score);
+
+          if (serviceScore > 0) {
+            feedbackTotals.serviceStars += serviceScore;
+            feedbackTotals.serviceRatedCount++;
+          }
+          if (techScore > 0) {
+            feedbackTotals.techStars += techScore;
+            feedbackTotals.techRatedCount++;
           }
         }
       }
     });
 
     // Tính trung bình điểm
+    feedbackTotals.avgServiceStars = feedbackTotals.serviceRatedCount > 0
+      ? Number((feedbackTotals.serviceStars / feedbackTotals.serviceRatedCount).toFixed(1))
+      : 0;
+    feedbackTotals.avgTechStars = feedbackTotals.techRatedCount > 0
+      ? Number((feedbackTotals.techStars / feedbackTotals.techRatedCount).toFixed(1))
+      : 0;
+
     let leaderboard = Object.values(ktvMap).map(k => ({
       name: k.name,
       branch: k.branch,
@@ -8929,7 +9001,7 @@ app.get('/api/queue/report-data', requireAuth, async (req, res) => {
       latestComment: k.latestComment
     })).sort((a, b) => b.count - a.count); // Sắp xếp theo số lượng vé
 
-    res.json({ ok: true, stats, prevStats, dailyStats, branchStats, leaderboard, details: tickets });
+    res.json({ ok: true, stats, prevStats, dailyStats, branchStats, leaderboard, feedbackTotals, details: tickets });
 
   } catch (e) {
     console.error("Report API Error:", e);
@@ -9086,7 +9158,7 @@ app.get('/api/queue/history', requireAuth, async (req, res) => {
       .from('queue_tickets')
       .select(`
                 *,
-                service_feedback(service_score, comment)
+                service_feedback(service_score, technician_score, comment)
             `, { count: 'exact' })
       .eq('branch_code', branchCode)
       .eq('status', 'COMPLETED') // Chỉ lấy khách đã xong
@@ -10237,6 +10309,10 @@ app.post('/admin/send-notification', requireAuth, async (req, res) => {
 async function getCsiStats(options) {
   const { email, branch, period } = options;
   const dateFilter = getDateFilterCondition(period);
+  const csiSource = await resolveCsiSourceTable();
+  if (!csiSource) {
+    return { csi_percent: 0, feedback_count: 0, unavailable: true };
+  }
 
   const queryParams = {
     startDate: dateFilter.start,
@@ -10316,7 +10392,7 @@ async function getCsiStats(options) {
             -- Đếm số góp ý (Dùng Length > 1 để lọc ô chỉ có dấu cách)
             COUNT(CASE WHEN Gop_y IS NOT NULL AND LENGTH(TRIM(Gop_y)) > 1 THEN 1 END) as feedback_count
 
-        FROM \`nimble-volt-459313-b8.sales.view_csi_final\`
+        FROM \`${csiSource}\`
         ${whereClause}
     `;
 
@@ -10336,12 +10412,13 @@ async function getCsiStats(options) {
 
     return {
       csi_percent: csiPercent.toFixed(1),
-      feedback_count: res.feedback_count || 0
+      feedback_count: res.feedback_count || 0,
+      unavailable: false
     };
 
   } catch (e) {
     console.error("CSI Error:", e.message);
-    return { csi_percent: 0, feedback_count: 0 };
+    return { csi_percent: 0, feedback_count: 0, unavailable: true };
   }
 }
 
@@ -10349,6 +10426,8 @@ async function getCsiStats(options) {
 async function getFeedbackList(options) {
   const { email, branch, period } = options;
   const dateFilter = getDateFilterCondition(period);
+  const csiSource = await resolveCsiSourceTable();
+  if (!csiSource) return [];
 
   const queryParams = { startDate: dateFilter.start, endDate: dateFilter.end };
   let whereClause = `WHERE PARSE_DATE('%d/%m/%Y', Ngay_KS) BETWEEN @startDate AND @endDate AND Gop_y IS NOT NULL AND Gop_y != ''`;
@@ -10375,7 +10454,7 @@ async function getFeedbackList(options) {
             Sale_Email_System, -- Lấy thêm email hệ thống (nếu cần hiển thị tooltip)
             Gop_y, 
             Ghi_chu
-        FROM \`nimble-volt-459313-b8.sales.view_csi_final\` -- [ĐỔI TÊN TABLE THÀNH VIEW]
+        FROM \`${csiSource}\`
         ${whereClause}
         ORDER BY PARSE_DATE('%d/%m/%Y', Ngay_KS) DESC
         LIMIT 50

@@ -145,9 +145,9 @@
                         <a href="/quote-builder"><span class="menu-icon">📄</span> Báo giá nhanh</a>
                         <a href="/clearance-check" class="<%= currentPage === 'clearance-check' ? 'active' : '' %>"><span class="menu-icon">🏷️</span> Hàng thanh lý</a>
 
+                        <a href="/bom-check"><span class="menu-icon">🔍</span> Check BOM</a>
+                        <a href="/bom-dashboard"><span class="menu-icon">📊</span> BOM Dashboard</a>
                         <% if (user && user.email === 'vu.nt1@phongvu-mna.vn') { %>
-                            <a href="/bom-check"><span class="menu-icon">🔍</span> Check BOM</a>
-                            <a href="/bom-dashboard"><span class="menu-icon">📊</span> BOM Dashboard</a>
                             <% if (locals.isBranchEventActive) { %>
                                 <div style="border-top: 1px solid #eee; margin: 4px 0;"></div>
                                 <a href="/event-operations" class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>"><span class="menu-icon">🎉</span> Vận hành Event</a>

@@ -207,20 +207,25 @@
                         </div>
                         
                         <div class="kpi-value" style="color:#d97706;">
-                            <%= csiData.csi_percent %>%
+                            <%= csiData.unavailable ? 'N/A' : (csiData.csi_percent + '%') %>
                         </div>
                         
                         <div class="kpi-sub" style="font-size: 11px; color: #92400e; margin-top: 5px; font-weight: 600;">
-                            <% if(csiData.feedback_count > 0) { %>
+                            <% if (csiData.unavailable) { %>
+                                <span style="color:#92400e; background:#fef3c7; padding: 2px 6px; border-radius: 4px;">
+                                    Nguồn CSI chưa được cấu hình trên BigQuery
+                                </span>
+                            <% } else if(csiData.feedback_count > 0) { %>
                                 <span style="color:#dc2626; background: #fee2e2; padding: 2px 6px; border-radius: 4px;">
                                     Góp ý <%= csiData.feedback_count %> 
                                 </span>
                                 <span style="color:#e2e8f0; margin: 0 4px;">|</span>
+                                Target: > 95%
                             <% } else { %>
                                 <span style="color:#16a34a;">✨ Không có góp ý</span>
                                 <span style="color:#e2e8f0; margin: 0 4px;">|</span>
+                                Target: > 95%
                             <% } %>
-                            Target: > 95%
                         </div>
                     </div>
                 </div>

@@ -313,6 +313,12 @@
             body.admin-no-sales .col-service .list-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-content: start; }
             body.admin-no-sales .col-service { height: auto; border-top-width: 0; }
             body.admin-no-sales .col-service .card { margin-bottom: 0; }
+            .rating-stack { display: flex; flex-direction: column; gap: 6px; width: 110px; max-width: 110px; }
+            .rating-line { display: flex; align-items: center; justify-content: flex-start; gap: 4px; white-space: nowrap; font-weight: 700; }
+            .rating-note { font-size: 11px; color: #666; line-height: 1.4; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
+            .rating-mark { font-weight: 800; }
+            .rating-mark.service { color: #f59e0b; }
+            .rating-mark.tech { color: #2563eb; }
         </style>
 </head>
 
@@ -623,7 +629,8 @@
                         <th style="padding:12px;">SĐT / Đơn hàng</th>
                         <th style="padding:12px;">KTV Phục vụ</th>
                         <th style="padding:12px;">Tổng thời gian</th>
-                        <th style="padding:12px;">Đánh giá</th>
+                        <th style="padding:12px;">Đánh giá cửa hàng</th>
+                        <th style="padding:12px;">Đánh giá KTV</th>
                     </tr>
                 </thead>
                 <tbody id="historyTableBody"></tbody>
@@ -1036,13 +1043,13 @@
             currentPage = page;
             const tbody = document.getElementById('historyTableBody');
             const pagDiv = document.getElementById('pagination');
-            if (tbody.innerHTML.trim() === '') tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
+            if (tbody.innerHTML.trim() === '') tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
 
             try {
                 const res = await fetch(`/api/queue/history?branch=<%= user.branch_code || '' %>&page=${page}`);
                 const json = await res.json();
                 if (!json.ok || !json.data || json.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">📭 Chưa có khách nào hoàn thành hôm nay.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:#999;">📭 Chưa có khách nào hoàn thành hôm nay.</td></tr>';
                     pagDiv.innerHTML = '';
                     return;
                 }
@@ -1057,11 +1064,16 @@
                     else if (item.service_type === 'PICKUP') typeInfo = '<span style="color:#1a73e8; font-weight:700;">Lấy máy</span>';
                     else typeInfo = '<span style="color:#0d9488; font-weight:700;">Lắp ráp</span>';
 
-                    let feedbackHtml = '<span style="color:#ccc;">--</span>';
+                    let serviceFeedbackHtml = '<span style="color:#ccc;">--</span>';
+                    let techFeedbackHtml = '<span style="color:#ccc;">--</span>';
                     if (item.service_feedback && item.service_feedback.length > 0) {
                         const fb = item.service_feedback[0];
-                        const stars = '⭐'.repeat(fb.service_score || 5);
-                        feedbackHtml = `<div>${stars}</div><div style="font-size:11px; color:#666;">${fb.comment || ''}</div>`;
+                        if (Number(fb.service_score) > 0) {
+                            serviceFeedbackHtml = `<div class="rating-stack"><div class="rating-line"><span class="rating-mark service">${Math.min(Number(fb.service_score), 5)}</span><span class="rating-mark service">⭐</span></div>${fb.comment ? `<div class="rating-note">${fb.comment}</div>` : ''}</div>`;
+                        }
+                        if (Number(fb.technician_score) > 0) {
+                            techFeedbackHtml = `<div class="rating-stack"><div class="rating-line"><span class="rating-mark tech">${Math.min(Number(fb.technician_score), 5)}</span><span class="rating-mark tech">⭐</span></div></div>`;
+                        }
                     }
                     let durationMin = 0;
                     if (item.created_at && item.updated_at) {
@@ -1081,7 +1093,8 @@
                             </td>
                             <td style="padding:12px;">${item.counter_name || '---'}</td>
                             <td style="padding:12px; text-align:center; font-weight:bold;">${durationMin} phút</td> 
-                            <td style="padding:12px;">${feedbackHtml}</td>
+                            <td style="padding:12px;">${serviceFeedbackHtml}</td>
+                            <td style="padding:12px;">${techFeedbackHtml}</td>
                         </tr>
                     `;
                 }).join('');
@@ -1093,7 +1106,7 @@
                 pagDiv.innerHTML = pagHtml;
             } catch (e) {
                 console.error(e);
-                tbody.innerHTML = '<tr><td colspan="8" style="color:red; text-align:center;">❌ Lỗi tải dữ liệu.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" style="color:red; text-align:center;">❌ Lỗi tải dữ liệu.</td></tr>';
             }
         }
 
