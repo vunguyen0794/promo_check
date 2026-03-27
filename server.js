@@ -10325,8 +10325,6 @@ async function getCsiStats(options) {
     whereClause += ` AND LOWER(Sale_Email_System) = LOWER(@email)`;
     queryParams.email = email;
   }
-  // Lọc Branch: Nếu là Manager, nó sẽ tính tổng điểm của Cả Chi Nhánh
-  // Manager có bán hàng hay không thì dữ liệu này vẫn là của tập thể chi nhánh đó.
   if (branch && branch !== 'HCM.BD') {
     whereClause += ` AND (Branch_System = @branch OR Ma_SR = @branch)`;
     queryParams.branch = branch;
@@ -10468,6 +10466,361 @@ async function getFeedbackList(options) {
     return [];
   }
 }
+// ======================= SALES DASHBOARD =======================
+
+// Helper: determine which terminal_codes a user can see
+function getAllowedTerminals(user, allTerminals) {
+  if (!user) return [];
+  if (user.role !== 'manager' && user.role !== 'admin') return [];
+  const branch = user.branch_code;
+  if (!branch || branch === 'HCM.BD') return null; // null = all
+  // Map branch_code → terminal codes (e.g. CP01, CP02…)
+  // terminals whose terminal_code starts with the branch_code or equals it
+  return allTerminals.filter(t => t === branch || t.startsWith(branch));
+}
+
+// GET /sales-dashboard — render page (manager/admin only)
+app.get('/sales-dashboard', requireAuth, (req, res) => {
+  const user = req.session.user;
+  if (user.role !== 'manager' && user.role !== 'admin') {
+    return res.status(403).send('Chỉ Manager/Admin mới có quyền xem trang này.');
+  }
+  res.render('sales-dashboard', {
+    title: 'Dashboard Doanh Thu Realtime',
+    currentPage: 'sales-dashboard',
+  });
+});
+
+// ===================== TERMINAL MAPPINGS =====================
+// terminal_code column is NULL in Supabase; map by terminal_name
+const TERMINAL_CODE_MAP = {
+  '264A-264B-264C Nguyễn Thị Minh Khai,Phường 6': 'CP01',
+  'Số 408 đại lộ Bình Dương, Phường Phú Lợi': 'CP02',
+  '1081C Hậu Giang, Phường 11': 'CP05',
+  'Số 9-11 Nguyễn Thị Thập, Phường Tân Phú': 'CP07',
+  'Số 2A, Đường Nguyễn Oanh, Phường 7': 'CP08',
+  'Showroom Hoàng Hoa Thám': 'CP40',
+  '164 Lê Văn Việt, Tăng Nhơn Phú B, TP.Thủ Đức': 'CP46',
+  'ĐỊA ĐIỂM KINH DOANH 52 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ': 'CP58',
+  'ĐỊA ĐIỂM KINH DOANH 39 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ': 'CP62',
+  'ĐỊA ĐIỂM KINH DOANH 54 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ': 'CP64',
+  'ĐỊA ĐIỂM KINH DOANH 57 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ': 'CP67',
+  'CH Bình Dương 2': 'CP69',
+};
+// Mapping từ branch_code/terminal_code → terminal_names mà branch đó quản lý
+// Admin và HCM.BD xem tất cả; các branch khác chỉ xem cửa hàng của mình
+const BRANCH_TERMINALS = {
+  'CP01': ['264A-264B-264C Nguyễn Thị Minh Khai,Phường 6'],
+  'CP02': ['Số 408 đại lộ Bình Dương, Phường Phú Lợi'],
+  'CP05': ['1081C Hậu Giang, Phường 11'],
+  'CP07': ['Số 9-11 Nguyễn Thị Thập, Phường Tân Phú'],
+  'CP08': ['Số 2A, Đường Nguyễn Oanh, Phường 7'],
+  'CP40': ['Showroom Hoàng Hoa Thám'],
+  'CP46': ['164 Lê Văn Việt, Tăng Nhơn Phú B, TP.Thủ Đức'],
+  'CP58': ['ĐỊA ĐIỂM KINH DOANH 52 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ'],
+  'CP62': ['ĐỊA ĐIỂM KINH DOANH 39 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ'],
+  'CP64': ['ĐỊA ĐIỂM KINH DOANH 54 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ'],
+  'CP67': ['ĐỊA ĐIỂM KINH DOANH 57 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ'],
+  'CP69': ['CH Bình Dương 2'],
+};
+// Helper: apply terminal_name filter cho non-admin/non-allbranch queries
+function applyTerminalFilter(query, branch, isAllBranch) {
+  if (isAllBranch) return query;
+  const names = BRANCH_TERMINALS[branch];
+  if (names && names.length === 1) return query.eq('terminal_name', names[0]);
+  if (names && names.length > 1) return query.in('terminal_name', names);
+  // Unknown branch → return nothing by filtering impossible value
+  return query.eq('terminal_name', '__NO_MATCH__');
+}
+
+// GET /api/sales/summary — today totals + yesterday + last-week-same-day comparisons
+app.get('/api/sales/summary', requireAuth, async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (user.role !== 'manager' && user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+
+    const now = new Date();
+    // Business dates (Vietnam timezone +7)
+    const localNow = new Date(now.getTime() + 7 * 3600000);
+    const todayStr = localNow.toISOString().slice(0, 10);
+    const yestDate = new Date(localNow); yestDate.setDate(yestDate.getDate() - 1);
+    const yestStr = yestDate.toISOString().slice(0, 10);
+    const lwDate = new Date(localNow); lwDate.setDate(lwDate.getDate() - 7);
+    const lwStr = lwDate.toISOString().slice(0, 10);
+
+    const branch = user.branch_code;
+    const isAllBranch = user.role === 'admin' || !branch || branch === 'HCM.BD';
+
+    // --- TODAY: pv_terminal_sales_snapshots compare_bucket='today' ---
+    // Loại bỏ row tổng hợp 'Tất cả điểm bán'
+    let snapQuery = supabase
+      .from('pv_terminal_sales_snapshots')
+      .select('terminal_name, order_count, revenue_k, snapshot_at')
+      .eq('business_date', todayStr)
+      .eq('compare_bucket', 'today')
+      .neq('terminal_name', 'Tất cả điểm bán')
+      .order('snapshot_at', { ascending: false });
+    snapQuery = applyTerminalFilter(snapQuery, branch, isAllBranch);
+
+    const { data: snapAll, error: snapErr } = await snapQuery;
+    if (snapErr) console.error('[sales/summary] snapErr:', snapErr.message);
+
+    // Key by terminal_name (terminal_code is NULL in Supabase)
+    const latestSnap = {};
+    (snapAll || []).forEach(r => {
+      if (!latestSnap[r.terminal_name] || r.snapshot_at > latestSnap[r.terminal_name].snapshot_at) {
+        latestSnap[r.terminal_name] = r;
+      }
+    });
+    const todayRows = Object.values(latestSnap);
+    // revenue_k lưu VND thô, chia 1,000,000 ra triệu VND
+    const today_revenue_m = todayRows.reduce((s, r) => s + (Number(r.revenue_k) / 1000000), 0);
+    const today_orders = todayRows.reduce((s, r) => s + Number(r.order_count || 0), 0);
+    console.log(`[sales/summary] today=${todayStr} stores=${todayRows.length} rev_m=${today_revenue_m.toFixed(1)} orders=${today_orders}`);
+
+    // --- YESTERDAY: pv_terminal_sales_snapshots compare_bucket='yesterday' ---
+    // Cùng bảng snapshot, cùng business_date=today, nhưng bucket='yesterday'
+    let yestQuery = supabase
+      .from('pv_terminal_sales_snapshots')
+      .select('terminal_name, order_count, revenue_k, snapshot_at')
+      .eq('business_date', todayStr)
+      .eq('compare_bucket', 'yesterday')
+      .neq('terminal_name', 'Tất cả điểm bán')
+      .order('snapshot_at', { ascending: false });
+    yestQuery = applyTerminalFilter(yestQuery, branch, isAllBranch);
+    const { data: yestSnapAll, error: yestErr } = await yestQuery;
+    if (yestErr) console.error('[sales/summary] yestErr:', yestErr.message);
+    // Latest snapshot per terminal for yesterday bucket
+    const yestLatest = {};
+    (yestSnapAll || []).forEach(r => {
+      if (!yestLatest[r.terminal_name] || r.snapshot_at > yestLatest[r.terminal_name].snapshot_at) yestLatest[r.terminal_name] = r;
+    });
+    const yestRows2 = Object.values(yestLatest);
+    const yest_revenue_m = yestRows2.reduce((s, r) => s + (Number(r.revenue_k) / 1000000), 0);
+    const yest_orders = yestRows2.reduce((s, r) => s + Number(r.order_count || 0), 0);
+    console.log(`[sales/summary] yesterday stores=${yestRows2.length} rev_m=${yest_revenue_m.toFixed(1)}`);
+
+    // --- LAST WEEK SAME DAY: pv_terminal_sales_snapshots compare_bucket='last_week_same_day' ---
+    let lwQuery = supabase
+      .from('pv_terminal_sales_snapshots')
+      .select('terminal_name, order_count, revenue_k, snapshot_at')
+      .eq('business_date', todayStr)
+      .eq('compare_bucket', 'last_week_same_day')
+      .neq('terminal_name', 'Tất cả điểm bán')
+      .order('snapshot_at', { ascending: false });
+    lwQuery = applyTerminalFilter(lwQuery, branch, isAllBranch);
+    const { data: lwSnapAll, error: lwErr } = await lwQuery;
+    if (lwErr) console.error('[sales/summary] lwErr:', lwErr.message);
+    const lwLatest = {};
+    (lwSnapAll || []).forEach(r => {
+      if (!lwLatest[r.terminal_name] || r.snapshot_at > lwLatest[r.terminal_name].snapshot_at) lwLatest[r.terminal_name] = r;
+    });
+    const lwRows2 = Object.values(lwLatest);
+    const lw_revenue_m = lwRows2.reduce((s, r) => s + (Number(r.revenue_k) / 1000000), 0);
+    const lw_orders = lwRows2.reduce((s, r) => s + Number(r.order_count || 0), 0);
+    console.log(`[sales/summary] lw_same_day stores=${lwRows2.length} rev_m=${lw_revenue_m.toFixed(1)}`);
+
+    // --- MONTHLY TARGET ---
+    const monthCol = `m${String(localNow.getMonth() + 1).padStart(2, '0')}`;
+    let tgtQuery = supabase.from('pv_terminal_monthly_targets').select(`terminal_code, ${monthCol}`);
+    if (!isAllBranch) tgtQuery = tgtQuery.eq('terminal_code', branch);
+    const { data: tgtRows } = await tgtQuery;
+    const daysInMonth = new Date(localNow.getFullYear(), localNow.getMonth() + 1, 0).getDate();
+    const totalMonthlyTarget = (tgtRows || []).reduce((s, r) => s + Number(r[monthCol] || 0), 0);
+    const today_target_m = totalMonthlyTarget > 0 ? totalMonthlyTarget / daysInMonth : null;
+
+    res.json({
+      today_revenue_m: Math.round(today_revenue_m * 10) / 10,
+      today_orders,
+      today_target_m: today_target_m ? Math.round(today_target_m * 10) / 10 : null,
+      yest_revenue_m: Math.round(yest_revenue_m * 10) / 10,
+      yest_orders,
+      yest_target_m: today_target_m ? Math.round(today_target_m * 10) / 10 : null,
+      yest_date: yestDate.toLocaleDateString('vi-VN'),
+      lw_revenue_m: Math.round(lw_revenue_m * 10) / 10,
+      lw_orders,
+      lw_target_m: today_target_m ? Math.round(today_target_m * 10) / 10 : null,
+      lw_date: lwDate.toLocaleDateString('vi-VN'),
+      _debug: { todayStr, todayStores: todayRows.length, yestStores: yestRows2.length, lwStores: lwRows2.length, monthCol, totalMonthlyTarget, branch, isAllBranch }
+    });
+  } catch (e) {
+    console.error('[sales/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/sales/chart — per-store daily revenue for selected period
+app.get('/api/sales/chart', requireAuth, async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (user.role !== 'manager' && user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+
+    const period = req.query.period || '1w';
+    const now = new Date();
+    const localNow = new Date(now.getTime() + 7 * 3600000);
+    const todayStr = localNow.toISOString().slice(0, 10);
+    const yestStr = new Date(localNow.getTime() - 86400000).toISOString().slice(0, 10);
+
+    let daysBack = 7;
+    if (period === '2w') daysBack = 14;
+    else if (period === '1m') daysBack = 30;
+    else if (period === '1q') daysBack = 90;
+    else if (period === '1y') daysBack = 365;
+
+    const fromDate = new Date(localNow);
+    fromDate.setDate(fromDate.getDate() - daysBack + 1);
+    const fromStr = fromDate.toISOString().slice(0, 10);
+
+    const branch = user.branch_code;
+    const isAllBranch = user.role === 'admin' || !branch || branch === 'HCM.BD';
+
+    // daily_final: lấy data chốt của từng ngày (compare_bucket='today' = data thực của ngày đó)
+    let query = supabase
+      .from('pv_terminal_sales_daily_final')
+      .select('business_date, terminal_name, revenue_k')
+      .eq('compare_bucket', 'today')
+      .gte('business_date', fromStr)
+      .lte('business_date', yestStr)
+      .neq('terminal_name', 'Tất cả điểm bán')
+      .order('business_date', { ascending: true });
+    query = applyTerminalFilter(query, branch, isAllBranch);
+
+    const { data: finalRows, error: chartErr } = await query;
+    if (chartErr) console.error('[sales/chart] err:', chartErr.message);
+
+    // Hôm nay → lấy từ snapshots compare_bucket='today'
+    let todayByTerminal = {};
+    if (fromStr <= todayStr) {
+      let snapQ = supabase
+        .from('pv_terminal_sales_snapshots')
+        .select('terminal_name, revenue_k, snapshot_at')
+        .eq('business_date', todayStr)
+        .eq('compare_bucket', 'today')
+        .neq('terminal_name', 'Tất cả điểm bán')
+        .order('snapshot_at', { ascending: false });
+      snapQ = applyTerminalFilter(snapQ, branch, isAllBranch);
+      const { data: todaySnaps } = await snapQ;
+      (todaySnaps || []).forEach(r => {
+        if (!todayByTerminal[r.terminal_name] || r.snapshot_at > todayByTerminal[r.terminal_name].snapshot_at) {
+          todayByTerminal[r.terminal_name] = r;
+        }
+      });
+    }
+
+    // Build date labels
+    const labels = [];
+    const cur = new Date(fromDate);
+    while (cur.toISOString().slice(0, 10) <= todayStr) {
+      labels.push(cur.toISOString().slice(0, 10));
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    // Group by terminal_name from daily_final (terminal_code may be valid here)
+    const storeMap = {};
+    (finalRows || []).forEach(r => {
+      const key = r.terminal_name || r.terminal_code || '?';
+      if (!storeMap[key]) {
+        storeMap[key] = { name: key, byDate: {} };
+      }
+      storeMap[key].byDate[r.business_date] = Math.round(Number(r.revenue_k) / 1000000 * 10) / 10;
+    });
+
+    // Merge today's snapshot data (keyed by terminal_name)
+    Object.entries(todayByTerminal).forEach(([name, r]) => {
+      if (!storeMap[name]) storeMap[name] = { name, byDate: {} };
+      storeMap[name].byDate[todayStr] = Math.round(Number(r.revenue_k) / 1000000 * 10) / 10;
+    });
+
+    const stores = Object.values(storeMap).map(s => ({
+      name: TERMINAL_CODE_MAP[s.name] || s.name,
+      data: labels.map(d => s.byDate[d] ?? null),
+    }));
+
+    const displayLabels = labels.map(d => {
+      const dt = new Date(d + 'T00:00:00');
+      return dt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    });
+
+    res.json({ labels: displayLabels, stores });
+  } catch (e) {
+    console.error('[sales/chart]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/sales/stores — per-store table with today data + target
+app.get('/api/sales/stores', requireAuth, async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (user.role !== 'manager' && user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+
+    const now = new Date();
+    const localNow = new Date(now.getTime() + 7 * 3600000);
+    const todayStr = localNow.toISOString().slice(0, 10);
+    const branch = user.branch_code;
+    const isAllBranch = user.role === 'admin' || !branch || branch === 'HCM.BD';
+
+    // Snapshot mới nhất của từng terminal, compare_bucket='today'
+    // Loại bỏ row tổng hợp 'Tất cả điểm bán'
+    let snapQuery = supabase
+      .from('pv_terminal_sales_snapshots')
+      .select('terminal_name, order_count, revenue_k, snapshot_at')
+      .eq('business_date', todayStr)
+      .eq('compare_bucket', 'today')
+      .neq('terminal_name', 'Tất cả điểm bán')
+      .order('snapshot_at', { ascending: false });
+    snapQuery = applyTerminalFilter(snapQuery, branch, isAllBranch);
+
+    const { data: snapAll, error: storeSnapErr } = await snapQuery;
+    if (storeSnapErr) console.error('[sales/stores] snapErr:', storeSnapErr.message);
+
+    // Dedup by terminal_name (terminal_code is NULL in snapshots table)
+    const latestSnap = {};
+    (snapAll || []).forEach(r => {
+      if (!latestSnap[r.terminal_name] || r.snapshot_at > latestSnap[r.terminal_name].snapshot_at) {
+        latestSnap[r.terminal_name] = r;
+      }
+    });
+    console.log(`[sales/stores] today=${todayStr} terminals=${Object.keys(latestSnap).length}`);
+
+    // Monthly targets (đơn vị triệu VND)
+    const monthCol = `m${String(localNow.getMonth() + 1).padStart(2, '0')}`;
+    // Lấy terminal_name từ targets để join với snapshot bằng tên (terminal_code NULL trong snapshots)
+    let tgtQuery = supabase.from('pv_terminal_monthly_targets').select(`terminal_code, terminal_name, ${monthCol}`);
+    // Không filter theo branch ở đây – filter đã được xử lý ở snapshot
+    const { data: tgtRows } = await tgtQuery;
+    const daysInMonth = new Date(localNow.getFullYear(), localNow.getMonth() + 1, 0).getDate();
+    // tgtMap keyed by terminal_name để join với snapshot
+    const tgtMap = {};
+    // codeMap: terminal_name → terminal_code (từ bảng targets – nguồn chính xác)
+    const codeFromTargets = {};
+    (tgtRows || []).forEach(r => {
+      const monthly = Number(r[monthCol] || 0);
+      tgtMap[r.terminal_name] = monthly > 0 ? Math.round(monthly / daysInMonth * 10) / 10 : null;
+      if (r.terminal_code) codeFromTargets[r.terminal_name] = r.terminal_code;
+    });
+
+    const stores = Object.values(latestSnap).map(r => {
+      // Lấy terminal_code: ưu tiên từ bảng targets (chính xác), fallback từ TERMINAL_CODE_MAP
+      const code = codeFromTargets[r.terminal_name] || TERMINAL_CODE_MAP[r.terminal_name] || '?';
+      return {
+        terminal_code: code,
+        terminal_name: r.terminal_name,
+        order_count: Number(r.order_count || 0),
+        revenue_m: Math.round(Number(r.revenue_k) / 1000000 * 10) / 10,
+        target_m: tgtMap[r.terminal_name] ?? null,
+      };
+    }).sort((a, b) => b.revenue_m - a.revenue_m);
+
+    res.json({ stores, updated_at: new Date().toISOString() });
+  } catch (e) {
+    console.error('[sales/stores]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ======================= END SALES DASHBOARD =======================
+
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {

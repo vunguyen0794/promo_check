@@ -1,0 +1,533 @@
+<%- include('partials/header', { title: 'Dashboard Doanh Thu Realtime', currentPage: 'sales-dashboard' }) %>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-tooltip-custom@0.2.0/dist/chartjs-plugin-tooltip-custom.min.js" onerror="void(0)"></script>
+
+<style>
+  /* Scoped styles for sales-dashboard only */
+  .sd-page { font-family: 'Inter', sans-serif; background: #f0f4f8; min-height: calc(100vh - 60px); padding: 24px; }
+  .sd-headline { font-family: 'Manrope', sans-serif; }
+  .sd-card { background: #ffffff; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .sd-hero { background: linear-gradient(135deg, #0a2d6e 0%, #1a56c4 100%); color: white; border-radius: 14px; }
+  .sd-badge-up { display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:#16a34a; }
+  .sd-badge-down { display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:#dc2626; }
+  .sd-badge-neutral { display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:#6b7280; }
+  .sd-progress-bar { height:8px;border-radius:99px;background:rgba(255,255,255,.25); overflow:hidden; }
+  .sd-progress-fill { height:100%;border-radius:99px;background:#4ade80;transition:width .6s ease; }
+  .sd-period-btn { padding:6px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;transition:all .2s;color:#6b7280;background:transparent;border:none; }
+  .sd-period-btn.active { background:#1a56c4;color:#fff;box-shadow:0 2px 8px rgba(26,86,196,.3); }
+  .sd-tbl th { font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;padding:12px 16px;background:#f8fafc;white-space:nowrap; }
+  .sd-tbl td { padding:14px 16px;font-size:13px;border-bottom:1px solid #f1f5f9; }
+  .sd-tbl tr:last-child td { border-bottom:none; }
+  .sd-tbl tr:hover td { background:#f8faff; }
+  .pct-badge { display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700; }
+  .pct-green { background:#dcfce7;color:#15803d; }
+  .pct-yellow { background:#fef9c3;color:#854d0e; }
+  .pct-red { background:#fee2e2;color:#b91c1c; }
+  .pct-over { background:#1a56c4;color:#fff; }
+  .live-dot { width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block;animation:livePulse 1.5s infinite; }
+  @keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+  .sd-spinner { width:20px;height:20px;border:2px solid #e2e8f0;border-top-color:#1a56c4;border-radius:50%;animation:spin .8s linear infinite;display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .material-symbols-outlined.sm { font-size:18px; }
+</style>
+
+<div class="sd-page">
+  <!-- Header -->
+  <div class="flex flex-wrap justify-between items-end gap-4 mb-6">
+    <div>
+      <h1 class="sd-headline text-2xl font-extrabold text-blue-900">Dashboard Doanh Thu Realtime</h1>
+      <p class="text-sm text-gray-500 mt-1" id="dashSubtitle">Cập nhật dữ liệu từ Supabase · Bảng summary mỗi 30 phút</p>
+    </div>
+    <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-xl shadow-sm border border-green-100">
+      <span class="live-dot"></span>
+      <span class="text-xs font-bold text-green-700 uppercase tracking-widest" id="liveClockBadge">LIVE: --:--:--</span>
+    </div>
+  </div>
+
+  <!-- ROW 1: Revenue KPI Cards -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+
+    <!-- Hero: Today Revenue -->
+    <div class="sd-hero p-7 relative overflow-hidden">
+      <div class="absolute -top-16 -right-16 w-56 h-56 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="relative z-10">
+        <div class="flex justify-between items-start mb-4">
+          <span class="text-xs font-bold uppercase tracking-widest opacity-75">Doanh Thu Hôm Nay</span>
+          <span class="material-symbols-outlined opacity-40">payments</span>
+        </div>
+        <p class="sd-headline text-3xl font-extrabold mb-1" id="todayRevVal">--</p>
+        <p class="text-xs opacity-60 mb-4" id="todayRevSub">Đang tải...</p>
+
+        <!-- Progress bar vs target -->
+        <div class="sd-progress-bar mb-2">
+          <div class="sd-progress-fill" id="todayTargetBar" style="width:0%"></div>
+        </div>
+        <div class="flex justify-between text-xs mb-5">
+          <span class="opacity-60">vs Target ngày · <span id="todayTargetVal" class="opacity-80">--</span></span>
+          <span class="font-bold" id="todayTargetPct">--%</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-4 border-t border-white/15">
+          <div>
+            <p class="text-[10px] uppercase tracking-widest opacity-50 mb-1">Vs. Hôm Qua</p>
+            <div id="vsYesterdayRev" class="text-green-300 text-sm font-bold">--</div>
+          </div>
+          <div>
+            <p class="text-[10px] uppercase tracking-widest opacity-50 mb-1">Vs. Tuần Trước</p>
+            <div id="vsLastWeekRev" class="text-green-300 text-sm font-bold">--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Yesterday Revenue -->
+    <div class="sd-card p-7">
+      <div class="flex justify-between items-start mb-5">
+        <div class="bg-blue-50 p-2.5 rounded-lg">
+          <span class="material-symbols-outlined text-blue-700">event_repeat</span>
+        </div>
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Hôm Qua</span>
+      </div>
+      <p class="text-sm text-gray-500 font-medium mb-1">Tổng doanh thu cả ngày</p>
+      <p class="sd-headline text-2xl font-bold text-blue-900" id="yestRevVal">--</p>
+      <p class="text-xs text-gray-400 mt-1 mb-4" id="yestDateLabel">--</p>
+      <div id="yestStats" class="text-sm text-gray-500">Đang tải...</div>
+    </div>
+
+    <!-- Last Week Same Day Revenue -->
+    <div class="sd-card p-7">
+      <div class="flex justify-between items-start mb-5">
+        <div class="bg-purple-50 p-2.5 rounded-lg">
+          <span class="material-symbols-outlined text-purple-700">history</span>
+        </div>
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cùng Ngày Tuần Trước</span>
+      </div>
+      <p class="text-sm text-gray-500 font-medium mb-1">Tổng doanh thu cả ngày</p>
+      <p class="sd-headline text-2xl font-bold text-blue-900" id="lwRevVal">--</p>
+      <p class="text-xs text-gray-400 mt-1 mb-4" id="lwDateLabel">--</p>
+      <div id="lwStats" class="text-sm text-gray-500">Đang tải...</div>
+    </div>
+  </div>
+
+  <!-- ROW 2: Order KPI Cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-5">
+
+    <!-- Total Orders Today -->
+    <div class="sd-card p-5 border-l-4 border-blue-600">
+      <div class="flex justify-between items-center mb-3">
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Số Đơn Hôm Nay</p>
+        <span class="material-symbols-outlined sm text-blue-600">shopping_bag</span>
+      </div>
+      <p class="sd-headline text-2xl font-extrabold text-gray-800" id="ordTodayVal">--</p>
+      <div class="mt-3 flex flex-wrap gap-3 text-xs">
+        <div>
+          <p class="text-gray-400 font-bold mb-0.5">Vs. Hôm Qua</p>
+          <span id="vsYesterdayOrd" class="font-bold text-gray-600">--</span>
+        </div>
+        <div>
+          <p class="text-gray-400 font-bold mb-0.5">Vs. Tuần Trước</p>
+          <span id="vsLastWeekOrd" class="font-bold text-gray-600">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Avg Order Value -->
+    <div class="sd-card p-5">
+      <div class="flex justify-between items-center mb-3">
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Giá Trị TB Đơn</p>
+        <span class="material-symbols-outlined sm text-blue-600">analytics</span>
+      </div>
+      <p class="sd-headline text-2xl font-extrabold text-gray-800" id="avgOrdVal">--</p>
+      <p class="text-xs text-gray-400 mt-3" id="avgOrdSub">Đang tải...</p>
+    </div>
+
+    <!-- Orders Yesterday -->
+    <div class="sd-card p-5">
+      <div class="flex justify-between items-center mb-3">
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Số Đơn Hôm Qua</p>
+        <span class="material-symbols-outlined sm text-purple-600">event_repeat</span>
+      </div>
+      <p class="sd-headline text-2xl font-extrabold text-gray-800" id="ordYestVal">--</p>
+      <p class="text-xs text-gray-400 mt-3">Cả ngày hôm qua</p>
+    </div>
+
+    <!-- Orders Last Week -->
+    <div class="sd-card p-5">
+      <div class="flex justify-between items-center mb-3">
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Đơn Cùng Ngày TT</p>
+        <span class="material-symbols-outlined sm text-amber-600">history</span>
+      </div>
+      <p class="sd-headline text-2xl font-extrabold text-gray-800" id="ordLwVal">--</p>
+      <p class="text-xs text-gray-400 mt-3">Cùng ngày tuần trước</p>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="sd-card p-7 mb-5">
+    <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+      <div>
+        <h2 class="sd-headline text-lg font-bold text-blue-900">Biểu Đồ Doanh Thu Theo Cửa Hàng</h2>
+        <p class="text-sm text-gray-400">Doanh thu từng ngày (đơn vị: triệu đồng)</p>
+      </div>
+      <div class="flex bg-gray-100 p-1 rounded-lg gap-0.5" id="periodBtns">
+        <button class="sd-period-btn active" data-period="1w">1 Tuần</button>
+        <button class="sd-period-btn" data-period="2w">2 Tuần</button>
+        <button class="sd-period-btn" data-period="1m">Tháng</button>
+        <button class="sd-period-btn" data-period="1q">Quý</button>
+        <button class="sd-period-btn" data-period="1y">Năm</button>
+      </div>
+    </div>
+    <div class="relative" style="height:380px">
+      <canvas id="revenueChart"></canvas>
+    </div>
+  </div>
+
+  <!-- STORE TABLE -->
+  <div class="sd-card overflow-hidden">
+    <div class="p-6 border-b border-gray-100 flex flex-wrap justify-between items-center gap-2">
+      <div>
+        <h2 class="sd-headline text-lg font-bold text-blue-900">Chi Tiết Hiệu Suất Cửa Hàng</h2>
+        <p class="text-xs text-gray-400 mt-0.5">Cập nhật mỗi 10 phút · <span id="tableLastUpdate">--</span></p>
+      </div>
+      <button id="exportBtn" class="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+        <span class="material-symbols-outlined sm">download</span> Xuất CSV
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="sd-tbl w-full text-left" id="storeTable">
+        <thead>
+          <tr>
+            <th>Cửa Hàng</th>
+            <th class="text-center">Số Đơn</th>
+            <th class="text-right">DT Hôm Nay</th>
+            <th class="text-right">Target Ngày</th>
+            <th class="text-center">% Đạt</th>
+            <th class="text-right">Còn Thiếu</th>
+          </tr>
+        </thead>
+        <tbody id="storeTableBody">
+          <tr><td colspan="6" class="text-center py-12">
+            <div class="sd-spinner mx-auto mb-3" style="width:28px;height:28px;border-width:3px"></div>
+            <p class="text-gray-400 text-sm">Đang tải dữ liệu...</p>
+          </td></tr>
+        </tbody>
+        <tfoot id="storeTableFoot"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ===================== UTILITIES =====================
+const fmt = (n, decimals=0) => {
+  if (n == null || isNaN(n)) return '--';
+  return n.toLocaleString('vi-VN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+};
+const fmtM = (millionVal) => {
+  if (millionVal == null || isNaN(millionVal)) return '--';
+  const bil = millionVal / 1000;
+  if (Math.abs(bil) >= 1) return fmt(bil, 2) + ' tỷ';
+  return fmt(millionVal, 0) + ' tr';
+};
+const fmtPct = (val, total) => {
+  if (!total || isNaN(val) || isNaN(total)) return null;
+  return ((val - total) / total * 100);
+};
+const deltaHtml = (pct, absVal, unit='tr') => {
+  if (pct == null) return '<span class="sd-badge-neutral">-- </span>';
+  const icon = pct >= 0 ? '▲' : '▼';
+  const cls = pct >= 0 ? 'sd-badge-up' : 'sd-badge-down';
+  const absStr = absVal != null ? ` (${pct >= 0 ? '+' : ''}${fmtM(Math.abs(absVal))})` : '';
+  return `<span class="${cls}">${icon} ${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%${absStr}</span>`;
+};
+const show = (id) => { const el = document.getElementById(id); if(el) el.classList.remove('hidden'); };
+const hide = (id) => { const el = document.getElementById(id); if(el) el.classList.add('hidden'); };
+
+// ===================== LIVE CLOCK =====================
+setInterval(() => {
+  document.getElementById('liveClockBadge').textContent =
+    'LIVE: ' + new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}, 1000);
+
+// ===================== CHART SETUP =====================
+const CHART_COLORS = [
+  '#1a56c4','#16a34a','#dc2626','#d97706','#7c3aed',
+  '#0891b2','#be185d','#059669','#ea580c','#4338ca',
+  '#0d9488','#9333ea','#b45309','#64748b','#374151'
+];
+let revenueChart = null;
+let currentPeriod = '1w';
+
+function initChart(labels, datasets) {
+  const ctx = document.getElementById('revenueChart').getContext('2d');
+  if (revenueChart) revenueChart.destroy();
+  revenueChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 12, font: { size: 11, family: 'Inter' }, padding: 16 }
+        },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleFont: { size: 12, family: 'Manrope', weight: '700' },
+          bodyFont: { size: 11, family: 'Inter' },
+          padding: 12, cornerRadius: 8,
+          callbacks: {
+            label: (ctx) => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y, 0)} triệu`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11, family: 'Inter' }, color: '#94a3b8', maxRotation: 45 }
+        },
+        y: {
+          grid: { color: '#f1f5f9' },
+          ticks: {
+            font: { size: 11, family: 'Inter' }, color: '#94a3b8',
+            callback: (v) => fmt(v, 0) + ' tr'
+          }
+        }
+      }
+    }
+  });
+}
+
+async function loadChart(period) {
+  try {
+    const res = await fetch(`/api/sales/chart?period=${period}`);
+    const { labels, stores } = await res.json();
+    const datasets = stores.map((s, i) => ({
+      label: s.name,
+      data: s.data,
+      borderColor: CHART_COLORS[i % CHART_COLORS.length],
+      backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + '15',
+      borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6,
+      tension: 0.35, fill: false
+    }));
+    initChart(labels, datasets);
+  } catch(e) {
+    console.error('Chart error:', e);
+  }
+}
+
+// Period switcher
+document.getElementById('periodBtns').addEventListener('click', (e) => {
+  const btn = e.target.closest('.sd-period-btn');
+  if (!btn) return;
+  document.querySelectorAll('.sd-period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentPeriod = btn.dataset.period;
+  loadChart(currentPeriod);
+});
+
+// ===================== SUMMARY (Row 1 & 2) =====================
+async function loadSummary() {
+  try {
+    const res = await fetch('/api/sales/summary');
+    const d = await res.json();
+
+    // --- Today Revenue ---
+    document.getElementById('todayRevVal').textContent = fmtM(d.today_revenue_m);
+    document.getElementById('todayRevSub').textContent = `${fmt(d.today_orders)} đơn · ${new Date().toLocaleDateString('vi-VN')}`;
+    // Update subtitle timestamp
+    const nowTime = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+    document.getElementById('dashSubtitle').textContent = `Cập nhật dữ liệu từ Supabase · Mỗi 30 phút · Dữ liệu cập nhật lúc ${nowTime}`;
+
+    // Target progress
+    const tgtM = d.today_target_m;
+    if (tgtM) {
+      const pct = Math.min((d.today_revenue_m / tgtM) * 100, 100);
+      document.getElementById('todayTargetBar').style.width = pct + '%';
+      document.getElementById('todayTargetPct').textContent = ((d.today_revenue_m / tgtM) * 100).toFixed(1) + '%';
+      document.getElementById('todayTargetVal').textContent = 'Target: ' + fmtM(tgtM);
+    } else {
+      document.getElementById('todayTargetPct').textContent = 'N/A';
+      document.getElementById('todayTargetVal').textContent = '';
+      document.getElementById('todayRevSub').textContent += ' · Chưa cấu hình target';
+    }
+
+    // vs Yesterday
+    const ydelta = fmtPct(d.today_revenue_m, d.yest_revenue_m);
+    const ydiff = d.today_revenue_m - d.yest_revenue_m;
+    document.getElementById('vsYesterdayRev').innerHTML = deltaHtml(ydelta, ydiff);
+
+    // vs Last week
+    const lwdelta = fmtPct(d.today_revenue_m, d.lw_revenue_m);
+    const lwdiff = d.today_revenue_m - d.lw_revenue_m;
+    document.getElementById('vsLastWeekRev').innerHTML = deltaHtml(lwdelta, lwdiff);
+
+    // --- Yesterday card ---
+    document.getElementById('yestRevVal').textContent = fmtM(d.yest_revenue_m);
+    document.getElementById('yestDateLabel').textContent = d.yest_date || '(hôm qua)';
+    const yPct = d.yest_target_m ? ((d.yest_revenue_m / d.yest_target_m)*100).toFixed(1) : null;
+    document.getElementById('yestStats').innerHTML = yPct
+      ? `<span class="font-bold ${yPct >= 100 ? 'text-green-600' : 'text-amber-600'}">${yPct >= 100 ? '✅' : '⚠️'} Đạt ${yPct}% target</span> · ${fmt(d.yest_orders)} đơn`
+      : `<span class="text-gray-500">${fmt(d.yest_orders)} đơn</span>`;
+
+    // --- Last week card ---
+    document.getElementById('lwRevVal').textContent = fmtM(d.lw_revenue_m);
+    document.getElementById('lwDateLabel').textContent = d.lw_date || '(tuần trước)';
+    const lwPct = d.lw_target_m ? ((d.lw_revenue_m / d.lw_target_m)*100).toFixed(1) : null;
+    document.getElementById('lwStats').innerHTML = lwPct
+      ? `<span class="font-bold ${lwPct >= 100 ? 'text-green-600' : 'text-amber-600'}">${lwPct >= 100 ? '✅' : '⚠️'} Đạt ${lwPct}% target</span> · ${fmt(d.lw_orders)} đơn`
+      : `<span class="text-gray-500">${fmt(d.lw_orders)} đơn</span>`;
+
+    // --- Orders Row 2 ---
+    document.getElementById('ordTodayVal').textContent = fmt(d.today_orders);
+    const ordYDelta = fmtPct(d.today_orders, d.yest_orders);
+    const ordYDiff = d.today_orders - d.yest_orders;
+    document.getElementById('vsYesterdayOrd').innerHTML = deltaHtml(ordYDelta, null);
+    const ordLWDelta = fmtPct(d.today_orders, d.lw_orders);
+    document.getElementById('vsLastWeekOrd').innerHTML = deltaHtml(ordLWDelta, null);
+
+
+    // today_revenue_m ðơn vị triệu, × 1000 = nghìn VND, / đơn hàng = nghìn VND/đơn → hiện dạng "1.618k"
+    const avgOrd_k = d.today_orders > 0 ? Math.round(d.today_revenue_m * 1000 / d.today_orders) : 0;
+    document.getElementById('avgOrdVal').textContent = avgOrd_k > 0 ? fmt(avgOrd_k) + 'k' : '--';
+    document.getElementById('avgOrdSub').textContent = 'Trung bình mỗi đơn hôm nay';
+
+    document.getElementById('ordYestVal').textContent = fmt(d.yest_orders);
+
+    document.getElementById('ordLwVal').textContent = fmt(d.lw_orders);
+
+  } catch(e) {
+    console.error('Summary error:', e);
+  }
+}
+
+// ===================== STORE TABLE =====================
+async function loadStoreTable() {
+  try {
+    const res = await fetch('/api/sales/stores');
+    const { stores, updated_at } = await res.json();
+
+    document.getElementById('tableLastUpdate').textContent =
+      updated_at ? 'Cập nhật: ' + new Date(updated_at).toLocaleTimeString('vi-VN') : '';
+
+    if (!stores || stores.length === 0) {
+      document.getElementById('storeTableBody').innerHTML =
+        '<tr><td colspan="6" class="text-center py-10 text-gray-400">Không có dữ liệu</td></tr>';
+      return;
+    }
+
+    let totalRev = 0, totalOrders = 0, totalTarget = 0;
+    const rows = stores.map(s => {
+      const rev = s.revenue_m || 0;
+      const orders = s.order_count || 0;
+      const target = s.target_m || null;
+      const gap = target ? target - rev : null;
+      const pct = target ? (rev / target * 100) : null;
+
+      totalRev += rev;
+      totalOrders += orders;
+      if (target) totalTarget += target;
+
+      let pctBadge = '<span class="pct-badge" style="background:#f1f5f9;color:#94a3b8">N/A</span>';
+      if (pct !== null) {
+        const cls = pct >= 100 ? 'pct-over' : pct >= 80 ? 'pct-green' : pct >= 60 ? 'pct-yellow' : 'pct-red';
+        pctBadge = `<span class="pct-badge ${cls}">${pct.toFixed(1)}%</span>`;
+      }
+
+      let gapCell = '<span class="text-gray-300">--</span>';
+      if (gap !== null) {
+        gapCell = gap <= 0
+          ? `<span class="font-bold text-green-600">✅ Vượt ${fmtM(Math.abs(gap))}</span>`
+          : `<span class="font-bold text-red-600">${fmtM(gap)} ₫</span>`;
+      }
+
+      const initials = (s.terminal_code || 'CH').slice(-3);
+      const colorIdx = Math.abs(s.terminal_code?.charCodeAt(0) || 0 + s.terminal_code?.charCodeAt(1) || 0) % CHART_COLORS.length;
+
+      return `<tr>
+        <td>
+          <div class="flex items-center gap-3">
+            <div style="width:38px;height:38px;border-radius:10px;background:${CHART_COLORS[colorIdx]}20;color:${CHART_COLORS[colorIdx]};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;">${initials}</div>
+            <div>
+              <p class="font-semibold text-gray-800" style="margin:0;line-height:1.3">${s.terminal_name || s.terminal_code}</p>
+              <p class="text-gray-400 text-xs" style="margin:0">${s.terminal_code || ''}</p>
+            </div>
+          </div>
+        </td>
+        <td class="text-center font-medium">${fmt(orders)}</td>
+        <td class="text-right font-bold text-blue-900">${fmtM(rev)} ₫</td>
+        <td class="text-right text-gray-500">${target ? fmtM(target) + ' ₫' : '<span class="text-gray-300">--</span>'}</td>
+        <td class="text-center">${pctBadge}</td>
+        <td class="text-right">${gapCell}</td>
+      </tr>`;
+    });
+
+    // Total row
+    const totalPct = totalTarget ? (totalRev / totalTarget * 100) : null;
+    const totalGap = totalTarget ? totalTarget - totalRev : null;
+    const totalGapCell = totalGap <= 0
+      ? `<span class="font-bold text-green-600">✅ Vượt ${fmtM(Math.abs(totalGap))}</span>`
+      : `<span class="font-bold text-red-600">${fmtM(totalGap)} ₫</span>`;
+
+    document.getElementById('storeTableBody').innerHTML = rows.join('');
+    document.getElementById('storeTableFoot').innerHTML = `
+      <tr style="background:#f0f4ff;border-top:2px solid #c7d7f9">
+        <td class="font-bold text-blue-900 px-4 py-3">📊 TỔNG CỘNG</td>
+        <td class="text-center font-bold text-blue-900 px-4 py-3">${fmt(totalOrders)}</td>
+        <td class="text-right font-bold text-blue-900 px-4 py-3">${fmtM(totalRev)} ₫</td>
+        <td class="text-right font-bold text-gray-600 px-4 py-3">${totalTarget ? fmtM(totalTarget) + ' ₫' : '--'}</td>
+        <td class="text-center px-4 py-3">${totalPct ? `<span class="pct-badge ${totalPct>=100?'pct-over':totalPct>=80?'pct-green':'pct-yellow'}">${totalPct.toFixed(1)}%</span>` : '--'}</td>
+        <td class="text-right px-4 py-3">${totalTarget ? totalGapCell : '--'}</td>
+      </tr>`;
+  } catch(e) {
+    console.error('Store table error:', e);
+    document.getElementById('storeTableBody').innerHTML =
+      '<tr><td colspan="6" class="text-center py-8 text-red-400">Lỗi tải dữ liệu. Vui lòng thử lại.</td></tr>';
+  }
+}
+
+// ===================== CSV EXPORT =====================
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const rows = document.querySelectorAll('#storeTableBody tr');
+  const lines = [['Cửa hàng','Mã','Số đơn','DT hôm nay (tr)','Target (tr)','% Đạt','Còn thiếu']];
+  rows.forEach(r => {
+    const cells = r.querySelectorAll('td');
+    if (cells.length < 6) return;
+    lines.push([
+      cells[0].querySelector('p:first-child')?.textContent?.trim() || '',
+      cells[0].querySelector('p:last-child')?.textContent?.trim() || '',
+      cells[1].textContent?.trim() || '',
+      cells[2].textContent?.trim() || '',
+      cells[3].textContent?.trim() || '',
+      cells[4].textContent?.trim() || '',
+      cells[5].textContent?.trim() || '',
+    ]);
+  });
+  const csv = lines.map(r => r.map(c => `"${(c+'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `doanh-tu-${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+});
+
+// ===================== INIT =====================
+loadSummary();
+loadChart('1w');
+loadStoreTable();
+
+// Auto-refresh table every 10 mins
+setInterval(loadStoreTable, 10 * 60 * 1000);
+// Refresh summary every 10 mins
+setInterval(loadSummary, 10 * 60 * 1000);
+</script>
+
+<%- include('partials/footer') %>
