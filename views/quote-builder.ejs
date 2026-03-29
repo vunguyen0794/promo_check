@@ -17,6 +17,43 @@
   .summary-item-sku { font-size: 11px; color: #64748b; display: block; margin-top: 2px; }
   
   .summary-item-controls { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+  .item-extra-panel { margin-top: 10px; padding: 10px; border: 1px solid #dbeafe; border-radius: 8px; background: #f8fbff; }
+  .item-extra-row { margin-bottom: 8px; }
+  .item-extra-row:last-child { margin-bottom: 0; }
+  .item-extra-label { font-size: 11px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .item-spec-input {
+    width: 100%;
+    min-height: 72px;
+    resize: vertical;
+    padding: 7px 9px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    font-family: inherit;
+  }
+  .item-spec-input:focus { border-color: #2563eb; outline: none; box-shadow: 0 0 0 2px rgba(37,99,235,0.12); }
+  .item-image-dropzone {
+    border: 2px dashed #bfdbfe;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #475569;
+    text-align: center;
+    font-size: 12px;
+    padding: 8px;
+    cursor: pointer;
+  }
+  .item-image-dropzone.active { border-color: #2563eb; background: #eff6ff; }
+  .item-image-actions { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .item-image-actions .btn { padding: 5px 9px; font-size: 11px; }
+  .item-image-note { font-size: 10px; color: #64748b; }
+  .item-image-preview { margin-top: 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .item-image-card { border: 1px solid #dbeafe; border-radius: 6px; padding: 4px; background: #fff; }
+  .item-image-card img { width: 100%; height: 62px; object-fit: cover; border-radius: 4px; }
+  .item-image-card-meta { font-size: 9px; color: #64748b; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item-image-remove { margin-top: 3px; width: 100%; border: 1px solid #fecaca; border-radius: 5px; background: #fef2f2; color: #b91c1c; font-size: 9px; font-weight: 700; cursor: pointer; padding: 3px 0; }
   
   .quantity-controls { display: flex; align-items: center; gap: 4px; background: #f1f5f9; padding: 2px; border-radius: 6px; }
   .qty-btn {
@@ -95,6 +132,9 @@
     .pc-builder-layout { flex-direction: row; align-items: flex-start; }
     .builder-main { flex: 2; }
     .builder-sidebar { flex: 1; }
+  }
+  @media (max-width: 640px) {
+    .item-image-preview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 </style>
 
@@ -198,7 +238,7 @@
   <div class="modal-content" style="max-width: 500px;">
     <span id="quoteClose" class="close">&times;</span>
     <h3>Thông tin báo giá</h3>
-    <p style="margin-bottom: 15px; color: #64748b; font-size: 13px;">Vui lòng điền đầy đủ thông tin để in lên file PDF.</p>
+    <p style="margin-bottom: 15px; color: #64748b; font-size: 13px;">Vui lòng điền thông tin khách hàng. Thông số và hình ảnh được chỉnh riêng ở từng SKU trong danh sách sản phẩm.</p>
     
     <form id="quoteForm">
       <div class="form-group" style="margin-bottom: 12px;">
@@ -213,7 +253,7 @@
         <label style="font-weight: 600; font-size: 13px; color: #334155;">Thông tin liên hệ của bạn (SĐT/Zalo):</label>
         <input type="text" id="quoteContactInfo" required style="width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 6px;">
       </div>
-      
+
       <button type="button" class="btn btn-primary" style="width: 100%; padding: 12px; font-weight: 700;" id="btnDownloadPDF">
         <i class="fas fa-file-pdf"></i> Xác nhận & Tải PDF
       </button>
@@ -374,6 +414,115 @@ document.addEventListener('DOMContentLoaded', function() {
       }
   }
 
+  const MAX_ITEM_IMAGES = 6;
+  const MAX_ITEM_IMAGE_SIZE = 5 * 1024 * 1024;
+  const quoteItemExtras = {};
+  let activeImageSku = null;
+
+  const createTempId = () => (
+      (window.crypto && typeof window.crypto.randomUUID === 'function')
+          ? window.crypto.randomUUID()
+          : `qitem-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
+
+  const escapeHtml = (text) => String(text || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const isLikelyImageUrl = (url) => {
+      if (!/^https?:\/\//i.test(url)) return false;
+      if (/\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(url)) return true;
+      return /(drive\.google\.com|googleusercontent\.com|imgur\.com|i\.ibb\.co)/i.test(url);
+  };
+
+  const ensureItemExtras = (sku) => {
+      if (!quoteItemExtras[sku]) {
+          quoteItemExtras[sku] = { detailedSpecs: '', images: [] };
+      }
+      if (!Array.isArray(quoteItemExtras[sku].images)) quoteItemExtras[sku].images = [];
+      return quoteItemExtras[sku];
+  };
+
+  const addFilesToItemImages = (sku, files) => {
+      const extras = ensureItemExtras(sku);
+      if (!files || files.length === 0) return;
+      for (const file of files) {
+          if (!file || !file.type || !file.type.startsWith('image/')) continue;
+          if (file.size > MAX_ITEM_IMAGE_SIZE) {
+              alert(`Ảnh "${file.name}" vượt quá 5MB, vui lòng chọn ảnh nhỏ hơn.`);
+              continue;
+          }
+          if (extras.images.length >= MAX_ITEM_IMAGES) {
+              alert(`SKU ${sku} chỉ cho tối đa ${MAX_ITEM_IMAGES} ảnh.`);
+              break;
+          }
+          const duplicated = extras.images.some((img) => (
+              img.kind === 'file'
+              && img.file
+              && img.file.name === file.name
+              && img.file.size === file.size
+              && img.file.lastModified === file.lastModified
+          ));
+          if (duplicated) continue;
+
+          extras.images.push({
+              id: createTempId(),
+              kind: 'file',
+              file,
+              label: file.name || 'clipboard-image.png',
+              previewUrl: window.URL.createObjectURL(file),
+          });
+      }
+      updateSummaryAndTotal();
+  };
+
+  const addUrlToItemImages = (sku, url) => {
+      const normalized = String(url || '').trim();
+      if (!normalized || !isLikelyImageUrl(normalized)) return false;
+      const extras = ensureItemExtras(sku);
+      if (extras.images.length >= MAX_ITEM_IMAGES) {
+          alert(`SKU ${sku} chỉ cho tối đa ${MAX_ITEM_IMAGES} ảnh.`);
+          return false;
+      }
+      const duplicated = extras.images.some((img) => img.kind === 'url' && img.url === normalized);
+      if (duplicated) return true;
+
+      extras.images.push({
+          id: createTempId(),
+          kind: 'url',
+          url: normalized,
+          label: 'Link ảnh',
+          previewUrl: normalized,
+      });
+      updateSummaryAndTotal();
+      return true;
+  };
+
+  const removeItemImage = (sku, imageId) => {
+      const extras = ensureItemExtras(sku);
+      const index = extras.images.findIndex((img) => img.id === imageId);
+      if (index === -1) return;
+      const [removed] = extras.images.splice(index, 1);
+      if (removed && removed.kind === 'file' && removed.previewUrl) {
+          window.URL.revokeObjectURL(removed.previewUrl);
+      }
+      updateSummaryAndTotal();
+  };
+
+  const renderItemImagesHtml = (sku, images) => {
+      if (!Array.isArray(images) || images.length === 0) return '';
+      return images.map((img, idx) => `
+          <div class="item-image-card">
+              <img src="${img.previewUrl}" alt="item-${sku}-image-${idx + 1}" loading="lazy">
+              <div class="item-image-card-meta">${escapeHtml(img.label || `Ảnh ${idx + 1}`)}</div>
+              <button type="button" class="item-image-remove" data-sku="${sku}" data-image-id="${img.id}">Xóa ảnh</button>
+          </div>
+      `).join('');
+  };
+
   // Hàm thêm vào giỏ (Local)
   function addItemToCart(item) {
       const sku = item.sku;
@@ -384,6 +533,7 @@ document.addEventListener('DOMContentLoaded', function() {
           // Nếu chưa có -> Thêm mới
           currentBuildConfig[sku] = { ...item, quantity: 1, item_discount: 0 };
       }
+      ensureItemExtras(sku);
       updateSummaryAndTotal();
   }
 
@@ -416,6 +566,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     for (const sku of skus) {
       const item = currentBuildConfig[sku];
+      const extras = ensureItemExtras(sku);
+      const itemSpecs = extras.detailedSpecs || '';
+      const itemImages = Array.isArray(extras.images) ? extras.images : [];
       const qty = item.quantity || 1;
       
       const originalPrice = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
@@ -445,10 +598,10 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       html += `
-      <div class="summary-item">
+      <div class="summary-item" data-item-sku="${sku}">
         <div class="summary-item-top">
             <div style="flex:1; margin-right:10px;">
-                <div class="summary-item-name">${item.product_name}</div>
+                <div class="summary-item-name">${escapeHtml(item.product_name)}</div>
                 <div class="summary-item-sku">SKU: ${item.sku}</div>
             </div>
             <button class="btn-icon" onclick="removeItem('${sku}')" title="Xóa" style="color:#ef4444; background:#fee2e2; border-radius:4px; padding:2px 6px;">✖️</button>
@@ -470,6 +623,32 @@ document.addEventListener('DOMContentLoaded', function() {
                            onchange="changeItemDiscount('${sku}', this.value)">
                 </div>
                 <div class="final-line-price">${formatVND(lineTotal)}</div>
+            </div>
+        </div>
+
+        <div class="item-extra-panel">
+            <div class="item-extra-row">
+                <label class="item-extra-label" for="item-spec-${sku}">Thông số chi tiết của SKU ${sku}</label>
+                <textarea
+                    id="item-spec-${sku}"
+                    class="item-spec-input"
+                    data-item-spec-sku="${sku}"
+                    placeholder="Dán thông số nhiều dòng cho SKU này...">${escapeHtml(itemSpecs)}</textarea>
+            </div>
+            <div class="item-extra-row">
+                <span class="item-extra-label">Hình ảnh thực tế của SKU ${sku}</span>
+                <div class="item-image-dropzone ${activeImageSku === sku ? 'active' : ''}" data-item-image-sku="${sku}">
+                    ${activeImageSku === sku
+                      ? 'Đang chọn SKU này để dán ảnh (Ctrl/Cmd + V)'
+                      : 'Bấm vào đây để chọn SKU dán ảnh, hoặc chọn file/upload link bên dưới'}
+                </div>
+                <div class="item-image-actions">
+                    <button type="button" class="btn btn-secondary btn-item-pick-image" data-sku="${sku}">Chọn ảnh</button>
+                    <button type="button" class="btn btn-secondary btn-item-add-link" data-sku="${sku}">Dán link ảnh</button>
+                    <span class="item-image-note">Tối đa ${MAX_ITEM_IMAGES} ảnh / SKU, mỗi ảnh tối đa 5MB, lưu Drive chung.</span>
+                </div>
+                <input type="file" class="item-image-picker" data-sku="${sku}" accept="image/*" multiple style="display:none;">
+                <div class="item-image-preview">${renderItemImagesHtml(sku, itemImages)}</div>
             </div>
         </div>
       </div>`;
@@ -506,6 +685,14 @@ document.addEventListener('DOMContentLoaded', function() {
   };
   window.removeItem = (sku) => {
     if (confirm('Xóa sản phẩm này khỏi báo giá?')) {
+        const extras = quoteItemExtras[sku];
+        if (extras && Array.isArray(extras.images)) {
+            extras.images.forEach((img) => {
+                if (img.kind === 'file' && img.previewUrl) window.URL.revokeObjectURL(img.previewUrl);
+            });
+        }
+        delete quoteItemExtras[sku];
+        if (activeImageSku === sku) activeImageSku = null;
         delete currentBuildConfig[sku];
         updateSummaryAndTotal();
     }
@@ -520,27 +707,67 @@ document.addEventListener('DOMContentLoaded', function() {
   globalDiscountVal.addEventListener('input', updateSummaryAndTotal);
   globalDiscountType.addEventListener('change', updateSummaryAndTotal);
 
-  // Xử lý nút Sửa/Lịch sử giá
+  // Xử lý tương tác trên từng item
   summaryList.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button'); 
+    const dropzone = e.target.closest('.item-image-dropzone');
+    if (dropzone) {
+        const nextSku = dropzone.dataset.itemImageSku || null;
+        if (nextSku && nextSku !== activeImageSku) {
+            activeImageSku = nextSku;
+            updateSummaryAndTotal();
+        }
+        return;
+    }
+
+    const btn = e.target.closest('button');
     if (!btn) return;
     const sku = btn.dataset.sku;
     const action = btn.dataset.action;
 
-    if (btn.classList.contains('btn-edit-price')) { 
-        currentBuildConfig[sku].isEditingPrice = true; 
-        updateSummaryAndTotal(); 
+    if (btn.classList.contains('btn-item-pick-image')) {
+        activeImageSku = sku || activeImageSku;
+        updateSummaryAndTotal();
+        const escapedSku = (window.CSS && typeof window.CSS.escape === 'function') ? window.CSS.escape(String(sku)) : String(sku);
+        const picker = summaryList.querySelector(`.item-image-picker[data-sku="${escapedSku}"]`);
+        if (picker) picker.click();
+        return;
     }
-    
+
+    if (btn.classList.contains('btn-item-add-link')) {
+        activeImageSku = sku || activeImageSku;
+        updateSummaryAndTotal();
+        const raw = prompt(`Nhập link ảnh cho SKU ${sku} (có thể nhập nhiều link, cách nhau bởi dấu phẩy / xuống dòng):`, '');
+        if (!raw) return;
+        const urls = raw.split(/[\s,;\n]+/).map((value) => value.trim()).filter(Boolean);
+        let added = false;
+        urls.forEach((url) => {
+            if (addUrlToItemImages(sku, url)) added = true;
+        });
+        if (!added) alert('Không tìm thấy link ảnh hợp lệ.');
+        return;
+    }
+
+    if (btn.classList.contains('item-image-remove')) {
+        removeItemImage(btn.dataset.sku, btn.dataset.imageId);
+        return;
+    }
+
+    if (btn.classList.contains('btn-edit-price')) {
+        currentBuildConfig[sku].isEditingPrice = true;
+        updateSummaryAndTotal();
+        return;
+    }
+
     if (btn.classList.contains('btn-history-price')) {
-        showPriceHistoryModal(sku); 
+        showPriceHistoryModal(sku);
+        return;
     }
-    
-    if (action === 'save-price') { 
+
+    if (action === 'save-price') {
         const input = document.getElementById(`price-input-${sku}`);
         const newP = Number(input.value);
         if (newP < 0) return alert('Giá không hợp lệ');
-        
+
         try {
             const res = await fetch(`/api/sku/${sku}/price`, {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -548,18 +775,37 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             const d = await res.json();
             if(!d.ok) throw new Error(d.error);
-            
-            currentBuildConfig[sku].edited_price = newP; 
-            currentBuildConfig[sku].isEditingPrice = false; 
+
+            currentBuildConfig[sku].edited_price = newP;
+            currentBuildConfig[sku].isEditingPrice = false;
             if(typeof showToast === 'function') showToast('Đã cập nhật giá gốc!', 'success');
         } catch(err) { alert(err.message); }
         updateSummaryAndTotal();
+        return;
     }
-    
-    if (action === 'cancel-price') { 
-        currentBuildConfig[sku].isEditingPrice = false; 
-        updateSummaryAndTotal(); 
+
+    if (action === 'cancel-price') {
+        currentBuildConfig[sku].isEditingPrice = false;
+        updateSummaryAndTotal();
     }
+  });
+
+  summaryList.addEventListener('input', (e) => {
+      const specInput = e.target.closest('.item-spec-input');
+      if (!specInput) return;
+      const sku = specInput.dataset.itemSpecSku;
+      if (!sku) return;
+      ensureItemExtras(sku).detailedSpecs = specInput.value;
+  });
+
+  summaryList.addEventListener('change', (e) => {
+      const imagePicker = e.target.closest('.item-image-picker');
+      if (!imagePicker) return;
+      const sku = imagePicker.dataset.sku;
+      if (!sku) return;
+      activeImageSku = sku;
+      addFilesToItemImages(sku, imagePicker.files);
+      imagePicker.value = '';
   });
 
   // Modal Lịch sử giá
@@ -594,9 +840,72 @@ document.addEventListener('DOMContentLoaded', function() {
   const btnDownload = document.getElementById('btnDownloadPDF');
   const quoteLoading = document.getElementById('quoteLoading');
   const downloadError = document.getElementById('downloadError');
+  const MAX_QUOTE_IMAGES = 6;
+
+  async function uploadQuoteImagesToDrive(fileEntries) {
+      const files = (fileEntries || [])
+          .filter((entry) => entry.kind === 'file' && entry.file)
+          .map((entry) => entry.file);
+      if (!files.length) return [];
+
+      const formData = new FormData();
+      files.forEach((file) => formData.append('images', file, file.name || 'quote-image.png'));
+
+      const response = await fetch('/api/quote/upload-images', {
+          method: 'POST',
+          body: formData
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || 'Không thể tải ảnh lên Google Drive.');
+      }
+      return Array.isArray(payload.urls) ? payload.urls : [];
+  }
+
+  async function buildConfigPayloadForExport() {
+      const payloadConfig = {};
+      const skuList = Object.keys(currentBuildConfig).sort();
+
+      for (let index = 0; index < skuList.length; index += 1) {
+          const sku = skuList[index];
+          const item = currentBuildConfig[sku];
+          const extras = ensureItemExtras(sku);
+          const itemImages = Array.isArray(extras.images) ? extras.images : [];
+
+          quoteLoading.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang xử lý ảnh sản phẩm ${index + 1}/${skuList.length}...`;
+
+          const fileEntries = itemImages.filter((entry) => entry.kind === 'file' && entry.file);
+          let uploadedUrls = [];
+          try {
+              uploadedUrls = await uploadQuoteImagesToDrive(fileEntries);
+          } catch (err) {
+              throw new Error(`SKU ${sku}: ${err.message}`);
+          }
+
+          const externalUrls = itemImages
+              .filter((entry) => entry.kind === 'url' && entry.url)
+              .map((entry) => String(entry.url || '').trim())
+              .filter(Boolean);
+
+          const quoteImageUrls = [...uploadedUrls, ...externalUrls]
+              .map((url) => String(url || '').trim())
+              .filter((url) => /^https?:\/\//i.test(url))
+              .slice(0, MAX_QUOTE_IMAGES);
+
+          payloadConfig[sku] = {
+              ...item,
+              quote_detailed_specs: String(extras.detailedSpecs || '').replace(/\r\n/g, '\n').slice(0, 12000),
+              quote_image_urls: quoteImageUrls
+          };
+      }
+
+      return payloadConfig;
+  }
 
   document.getElementById('mainQuoteButton').onclick = () => {
       if(Object.keys(currentBuildConfig).length === 0) return alert('Vui lòng thêm ít nhất 1 sản phẩm.');
+      if (!activeImageSku) activeImageSku = Object.keys(currentBuildConfig)[0] || null;
+      updateSummaryAndTotal();
       quoteModal.style.display = 'flex';
       btnDownload.style.display = 'block'; 
       btnDownload.disabled = false;
@@ -609,6 +918,58 @@ document.addEventListener('DOMContentLoaded', function() {
       if(e.target == priceHistoryModal) priceHistoryModal.style.display = 'none'; 
       if(e.target == quoteModal) quoteModal.style.display = 'none'; 
   };
+
+  document.addEventListener('paste', (e) => {
+      if (!Object.keys(currentBuildConfig).length) return;
+      if (!e.clipboardData) return;
+      const skuFromTarget = e.target && typeof e.target.closest === 'function'
+          ? (e.target.closest('.summary-item')?.dataset.itemSku || null)
+          : null;
+      const activeSkuStillExists = activeImageSku && currentBuildConfig[activeImageSku] ? activeImageSku : null;
+      const firstSku = Object.keys(currentBuildConfig).sort()[0] || null;
+      const targetSku = activeSkuStillExists || skuFromTarget || firstSku;
+      if (!targetSku) return;
+      if (activeImageSku !== targetSku) activeImageSku = targetSku;
+
+      const activeElement = document.activeElement;
+      const isTypingField = !!activeElement && (
+          activeElement.tagName === 'INPUT'
+          || activeElement.tagName === 'TEXTAREA'
+          || activeElement.isContentEditable
+      );
+
+      let addedImage = false;
+      const items = Array.from(e.clipboardData.items || []);
+      items.forEach((item) => {
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+              const file = item.getAsFile();
+              if (file) {
+                  activeImageSku = targetSku;
+                  addFilesToItemImages(targetSku, [file]);
+                  addedImage = true;
+              }
+          }
+      });
+
+      if (addedImage) {
+          e.preventDefault();
+          return;
+      }
+
+      if (isTypingField) return;
+
+      const pastedText = e.clipboardData.getData('text/plain');
+      if (pastedText) {
+          const urls = pastedText.split(/[\s,;\n]+/).map((s) => s.trim()).filter(Boolean);
+          let hasAddedUrl = false;
+          urls.forEach((url) => { if (addUrlToItemImages(targetSku, url)) hasAddedUrl = true; });
+          if (hasAddedUrl) {
+              activeImageSku = targetSku;
+              updateSummaryAndTotal();
+              e.preventDefault();
+          }
+      }
+  });
 
   btnDownload.onclick = async () => {
       const name = document.getElementById('quoteCustomerName').value.trim();
@@ -623,9 +984,20 @@ document.addEventListener('DOMContentLoaded', function() {
       btnDownload.style.display = 'none'; 
       quoteLoading.style.display = 'block';
       downloadError.style.display = 'none';
+
+      let buildConfigPayload = {};
+      try {
+          buildConfigPayload = await buildConfigPayloadForExport();
+      } catch (uploadErr) {
+          quoteLoading.style.display = 'none';
+          btnDownload.style.display = 'block';
+          downloadError.innerText = 'Lỗi upload ảnh: ' + uploadErr.message;
+          downloadError.style.display = 'block';
+          return;
+      }
       
       const payload = {
-          buildConfig: currentBuildConfig,
+          buildConfig: buildConfigPayload,
           customerName: name, 
           customerPhone: phone, 
           contactInfo: contact,
@@ -635,11 +1007,12 @@ document.addEventListener('DOMContentLoaded', function() {
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
           },
-          validityDays: Number(document.getElementById('quoteValidity').value)||3,
+          validityDays: Number(quoteValidity.value)||3,
           templateType: document.querySelector('input[name="printTemplate"]:checked').value
       };
 
       try {
+          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file PDF...';
           const res = await fetch('/api/pc-builder/generate-quote', {
               method: 'POST', 
               headers: {'Content-Type':'application/json'},
@@ -675,6 +1048,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } finally {
           btnDownload.style.display = 'block'; 
           quoteLoading.style.display = 'none';
+          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file PDF...';
       }
   };
 

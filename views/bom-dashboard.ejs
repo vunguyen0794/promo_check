@@ -1,262 +1,887 @@
 <%- include('partials/header', { title, currentPage }) %>
 
-<% /* === CSS cho trang Dashboard === */ %>
 <style>
+  .bom-dashboard-card {
+    border-radius: 18px;
+    border: 1px solid #dbeafe;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 32%);
+    box-shadow: 0 12px 32px rgba(2, 132, 199, 0.09);
+  }
+
+  .bom-heading {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .bom-heading .dash-title {
+    margin-bottom: 0;
+  }
+
+  .bom-subtitle {
+    margin-top: 6px;
+    color: #475569;
+    font-size: 13px;
+  }
+
+  .bom-top-panels {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .bottleneck-overview {
+    border: 1px solid #fed7aa;
+    border-radius: 14px;
+    background: linear-gradient(145deg, #fff7ed, #fff);
+    padding: 12px;
+  }
+
+  .bottleneck-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .bottleneck-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #9a3412;
+  }
+
+  .bottleneck-note {
+    font-size: 12px;
+    color: #9a3412;
+    background: #ffedd5;
+    border: 1px solid #fdba74;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-weight: 700;
+  }
+
+  .bottleneck-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+  }
+
+  .bottleneck-card {
+    border: 1px solid #fdba74;
+    border-radius: 10px;
+    background: #fff;
+    padding: 9px 10px;
+  }
+
+  .bottleneck-card .sku {
+    font-size: 12px;
+    font-weight: 800;
+    color: #7c2d12;
+    margin-bottom: 3px;
+  }
+
+  .bottleneck-card .name {
+    font-size: 12px;
+    color: #7c2d12;
+    min-height: 32px;
+  }
+
+  .bottleneck-stats {
+    margin-top: 6px;
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .bottleneck-stats span {
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-weight: 700;
+    background: #fff7ed;
+    color: #9a3412;
+    border: 1px solid #fdba74;
+  }
+
+  .bottleneck-empty {
+    font-size: 12px;
+    color: #64748b;
+    background: #fff;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    padding: 10px;
+  }
+
+  .bom-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(130px, 1fr));
+    gap: 10px;
+    min-width: 320px;
+  }
+
+  .bom-metric {
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid #dbeafe;
+    background: #f8fbff;
+  }
+
+  .bom-metric .label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 4px;
+  }
+
+  .bom-metric .value {
+    font-size: 19px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+    margin-bottom: 14px;
+  }
+
+  .action-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .action-controls .btn {
+    white-space: nowrap;
+  }
+
+  .btn-status {
+    background: #f8fafc;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+  }
+
+  .btn-status.active {
+    background: #0ea5e9;
+    border-color: #0284c7;
+    color: #fff;
+  }
+
+  .sort-control {
+    min-width: 190px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .btn-highlight {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+  }
+
+  .btn-highlight.active {
+    background: #f59e0b;
+    color: #fff;
+    border-color: #d97706;
+  }
+
+  .search-controls {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .search-controls .search-input {
+    flex: 1;
+    min-width: 230px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    background: #fff;
+  }
+
+  .search-controls .search-input:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+  }
+
+  .filter-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 12px;
+  }
+
+  .filter-tabs a {
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    background: #f1f5f9;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .filter-tabs a:hover {
+    background: #e2e8f0;
+  }
+
+  .filter-tabs a.active {
+    background: #0ea5e9;
+    color: #fff;
+    border-color: #0284c7;
+    box-shadow: 0 6px 14px rgba(14, 165, 233, 0.22);
+  }
+
+  .term-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .term-chip {
+    font-size: 12px;
+    color: #334155;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-weight: 600;
+  }
+
+  .term-chip strong {
+    color: #0f172a;
+  }
+
+  .table-scroll-wrapper {
+    overflow: auto;
+    max-height: 72vh;
+    border: 1px solid #dbeafe;
+    border-radius: 12px;
+    background: #fff;
+  }
+
   .info-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 15px;
-  }
-  .info-table th {
-    background: #f8f9fa;
-    padding: 10px 12px; /* (SỬA LỖI 3) Giảm padding cho đỡ cao */
-    text-align: left;
-    font-weight: 600;
-    color: #495057;
-    border: 1px solid #dee2e6;
-    position: sticky; 
-    top: 0;
-    z-index: 10;
-  }
-  .info-table td {
-    padding: 10px 12px;
-    border: 1px solid #dee2e6;
-    background: white;
-    word-wrap: break-word;
-    vertical-align: top;
-  }
-  .table-scroll-wrapper {
-    overflow: auto;
-    max-height: 75vh;
+    min-width: 980px;
   }
 
-  /* (MỚI - SỬA LỖI 1) CSS cho các hàng linh kiện */
+  .info-table th {
+    background: #f8fafc;
+    padding: 11px 12px;
+    text-align: left;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #334155;
+    border: 1px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .info-table td {
+    padding: 9px 12px;
+    border: 1px solid #dee2e6;
+    background: white;
+    font-size: 13px;
+    vertical-align: top;
+  }
+
+  .info-table tbody tr:hover td {
+    background: #f8fafc;
+  }
+
+  .total-column {
+    text-align: right;
+    background: #f0f9ff !important;
+    border-left: 2px solid #0284c7 !important;
+    border-right: 2px solid #0284c7 !important;
+  }
+
+  .branch-column {
+    text-align: right;
+  }
+
+  .toggle-cell {
+    width: 56px;
+    text-align: center;
+  }
+
+  .toggle-details {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #bae6fd;
+    border-radius: 999px;
+    background: #ecfeff;
+    color: #0c4a6e;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .toggle-details:hover {
+    background: #dbeafe;
+    transform: translateY(-1px);
+  }
+
+  .toggle-details .chevron {
+    font-size: 14px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+  }
+
+  .toggle-details.open .chevron {
+    transform: rotate(180deg);
+  }
+
+  .stock-chip {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .stock-chip:last-child {
+    margin-bottom: 0;
+  }
+
+  .product-main {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .product-name {
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .product-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .meta-pill {
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 3px 8px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #475569;
+  }
+
+  .meta-pill.warn {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
+  }
+
+  .meta-pill.good {
+    background: #ecfeff;
+    border-color: #7dd3fc;
+    color: #0c4a6e;
+  }
+
+  .product-missing {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #9a3412;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+
+  .stock-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .stock-label-ton {
+    color: #475569;
+  }
+
+  .stock-label-rap {
+    color: #0369a1;
+  }
+
+  .stock-value {
+    font-weight: 700;
+    color: #0f172a;
+  }
+
   .component-detail-row {
-    display: none; /* Ẩn mặc định */
-    background-color: #f8fafc;
+    display: none;
+    background: #f8fafc;
   }
+
   .component-detail-row.open {
-    display: table-row; /* Hiển thị khi bấm + */
+    display: table-row;
   }
+
   .component-detail-row td {
     font-size: 13px;
     color: #334155;
     border-top: 1px dashed #cbd5e1 !important;
   }
+
   .component-detail-row .sku-cell {
-    padding-left: 25px !important; /* Thụt vào cho dễ nhìn */
+    padding-left: 25px !important;
   }
-  
-  .bottleneck { 
-    background-color: #fef9c3 !important; 
-    color: #713f12 !important; 
-    font-weight: 700 !important; 
+
+  .component-detail-header th {
+    background: #eef2ff !important;
+    font-size: 11px;
+    color: #475569;
   }
-  
-  .toggle-details {
-    cursor: pointer; font-size: 1.5rem; font-weight: 700;
-    text-align: center; width: 30px;
+
+  .bottleneck {
+    background-color: #fef9c3 !important;
+    color: #713f12 !important;
+    font-weight: 700 !important;
   }
-  .stock-buildable {
-    font-weight: 800;
-    color: #166534; /* Xanh lá */
-    font-size: 1.1rem;
+
+  .component-cell {
+    font-size: 12px;
+    color: #0f172a;
   }
-  .stock-final {
-    font-weight: 400;
-    color: #475569; /* Xám */
-    font-size: 0.9rem;
-  }
-  
+
   .pagination-controls {
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     margin-top: 20px;
   }
+
   .pagination-controls a.btn[disabled] {
     pointer-events: none;
     opacity: 0.5;
   }
+
   .pagination-controls .page-info select {
     padding: 6px;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
   }
 
-    /* (MỚI) CSS cho Filter Tabs */
-.filter-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 15px;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 15px;
-}
-.filter-tabs a {
-  text-decoration: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #334155;
-  background-color: #f1f5f9;
-  transition: all 0.2s ease;
-}
-.filter-tabs a:hover {
-  background-color: #e2e8f0;
-}
-.filter-tabs a.active {
-  background-color: #3b82f6; /* Màu xanh */
-  color: #ffffff;
-}
+  .muted-row {
+    display: none;
+  }
 
+  @media (max-width: 980px) {
+    .toolbar-row {
+      align-items: stretch;
+    }
+
+    .bom-metrics {
+      min-width: 100%;
+      grid-template-columns: repeat(3, minmax(90px, 1fr));
+    }
+
+    .action-controls {
+      width: 100%;
+    }
+
+    .sort-control {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .bom-heading {
+      flex-direction: column;
+    }
+
+    .bom-metrics {
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+    }
+
+    .search-controls {
+      flex-direction: column;
+    }
+
+    .search-controls .btn {
+      width: 100%;
+    }
+
+    .action-controls .btn {
+      flex: 1 1 48%;
+    }
+  }
 </style>
 
-<div class="dash-card">
-  <div class="dash-title">Dashboard Năng Lực Lắp Ráp (Tổng Hợp)</div>
+<%
+  const numberOf = (value) => Number(value || 0);
+  const branchScope = isGlobalAdmin ? branches : (userBranch ? [userBranch] : []);
+  let totalFinalStockPage = 0;
+  let totalBuildablePage = 0;
+  let totalGapPage = 0;
+  let totalSkusHavingBottleneck = 0;
+  const bottleneckAccumulator = new Map();
 
-  <form method="GET" action="/bom-dashboard">
-    <div class="search-controls" style="display: flex; gap: 10px; margin-bottom: 15px;">
-      <input type="text" name="q" class="search-input" style="flex-grow: 1;"
-             placeholder="Tìm theo SKU hoặc Tên Thành phẩm..."
-             value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
-      <button type="submit" class="btn btn-primary">Tìm</button>
-      <% if (typeof searchQuery !== 'undefined' && searchQuery) { %>
-        <a href="/bom-dashboard" class="btn btn-secondary">Xóa tìm kiếm</a>
-      <% } %>
+  (results || []).forEach((row) => {
+    totalFinalStockPage += numberOf(row.finalStock_Total);
+    totalBuildablePage += numberOf(row.buildable_Total);
+    totalGapPage += Math.max(0, numberOf(row.finalStock_Total) - numberOf(row.buildable_Total));
+
+    let rowHasBottleneck = false;
+    (row.components || []).forEach((comp) => {
+      const needQty = Math.max(1, numberOf(comp.need || 1));
+      let componentShortageQty = 0;
+      let componentShortageBranches = 0;
+      branchScope.forEach((branchName) => {
+        const haveQty = numberOf(comp.branches?.[branchName]?.have);
+        if (haveQty < needQty) {
+          componentShortageBranches += 1;
+          componentShortageQty += (needQty - haveQty);
+          rowHasBottleneck = true;
+        }
+      });
+
+      if (componentShortageBranches > 0) {
+        const cache = bottleneckAccumulator.get(comp.sku) || {
+          sku: comp.sku,
+          name: comp.name || 'Linh kiện',
+          shortageQty: 0,
+          affectedBranches: 0
+        };
+        cache.shortageQty += componentShortageQty;
+        cache.affectedBranches += componentShortageBranches;
+        bottleneckAccumulator.set(comp.sku, cache);
+      }
+    });
+
+    if (rowHasBottleneck) totalSkusHavingBottleneck += 1;
+  });
+
+  const topBottlenecks = Array.from(bottleneckAccumulator.values())
+    .sort((a, b) => {
+      if (b.shortageQty !== a.shortageQty) return b.shortageQty - a.shortageQty;
+      return b.affectedBranches - a.affectedBranches;
+    })
+    .slice(0, 8);
+
+  const baseSearch = (typeof searchQuery !== 'undefined' && searchQuery)
+    ? 'q=' + encodeURIComponent(searchQuery)
+    : '';
+  const currentType = (typeof filterType !== 'undefined' && filterType) ? filterType : '';
+  const buildFilterUrl = (typeValue) => {
+    const params = [];
+    if (typeValue) params.push('type=' + encodeURIComponent(typeValue));
+    if (baseSearch) params.push(baseSearch);
+    return '?' + params.join('&');
+  };
+  const buildPageUrl = (nextPage) => {
+    const params = ['page=' + nextPage];
+    if (currentType) params.push('type=' + encodeURIComponent(currentType));
+    if (baseSearch) params.push(baseSearch);
+    return '?' + params.join('&');
+  };
+%>
+
+<div class="dash-card bom-dashboard-card">
+  <div class="bom-heading">
+    <div>
+      <div class="dash-title">Dashboard Năng Lực Lắp Ráp</div>
+      <p class="bom-subtitle">Theo dõi tồn kho thành phẩm, năng lực ráp và linh kiện nghẽn tại từng chi nhánh.</p>
     </div>
-  </form>
-
-<% 
-      const qParams = (typeof searchQuery !== 'undefined' && searchQuery) ? '&q=' + encodeURIComponent(searchQuery) : ''; 
-      const typeParams = (typeof filterType !== 'undefined' && filterType) ? '&type=' + encodeURIComponent(filterType) : '';
-      const allParams = qParams + typeParams;
-    %>
-
-    <% /* === (MỚI) Bộ lọc PCPV (Sử dụng biến đã khai báo) === */ %>
-    <div class="filter-tabs">
-      <a href="?<%= qParams %>" 
-         class="<%= (!filterType) ? 'active' : '' %>">
-        Tất cả PCPV
-      </a>
-      <a href="?type=vanphong<%= qParams %>" 
-         class="<%= (filterType === 'vanphong') ? 'active' : '' %>">
-        PCPV Văn phòng
-      </a>
-      <a href="?type=gaming<%= qParams %>" 
-         class="<%= (filterType === 'gaming') ? 'active' : '' %>">
-        PCPV Gaming
-      </a>
+    <div class="bom-metrics">
+      <div class="bom-metric">
+        <span class="label">SKU Hiển thị</span>
+        <span class="value"><%= results.length %></span>
+      </div>
+      <div class="bom-metric">
+        <span class="label">Tổng tồn (trang)</span>
+        <span class="value"><%= totalFinalStockPage %></span>
+      </div>
+      <div class="bom-metric">
+        <span class="label">Tổng ráp được (trang)</span>
+        <span class="value"><%= totalBuildablePage %></span>
+      </div>
     </div>
+  </div>
+
+  <div class="bom-top-panels">
+    <div class="bottleneck-overview">
+      <div class="bottleneck-head">
+        <div class="bottleneck-title">Radar Nút Cổ Chai (Top trên trang hiện tại)</div>
+        <div class="bottleneck-note">SKU thiếu linh kiện: <%= totalSkusHavingBottleneck %> / <%= results.length %> - Chênh tồn-ráp được: <%= totalGapPage %></div>
+      </div>
+      <div class="bottleneck-grid">
+        <% if (topBottlenecks.length > 0) { %>
+          <% topBottlenecks.forEach(item => { %>
+            <div class="bottleneck-card">
+              <div class="sku"><%= item.sku %></div>
+              <div class="name"><%= item.name %></div>
+              <div class="bottleneck-stats">
+                <span>Thiếu: <%= item.shortageQty %></span>
+                <span>Nhánh ảnh hưởng: <%= item.affectedBranches %></span>
+              </div>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <div class="bottleneck-empty">Không có linh kiện thiếu trong phạm vi đang xem. Đội lắp ráp hôm nay đỡ căng rồi Sếp.</div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar-row">
+    <form method="GET" action="/bom-dashboard" style="flex: 1;">
+      <div class="search-controls">
+        <input type="text" name="q" class="search-input"
+               placeholder="Tìm theo SKU hoặc Tên Thành phẩm..."
+               value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+        <button type="submit" class="btn btn-primary">Tìm</button>
+        <% if (typeof searchQuery !== 'undefined' && searchQuery) { %>
+          <a href="/bom-dashboard" class="btn btn-secondary">Xóa tìm kiếm</a>
+        <% } %>
+      </div>
+    </form>
+    <div class="action-controls">
+      <select id="sortSelect" class="sort-control" aria-label="Sắp xếp bảng BOM">
+        <option value="default">Sắp xếp: Mặc định</option>
+        <option value="buildableAsc">Ráp được thấp lên đầu</option>
+        <option value="gapDesc">Chênh tồn-ráp được cao nhất</option>
+        <option value="bottleneckDesc">SKU thiếu linh kiện nhiều nhất</option>
+      </select>
+      <button type="button" id="btnShowAllStatus" class="btn btn-status active">Tất cả SKU</button>
+      <button type="button" id="btnOnlyReady" class="btn btn-status">Chỉ SKU đủ</button>
+      <button type="button" id="btnOnlyMissing" class="btn btn-status">Chỉ SKU thiếu</button>
+      <button type="button" id="btnExpandAll" class="btn btn-secondary">Mở tất cả</button>
+      <button type="button" id="btnCollapseAll" class="btn btn-secondary">Thu gọn</button>
+      <button type="button" id="btnExportCsv" class="btn btn-primary">Xuất CSV</button>
+    </div>
+  </div>
+
+  <div class="filter-tabs">
+    <a href="<%= buildFilterUrl('') %>" class="<%= (!currentType) ? 'active' : '' %>">Tất cả PCPV</a>
+    <a href="<%= buildFilterUrl('vanphong') %>" class="<%= (currentType === 'vanphong') ? 'active' : '' %>">PCPV Văn phòng</a>
+    <a href="<%= buildFilterUrl('gaming') %>" class="<%= (currentType === 'gaming') ? 'active' : '' %>">PCPV Gaming</a>
+  </div>
+
+  <div class="term-legend">
+    <span class="term-chip"><strong>Tồn</strong>: tồn kho hiện tại</span>
+    <span class="term-chip"><strong>Ráp được</strong>: số bộ có thể ráp từ linh kiện hiện có</span>
+    <span class="term-chip"><strong>Cần/Tồn</strong>: định mức 1 bộ / tồn linh kiện thực tế theo chi nhánh</span>
+  </div>
 
   <p class="dash-muted">
-    Hiển thị trang <strong><%= page %> / <%= totalPages %></strong> 
-    (Tổng số: <strong><%= totalItems %></strong> SKU Thành phẩm).
+    Hiển thị trang <strong><%= page %>/<%= totalPages %></strong> (Tổng số: <strong><%= totalItems %></strong> SKU thành phẩm).
   </p>
+
   <div class="table-scroll-wrapper">
     <table class="info-table" id="bomDashboardTable">
       <thead>
         <tr>
-          <th style="width: 50px;"></th> <th style="width: 130px;">SKU</th>
-          <th style="width: 350px;">Tên</th> <th style="width: 110px; text-align: right; background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">
-            Tổng (T/R)
-          </th>
+          <th style="width: 56px;"></th>
+          <th style="width: 140px;">SKU</th>
+          <th style="width: 350px;">Tên thành phẩm</th>
+          <th style="width: 140px;" class="total-column">Tổng (Tồn/ Ráp được)</th>
 
           <% if (isGlobalAdmin) { %>
             <% branches.forEach(branch => { %>
-              <th style="width: 100px; text-align: right;">
-                <%= branch %> (T/R)
+              <th style="width: 130px;" class="branch-column">
+                <%= branch %> (Tồn/ Ráp được)
               </th>
             <% }); %>
           <% } else if (userBranch) { %>
-              <th style="width: 100px; text-align: right;">
-                <%= userBranch %> (T/R)
+              <th style="width: 130px;" class="branch-column">
+                <%= userBranch %> (Tồn/ Ráp được)
               </th>
           <% } %>
         </tr>
       </thead>
       <tbody id="bomDashboardBody">
-        
         <% results.forEach(row => { %>
-          
-          <tr data-sku="<%= row.sku %>">
-            <td class="toggle-details" data-sku="<%= row.sku %>">
-              +
+          <%
+            let rowBottleneckCount = 0;
+            const rowGap = Math.max(0, numberOf(row.finalStock_Total) - numberOf(row.buildable_Total));
+            const shortageByComponent = new Map();
+            (row.components || []).forEach((comp) => {
+              const needQty = Math.max(1, numberOf(comp.need || 1));
+              if (isGlobalAdmin) {
+                branches.forEach((branchName) => {
+                  const haveQty = numberOf(comp.branches?.[branchName]?.have);
+                  if (haveQty < needQty) {
+                    rowBottleneckCount += 1;
+                    if (!shortageByComponent.has(comp.sku)) shortageByComponent.set(comp.sku, new Set());
+                    shortageByComponent.get(comp.sku).add(branchName);
+                  }
+                });
+              } else if (userBranch) {
+                const haveQty = numberOf(comp.branches?.[userBranch]?.have);
+                if (haveQty < needQty) {
+                  rowBottleneckCount += 1;
+                  if (!shortageByComponent.has(comp.sku)) shortageByComponent.set(comp.sku, new Set());
+                  shortageByComponent.get(comp.sku).add(userBranch);
+                }
+              }
+            });
+            const shortageSummaries = Array.from(shortageByComponent.entries()).map(([compSku, branchSet]) => {
+              return compSku + ' (' + Array.from(branchSet).join(', ') + ')';
+            });
+            const visibleShortageSummaries = shortageSummaries.slice(0, 2);
+            const remainingShortageCount = Math.max(0, shortageSummaries.length - visibleShortageSummaries.length);
+          %>
+          <tr
+            data-sku="<%= row.sku %>"
+            data-final-stock="<%= numberOf(row.finalStock_Total) %>"
+            data-buildable="<%= numberOf(row.buildable_Total) %>"
+            data-gap="<%= rowGap %>"
+            data-bottleneck-count="<%= rowBottleneckCount %>"
+            class="summary-row">
+            <td class="toggle-cell">
+              <button
+                type="button"
+                class="toggle-details"
+                data-sku="<%= row.sku %>"
+                aria-expanded="false"
+                aria-label="Mở danh sách linh kiện cho <%= row.sku %>">
+                <span class="chevron">▾</span>
+              </button>
             </td>
             <td><strong><%= row.sku %></strong></td>
-            <td><%= row.name %></td>
-            
-            <td style="text-align: right; background-color: #f8fafc; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">
-  <div class="stock-final">T: <%= row.finalStock_Total %></div>
-  <div class="stock-buildable">R: <%= row.buildable_Total %></div>
-</td>
-            
+            <td>
+              <div class="product-main">
+                <div class="product-name"><%= row.name %></div>
+                <div class="product-meta">
+                  <span class="meta-pill <%= rowGap > 0 ? 'warn' : 'good' %>">Chênh Tồn-Ráp được: <%= rowGap %></span>
+                  <span class="meta-pill <%= rowBottleneckCount > 0 ? 'warn' : 'good' %>"><%= rowBottleneckCount > 0 ? 'Thiếu linh kiện' : 'Đủ linh kiện' %></span>
+                </div>
+                <% if (visibleShortageSummaries.length > 0) { %>
+                  <div class="product-missing">
+                    Thiếu mã: <%= visibleShortageSummaries.join(' | ') %><%= remainingShortageCount > 0 ? ' | +' + remainingShortageCount + ' mã' : '' %>
+                  </div>
+                <% } else { %>
+                  <div class="product-missing" style="color:#0c4a6e;">Đủ linh kiện ở tất cả chi nhánh trong phạm vi xem.</div>
+                <% } %>
+              </div>
+            </td>
+            <td class="total-column">
+              <div class="stock-chip">
+                <span class="stock-label stock-label-ton">Tồn</span>
+                <span class="stock-value"><%= row.finalStock_Total %></span>
+              </div>
+              <div class="stock-chip">
+                <span class="stock-label stock-label-rap">Ráp được</span>
+                <span class="stock-value"><%= row.buildable_Total %></span>
+              </div>
+            </td>
+
             <% if (isGlobalAdmin) { %>
               <% branches.forEach(branch => { %>
-                <td style="text-align: right;">
-                  <div class="stock-final">T: <%= row.finalStock_ByBranch[branch] || 0 %></div>
-                  <div class="stock-buildable">R: <%= row.buildable_ByBranch[branch] || 0 %></div>
+                <td class="branch-column">
+                  <div class="stock-chip">
+                    <span class="stock-label stock-label-ton">Tồn</span>
+                    <span class="stock-value"><%= row.finalStock_ByBranch[branch] || 0 %></span>
+                  </div>
+                  <div class="stock-chip">
+                    <span class="stock-label stock-label-rap">Ráp được</span>
+                    <span class="stock-value"><%= row.buildable_ByBranch[branch] || 0 %></span>
+                  </div>
                 </td>
               <% }); %>
             <% } else if (userBranch) { %>
-               <td style="text-align: right;">
-                  <div class="stock-final">T: <%= row.finalStock_ByBranch[userBranch] || 0 %></div>
-                  <div class="stock-buildable">R: <%= row.buildable_ByBranch[userBranch] || 0 %></div>
-                </td>
+              <td class="branch-column">
+                <div class="stock-chip">
+                  <span class="stock-label stock-label-ton">Tồn</span>
+                  <span class="stock-value"><%= row.finalStock_ByBranch[userBranch] || 0 %></span>
+                </div>
+                <div class="stock-chip">
+                  <span class="stock-label stock-label-rap">Ráp được</span>
+                  <span class="stock-value"><%= row.buildable_ByBranch[userBranch] || 0 %></span>
+                </div>
+              </td>
             <% } %>
           </tr>
-          
-          <tr class="component-detail-row details-<%= row.sku %>">
+
+          <tr class="component-detail-row component-detail-header" data-parent-sku="<%= row.sku %>" data-detail-header="1">
             <td></td>
-            <th class="sku-cell" style="background: #eef2ff;">SKU Linh Kiện</th>
-            <th style="background: #eef2ff;">Tên Linh Kiện</th>
-            <th style="background: #eef2ff; text-align: right;">Tổng Tồn LK</th>
-            
+            <th class="sku-cell">SKU linh kiện</th>
+            <th>Tên linh kiện</th>
+            <th style="text-align: right;">Tổng tồn LK</th>
+
             <% if (isGlobalAdmin) { %>
               <% branches.forEach(branch => { %>
-                <th style="background: #eef2ff; text-align: right;"><%= branch %> (C/T)</th>
+                <th style="text-align: right;"><%= branch %> (Cần/Tồn)</th>
               <% }); %>
             <% } else if (userBranch) { %>
-              <th style="background: #eef2ff; text-align: right;"><%= userBranch %> (C/T)</th>
+              <th style="text-align: right;"><%= userBranch %> (Cần/Tồn)</th>
             <% } %>
           </tr>
 
           <% row.components.forEach(comp => { %>
-            <% 
-              const totalHave = Object.values(comp.branches).reduce((sum, br) => sum + (br.have || 0), 0);
+            <%
+              const needQty = Math.max(1, numberOf(comp.need || 1));
+              const totalHave = Object.values(comp.branches || {}).reduce((sum, br) => sum + numberOf(br.have), 0);
+              let componentHasBottleneck = false;
+              if (isGlobalAdmin) {
+                branches.forEach((branchName) => {
+                  const haveQty = numberOf(comp.branches?.[branchName]?.have);
+                  if (haveQty < needQty) componentHasBottleneck = true;
+                });
+              } else if (userBranch) {
+                const haveQty = numberOf(comp.branches?.[userBranch]?.have);
+                componentHasBottleneck = haveQty < needQty;
+              }
             %>
-            <tr class="component-detail-row details-<%= row.sku %>">
+            <tr class="component-detail-row" data-parent-sku="<%= row.sku %>" data-has-bottleneck="<%= componentHasBottleneck ? '1' : '0' %>">
               <td></td>
-              <td class="sku-cell">
-                <strong><%= comp.sku %></strong>
-              </td>
+              <td class="sku-cell"><strong><%= comp.sku %></strong></td>
               <td><%= comp.name %></td>
-              
-              <td style="text-align: right; font-weight: 700;">
-                <%= totalHave %>
-              </td>
+              <td style="text-align: right; font-weight: 700;"><%= totalHave %></td>
 
               <% if (isGlobalAdmin) { %>
                 <% branches.forEach(br => { %>
-                  <% const have = comp.branches[br]?.have || 0; %>
-                  <% const isBottleneck = have < comp.need; %>
-                  <td class="<%= isBottleneck ? 'bottleneck' : '' %>" style="text-align: right;">
-                    C: <%= comp.need %> / T: <%= have %>
+                  <% const have = numberOf(comp.branches?.[br]?.have); %>
+                  <% const isBottleneck = have < needQty; %>
+                  <td class="component-cell <%= isBottleneck ? 'bottleneck' : '' %>" style="text-align: right;">
+                    Cần: <%= needQty %> / Tồn: <%= have %>
                   </td>
                 <% }); %>
               <% } else if (userBranch) { %>
-                  <% const have = comp.branches[userBranch]?.have || 0; %>
-                  <% const isBottleneck = have < comp.need; %>
-                  <td class="<%= isBottleneck ? 'bottleneck' : '' %>" style="text-align: right;">
-                    C: <%= comp.need %> / T: <%= have %>
-                  </td>
+                <% const have = numberOf(comp.branches?.[userBranch]?.have); %>
+                <% const isBottleneck = have < needQty; %>
+                <td class="component-cell <%= isBottleneck ? 'bottleneck' : '' %>" style="text-align: right;">
+                  Cần: <%= needQty %> / Tồn: <%= have %>
+                </td>
               <% } %>
             </tr>
           <% }); %>
-
         <% }); %>
+
         <% if (results.length === 0) { %>
           <tr>
             <td colspan="100%" style="text-align: center;" class="dash-muted">
@@ -264,24 +889,29 @@
             </td>
           </tr>
         <% } %>
+        <tr id="bottleneckEmptyRow" class="muted-row">
+          <td colspan="100%" style="text-align: center;" class="dash-muted">
+            Bộ lọc trạng thái đang bật: không có SKU phù hợp trên trang này.
+          </td>
+        </tr>
       </tbody>
     </table>
   </div>
 
 <div class="pagination-controls">
-  <a href="?page=1<%= allParams %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
+  <a href="<%= buildPageUrl(1) %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
     &lt;&lt; Đầu
   </a>
-  <a href="?page=<%= page - 1 %><%= allParams %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
+  <a href="<%= buildPageUrl(page - 1) %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
     &lt; Trước
   </a>
-  
+
   <span class="page-info">
     Trang
     <select id="pageSelect" onchange="window.location.href=this.value;">
       <% for (let i = 1; i <= totalPages; i++) { %>
         <% if (totalPages <= 100 || (i >= page - 5 && i <= page + 5) || i === 1 || i === totalPages) { %>
-          <option value="?page=<%= i %><%= allParams %>" <%= i === page ? 'selected' : '' %>>
+          <option value="<%= buildPageUrl(i) %>" <%= i === page ? 'selected' : '' %>>
             <%= i %>
           </option>
         <% } else if (i === page - 6 || i === page + 6) { %>
@@ -291,11 +921,11 @@
     </select>
     / <%= totalPages %>
   </span>
-  
-  <a href="?page=<%= page + 1 %><%= allParams %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
+
+  <a href="<%= buildPageUrl(page + 1) %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
     Sau &gt;
   </a>
-  <a href="?page=<%= totalPages %><%= allParams %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
+  <a href="<%= buildPageUrl(totalPages) %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
     Cuối &gt;&gt;
   </a>
 </div>
@@ -304,34 +934,273 @@
 <%- include('partials/toast') %>
 
 <script>
-// (SỬA LỖI 1) Cập nhật JS cho nút +
 document.addEventListener('DOMContentLoaded', function() {
   const tableBody = document.getElementById('bomDashboardBody');
   if (!tableBody) return;
 
-  tableBody.querySelectorAll('.toggle-details').forEach(button => {
-    button.addEventListener('click', () => {
-      const sku = button.dataset.sku;
-      // Tìm TẤT CẢ các hàng chi tiết của SKU này
-      const detailRows = tableBody.querySelectorAll(`.details-${sku}`);
-      
-      let isOpen = false;
-      detailRows.forEach((row, index) => {
-        // Kiểm tra trạng thái của hàng ĐẦU TIÊN
-        if (index === 0) {
-          isOpen = row.classList.contains('open');
-        }
-        // Áp dụng trạng thái ngược lại
-        if (isOpen) {
-          row.classList.remove('open');
-        } else {
-          row.classList.add('open');
-        }
+  const summaryRows = Array.from(tableBody.querySelectorAll('.summary-row'));
+  const allDetailRows = Array.from(tableBody.querySelectorAll('.component-detail-row'));
+  const emptyFilterRow = document.getElementById('bottleneckEmptyRow');
+  const sortSelect = document.getElementById('sortSelect');
+  const showAllStatusBtn = document.getElementById('btnShowAllStatus');
+  const onlyReadyBtn = document.getElementById('btnOnlyReady');
+  const onlyMissingBtn = document.getElementById('btnOnlyMissing');
+  const expandAllBtn = document.getElementById('btnExpandAll');
+  const collapseAllBtn = document.getElementById('btnCollapseAll');
+  const exportCsvBtn = document.getElementById('btnExportCsv');
+  const defaultOrderMap = new Map(summaryRows.map((row, index) => [row.dataset.sku, index]));
+  const detailRowsBySku = new Map();
+  let statusFilterMode = 'all';
+
+  allDetailRows.forEach((row) => {
+    const sku = row.dataset.parentSku;
+    if (!detailRowsBySku.has(sku)) detailRowsBySku.set(sku, []);
+    detailRowsBySku.get(sku).push(row);
+  });
+
+  const parseNumber = (value) => {
+    const parsed = Number(value || 0);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const getDetailRows = (sku) => detailRowsBySku.get(sku) || [];
+
+  const syncOpenButtonState = (summaryRow, isOpen) => {
+    const button = summaryRow.querySelector('.toggle-details');
+    if (!button) return;
+    button.classList.toggle('open', isOpen);
+    button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    button.setAttribute(
+      'aria-label',
+      (isOpen ? 'Thu gọn' : 'Mở') + ' danh sách linh kiện cho ' + summaryRow.dataset.sku
+    );
+  };
+
+  const refreshDetailVisibility = (sku) => {
+    const rows = getDetailRows(sku);
+    if (rows.length === 0) return;
+
+    if (statusFilterMode !== 'missing') {
+      rows.forEach((row) => {
+        row.style.display = '';
       });
-      
-      button.textContent = isOpen ? '+' : '−';
+      return;
+    }
+
+    const hasVisibleBottleneckComponent = rows.some((row) => (
+      row.dataset.detailHeader !== '1' && row.dataset.hasBottleneck === '1'
+    ));
+
+    rows.forEach((row) => {
+      if (!row.classList.contains('open')) {
+        row.style.display = '';
+        return;
+      }
+
+      if (row.dataset.detailHeader === '1') {
+        row.style.display = hasVisibleBottleneckComponent ? 'table-row' : 'none';
+        return;
+      }
+
+      row.style.display = row.dataset.hasBottleneck === '1' ? 'table-row' : 'none';
+    });
+  };
+
+  const setSummaryOpen = (summaryRow, shouldOpen) => {
+    const sku = summaryRow.dataset.sku;
+    const rows = getDetailRows(sku);
+    rows.forEach((row) => {
+      row.classList.toggle('open', shouldOpen);
+      if (!shouldOpen) row.style.display = '';
+    });
+    syncOpenButtonState(summaryRow, shouldOpen);
+    if (shouldOpen) refreshDetailVisibility(sku);
+  };
+
+  const applyStatusFilter = () => {
+    let visibleSummaryCount = 0;
+    summaryRows.forEach((summaryRow) => {
+      const hasBottleneck = parseNumber(summaryRow.dataset.bottleneckCount) > 0;
+      const shouldShow = (
+        statusFilterMode === 'all' ||
+        (statusFilterMode === 'missing' && hasBottleneck) ||
+        (statusFilterMode === 'ready' && !hasBottleneck)
+      );
+      summaryRow.style.display = shouldShow ? '' : 'none';
+
+      if (!shouldShow) {
+        setSummaryOpen(summaryRow, false);
+        return;
+      }
+
+      visibleSummaryCount += 1;
+      refreshDetailVisibility(summaryRow.dataset.sku);
+    });
+
+    if (emptyFilterRow) {
+      emptyFilterRow.style.display = (summaryRows.length > 0 && visibleSummaryCount === 0) ? 'table-row' : 'none';
+    }
+
+    if (showAllStatusBtn) {
+      showAllStatusBtn.classList.toggle('active', statusFilterMode === 'all');
+      showAllStatusBtn.setAttribute('aria-pressed', statusFilterMode === 'all' ? 'true' : 'false');
+    }
+    if (onlyReadyBtn) {
+      onlyReadyBtn.classList.toggle('active', statusFilterMode === 'ready');
+      onlyReadyBtn.setAttribute('aria-pressed', statusFilterMode === 'ready' ? 'true' : 'false');
+    }
+    if (onlyMissingBtn) {
+      onlyMissingBtn.classList.toggle('active', statusFilterMode === 'missing');
+      onlyMissingBtn.setAttribute('aria-pressed', statusFilterMode === 'missing' ? 'true' : 'false');
+    }
+
+    if (emptyFilterRow && summaryRows.length > 0 && visibleSummaryCount === 0) {
+      const cell = emptyFilterRow.querySelector('td');
+      if (cell) {
+        if (statusFilterMode === 'missing') {
+          cell.textContent = 'Không có SKU thiếu linh kiện trên trang này.';
+        } else if (statusFilterMode === 'ready') {
+          cell.textContent = 'Không có SKU đủ linh kiện trên trang này.';
+        } else {
+          cell.textContent = 'Không có SKU phù hợp trên trang này.';
+        }
+      }
+    }
+  };
+
+  const sortRows = (mode) => {
+    const rows = [...summaryRows];
+    rows.sort((a, b) => {
+      const aSku = a.dataset.sku;
+      const bSku = b.dataset.sku;
+
+      if (mode === 'buildableAsc') {
+        const diff = parseNumber(a.dataset.buildable) - parseNumber(b.dataset.buildable);
+        if (diff !== 0) return diff;
+      } else if (mode === 'gapDesc') {
+        const diff = parseNumber(b.dataset.gap) - parseNumber(a.dataset.gap);
+        if (diff !== 0) return diff;
+      } else if (mode === 'bottleneckDesc') {
+        const diff = parseNumber(b.dataset.bottleneckCount) - parseNumber(a.dataset.bottleneckCount);
+        if (diff !== 0) return diff;
+      } else {
+        return (defaultOrderMap.get(aSku) || 0) - (defaultOrderMap.get(bSku) || 0);
+      }
+
+      return (defaultOrderMap.get(aSku) || 0) - (defaultOrderMap.get(bSku) || 0);
+    });
+
+    rows.forEach((summaryRow) => {
+      tableBody.appendChild(summaryRow);
+      getDetailRows(summaryRow.dataset.sku).forEach((detailRow) => {
+        tableBody.appendChild(detailRow);
+      });
+    });
+
+    if (emptyFilterRow) tableBody.appendChild(emptyFilterRow);
+    applyStatusFilter();
+  };
+
+  const exportVisibleToCsv = () => {
+    const visibleRows = summaryRows.filter((row) => row.style.display !== 'none');
+    if (visibleRows.length === 0) {
+      alert('Không có dữ liệu để xuất CSV ở chế độ hiện tại.');
+      return;
+    }
+
+    const headers = ['SKU', 'Ten thanh pham', 'Ton hien tai', 'Rap duoc', 'Chenh Ton-Rap duoc', 'Linh kien nghen'];
+    const records = visibleRows.map((row) => {
+      const nameNode = row.querySelector('.product-name');
+      return [
+        row.dataset.sku || '',
+        nameNode ? nameNode.textContent.trim() : '',
+        parseNumber(row.dataset.finalStock),
+        parseNumber(row.dataset.buildable),
+        parseNumber(row.dataset.gap),
+        parseNumber(row.dataset.bottleneckCount)
+      ];
+    });
+
+    const escapeCsv = (value) => {
+      const text = String(value ?? '');
+      if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+      return text;
+    };
+
+    const csv = [headers, ...records]
+      .map((line) => line.map(escapeCsv).join(','))
+      .join('\n');
+
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    link.href = url;
+    link.download = 'bom-dashboard-' + timestamp + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  tableBody.querySelectorAll('.toggle-details').forEach((button) => {
+    button.addEventListener('click', () => {
+      const summaryRow = button.closest('.summary-row');
+      if (!summaryRow || summaryRow.style.display === 'none') return;
+      const detailRows = getDetailRows(summaryRow.dataset.sku);
+      if (detailRows.length === 0) return;
+      const shouldOpen = !detailRows[0].classList.contains('open');
+      setSummaryOpen(summaryRow, shouldOpen);
     });
   });
+
+  if (showAllStatusBtn) {
+    showAllStatusBtn.addEventListener('click', () => {
+      statusFilterMode = 'all';
+      applyStatusFilter();
+    });
+  }
+
+  if (onlyReadyBtn) {
+    onlyReadyBtn.addEventListener('click', () => {
+      statusFilterMode = 'ready';
+      applyStatusFilter();
+    });
+  }
+
+  if (onlyMissingBtn) {
+    onlyMissingBtn.addEventListener('click', () => {
+      statusFilterMode = 'missing';
+      applyStatusFilter();
+    });
+  }
+
+  if (expandAllBtn) {
+    expandAllBtn.addEventListener('click', () => {
+      summaryRows.forEach((summaryRow) => {
+        if (summaryRow.style.display !== 'none') setSummaryOpen(summaryRow, true);
+      });
+    });
+  }
+
+  if (collapseAllBtn) {
+    collapseAllBtn.addEventListener('click', () => {
+      summaryRows.forEach((summaryRow) => setSummaryOpen(summaryRow, false));
+    });
+  }
+
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (event) => {
+      sortRows(event.target.value || 'default');
+    });
+  }
+
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener('click', exportVisibleToCsv);
+  }
+
+  applyStatusFilter();
 });
 </script>
 

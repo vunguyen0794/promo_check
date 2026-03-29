@@ -495,15 +495,22 @@ const requireManager = (req, res, next) => {
 };
 
 // ------------------------- Multer (ảnh) -------------------------
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const imageFileFilter = (req, file, cb) => {
+  const ok = IMAGE_MIME_TYPES.includes(file.mimetype);
+  cb(ok ? null : new Error('Chỉ chấp nhận ảnh (jpg, png, webp, gif).'), ok);
+};
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 3 },
-  fileFilter: (req, file, cb) => {
-    const ok = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(
-      file.mimetype
-    );
-    cb(ok ? null : new Error('Chỉ chấp nhận ảnh (jpg, png, webp, gif).'), ok);
-  },
+  fileFilter: imageFileFilter,
+});
+
+const uploadQuoteImages = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 6 },
+  fileFilter: imageFileFilter,
 });
 
 const uploadDoc = multer({
@@ -4341,7 +4348,7 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
     if (allFilteredSkuList.length === 0) {
       // (Không tìm thấy kết quả hoặc không có BOM)
       return res.render('bom-dashboard', {
-        title: 'Dashboard Lắp Ráp BOM', currentPage: 'pc-builder', time: res.locals.time,
+        title: 'Dashboard Lắp Ráp BOM', currentPage: 'bom-dashboard', time: res.locals.time,
         results: [], branches: [], page: 1, totalPages: 1, totalItems: 0,
         searchQuery: (req.query.q || ''), // Trả lại query
         filterType: filterType, // (MỚI) Trả lại filter
@@ -4422,7 +4429,7 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
     // 4. Render
     res.render('bom-dashboard', {
       title: 'Dashboard Lắp Ráp BOM',
-      currentPage: 'pc-builder',
+      currentPage: 'bom-dashboard',
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       results: paginatedResults, // <-- SỬA: Gửi danh sách đã phân trang
       branches: sortedBranches,
@@ -5997,7 +6004,33 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
     console.log(`[Báo giá] KH: ${customerName} | Mode: ${isGeneralQuote ? 'Báo giá nhanh' : 'Build PC'}`);
 
     // 2. Tính tiền hàng (Trừ giảm giá từng món item_discount)
-    const items = Object.values(buildConfig);
+    const buildConfigSafe = buildConfig && typeof buildConfig === 'object' ? buildConfig : {};
+    const items = Object.values(buildConfigSafe).map((rawItem) => {
+      const item = { ...rawItem };
+      item.quantity = Math.max(1, Number(item.quantity) || 1);
+      item.item_discount = Math.max(0, Number(item.item_discount) || 0);
+      item.list_price = Number(item.list_price) || 0;
+      if (item.edited_price !== undefined && item.edited_price !== null && item.edited_price !== '') {
+        item.edited_price = Number(item.edited_price) || 0;
+      }
+
+      item.quote_detailed_specs = String(item.quote_detailed_specs || '')
+        .replace(/\r\n/g, '\n')
+        .slice(0, 12000);
+
+      item.quote_image_urls = (Array.isArray(item.quote_image_urls) ? item.quote_image_urls : [item.quote_image_urls])
+        .flatMap((value) => String(value || '').split(/[\n,;]+/))
+        .map((value) => value.trim())
+        .filter((value) => /^https?:\/\//i.test(value))
+        .slice(0, 6);
+
+      return item;
+    });
+
+    if (items.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Không có sản phẩm để tạo báo giá.' });
+    }
+
     let totalItemsPrice = 0;
 
     items.forEach(item => {
@@ -6114,6 +6147,27 @@ app.get('/quote-builder', requireAuth, (req, res) => {
   });
 });
 
+
+// (Trong file server.js)
+
+app.post('/api/quote/upload-images', requireAuth, uploadQuoteImages.array('images', 6), async (req, res) => {
+  try {
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (files.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Không có ảnh để tải lên.' });
+    }
+
+    const parentId = process.env.PRICE_BATTLE_DRIVE_FOLDER_ID || process.env.QUOTE_BUILDER_DRIVE_FOLDER_ID || null;
+    const urls = await Promise.all(
+      files.map((file) => uploadBufferToDriveGlobal(file.buffer, file.originalname, file.mimetype, parentId))
+    );
+
+    return res.json({ ok: true, urls });
+  } catch (e) {
+    console.error('Lỗi upload ảnh báo giá:', e);
+    return res.status(500).json({ ok: false, error: e.message || 'Upload ảnh thất bại.' });
+  }
+});
 
 // (Trong file server.js)
 
