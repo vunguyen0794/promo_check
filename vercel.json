@@ -8,12 +8,8 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/sync-clearance?time=8h",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron/sync-clearance?time=14h",
-      "schedule": "0 7 * * *"
+      "path": "/api/cron/sync-clearance",
+      "schedule": "0 1,7 * * *"
     },
     {
       "path": "/api/cron/sync-bq-skus",
