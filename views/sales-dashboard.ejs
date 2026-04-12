@@ -42,7 +42,7 @@
   <div class="flex flex-wrap justify-between items-end gap-4 mb-6">
     <div>
       <h1 class="sd-headline text-2xl font-extrabold text-blue-900">Dashboard Doanh Thu Realtime</h1>
-      <p class="text-sm text-gray-500 mt-1" id="dashSubtitle">Cập nhật dữ liệu từ Supabase · Bảng summary mỗi 30 phút</p>
+      <p class="text-sm text-gray-500 mt-1" id="dashSubtitle">Cập nhật dữ liệu từ Supabase · Mỗi 30 phút</p>
     </div>
     <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-xl shadow-sm border border-green-100">
       <span class="live-dot"></span>
@@ -193,7 +193,7 @@
     <div class="p-6 border-b border-gray-100 flex flex-wrap justify-between items-center gap-2">
       <div>
         <h2 class="sd-headline text-lg font-bold text-blue-900">Chi Tiết Hiệu Suất Cửa Hàng</h2>
-        <p class="text-xs text-gray-400 mt-0.5">Cập nhật mỗi 10 phút · <span id="tableLastUpdate">--</span></p>
+        <p class="text-xs text-gray-400 mt-0.5">Cập nhật mỗi 30 phút · <span id="tableLastUpdate">--</span></p>
       </div>
       <button id="exportBtn" class="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">
         <span class="material-symbols-outlined sm">download</span> Xuất CSV
@@ -344,7 +344,7 @@ async function loadSummary() {
     document.getElementById('todayRevVal').textContent = fmtM(d.today_revenue_m);
     document.getElementById('todayRevSub').textContent = `${fmt(d.today_orders)} đơn · ${new Date().toLocaleDateString('vi-VN')}`;
     // Update subtitle timestamp
-    const nowTime = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+    const nowTime = d.updated_at ? new Date(d.updated_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
     document.getElementById('dashSubtitle').textContent = `Cập nhật dữ liệu từ Supabase · Mỗi 30 phút · Dữ liệu cập nhật lúc ${nowTime}`;
 
     // Target progress
@@ -524,10 +524,10 @@ loadSummary();
 loadChart('1w');
 loadStoreTable();
 
-// Auto-refresh table every 10 mins
-setInterval(loadStoreTable, 10 * 60 * 1000);
-// Refresh summary every 10 mins
-setInterval(loadSummary, 10 * 60 * 1000);
+// Auto-refresh table every 30 mins
+setInterval(loadStoreTable, 30 * 60 * 1000);
+// Refresh summary every 30 mins
+setInterval(loadSummary, 30 * 60 * 1000);
 </script>
 
 <%- include('partials/footer') %>

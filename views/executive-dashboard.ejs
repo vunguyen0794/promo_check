@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Executive Architect Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary": "#5ee7ff",
+                        "primary": "#1333c2",
+                        "inverse-on-surface": "#ecf2f3"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    fontFamily: {
+                        "headline": ["'Be Vietnam Pro'", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: linear-gradient(135deg, #f0f4ff 0%, #e2e8f0 50%, #f0f4ff 100%);
+            min-height: 100vh;
+        }
+        h1, h2, h3, h4, .font-headline { font-family: 'Be Vietnam Pro', sans-serif; }
+        
+        .glass-card { 
+            background: rgba(255, 255, 255, 0.72); 
+            backdrop-filter: blur(16px); 
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.06);
+        }
+        .glass-slicer { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(8px); }
+        
+        .slicer-btn { cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .slicer-btn.active { background: linear-gradient(135deg, #1333c2 0%, #1e40af 100%); color: #ffffff; box-shadow: 0 4px 12px rgba(19, 51, 194, 0.3); }
+        .slicer-btn:not(.active):hover { background: rgba(19, 51, 194, 0.06); }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #1333c2 0%, #00d2ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .kpi-card-inner { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .kpi-card-inner:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(19, 51, 194, 0.1); }
+
+        /* ===== PREMIUM CUSTOM SELECT ===== */
+        .premium-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1.5px solid rgba(148, 163, 184, 0.2);
+            padding: 0.5rem 2.2rem 0.5rem 0.85rem;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #334155;
+            outline: none;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 14px;
+            min-width: 140px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .premium-select:hover {
+            border-color: rgba(19, 51, 194, 0.3);
+            box-shadow: 0 2px 8px rgba(19, 51, 194, 0.08);
+        }
+        .premium-select:focus {
+            border-color: #1333c2;
+            box-shadow: 0 0 0 3px rgba(19, 51, 194, 0.1), 0 2px 8px rgba(19, 51, 194, 0.08);
+        }
+        .premium-select option {
+            background: white;
+            color: #334155;
+            padding: 8px 12px;
+            font-weight: 500;
+        }
+        .premium-select.accent {
+            background: linear-gradient(135deg, rgba(19,51,194,0.06) 0%, rgba(94,231,255,0.06) 100%);
+            border-color: rgba(19, 51, 194, 0.18);
+            color: #1333c2;
+            font-weight: 700;
+        }
+        .premium-select:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .premium-date {
+            appearance: none;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1.5px solid rgba(148, 163, 184, 0.2);
+            padding: 0.5rem 0.85rem;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #334155;
+            outline: none;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .premium-date:hover { border-color: rgba(19, 51, 194, 0.3); box-shadow: 0 2px 8px rgba(19, 51, 194, 0.08); }
+        .premium-date:focus { border-color: #1333c2; box-shadow: 0 0 0 3px rgba(19, 51, 194, 0.1); }
+
+        .filter-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+        
+        .loader { border: 2px solid #f3f3f3; border-top: 2px solid #1333c2; border-radius: 50%; width: 18px; height: 18px; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; margin-left: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Analysis Table compact */
+        .analysis-table th, .analysis-table td { font-size: 0.72rem; padding: 6px 10px; white-space: nowrap; }
+        .analysis-table thead th { position: sticky; top: 0; z-index: 2; }
+
+        /* Salesman table */
+        .salesman-table th, .salesman-table td { font-size: 0.72rem; padding: 6px 10px; white-space: nowrap; }
+    </style>
+</head>
+<body>
+
+<nav class="bg-white/80 backdrop-blur-xl flex justify-between items-center w-full px-6 py-3 top-0 sticky z-50 shadow-[0_1px_3px_rgba(0,0,0,0.05)]" style="border-bottom:1px solid rgba(148,163,184,0.1);">
+    <div class="flex items-center gap-8">
+        <a href="/" class="text-xl font-extrabold tracking-tight gradient-text" style="text-decoration:none;">Executive Architect</a>
+    </div>
+    <div class="flex items-center gap-3">
+        <span class="text-xs font-semibold text-slate-500 hidden md:block"><%= user ? user.full_name || user.email : '' %></span>
+        <div class="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-bold text-white text-sm shadow-md">
+            <%= user ? (user.full_name ? user.full_name.charAt(0) : user.email.charAt(0)).toUpperCase() : 'U' %>
+        </div>
+    </div>
+</nav>
+
+<main class="w-full max-w-7xl mx-auto p-4 md:p-8 space-y-8 pb-24">
+    <!-- HEADER & SLICERS -->
+    <header class="space-y-6">
+        <div class="flex justify-between items-end">
+            <div>
+                <h2 class="text-3xl font-headline font-extrabold text-slate-900">Sales Performance <span id="loading-indicator" class="loader" style="display:none;"></span></h2>
+                <p class="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400 mt-1">Data as of <span id="data-updated-span">...</span> · Role: <span class="text-primary"><%= user.role %></span></p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="glass-slicer px-4 py-2 rounded-xl border border-slate-200/50 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg text-primary">calendar_today</span>
+                    <span class="text-sm font-bold text-slate-700" id="date-range-display">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILTER BAR -->
+        <div class="glass-card p-4 rounded-2xl">
+            <div class="flex flex-wrap gap-4 items-end">
+                <!-- Time Period Slicer -->
+                <div>
+                    <div class="filter-label">Period</div>
+                    <div class="flex bg-slate-100/80 rounded-xl p-1" id="time-slicers">
+                        <button class="slicer-btn px-4 py-1.5 rounded-lg text-xs font-bold" data-value="day">Day</button>
+                        <button class="slicer-btn px-4 py-1.5 rounded-lg text-xs font-bold" data-value="week">Week</button>
+                        <button class="slicer-btn px-4 py-1.5 rounded-lg text-xs font-bold active" data-value="month">Month</button>
+                        <button class="slicer-btn px-4 py-1.5 rounded-lg text-xs font-bold" data-value="quarter">Quarter</button>
+                        <button class="slicer-btn px-4 py-1.5 rounded-lg text-xs font-bold" data-value="year">Year</button>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-end gap-6">
+            <div class="flex gap-2">
+                <div>
+                    <div class="filter-label">Anchor Date</div>
+                    <div class="relative group">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-500 transition-colors pointer-events-none text-lg">calendar_today</span>
+                        <input type="date" id="date-picker-slicer" class="premium-select pl-10 h-[42px] min-w-[130px] border-slate-200" title="Start/Anchor Date" />
+                    </div>
+                </div>
+                <div>
+                    <div class="filter-label">End Date</div>
+                    <div class="relative group">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-indigo-500 transition-colors pointer-events-none text-lg">event</span>
+                        <input type="date" id="date-end-picker-slicer" class="premium-select pl-10 h-[42px] min-w-[130px] border-slate-200" title="End Date" />
+                    </div>
+                </div>
+            </div>
+
+                <!-- Region -->
+                <div>
+                    <div class="filter-label">Region</div>
+                    <select id="region-slicer" class="premium-select" <%= typeof isGlobalAdmin !== 'undefined' && !isGlobalAdmin ? 'disabled' : '' %>>
+                        <option value="ALL">🌐 All Regions</option>
+                        <option value="HCM1" <%= typeof userRegion !== 'undefined' && userRegion === 'HCM1' && !isGlobalAdmin ? 'selected' : '' %>>HCM1 · South</option>
+                        <option value="HCM2" <%= typeof userRegion !== 'undefined' && userRegion === 'HCM2' && !isGlobalAdmin ? 'selected' : '' %>>HCM2 · North-East</option>
+                        <option value="264" <%= typeof userRegion !== 'undefined' && userRegion === '264' && !isGlobalAdmin ? 'selected' : '' %>>264 · Special</option>
+                    </select>
+                </div>
+
+                <!-- Branch -->
+                <div>
+                    <div class="filter-label">Branch</div>
+                    <select id="branch-slicer" class="premium-select">
+                        <option value="ALL">🏢 All Branches</option>
+                    </select>
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <!-- KPI CARDS SECTION -->
+    <section class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
+        <!-- Revenue Card (Move to Far Left) -->
+        <div class="col-span-1 md:col-span-2 lg:col-span-3 glass-card p-8 rounded-2xl flex flex-col justify-between min-h-[260px] kpi-card-inner border-l-4 border-indigo-500 shadow-xl shadow-indigo-100/20">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Total Revenue (Net)</p>
+                    <h3 class="text-5xl font-headline font-extrabold mt-3 gradient-text" id="kpi-revenue">0 ₫</h3>
+                </div>
+                <div id="kpi-revenue-trend" class="bg-indigo-100 text-indigo-700 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
+                    <span class="material-symbols-outlined text-sm">trending_up</span>
+                    0%
+                </div>
+            </div>
+            <div class="h-16 w-full mt-4"><canvas id="miniChartRev"></canvas></div>
+            <div class="mt-4 space-y-5">
+                <div class="flex justify-between items-end">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest text-shadow-sm">MTD Target Achievement</span>
+                    <span class="text-xl font-extrabold text-indigo-900" id="kpi-achievement">0%</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden shadow-inner">
+                    <div id="kpi-achievement-bar" class="bg-gradient-to-r from-primary to-secondary h-full rounded-full transition-all duration-1000 shadow-sm" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between items-center">
+                    <p class="text-[10px] text-slate-500 font-medium" id="kpi-target-text">Goal: 0 ₫</p>
+                    <p class="text-[10px] text-slate-400 font-mono italic">BigQuery Real-time</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Small KPI Cards (Center) -->
+        <div class="col-span-1 md:col-span-4 lg:col-span-2 grid grid-cols-2 gap-4">
+            <div class="glass-card p-5 rounded-2xl kpi-card-inner flex flex-col hover:border-indigo-200 transition-all">
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-500">Net Orders</p>
+                <h4 class="text-2xl font-headline font-black mt-2 text-slate-900" id="kpi-orders">0</h4>
+                <div id="kpi-orders-trend" class="mt-2 flex items-center gap-1 text-[10px] font-black text-indigo-600">
+                    <span class="material-symbols-outlined text-[14px]">north_east</span> 0%
+                </div>
+                <div class="h-10 w-full mt-auto pt-2"><canvas id="miniChartOrd"></canvas></div>
+            </div>
+            <div class="glass-card p-5 rounded-2xl kpi-card-inner flex flex-col hover:border-emerald-200 transition-all">
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-500">Traffic (Footfall)</p>
+                <h4 class="text-2xl font-headline font-black mt-2 text-slate-900" id="kpi-traffic">0</h4>
+                <div id="kpi-traffic-trend" class="mt-2 flex items-center gap-1 text-[10px] font-black text-rose-500">
+                    <span class="material-symbols-outlined text-[14px]">south_east</span> 0%
+                </div>
+                <div class="h-10 w-full mt-auto pt-2"><canvas id="miniChartTfc"></canvas></div>
+            </div>
+            <div class="glass-card p-5 rounded-2xl kpi-card-inner flex flex-col hover:border-indigo-200 transition-all">
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-500">Avg Value (AOV)</p>
+                <h4 class="text-xl font-headline font-black mt-2 text-slate-900" id="kpi-aov">0 ₫</h4>
+                <div id="kpi-aov-trend" class="mt-2 flex items-center gap-1 text-[10px] font-black text-indigo-600">
+                    <span class="material-symbols-outlined text-[14px]">north_east</span> 0%
+                </div>
+                <div class="h-10 w-full mt-auto pt-2"><canvas id="miniChartAov"></canvas></div>
+            </div>
+            <div class="glass-card p-5 rounded-2xl kpi-card-inner flex flex-col hover:border-indigo-200 transition-all">
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-500">CR (Conv. Rate)</p>
+                <h4 class="text-2xl font-headline font-black mt-2 text-slate-900" id="kpi-cr">0%</h4>
+                <div id="kpi-cr-trend" class="mt-2 flex items-center gap-1 text-[10px] font-black text-indigo-600">
+                    <span class="material-symbols-outlined text-[14px]">trending_up</span> 0%
+                </div>
+                <div class="h-10 w-full mt-auto pt-2"></div>
+            </div>
+        </div>
+
+        <!-- Period Progress Card (Far Right) -->
+        <div class="col-span-1 md:col-span-2 lg:col-span-1 glass-card p-5 rounded-2xl flex flex-col justify-between kpi-card-inner shadow-lg">
+            <div class="text-center">
+                <p class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400">Period Progress</p>
+                <div class="mt-2 flex items-baseline justify-center gap-1">
+                    <span class="text-2xl font-headline font-extrabold text-slate-900" id="time-left">0</span>
+                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Days Left</span>
+                </div>
+            </div>
+            <div class="flex flex-col items-center py-1">
+                <div class="relative w-20 h-20 flex items-center justify-center">
+                    <svg class="w-full h-full transform -rotate-90">
+                        <circle class="text-slate-100" cx="40" cy="40" fill="transparent" r="34" stroke="currentColor" stroke-width="6"></circle>
+                        <circle id="time-elapsed-circle" class="text-primary transition-all duration-1000" cx="40" cy="40" fill="transparent" r="34" stroke="currentColor" stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-width="6"></circle>
+                    </svg>
+                    <span class="absolute text-sm font-black text-slate-800" id="time-elapsed-percent">0%</span>
+                </div>
+            </div>
+            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center mt-auto">Time Consumed</p>
+        </div>
+    </section>
+
+    <!-- CHARTS SECTION -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 glass-card p-8 rounded-2xl">
+            <div class="flex justify-between items-center mb-10">
+                <div>
+                    <h4 class="text-lg font-headline font-bold text-slate-900">Branch Comparative Performance</h4>
+                    <p class="text-xs text-slate-400">Revenue comparison across branches</p>
+                </div>
+            </div>
+            <div class="w-full h-80">
+                <canvas id="branchBarChart"></canvas>
+            </div>
+        </div>
+
+        <div class="glass-card p-8 rounded-2xl flex flex-col h-full">
+            <h4 class="text-lg font-headline font-bold mb-2 text-slate-900">Revenue Contribution</h4>
+            <p class="text-xs text-slate-400 mb-8">Share by Top Branches</p>
+            <div class="flex-grow flex items-center justify-center relative w-full h-48">
+                <canvas id="branchDonutChart"></canvas>
+            </div>
+            <div class="mt-10 grid grid-cols-2 gap-4" id="donut-legend">
+                <!-- Dynamic details -->
+            </div>
+        </div>
+    </section>
+
+    <!-- ANALYSIS SECTION -->
+    <div class="space-y-8">
+        <div class="flex justify-between items-end">
+            <div class="space-y-1">
+                <span class="text-[10px] font-bold uppercase tracking-[0.15em] text-primary">Strategic Analytics</span>
+                <h2 class="text-3xl font-bold font-headline text-slate-900 tracking-tight">Detailed Branch Analysis</h2>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-8">
+            <!-- Growth Mega Table -->
+            <div class="col-span-12 glass-card rounded-2xl overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex flex-wrap md:flex-nowrap justify-between gap-4 items-center">
+                    <div>
+                        <h3 class="font-headline font-bold text-xl text-slate-900">Detailed Analytics Data</h3>
+                        <p class="text-sm text-slate-400">Comprehensive Historical Comparisons (Value Deltas & % Growth)</p>
+                    </div>
+                    <div class="flex flex-wrap gap-3 items-end">
+                        <div>
+                            <div class="filter-label">Custom Group</div>
+                            <select id="custom-category-slicer" class="premium-select bg-slate-50 border-slate-200" style="min-width: 180px;">
+                                <option value="ALL">📦 Custom: All</option>
+                                <option value="CUSTOM_1">💻 Laptop, PC, Linh kiện, Apple</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="filter-label">Category (NHxx)</div>
+                            <select id="category-slicer" class="premium-select bg-slate-50 border-slate-200" style="min-width: 180px;">
+                                <option value="ALL">📦 Category: All</option>
+                                <option value="NH01">NH01 · Laptop</option>
+                                <option value="NH02">NH02 · PC</option>
+                                <option value="NH03">NH03 · Linh kiện</option>
+                                <option value="NH05">NH05 · Apple</option>
+                                <option value="NH06">NH06 · Phụ kiện</option>
+                                <option value="NH07">NH07 · Thiết bị VP</option>
+                                <option value="NH08">NH08 · Thiết bị mạng</option>
+                                <option value="NH09">NH09 · Phần mềm</option>
+                                <option value="NH10">NH10 · Giải trí KTS</option>
+                                <option value="NH11">NH11 · Phụ kiện khác</option>
+                                <option value="NH12">NH12 · Điện máy</option>
+                                <option value="NH13">NH13 · Giải pháp DN</option>
+                                <option value="NH14">NH14 · Gia dụng</option>
+                                <option value="NH93">NH93 · Linh kiện thay thế</option>
+                                <option value="NH94">NH94 · Dịch vụ GTGT</option>
+                                <option value="NH95">NH95 · Dịch vụ</option>
+                                <option value="NH99">NH99 · Khác</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <!-- FIX: Compact table with proper column alignment -->
+                    <table class="w-full text-left border-collapse analysis-table">
+                        <thead class="bg-slate-50/80">
+                            <tr>
+                                <th rowspan="2" class="px-3 py-3 border-b border-r border-slate-200 text-xs font-black uppercase text-slate-700 sticky left-0 bg-slate-50 z-10">Branch</th>
+                                <th colspan="4" class="px-3 py-2 border-b border-r border-slate-200 text-center text-[10px] font-black uppercase text-indigo-700 tracking-widest bg-indigo-50/50">Current Period</th>
+                                <th colspan="3" class="px-3 py-2 border-b border-r border-slate-200 text-center text-[10px] font-black uppercase text-slate-500 tracking-widest">Last Week (LW)</th>
+                                <th colspan="3" class="px-3 py-2 border-b border-r border-slate-200 text-center text-[10px] font-black uppercase text-slate-500 tracking-widest bg-slate-100/50">Last Month (LM)</th>
+                                <th colspan="3" class="px-3 py-2 border-b border-r border-slate-200 text-center text-[10px] font-black uppercase text-slate-500 tracking-widest">Last Quarter (LQ)</th>
+                                <th colspan="3" class="px-3 py-2 border-b border-slate-200 text-center text-[10px] font-black uppercase text-slate-500 tracking-widest bg-slate-100/50">Last Year (LY)</th>
+                            </tr>
+                            <tr>
+                                <th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 bg-indigo-50/50 text-right">Revenue</th>
+                                <th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 bg-indigo-50/50 text-right">Quantity</th>
+                                <th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 bg-indigo-50/50 text-right">Target</th>
+                                <th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 bg-indigo-50/50 text-right">Achieve%</th>
+                                <th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 text-right">Δ Rev</th><th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 text-right">Δ Qty</th><th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 text-right">%</th>
+                                <th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 bg-slate-100/50 text-right">Δ Rev</th><th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 bg-slate-100/50 text-right">Δ Qty</th><th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 bg-slate-100/50 text-right">%</th>
+                                <th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 text-right">Δ Rev</th><th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 text-right">Δ Qty</th><th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 text-right">%</th>
+                                <th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 bg-slate-100/50 text-right">Δ Rev</th><th class="px-3 py-2 border-b border-r border-slate-200 font-bold text-slate-500 bg-slate-100/50 text-right">Δ Qty</th><th class="px-3 py-2 border-b border-slate-200 font-bold text-slate-500 bg-slate-100/50 text-right">%</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="analysis-table-body">
+                            <tr><td colspan="17" class="px-8 py-5 text-center text-slate-400">Loading comprehensive analysis...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Salesman Table -->
+            <div class="col-span-12 glass-card rounded-2xl overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex flex-wrap md:flex-nowrap justify-between gap-4 items-center">
+                    <div>
+                        <h3 class="font-headline font-bold text-xl text-slate-900">Revenue by Salesman</h3>
+                        <p class="text-sm text-slate-400">Top Salesman Performance — Current Period</p>
+                    </div>
+                    <div class="flex flex-wrap gap-3 items-end">
+                        <div>
+                            <div class="filter-label">Category Filter</div>
+                            <select id="salesman-category-slicer" class="premium-select bg-slate-50 border-slate-200" style="min-width: 180px;">
+                                <option value="ALL">📦 Category: All</option>
+                                <option value="CUSTOM_1">💻 Laptop, PC, Linh kiện, Apple</option>
+                                <option value="NH01">NH01 · Laptop</option>
+                                <option value="NH02">NH02 · PC</option>
+                                <option value="NH03">NH03 · Linh kiện</option>
+                                <option value="NH05">NH05 · Apple</option>
+                                <option value="NH06">NH06 · Phụ kiện</option>
+                                <option value="NH07">NH07 · Thiết bị VP</option>
+                                <option value="NH08">NH08 · Thiết bị mạng</option>
+                                <option value="NH09">NH09 · Phần mềm</option>
+                                <option value="NH10">NH10 · Giải trí KTS</option>
+                                <option value="NH11">NH11 · Phụ kiện khác</option>
+                                <option value="NH12">NH12 · Điện máy</option>
+                                <option value="NH13">NH13 · Giải pháp DN</option>
+                                <option value="NH14">NH14 · Gia dụng</option>
+                                <option value="NH93">NH93 · Linh kiện thay thế</option>
+                                <option value="NH94">NH94 · Dịch vụ GTGT</option>
+                                <option value="NH95">NH95 · Dịch vụ</option>
+                                <option value="NH99">NH99 · Khác</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse salesman-table">
+                        <thead class="bg-slate-50/80">
+                            <tr>
+                                <th class="px-3 py-3 border-b border-r border-slate-200 text-xs font-black uppercase text-slate-700">#</th>
+                                <th class="px-3 py-3 border-b border-r border-slate-200 text-[10px] font-black uppercase text-indigo-500">Branch</th>
+                                <th class="px-3 py-3 border-b border-r border-slate-200 text-[10px] font-black uppercase text-slate-500">HRM_ID</th>
+                                <th class="px-3 py-3 border-b border-r border-slate-200 text-xs font-black uppercase text-slate-700">Salesman</th>
+                                <th class="px-3 py-3 border-b border-slate-200 text-xs font-black uppercase text-indigo-700 text-right bg-indigo-50/50">Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="salesman-table-body">
+                            <tr><td colspan="4" class="px-8 py-5 text-center text-slate-400">Loading salesman data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const COLORS = ['#1333c2', '#5ee7ff', '#6366f1', '#a5b4fc', '#e0e7ff', '#f1f5f9', '#0ea5e9', '#06b6d4', '#f43f5e', '#fbbf24', '#34d399', '#8b5cf6'];
+    Chart.register(ChartDataLabels);
+    
+    const BRANCH_LIST = [
+        { id: 'CP01', name: '264 NTMK', region: '264' }, { id: 'CP02', name: 'Bình Dương', region: 'HCM2' },
+        { id: 'CP05', name: 'Quận 6', region: 'HCM1' }, { id: 'CP07', name: 'Quận 7', region: 'HCM1' },
+        { id: 'CP08', name: 'Gò Vấp', region: 'HCM1' }, { id: 'CP40', name: 'HHT', region: 'HCM1' },
+        { id: 'CP46', name: 'Thủ Đức 1', region: 'HCM2' }, { id: 'CP58', name: 'CMT8', region: 'HCM1' },
+        { id: 'CP62', name: 'PDL', region: 'HCM1' }, { id: 'CP64', name: 'Quận 12', region: 'HCM2' },
+        { id: 'CP67', name: 'Thủ Đức 2', region: 'HCM2' }, { id: 'CP69', name: 'Dĩ An', region: 'HCM2' }
+    ];
+
+    // Role-based defaults from server
+    const IS_GLOBAL_ADMIN = <%= typeof isGlobalAdmin !== 'undefined' ? isGlobalAdmin : true %>;
+    const USER_REGION = '<%= typeof userRegion !== "undefined" ? userRegion : "ALL" %>';
+    const USER_BRANCH = '<%= typeof userBranch !== "undefined" ? userBranch : "" %>';
+
+    let currentPeriod = 'month';
+    let currentCategory = 'ALL';
+    let currentSalesmanCategory = 'ALL';
+    let currentRegion = IS_GLOBAL_ADMIN ? 'ALL' : USER_REGION;
+    let currentBranch = 'ALL';
+    let currentAnchorDate = null;
+    let currentEndDate = null;
+    let chartBar, chartDonut, cRev, cOrd, cTfc, cAov;
+
+    const formatter = new Intl.NumberFormat('vi-VN');
+    function formatVnd(val) {
+        const sign = val < 0 ? '-' : '';
+        const v = Math.abs(val);
+        if(v >= 1000000000) return sign + (v/1000000000).toFixed(2) + ' Tỷ';
+        if(v >= 1000000) return sign + (v/1000000).toFixed(1) + ' Tr';
+        return sign + formatter.format(v.toFixed(0));
+    }
+
+    const commonOptions = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { 
+            legend: { display: false }, 
+            datalabels: { display: false },
+            tooltip: { enabled: false }
+        },
+        scales: { 
+            x: { display: false, grid: { display: false }, ticks: { display: false } },
+            y: { display: false, grid: { display: false }, ticks: { display: false }, beginAtZero: false } // Allows chart to auto-scale vertically to emphasize trend
+        },
+        elements: { line: { tension: 0.1, borderWidth: 2, fill: true }, point: { radius: 0 } }, // Smaller tension, more accurate representation of actual peaks and valleys
+        layout: { padding: { top: 2, bottom: 2 } }
+    };
+
+
+    const initMini = (id, color) => new Chart(document.getElementById(id).getContext('2d'), {
+        type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: color, backgroundColor: color + '10' }] },
+        options: commonOptions
+    });
+
+    function initCharts() {
+        if (chartBar) chartBar.destroy();
+        if (chartDonut) chartDonut.destroy();
+        if (cRev) cRev.destroy(); if (cOrd) cOrd.destroy(); if (cTfc) cTfc.destroy(); if (cAov) cAov.destroy();
+
+        const ctxBar = document.getElementById('branchBarChart').getContext('2d');
+        chartBar = new Chart(ctxBar, {
+            type: 'bar',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                layout: { padding: { top: 20 } },
+                plugins: { legend: { display: true, position: 'top', align: 'end', labels: { boxWidth: 10, font: {size: 10} } } },
+                scales: { 
+                    y: { type: 'linear', display: true, position: 'left', beginAtZero: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y1: { type: 'linear', display: false, position: 'right', beginAtZero: true, grid: { display: false } },
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+
+        const ctxDonut = document.getElementById('branchDonutChart').getContext('2d');
+        chartDonut = new Chart(ctxDonut, {
+            type: 'doughnut',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '55%',
+                layout: { padding: 15 },
+                plugins: { 
+                    legend: { display:false },
+                    datalabels: {
+                        display: true,
+                        color: '#475569',
+                        font: { weight: '800', size: 9, family: 'Inter' },
+                        formatter: (value, ctx) => {
+                            let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            let percent = (value * 100 / sum).toFixed(1);
+                            return percent > 5 ? ctx.chart.data.labels[ctx.dataIndex] + '\n' + percent + '%' : '';
+                        },
+                        anchor: 'end', align: 'end', offset: 2
+                    }
+                }
+            }
+        });
+
+        cRev = initMini('miniChartRev', '#1333c2');
+        cOrd = initMini('miniChartOrd', '#6366f1');
+        cTfc = initMini('miniChartTfc', '#f43f5e');
+        cAov = initMini('miniChartAov', '#0ea5e9');
+    }
+
+    function updateBranchOptions() {
+        const branchSelect = document.getElementById('branch-slicer');
+        let filtered = currentRegion === 'ALL' ? BRANCH_LIST : BRANCH_LIST.filter(b => b.region === currentRegion);
+        
+        // Role-based restrictions
+        if (!IS_GLOBAL_ADMIN && USER_BRANCH && USER_BRANCH !== 'HCM.BD' && USER_BRANCH !== 'ALL') {
+            filtered = BRANCH_LIST.filter(b => b.id === USER_BRANCH);
+        }
+
+        let html = (!IS_GLOBAL_ADMIN && USER_BRANCH && USER_BRANCH !== 'HCM.BD' && USER_BRANCH !== 'ALL')
+            ? '' : '<option value="ALL">🏢 All Branches</option>';
+            
+        filtered.forEach(b => {
+            html += `<option value="${b.id}">${b.id} · ${b.name}</option>`;
+        });
+        branchSelect.innerHTML = html;
+        currentBranch = branchSelect.value; // lock to the first available option
+    }
+
+    function renderTrend(elementId, current, previous) {
+        const el = document.getElementById(elementId);
+        if(!previous || previous === 0) {
+            el.innerHTML = `<span class="material-symbols-outlined text-[12px]">horizontal_rule</span> 0%`;
+            el.className = "flex items-center gap-1 text-[10px] font-black text-slate-400";
+            return;
+        }
+        const delta = current - previous;
+        const percent = (delta / previous) * 100;
+        const isPos = delta >= 0;
+        const icon = isPos ? 'north_east' : 'south_east';
+        
+        el.innerHTML = `<span class="material-symbols-outlined text-[14px]">${icon}</span> ${isPos ? '+' : ''}${percent.toFixed(1)}%`;
+        el.className = `mt-4 flex items-center gap-1 text-[10px] font-black ${isPos ? (elementId.includes('revenue') ? 'text-indigo-700' : 'text-indigo-600') : 'text-rose-500'}`;
+    }
+
+    async function loadData() {
+        document.getElementById('loading-indicator').style.display = 'inline-block';
+        try {
+            let url = `/api/executive/sales-data?period=${currentPeriod}&category=ALL&tableCategory=${currentCategory}&region=${currentRegion}&branch=${currentBranch}`;
+            if (currentAnchorDate) url += `&date=${currentAnchorDate}`;
+            if (currentEndDate) url += `&endDate=${currentEndDate}`;
+            
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('API Error');
+            const data = await res.json();
+            
+            // 1. Headers & Progress
+            document.getElementById('date-range-display').innerText = `${data.startDate} ~ ${data.endDate}`;
+            if(document.getElementById('data-updated-span')) document.getElementById('data-updated-span').innerText = data.dataUpdatedAt || data.endDate;
+            document.getElementById('time-left').innerText = data.daysLeft;
+            document.getElementById('time-elapsed-percent').innerText = data.elapsedPercent + '%';
+            const offset = 213.6 - (213.6 * parseInt(data.elapsedPercent) / 100);
+            document.getElementById('time-elapsed-circle').style.strokeDashoffset = offset;
+
+            // 2. Global KPIs
+            const baseObj = data.sums.lm || data.sums.lw || data.sums.curr;
+            
+            document.getElementById('kpi-revenue').innerText = formatVnd(data.current.revenue) + ' ₫';
+            renderTrend('kpi-revenue-trend', data.current.revenue, baseObj.r);
+            
+            document.getElementById('kpi-orders').innerText = formatter.format(data.current.orders);
+            renderTrend('kpi-orders-trend', data.current.orders, baseObj.o);
+            
+            document.getElementById('kpi-aov').innerText = formatVnd(data.current.aov) + ' ₫';
+            renderTrend('kpi-aov-trend', data.current.aov, baseObj.a);
+
+            document.getElementById('kpi-traffic').innerText = formatter.format(data.current.traffic);
+            renderTrend('kpi-traffic-trend', data.current.traffic, baseObj.t);
+
+            const crCurr = data.current.traffic > 0 ? (data.current.orders / data.current.traffic * 100) : 0;
+            const crPrev = baseObj.t > 0 ? (baseObj.o / baseObj.t * 100) : 0;
+            document.getElementById('kpi-cr').innerText = crCurr.toFixed(2) + '%';
+            renderTrend('kpi-cr-trend', crCurr, crPrev);
+            
+            // 3. Target
+            const achPct = data.current.target > 0 ? (data.current.revenue / data.current.target * 100) : 0;
+            document.getElementById('kpi-achievement').innerText = achPct.toFixed(1) + '%';
+            document.getElementById('kpi-achievement-bar').style.width = Math.min(achPct, 100) + '%';
+            document.getElementById('kpi-target-text').innerText = `Goal: ${formatVnd(data.current.target)} ₫`;
+            
+            // 4. Update Mini Trend Charts
+            if(data.trends && data.trends.labels) {
+                const tr = data.trends;
+                cRev.data.labels = tr.labels; cRev.data.datasets[0].data = tr.revenue; cRev.update();
+                cOrd.data.labels = tr.labels; cOrd.data.datasets[0].data = tr.orders; cOrd.update();
+                cTfc.data.labels = tr.labels; cTfc.data.datasets[0].data = tr.traffic; cTfc.update();
+                cAov.data.labels = tr.labels; cAov.data.datasets[0].data = tr.aov; cAov.update();
+            }
+
+            // 5. Build Top Charts
+            const sorted = [...data.branches].sort((a,b) => b.data.curr.r - a.data.curr.r);
+            
+            chartBar.data.labels = sorted.map(b => b.name || b.id);
+            chartBar.data.datasets = [
+                { 
+                    type: 'bar',
+                    label: 'Revenue', 
+                    data: sorted.map(v => v.data.curr.r/1000000), 
+                    backgroundColor: '#1333c2', 
+                    borderRadius: 4,
+                    order: 2,
+                    datalabels: { display: true, anchor: 'end', align: 'top', color: '#1333c2', backgroundColor: 'rgba(238, 242, 255, 0.9)', borderRadius: 4, font: {size: 9, weight: 'bold'}, formatter: v => { let val = v * 1000000; if(val >= 1e9) return (val/1e9).toFixed(2) + ' Tỷ'; return Math.round(val/1e6) + ' Tr'; } }
+                },
+                { 
+                    type: 'line',
+                    label: '% Target', 
+                    data: sorted.map(v => v.target ? (v.data.curr.r/v.target*100).toFixed(1) : 0), 
+                    borderColor: '#f43f5e', 
+                    backgroundColor: '#f43f5e',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#fff',
+                    pointBorderWidth: 2,
+                    tension: 0.3,
+                    order: 1,
+                    yAxisID: 'y1',
+                    datalabels: { display: true, anchor: 'center', align: 'bottom', offset: 8, color: '#e11d48', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 2, font: {size: 9, weight: '900'}, formatter: v => v > 0 ? v + '%' : '' }
+                }
+            ];
+            chartBar.update();
+
+            const sortedGlobal = [...data.globalBranches].sort((a,b) => b.data.curr.r - a.data.curr.r);
+            const sumRev = sortedGlobal.reduce((a,b) => a + b.data.curr.r, 0);
+            
+            chartDonut.data.labels = sortedGlobal.map(b => b.id);
+            chartDonut.data.datasets = [{ data: sortedGlobal.map(b => b.data.curr.r), backgroundColor: COLORS }];
+            chartDonut.update();
+
+            let legHtml = '';
+            chartDonut.data.labels.forEach((l, i) => {
+                const tv = chartDonut.data.datasets[0].data[i];
+                const p = sumRev > 0 ? ((tv/sumRev)*100).toFixed(1) : 0;
+                legHtml += `
+                <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-100 hover:border-indigo-100 transition-colors">
+                    <div class="w-3 rounded-full h-3 shadow-sm border border-white" style="background:${COLORS[i % COLORS.length]}"></div>
+                    <div class="flex flex-col flex-1">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${l}</span>
+                        <div class="flex justify-between items-baseline mt-0.5">
+                            <span class="text-sm font-black text-slate-800">${p}%</span>
+                            <span class="text-[10px] font-bold text-slate-400">${formatVnd(tv)}</span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('donut-legend').innerHTML = legHtml;
+
+            // 6. Growth Mega Table — compact with Quantity, no region sub-column
+            renderAnalysisTable(data.branches);
+
+        } catch (e) {
+            console.error('Frontend Error:', e);
+        } finally {
+            document.getElementById('loading-indicator').style.display = 'none';
+        }
+    }
+
+    function renderAnalysisTable(branches) {
+        const renderRevQtyDelta = (cr, br, cq, bq, bgClass = '') => {
+            const rd = cr - br;
+            const rp = br > 0 ? (rd/br*100) : (rd>0?100:0);
+            const rIsPos = rd >= 0;
+            const rTc = rIsPos ? 'text-slate-700' : 'text-rose-600 font-bold'; // Default or Red
+
+            const qd = cq - bq;
+            const qIsPos = qd >= 0;
+            const qTc = qIsPos ? 'text-slate-500' : 'text-rose-600 font-bold'; // Default or Red
+
+            return `
+            <td class="px-3 py-2 text-right text-xs ${rTc} ${bgClass} border-l border-slate-100">${rIsPos?'+':''}${formatVnd(rd)}</td>
+            <td class="px-3 py-2 text-right text-xs ${qTc} ${bgClass}">${qIsPos?'+':''}${formatter.format(qd)}</td>
+            <td class="px-3 py-2 text-right font-semibold ${rTc} ${bgClass}">${rIsPos?'+':''}${rp>999?'999+':rp.toFixed(1)}%</td>`;
+        };
+
+        // Grouping logic
+        const regions = {};
+        branches.forEach(b => {
+            const r = b.region || 'Unknown';
+            if(!regions[r]) regions[r] = { name: r, branches: [], sub: { r:0, q:0, t:0, lw:0, q_lw:0, lm:0, q_lm:0, lq:0, q_lq:0, ly:0, q_ly:0 } };
+            regions[r].branches.push(b);
+            regions[r].sub.r += b.data.curr.r;
+            regions[r].sub.q += b.data.curr.q || 0;
+            regions[r].sub.t += b.target || 0;
+            regions[r].sub.lw += b.data.lw.r; regions[r].sub.q_lw += b.data.lw.q || 0;
+            regions[r].sub.lm += b.data.lm.r; regions[r].sub.q_lm += b.data.lm.q || 0;
+            regions[r].sub.lq += b.data.lq.r; regions[r].sub.q_lq += b.data.lq.q || 0;
+            regions[r].sub.ly += b.data.ly.r; regions[r].sub.q_ly += b.data.ly.q || 0;
+        });
+
+        let tableHtml = '';
+        let grandTotal = { r:0, q:0, t:0, lw:0, q_lw:0, lm:0, q_lm:0, lq:0, q_lq:0, ly:0, q_ly:0 };
+
+        Object.values(regions).sort((a,b) => a.name.localeCompare(b.name)).forEach(reg => {
+            // Header row removed per user request
+            
+            reg.branches.sort((a,b) => b.data.curr.r - a.data.curr.r).forEach(b => {
+                const ach = b.target > 0 ? (b.data.curr.r / b.target * 100).toFixed(1) : 0;
+                const qty = b.data.curr.q || 0;
+                tableHtml += `
+                    <tr class="hover:bg-slate-50 transition-colors border-b border-slate-50">
+                        <td class="px-3 py-2 font-bold text-slate-700 border-r border-slate-100 sticky left-0 bg-white shadow-[2px_0_4px_rgba(0,0,0,0.02)]">${b.id}<br><span class="text-[9px] text-slate-400 font-normal">${b.name || ''}</span></td>
+                        <td class="px-3 py-2 font-black bg-indigo-50/20 text-right text-indigo-900 border-l border-indigo-100/50">${formatVnd(b.data.curr.r)}</td>
+                        <td class="px-3 py-2 text-right bg-indigo-50/20 text-slate-600">${formatter.format(qty)}</td>
+                        <td class="px-3 py-2 text-right bg-indigo-50/20 text-indigo-400 text-xs">${formatVnd(b.target || 0)}</td>
+                        <td class="px-3 py-2 font-bold bg-indigo-50/20 text-right text-indigo-800">${ach}%</td>
+                        ${renderRevQtyDelta(b.data.curr.r, b.data.lw.r, qty, b.data.lw.q || 0)}
+                        ${renderRevQtyDelta(b.data.curr.r, b.data.lm.r, qty, b.data.lm.q || 0, 'bg-slate-50/50')}
+                        ${renderRevQtyDelta(b.data.curr.r, b.data.lq.r, qty, b.data.lq.q || 0)}
+                        ${renderRevQtyDelta(b.data.curr.r, b.data.ly.r, qty, b.data.ly.q || 0, 'bg-slate-50/50')}
+                    </tr>
+                `;
+            });
+
+            if (IS_GLOBAL_ADMIN) {
+                const regAch = reg.sub.t > 0 ? (reg.sub.r / reg.sub.t * 100).toFixed(1) : 0;
+                tableHtml += `
+                    <tr class="bg-indigo-50/40 border-b-2 border-indigo-100 font-bold">
+                        <td class="px-3 py-2 text-[10px] text-indigo-700 sticky left-0 bg-indigo-50/80">${reg.name} SUM</td>
+                        <td class="px-3 py-2 text-right text-indigo-900 border-l border-indigo-200/50">${formatVnd(reg.sub.r)}</td>
+                        <td class="px-3 py-2 text-right text-indigo-900">${formatter.format(reg.sub.q)}</td>
+                        <td class="px-3 py-2 text-right text-indigo-600 text-xs">${formatVnd(reg.sub.t)}</td>
+                        <td class="px-3 py-2 text-right text-indigo-900">${regAch}%</td>
+                        ${renderRevQtyDelta(reg.sub.r, reg.sub.lw, reg.sub.q, reg.sub.q_lw)}
+                        ${renderRevQtyDelta(reg.sub.r, reg.sub.lm, reg.sub.q, reg.sub.q_lm, 'bg-slate-50/50')}
+                        ${renderRevQtyDelta(reg.sub.r, reg.sub.lq, reg.sub.q, reg.sub.q_lq)}
+                        ${renderRevQtyDelta(reg.sub.r, reg.sub.ly, reg.sub.q, reg.sub.q_ly, 'bg-slate-50/50')}
+                    </tr>
+                `;
+            }
+
+            grandTotal.r += reg.sub.r; grandTotal.q += reg.sub.q; grandTotal.t += reg.sub.t;
+            grandTotal.lw += reg.sub.lw; grandTotal.q_lw += reg.sub.q_lw;
+            grandTotal.lm += reg.sub.lm; grandTotal.q_lm += reg.sub.q_lm;
+            grandTotal.lq += reg.sub.lq; grandTotal.q_lq += reg.sub.q_lq;
+            grandTotal.ly += reg.sub.ly; grandTotal.q_ly += reg.sub.q_ly;
+        });
+
+        if (IS_GLOBAL_ADMIN) {
+            const grandAch = grandTotal.t > 0 ? (grandTotal.r / grandTotal.t * 100).toFixed(1) : 0;
+            tableHtml += `
+                <tr class="bg-slate-800 text-white border-b border-slate-700 font-black">
+                    <td class="px-3 py-3 uppercase tracking-[0.15em] text-xs sticky left-0 bg-slate-800">GRAND TOTAL</td>
+                    <td class="px-3 py-3 text-right text-secondary border-l border-slate-600">${formatVnd(grandTotal.r)}</td>
+                    <td class="px-3 py-3 text-right text-secondary">${formatter.format(grandTotal.q)}</td>
+                    <td class="px-3 py-3 text-right text-indigo-300 text-xs">${formatVnd(grandTotal.t)}</td>
+                    <td class="px-3 py-3 text-right text-secondary">${grandAch}%</td>
+                    ${renderRevQtyDelta(grandTotal.r, grandTotal.lw, grandTotal.q, grandTotal.q_lw).replace(/text-indigo-600|text-teal-600/g,'text-secondary').replace(/text-rose-500|text-orange-500/g,'text-rose-300').replace(/bg-indigo-100 text-indigo-700/g,'bg-indigo-900 text-white').replace(/bg-rose-100 text-rose-700/g,'bg-rose-900 text-white')}
+                    ${renderRevQtyDelta(grandTotal.r, grandTotal.lm, grandTotal.q, grandTotal.q_lm, 'bg-slate-700').replace(/text-indigo-600|text-teal-600/g,'text-secondary').replace(/text-rose-500|text-orange-500/g,'text-rose-300').replace(/bg-indigo-100 text-indigo-700/g,'bg-indigo-900 text-white').replace(/bg-rose-100 text-rose-700/g,'bg-rose-900 text-white')}
+                    ${renderRevQtyDelta(grandTotal.r, grandTotal.lq, grandTotal.q, grandTotal.q_lq).replace(/text-indigo-600|text-teal-600/g,'text-secondary').replace(/text-rose-500|text-orange-500/g,'text-rose-300').replace(/bg-indigo-100 text-indigo-700/g,'bg-indigo-900 text-white').replace(/bg-rose-100 text-rose-700/g,'bg-rose-900 text-white')}
+                    ${renderRevQtyDelta(grandTotal.r, grandTotal.ly, grandTotal.q, grandTotal.q_ly, 'bg-slate-700').replace(/text-indigo-600|text-teal-600/g,'text-secondary').replace(/text-rose-500|text-orange-500/g,'text-rose-300').replace(/bg-indigo-100 text-indigo-700/g,'bg-indigo-900 text-white').replace(/bg-rose-100 text-rose-700/g,'bg-rose-900 text-white')}
+                </tr>
+            `;
+        }
+
+        document.getElementById('analysis-table-body').innerHTML = tableHtml || '<tr><td colspan="17" class="p-8 text-center text-slate-400">No Data Available</td></tr>';
+    }
+
+    async function loadSalesmanData() {
+        const tbody = document.getElementById('salesman-table-body');
+        tbody.innerHTML = '<tr><td colspan="4" class="px-8 py-5 text-center text-slate-400">Loading...</td></tr>';
+        try {
+            let url = `/api/executive/salesman-data?period=${currentPeriod}&region=${currentRegion}&branch=${currentBranch}&tableCategory=${currentSalesmanCategory}`;
+            if (currentAnchorDate) url += `&date=${currentAnchorDate}`;
+            if (currentEndDate) url += `&endDate=${currentEndDate}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Salesman API Error');
+            const data = await res.json();
+            const rows = data.rows || [];
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400">No data</td></tr>';
+                return;
+            }
+            let html = '';
+            rows.forEach((r, i) => {
+                const rev = Number(r.Revenue || 0);
+                html += `<tr class="hover:bg-slate-50 transition-colors border-b border-slate-50">
+                    <td class="px-3 py-2 text-slate-400 font-mono">${i+1}</td>
+                    <td class="px-3 py-2 font-bold text-indigo-600 text-[10px] uppercase tracking-wider">${r.Branch_code || '—'}</td>
+                    <td class="px-3 py-2 text-slate-500 font-mono">${r.HRM_ID || '—'}</td>
+                    <td class="px-3 py-2 font-semibold text-slate-800">${r.Salesman || '—'}</td>
+                    <td class="px-3 py-2 text-right font-black text-indigo-700">${formatVnd(rev)}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        } catch(e) {
+            console.error('Salesman Error:', e);
+            tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-rose-400">Error: ${e.message}</td></tr>`;
+        }
+    }
+
+    // Interactions
+    document.querySelectorAll('.slicer-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.slicer-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentPeriod = btn.dataset.value;
+            loadData();
+            loadSalesmanData();
+        });
+    });
+
+    document.getElementById('custom-category-slicer').addEventListener('change', e => { 
+        document.getElementById('category-slicer').value = 'ALL';
+        currentCategory = e.target.value; 
+        loadData(); 
+    });
+    document.getElementById('category-slicer').addEventListener('change', e => { 
+        document.getElementById('custom-category-slicer').value = 'ALL';
+        currentCategory = e.target.value; 
+        loadData(); 
+    });
+    document.getElementById('salesman-category-slicer').addEventListener('change', e => {
+        currentSalesmanCategory = e.target.value;
+        loadSalesmanData();
+    });
+    document.getElementById('date-picker-slicer').addEventListener('change', e => { 
+        currentAnchorDate = e.target.value; 
+        loadData(); 
+        loadSalesmanData();
+    });
+    document.getElementById('date-end-picker-slicer').addEventListener('change', e => { 
+        currentEndDate = e.target.value; 
+        loadData(); 
+        loadSalesmanData();
+    });
+    document.getElementById('region-slicer').addEventListener('change', e => { 
+        currentRegion = e.target.value; 
+        updateBranchOptions(); 
+        loadData(); 
+        loadSalesmanData();
+    });
+    document.getElementById('branch-slicer').addEventListener('change', e => { 
+        currentBranch = e.target.value; 
+        loadData(); 
+        loadSalesmanData();
+    });
+
+    window.onload = () => {
+        // Build today's date for default date
+        const tzOffset = (new Date()).getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().split('T')[0];
+        document.getElementById('date-picker-slicer').value = localISOTime;
+        document.getElementById('date-end-picker-slicer').value = localISOTime;
+        currentAnchorDate = localISOTime;
+        currentEndDate = localISOTime;
+
+        // Set initial region from server-side role via EJS
+        if (!IS_GLOBAL_ADMIN && USER_REGION !== 'ALL') {
+            document.getElementById('region-slicer').value = USER_REGION;
+            currentRegion = USER_REGION;
+        }
+        updateBranchOptions();
+        initCharts();
+        loadData();
+        loadSalesmanData();
+    };
+</script>
+
+</body>
+</html>

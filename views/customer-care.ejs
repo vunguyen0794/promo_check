@@ -505,10 +505,27 @@
 
             <select id="wlMonth" onchange="loadWorkList(1)" class="custom-select" style="border-left: 3px solid #e11d48;">
                 <% const d = new Date(); const currentM = d.toISOString().slice(0, 7); %>
-                <option value="<%= currentM %>">Tháng này (<%= currentM %>)</option>
-                <option value="all">📅 Toàn thời gian</option>
-                <% for(let i=1; i<=11; i++) { d.setMonth(d.getMonth() - 1); const mStr = d.toISOString().slice(0, 7); %>
-                    <option value="<%= mStr %>">Tháng <%= mStr %></option>
+                <option value="<%= currentM %>">📌 Tháng này (<%= currentM %>)</option>
+                <option value="all">📅 Toàn thời gian (từ 2024)</option>
+                <% 
+                  // Tạo dropdown nhóm theo năm từ năm hiện tại về 2024
+                  const currentYear = new Date().getFullYear();
+                  const currentMonthNum = new Date().getMonth(); // 0-indexed
+                  for (let yr = currentYear; yr >= 2024; yr--) {
+                %>
+                <optgroup label="━━━ Năm <%= yr %> ━━━">
+                    <option value="<%= yr %>">📆 Cả năm <%= yr %></option>
+                    <%
+                      // Tháng cuối của năm hiện tại = tháng trước (tháng này đã có ở trên)
+                      // Tháng cuối của năm cũ = tháng 12
+                      const lastMonth = (yr === currentYear) ? currentMonthNum - 1 : 11;
+                      // Tháng bắt đầu là tháng 1 (index 0)
+                      for (let m = lastMonth; m >= 0; m--) {
+                        const mStr = `${yr}-${String(m + 1).padStart(2, '0')}`;
+                    %>
+                    <option value="<%= mStr %>">   Tháng <%= m + 1 %>/<%= yr %></option>
+                    <% } %>
+                </optgroup>
                 <% } %>
             </select>
 

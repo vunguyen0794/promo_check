@@ -54,6 +54,7 @@ const parseSkus = v => {
 // ------------------------- BigQuery Client -------------------------
 let bigquery;
 try {
+  35
   const keyFile = process.env.BIGQUERY_KEY_FILE;
 
   // 1. Dùng file key local (ví dụ: bigquery-key.json)
@@ -84,6 +85,118 @@ const CSI_BIGQUERY_SOURCES = (
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
+
+/**
+ * EXECUTIVE DASHBOARD CONFIG & HELPERS
+ */
+const EXECUTIVE_CATEGORIES = [
+  { id: 'NH01', name: 'Laptop' }, { id: 'NH02', name: 'PC' }, { id: 'NH03', name: 'Computer components' },
+  { id: 'NH05', name: 'Apple' }, { id: 'NH06', name: 'Peripherals' }, { id: 'NH07', name: 'Office equipment' },
+  { id: 'NH08', name: 'Network and Security equipment' }, { id: 'NH09', name: 'Software' },
+  { id: 'NH10', name: 'Entertainment and Digital devices' }, { id: 'NH11', name: 'Accessories' },
+  { id: 'NH12', name: 'Electric' }, { id: 'NH13', name: 'Bussiness solution' },
+  { id: 'NH14', name: 'Small Domestic Appliances' }, { id: 'NH93', name: 'Spare parts' },
+  { id: 'NH94', name: 'Value added service' }, { id: 'NH95', name: 'Service' }, { id: 'NH99', name: 'Others' }
+];
+
+const EXECUTIVE_BRANCH_LIST = [
+  { id: 'CP01', name: '264 NTMK', region: '264' }, { id: 'CP02', name: 'Bình Dương', region: 'HCM2' },
+  { id: 'CP05', name: 'Quận 6', region: 'HCM1' }, { id: 'CP07', name: 'Quận 7', region: 'HCM1' },
+  { id: 'CP08', name: 'Gò Vấp', region: 'HCM1' }, { id: 'CP40', name: 'HHT', region: 'HCM1' },
+  { id: 'CP46', name: 'Thủ Đức 1', region: 'HCM2' }, { id: 'CP58', name: 'CMT8', region: 'HCM1' },
+  { id: 'CP62', name: 'PDL', region: 'HCM1' }, { id: 'CP64', name: 'Quận 12', region: 'HCM2' },
+  { id: 'CP67', name: 'Thủ Đức 2', region: 'HCM2' }, { id: 'CP69', name: 'Dĩ An', region: 'HCM2' }
+];
+
+const formatVNDate = (d) => {
+  const vnD = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  return `${vnD.getFullYear()}-${String(vnD.getMonth() + 1).padStart(2, '0')}-${String(vnD.getDate()).padStart(2, '0')}`;
+};
+
+const shiftDate = (dObj, dDays, dMonth, dYear) => {
+  const nd = new Date(dObj);
+  if(dYear) nd.setFullYear(nd.getFullYear() + dYear);
+  if(dMonth) nd.setMonth(nd.getMonth() + dMonth);
+  if(dDays) nd.setDate(nd.getDate() + dDays);
+  return nd;
+};
+
+function getDashboardDateRange(period, anchorDateStr) {
+  let anchor = anchorDateStr ? new Date(anchorDateStr) : new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  if (isNaN(anchor.getTime())) anchor = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+
+  let cS, cE;
+  const year = anchor.getFullYear(), month = anchor.getMonth();
+  
+  if (period === 'day') {
+    cS = new Date(year, month, anchor.getDate() - 1);
+    cE = new Date(year, month, anchor.getDate() - 1, 23, 59, 59, 999);
+  } else if (period === 'week') {
+    const day = anchor.getDay();
+    const diffToMon = (day === 0 ? -6 : 1) - day;
+    cS = new Date(year, month, anchor.getDate() + diffToMon);
+    cE = new Date(year, month, anchor.getDate() + diffToMon + 6, 23, 59, 59, 999);
+  } else if (period === 'quarter') {
+    const qIdx = Math.floor(month / 3);
+    cS = new Date(year, qIdx * 3, 1);
+    cE = new Date(year, (qIdx + 1) * 3, 0, 23, 59, 59, 999);
+  } else if (period === 'year') {
+    cS = new Date(year, 0, 1);
+    cE = new Date(year, 11, 31, 23, 59, 59, 999);
+  } else { // month
+    cS = new Date(year, month, 1);
+    cE = new Date(year, month + 1, 0, 23, 59, 59, 999);
+  }
+
+  const buildObj = (start, end) => ({ rawS: start, rawE: end, s: formatVNDate(start), e: formatVNDate(end) });
+
+  return {
+    curr: buildObj(cS, cE),
+    prev: buildObj(shiftDate(cS, 0, (period === 'quarter'? -3 : (period === 'year'? -12 : -1))), shiftDate(cE, 0, (period === 'quarter'? -3 : (period === 'year'? -12 : -1)))), 
+    lw: buildObj(shiftDate(cS, -7), shiftDate(cE, -7)),
+    lm: buildObj(shiftDate(cS, 0, -1), shiftDate(cE, 0, -1)),
+    lq: buildObj(shiftDate(cS, 0, -3), shiftDate(cE, 0, -3)),
+    ly: buildObj(shiftDate(cS, 0, 0, -1), shiftDate(cE, 0, 0, -1))
+  };
+}
+
+async function fetchTrafficStats(ranges) {
+  try {
+    const sheetId = '1DRiRLV1epyqRTPNzOul3_Y5gKphoFHsKQTqW93BZQy8';
+    const sheets = await getGlobalSheetsClient();
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Sheet1!A:F' });
+    const rows = res.data.values;
+    if (!rows || rows.length < 2) return null;
+    
+    const h = rows[0];
+    const dI = h.indexOf('date'), bI = h.indexOf('branch_id'), vI = h.indexOf('visit_count');
+    const map = {};
+    
+    const normalizeDateStr = (d) => {
+        if (!d) return '';
+        if (d.includes('/')) {
+            const p = d.split('/');
+            if (p[0].length <= 2) return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+            return `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}`;
+        }
+        return d;
+    };
+
+    for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        const dStr = normalizeDateStr(r[dI]), b = r[bI], v = parseInt(r[vI] || '0');
+        if(!map[b]) map[b] = { curr:0, prev:0, lw:0, lm:0, lq:0, ly:0, _ts:{} };
+        
+        if (dStr >= ranges.curr.s && dStr <= ranges.curr.e) { map[b].curr += v; map[b]._ts[dStr] = (map[b]._ts[dStr] || 0) + v; }
+        if (dStr >= ranges.prev.s && dStr <= ranges.prev.e) map[b].prev += v;
+        if (dStr >= ranges.lw.s && dStr <= ranges.lw.e) map[b].lw += v;
+        if (dStr >= ranges.lm.s && dStr <= ranges.lm.e) map[b].lm += v;
+        if (dStr >= ranges.lq.s && dStr <= ranges.lq.e) map[b].lq += v;
+        if (dStr >= ranges.ly.s && dStr <= ranges.ly.e) map[b].ly += v;
+    }
+    return map;
+  } catch (e) { return null; }
+}
 
 let csiSourceCachePromise = null;
 
@@ -134,187 +247,6 @@ const REGIONAL_CONFIG = {
   'TD12': ['CP46', 'CP67'],
   'BD12': ['CP02', 'CP69']
 };
-
-/**
- * EXECUTIVE DASHBOARD CONFIG & HELPERS
- */
-const EXECUTIVE_CATEGORIES = [
-  { id: 'NH01', name: 'Laptop' }, { id: 'NH02', name: 'PC' }, { id: 'NH03', name: 'Linh kiện' },
-  { id: 'NH05', name: 'Apple' }, { id: 'NH06', name: 'Phụ kiện' }, { id: 'NH07', name: 'Thiết bị VP' },
-  { id: 'NH08', name: 'Thiết bị mạng' }, { id: 'NH09', name: 'Phần mềm' },
-  { id: 'NH10', name: 'Giải trí KTS' }, { id: 'NH11', name: 'Phụ kiện khác' },
-  { id: 'NH12', name: 'Điện máy' }, { id: 'NH13', name: 'Giải pháp DN' },
-  { id: 'NH14', name: 'Gia dụng' }, { id: 'NH93', name: 'Linh kiện thay thế' },
-  { id: 'NH94', name: 'Dịch vụ GTGT' }, { id: 'NH95', name: 'Dịch vụ' }, { id: 'NH99', name: 'Khác' }
-];
-
-const EXECUTIVE_BRANCH_LIST = [
-  { id: 'CP01', name: '264 NTMK', region: '264' }, { id: 'CP02', name: 'Bình Dương', region: 'HCM2' },
-  { id: 'CP05', name: 'Quận 6', region: 'HCM1' }, { id: 'CP07', name: 'Quận 7', region: 'HCM1' },
-  { id: 'CP08', name: 'Gò Vấp', region: 'HCM1' }, { id: 'CP40', name: 'HHT', region: 'HCM1' },
-  { id: 'CP46', name: 'Thủ Đức 1', region: 'HCM2' }, { id: 'CP58', name: 'CMT8', region: 'HCM1' },
-  { id: 'CP62', name: 'PDL', region: 'HCM1' }, { id: 'CP64', name: 'Quận 12', region: 'HCM2' },
-  { id: 'CP67', name: 'Thủ Đức 2', region: 'HCM2' }, { id: 'CP69', name: 'Dĩ An', region: 'HCM2' }
-];
-
-function formatVNDate(d) {
-  const date = new Date(d);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function getDashboardDateRange(period, anchorDateStr, endDateStr) {
-  let anchor;
-  const parseLocalNoon = (dStr) => {
-      if(!dStr) return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-      const parts = dStr.split('-');
-      if (parts.length === 3) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
-      return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-  };
-  
-  anchor = parseLocalNoon(anchorDateStr);
-  if (isNaN(anchor.getTime())) anchor = parseLocalNoon();
-  
-  let endAnchor = endDateStr ? parseLocalNoon(endDateStr) : anchor;
-  if(isNaN(endAnchor.getTime())) endAnchor = anchor;
-  // Ensure anchor <= endAnchor
-  if(endAnchor < anchor) { const t = anchor; anchor = endAnchor; endAnchor = t; }
-
-  let cS, cE;
-  const year = anchor.getFullYear(), month = anchor.getMonth();
-  const eYear = endAnchor.getFullYear(), eMonth = endAnchor.getMonth();
-
-  if (period === 'day') {
-    cS = formatVNDate(anchor); 
-    cE = formatVNDate(endAnchor);
-  } else if (period === 'week') {
-    const day = anchor.getDay();
-    const diff = anchor.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(anchor); monday.setDate(diff);
-    cS = formatVNDate(monday);
-    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-    cE = endAnchor < sunday ? formatVNDate(endAnchor) : formatVNDate(sunday);
-  } else if (period === 'month') {
-    cS = formatVNDate(new Date(year, month, 1));
-    const lastDayOfMonth = new Date(year, month + 1, 0);
-    cE = endAnchor < lastDayOfMonth ? formatVNDate(endAnchor) : formatVNDate(lastDayOfMonth);
-  } else if (period === 'quarter') {
-    const q = Math.floor(month / 3);
-    cS = formatVNDate(new Date(year, q * 3, 1));
-    const lastDayOfQ = new Date(year, (q + 1) * 3, 0);
-    cE = endAnchor < lastDayOfQ ? formatVNDate(endAnchor) : formatVNDate(lastDayOfQ);
-  } else if (period === 'year') {
-    cS = formatVNDate(new Date(year, 0, 1));
-    const lastDayOfYear = new Date(year, 11, 31);
-    cE = endAnchor < lastDayOfYear ? formatVNDate(endAnchor) : formatVNDate(lastDayOfYear);
-  }
-
-  const rawS = new Date(cS), rawE = new Date(cE);
-  const diffTime = rawE - rawS;
-  const diffDays = Math.round(diffTime / 86400000);
-
-  const getPrev = () => {
-    const s = new Date(rawS); s.setDate(s.getDate() - (diffDays + 1));
-    const e = new Date(rawE); e.setDate(e.getDate() - (diffDays + 1));
-    return { s: formatVNDate(s), e: formatVNDate(e) };
-  };
-
-  const shiftMonth = (dStr, mDiff, yDiff = 0) => {
-    const [y, m, d] = dStr.split('-').map(Number);
-    let newM = (m - 1) + mDiff;
-    let newY = y + yDiff;
-    while(newM < 0) { newM += 12; newY--; }
-    while(newM > 11) { newM -= 12; newY++; }
-    const lastDay = new Date(newY, newM + 1, 0).getDate();
-    return formatVNDate(new Date(newY, newM, Math.min(d, lastDay), 12, 0, 0));
-  };
-  
-  const shiftDays = (dStr, dDiff) => {
-    const [y, m, d] = dStr.split('-').map(Number);
-    return formatVNDate(new Date(y, m - 1, d + dDiff, 12, 0, 0));
-  };
-
-  return {
-    curr: { s: cS, e: cE, rawS, rawE },
-    prev: getPrev(),
-    lw: { s: shiftDays(cS, -7), e: shiftDays(cE, -7) },
-    lm: { s: shiftMonth(cS, -1), e: shiftMonth(cE, -1) },
-    lq: { s: shiftMonth(cS, -3), e: shiftMonth(cE, -3) },
-    ly: { s: shiftMonth(cS, 0, -1), e: shiftMonth(cE, 0, -1) }
-  };
-}
-
-async function fetchTrafficStats(ranges) {
-  try {
-    const sheetId = process.env.GOOGLE_TRAFFIC_SHEET_ID;
-    if (!sheetId) return null;
-    let authConfig = { scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'] };
-    const fsLib = require('fs');
-    if (process.env.BIGQUERY_KEY_FILE && fsLib.existsSync(process.env.BIGQUERY_KEY_FILE)) {
-      authConfig.keyFile = process.env.BIGQUERY_KEY_FILE;
-    } else if (process.env.BIGQUERY_KEY_JSON) {
-      let jsonStr = String(process.env.BIGQUERY_KEY_JSON).replace(/\\n/g, '\n');
-      authConfig.credentials = JSON.parse(jsonStr);
-    }
-    const auth = new google.auth.GoogleAuth(authConfig);
-    const sheets = google.sheets({ version: 'v4', auth });
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'cctv!A:F' });
-    const rows = res.data.values;
-    console.log(`[Traffic] Total rows from sheet: ${(rows || []).length}, First row (header): ${JSON.stringify((rows || [[]])[0])}`);
-    if (!rows || rows.length < 2) return null;
-
-    const h = (rows[0] || []).map(val => (val || '').toString().toLowerCase().trim());
-    const dI = h.indexOf('date');
-    const bI = h.indexOf('branch_id');
-    const vI = h.indexOf('visit_count');
-    
-    if (dI === -1 || bI === -1 || vI === -1) {
-        console.error('Traffic Header Mismatch. Parsed Headers:', h);
-        return null;
-    }
-
-    const normalizeDateStr = (d) => {
-        if (!d) return '';
-        // Try to handle both YYYY-MM-DD and DD/MM/YYYY
-        if (d.includes('/')) {
-            const p = d.split('/');
-            // If p[0] is year (length 4)
-            if (p[0].length === 4) return `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}`;
-            // Else assume DD/MM/YYYY
-            return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-        }
-        if (d.includes('-')) {
-            const p = d.split('-');
-            if (p[0].length === 4) return d;
-            return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-        }
-        return d;
-    };
-
-    const map = { _debug: { headers: h, sampleRows: rows.slice(1, 4) } };
-    for (let i = 1; i < rows.length; i++) {
-        const r = rows[i];
-        if (!r[bI]) continue;
-        const dStr = normalizeDateStr(r[dI]), b = r[bI], v = parseInt(r[vI] || '0');
-        
-        if(!map[b]) map[b] = { curr:0, prev:0, lw:0, lm:0, lq:0, ly:0, _ts:{} };
-        
-        if (dStr >= ranges.curr.s && dStr <= ranges.curr.e) { map[b].curr += v; map[b]._ts[dStr] = (map[b]._ts[dStr] || 0) + v; }
-        if (dStr >= ranges.prev.s && dStr <= ranges.prev.e) map[b].prev += v;
-        if (dStr >= ranges.lw.s && dStr <= ranges.lw.e) map[b].lw += v;
-        if (dStr >= ranges.lm.s && dStr <= ranges.lm.e) map[b].lm += v;
-        if (dStr >= ranges.lq.s && dStr <= ranges.lq.e) map[b].lq += v;
-        if (dStr >= ranges.ly.s && dStr <= ranges.ly.e) map[b].ly += v;
-    }
-    console.log(`[Executive] Fetched Traffic for ${Object.keys(map).length - 1} branches`);
-    return map;
-  } catch (e) {
-    console.error('FETCH TRAFFIC ERROR:', e);
-    return null;
-  }
-}
 
 // Hàm helper để lấy danh sách chi nhánh được phép xem
 const getAllowedBranches = (user) => {
@@ -6986,12 +6918,16 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
     if (!filterMonth) filterMonth = (q || emp) ? 'all' : currentMonth;
     params.filterMonth = filterMonth;
 
-    if (filterMonth !== 'all') {
-      whereClause += ` AND FORMAT_DATE('%Y-%m', Report_date) = @filterMonth`;
+    if (filterMonth === 'all') {
+      // "Toàn thời gian" - giới hạn floor từ 2024-01-01 để tối ưu hiệu suất BigQuery (~1.2M dòng)
+      whereClause += ` AND Report_date >= '2024-01-01'`;
+    } else if (/^\d{4}$/.test(filterMonth)) {
+      // Lọc theo NĂM (VD: "2024", "2025", "2026") - dùng EXTRACT hiệu suất cao hơn FORMAT_DATE
+      whereClause += ` AND EXTRACT(YEAR FROM Report_date) = @filterYear`;
+      params.filterYear = parseInt(filterMonth);
     } else {
-      if (type !== 'order_code') {
-        whereClause += ` AND Report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)`;
-      }
+      // Lọc theo THÁNG (VD: "2026-04")
+      whereClause += ` AND FORMAT_DATE('%Y-%m', Report_date) = @filterMonth`;
     }
 
     // --- [QUAN TRỌNG] PHÂN QUYỀN DATA ---
@@ -10810,6 +10746,7 @@ app.get('/api/sales/summary', requireAuth, async (req, res) => {
     // revenue_k lưu VND thô, chia 1,000,000 ra triệu VND
     const today_revenue_m = todayRows.reduce((s, r) => s + (Number(r.revenue_k) / 1000000), 0);
     const today_orders = todayRows.reduce((s, r) => s + Number(r.order_count || 0), 0);
+    const latest_snapshot_at = todayRows.length > 0 ? todayRows.reduce((max, r) => (r.snapshot_at > max ? r.snapshot_at : max), todayRows[0].snapshot_at) : new Date().toISOString();
     console.log(`[sales/summary] today=${todayStr} stores=${todayRows.length} rev_m=${today_revenue_m.toFixed(1)} orders=${today_orders}`);
 
     // --- YESTERDAY: pv_terminal_sales_snapshots compare_bucket='yesterday' ---
@@ -10819,124 +10756,6 @@ app.get('/api/sales/summary', requireAuth, async (req, res) => {
       .select('terminal_name, order_count, revenue_k, snapshot_at')
       .eq('business_date', todayStr)
       .eq('compare_bucket', 'yesterday')
-      .neq('terminal_name', 'Tất cả điểm bán')
-      .order('snapshot_at', { ascending: false });
-    yestQuery = applyTerminalFilter(yestQuery, branch, isAllBranch);
-    const { data: yestSnapAll, error: yestErr } = await yestQuery;
-    if (yestErr) console.error('[sales/summary] yestErr:', yestErr.message);
-    // Latest snapshot per terminal for yesterday bucket
-    const yestLatest = {};
-    (yestSnapAll || []).forEach(r => {
-      if (!yestLatest[r.terminal_name] || r.snapshot_at > yestLatest[r.terminal_name].snapshot_at) yestLatest[r.terminal_name] = r;
-    });
-    const yestRows2 = Object.values(yestLatest);
-    const yest_revenue_m = yestRows2.reduce((s, r) => s + (Number(r.revenue_k) / 1000000), 0);
-    const yest_orders = yestRows2.reduce((s, r) => s + Number(r.order_count || 0), 0);
-    console.log(`[sales/summary] yesterday stores=${yestRows2.length} rev_m=${yest_revenue_m.toFixed(1)}`);
-
-    // --- LAST WEEK SAME DAY: pv_terminal_sales_snapshots compare_bucket='last_week_same_day' ---
-    let lwQuery = supabase
-      .from('pv_terminal_sales_snapshots')
-      .select('terminal_name, order_count, revenue_k, snapshot_at')
-      .eq('business_date', todayStr)
-      .eq('compare_bucket', 'last_week_same_day')
-      .neq('terminal_name', 'Tất cả điểm bán')
-      .order('snapshot_at', { ascending: false });
-    lwQuery = applyTerminalFilter(lwQuery, branch, isAllBranch);
-    const { data: lwSnapAll, error: lwErr } = await lwQuery;
-    if (lwErr) console.error('[sales/summary] lwErr:', lwErr.message);
-    const lwLatest = {};
-    (lwSnapAll || []).forEach(r => {
-      if (!lwLatest[r.terminal_name] || r.snapshot_at > lwLatest[r.terminal_name].snapshot_at) lwLatest[r.terminal_name] = r;
-    });
-    const lwRows2 = Object.values(lwLatest);
-    const lw_revenue_m = lwRows2.reduce((s, r) => s + (Number(r.revenue_k) / 1000000), 0);
-    const lw_orders = lwRows2.reduce((s, r) => s + Number(r.order_count || 0), 0);
-    console.log(`[sales/summary] lw_same_day stores=${lwRows2.length} rev_m=${lw_revenue_m.toFixed(1)}`);
-
-    // --- MONTHLY TARGET ---
-    const monthCol = `m${String(localNow.getMonth() + 1).padStart(2, '0')}`;
-    let tgtQuery = supabase.from('pv_terminal_monthly_targets').select(`terminal_code, ${monthCol}`);
-    if (!isAllBranch) tgtQuery = tgtQuery.eq('terminal_code', branch);
-    const { data: tgtRows } = await tgtQuery;
-    const daysInMonth = new Date(localNow.getFullYear(), localNow.getMonth() + 1, 0).getDate();
-    const totalMonthlyTarget = (tgtRows || []).reduce((s, r) => s + Number(r[monthCol] || 0), 0);
-    const today_target_m = totalMonthlyTarget > 0 ? totalMonthlyTarget / daysInMonth : null;
-
-    res.json({
-      today_revenue_m: Math.round(today_revenue_m * 10) / 10,
-      today_orders,
-      today_target_m: today_target_m ? Math.round(today_target_m * 10) / 10 : null,
-      yest_revenue_m: Math.round(yest_revenue_m * 10) / 10,
-      yest_orders,
-      yest_target_m: today_target_m ? Math.round(today_target_m * 10) / 10 : null,
-      yest_date: yestDate.toLocaleDateString('vi-VN'),
-      lw_revenue_m: Math.round(lw_revenue_m * 10) / 10,
-      lw_orders,
-      lw_target_m: today_target_m ? Math.round(today_target_m * 10) / 10 : null,
-      lw_date: lwDate.toLocaleDateString('vi-VN'),
-      _debug: { todayStr, todayStores: todayRows.length, yestStores: yestRows2.length, lwStores: lwRows2.length, monthCol, totalMonthlyTarget, branch, isAllBranch }
-    });
-  } catch (e) {
-    console.error('[sales/summary]', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/sales/chart — per-store daily revenue for selected period
-app.get('/api/sales/chart', requireAuth, async (req, res) => {
-  try {
-    const user = req.session.user;
-    if (user.role !== 'manager' && user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-
-    const period = req.query.period || '1w';
-    const now = new Date();
-    const localNow = new Date(now.getTime() + 7 * 3600000);
-    const todayStr = localNow.toISOString().slice(0, 10);
-    const yestStr = new Date(localNow.getTime() - 86400000).toISOString().slice(0, 10);
-
-    let daysBack = 7;
-    if (period === '2w') daysBack = 14;
-    else if (period === '1m') daysBack = 30;
-    else if (period === '1q') daysBack = 90;
-    else if (period === '1y') daysBack = 365;
-
-    const fromDate = new Date(localNow);
-    fromDate.setDate(fromDate.getDate() - daysBack + 1);
-    const fromStr = fromDate.toISOString().slice(0, 10);
-
-    const branch = user.branch_code;
-    const isAllBranch = user.role === 'admin' || !branch || branch === 'HCM.BD';
-
-    // daily_final: lấy data chốt của từng ngày (compare_bucket='today' = data thực của ngày đó)
-    let query = supabase
-      .from('pv_terminal_sales_daily_final')
-      .select('business_date, terminal_name, revenue_k')
-      .eq('compare_bucket', 'today')
-      .gte('business_date', fromStr)
-      .lte('business_date', yestStr)
-      .neq('terminal_name', 'Tất cả điểm bán')
-      .order('business_date', { ascending: true });
-    query = applyTerminalFilter(query, branch, isAllBranch);
-
-    const { data: finalRows, error: chartErr } = await query;
-    if (chartErr) console.error('[sales/chart] err:', chartErr.message);
-
-    // Hôm nay → lấy từ snapshots compare_bucket='today'
-    let todayByTerminal = {};
-    if (fromStr <= todayStr) {
-      let snapQ = supabase
-        .from('pv_terminal_sales_snapshots')
-        .select('terminal_name, revenue_k, snapshot_at')
-        .eq('business_date', todayStr)
-        .eq('compare_bucket', 'today')
-        .neq('terminal_name', 'Tất cả điểm bán')
-        .order('snapshot_at', { ascending: false });
-      snapQ = applyTerminalFilter(snapQ, branch, isAllBranch);
-      const { data: todaySnaps } = await snapQ;
-      (todaySnaps || []).forEach(r => {
-        if (!todayByTerminal[r.terminal_name] || r.snapshot_at > todayByTerminal[r.terminal_name].snapshot_at) {
-          todayByTerminal[r.terminal_name] = r;
         }
       });
     }
@@ -11034,7 +10853,10 @@ app.get('/api/sales/stores', requireAuth, async (req, res) => {
       if (r.terminal_code) codeFromTargets[r.terminal_name] = r.terminal_code;
     });
 
-    const stores = Object.values(latestSnap).map(r => {
+    const snapVals = Object.values(latestSnap);
+    const latest_snapshot_at = snapVals.length > 0 ? snapVals.reduce((max, r) => (r.snapshot_at > max ? r.snapshot_at : max), snapVals[0].snapshot_at) : new Date().toISOString();
+
+    const stores = snapVals.map(r => {
       // Lấy terminal_code: ưu tiên từ bảng targets (chính xác), fallback từ TERMINAL_CODE_MAP
       const code = codeFromTargets[r.terminal_name] || TERMINAL_CODE_MAP[r.terminal_name] || '?';
       return {
@@ -11046,7 +10868,7 @@ app.get('/api/sales/stores', requireAuth, async (req, res) => {
       };
     }).sort((a, b) => b.revenue_m - a.revenue_m);
 
-    res.json({ stores, updated_at: new Date().toISOString() });
+    res.json({ stores, updated_at: latest_snapshot_at });
   } catch (e) {
     console.error('[sales/stores]', e.message);
     res.status(500).json({ error: e.message });
@@ -11055,16 +10877,22 @@ app.get('/api/sales/stores', requireAuth, async (req, res) => {
 
 // ======================= END SALES DASHBOARD =======================
 
-// ------------------------- EXECUTIVE DASHBOARD -------------------------
-app.get('/executive-dashboard', requireAuth, async (req, res) => {
+
+
+// GET /executive-dashboard - render page (manager/admin only)
+app.get('/executive-dashboard', requireAuth, (req, res) => {
   const user = req.session.user;
   if (user.role !== 'manager' && user.role !== 'admin') {
-    return res.status(403).send('Forbidden');
+    return res.status(403).send('Chỉ Manager/Admin mới có quyền xem trang này.');
   }
   const isGlobalAdmin = user.role === 'admin' || user.branch_code === 'HCM.BD';
-  const userRegion = EXECUTIVE_BRANCH_LIST.find(b => b.id === user.branch_code)?.region || 'ALL';
+  // For regional managers, find their region from the branch list
+  const userBranchInfo = EXECUTIVE_BRANCH_LIST.find(b => b.id === user.branch_code);
+  const userRegion = isGlobalAdmin ? 'ALL' : (userBranchInfo ? userBranchInfo.region : 'ALL');
   
   res.render('executive-dashboard', {
+    title: 'Executive Dashboard (BigQuery)',
+    currentPage: 'executive-dashboard',
     user: req.session.user,
     isGlobalAdmin,
     userRegion,
@@ -11085,24 +10913,16 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
     let globalWhere = `WHERE (CAST(Report_date AS DATE) BETWEEN '${minS}' AND '${currE}')`;
     if (category !== 'ALL') globalWhere += ` AND Category_Code = '${category}'`;
     
-    // FIX: tableCategory uses Cat_group_ID column (format NHxx)
     let tableWhere = `WHERE (CAST(Report_date AS DATE) BETWEEN '${minS}' AND '${currE}')`;
     if (tableCategory === 'CUSTOM_1') {
-        tableWhere += ` AND Cat_group_ID IN ('NH01', 'NH02', 'NH03', 'NH05')`;
+        tableWhere += ` AND Category_Code IN ('NH01', 'NH02', 'NH03', 'NH05')`;
     } else if (tableCategory !== 'ALL') {
-        tableWhere += ` AND Cat_group_ID = '${tableCategory}'`;
+        tableWhere += ` AND Category_Code = '${tableCategory}'`;
     }
     
-    // Explicit Branch or Region Filter applied to both
+    // Explicit Branch or Region Filter appled to both
     let filterBranches = EXECUTIVE_BRANCH_LIST.map(b => b.id);
-    // Role-based branch restriction: manager only sees their own branch
-    const isGlobalAdmin = user.role === 'admin' || user.branch_code === 'HCM.BD';
-    if (!isGlobalAdmin && user.branch_code) {
-      // Manager can only see their branch; override region/branch params
-      filterBranches = [user.branch_code];
-      globalWhere += ` AND Branch_Code = '${user.branch_code}'`;
-      tableWhere += ` AND Branch_Code = '${user.branch_code}'`;
-    } else if (branch !== 'ALL') {
+    if (branch !== 'ALL') {
        globalWhere += ` AND Branch_Code = '${branch}'`;
        tableWhere += ` AND Branch_Code = '${branch}'`;
        filterBranches = [branch];
@@ -11116,14 +10936,12 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
        tableWhere += ` AND Branch_Code IN (${filterBranches.map(id => `'${id}'`).join(',')})`;
     }
 
-    const bqQueryGlobal = `SELECT Branch_Code as branch, CAST(Report_date AS DATE) as date, SUM(Revenue) as revenue, SUM(Quantity) as quantity, COUNT(DISTINCT CASE WHEN Order_type = 'don_xuat_ban' THEN Order_code END) - COUNT(DISTINCT CASE WHEN Order_type = 'don_nhap_hoan_ban' THEN Order_code END) as orders FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\` ${globalWhere} GROUP BY branch, date ORDER BY date ASC`;
-    const bqQueryTable = `SELECT Branch_Code as branch, CAST(Report_date AS DATE) as date, SUM(Revenue) as revenue, SUM(Quantity) as quantity, COUNT(DISTINCT CASE WHEN Order_type = 'don_xuat_ban' THEN Order_code END) - COUNT(DISTINCT CASE WHEN Order_type = 'don_nhap_hoan_ban' THEN Order_code END) as orders FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\` ${tableWhere} GROUP BY branch, date ORDER BY date ASC`;
+    const bqQueryGlobal = `SELECT Branch_Code as branch, CAST(Report_date AS DATE) as date, SUM(Revenue) as revenue, COUNT(DISTINCT CASE WHEN Order_type = 'don_xuat_ban' THEN Order_code END) - COUNT(DISTINCT CASE WHEN Order_type = 'don_nhap_hoan_ban' THEN Order_code END) as orders FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\` ${globalWhere} GROUP BY branch, date ORDER BY date ASC`;
+    const bqQueryTable = `SELECT Branch_Code as branch, CAST(Report_date AS DATE) as date, SUM(Revenue) as revenue, COUNT(DISTINCT CASE WHEN Order_type = 'don_xuat_ban' THEN Order_code END) - COUNT(DISTINCT CASE WHEN Order_type = 'don_nhap_hoan_ban' THEN Order_code END) as orders FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\` ${tableWhere} GROUP BY branch, date ORDER BY date ASC`;
 
-    // FIX: always run table query separately when tableCategory differs from category
-    const needSeparateTableQuery = tableCategory !== category || tableCategory !== 'ALL';
     const [globalRes, tableRes, traffic] = await Promise.all([
-      bigquery.query({ query: bqQueryGlobal }),
-      needSeparateTableQuery ? bigquery.query({ query: bqQueryTable }) : Promise.resolve(null),
+      bq.query({ query: bqQueryGlobal }),
+      tableCategory === category ? Promise.resolve(null) : bq.query({ query: bqQueryTable }),
       fetchTrafficStats(ranges)
     ]);
     
@@ -11134,23 +10952,20 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
     const monthCol = `m${String(new Date(ranges.curr.rawS).getMonth() + 1).padStart(2, '0')}`;
     const { data: tgtRows } = await supabase.from('pv_terminal_monthly_targets').select(`terminal_code, ${monthCol}`);
     const targets = {};
-    const currDiffDays = Math.round((ranges.curr.rawE - ranges.curr.rawS) / 86400000) + 1;
-    const daysInMonth = new Date(ranges.curr.rawS.getFullYear(), ranges.curr.rawS.getMonth() + 1, 0).getDate();
-    const periodProportion = currDiffDays / daysInMonth; // Scale target proportionally
-    (tgtRows || []).forEach(r => targets[r.terminal_code] = Number(r[monthCol] || 0) * 1000000 * periodProportion);
+    (tgtRows || []).forEach(r => targets[r.terminal_code] = Number(r[monthCol] || 0));
 
     // Create parsing helper for creating branch structures
     const processRows = (rowsData) => {
         const struct = filterBranches.map(code => {
             const inf = EXECUTIVE_BRANCH_LIST.find(b => b.id === code) || {};
             const trMap = traffic && traffic[code] ? traffic[code] : { curr:0, prev:0, lw:0, lm:0, lq:0, ly:0 };
-            const m = { r:0, o:0, q:0, t: trMap.curr };
+            const m = { r:0, o:0, t: trMap.curr };
             return {
                 id: code, name: inf.name, region: inf.region, target: targets[code],
                 data: { 
-                   curr:{...m}, prev:{...m, t:trMap.prev, q:0}, 
-                   lw:{...m, t:trMap.lw, q:0}, lm:{...m, t:trMap.lm, q:0}, 
-                   lq:{...m, t:trMap.lq, q:0}, ly:{...m, t:trMap.ly, q:0} 
+                   curr:{...m}, prev:{...m, t:trMap.prev}, 
+                   lw:{...m, t:trMap.lw}, lm:{...m, t:trMap.lm}, 
+                   lq:{...m, t:trMap.lq}, ly:{...m, t:trMap.ly} 
                 },
                 _ts: {} // For trends
             };
@@ -11160,23 +10975,23 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
             const b = struct.find(x => x.id === r.branch);
             if (!b) return;
             const ds = r.date.value;
-            const rev = r.revenue || 0, ord = r.orders || 0, qty = r.quantity || 0;
+            const rev = r.revenue || 0, ord = r.orders || 0;
             
-            if (!b._ts[ds]) b._ts[ds] = { r:0, o:0, q:0 };
-            b._ts[ds].r += rev; b._ts[ds].o += ord; b._ts[ds].q += qty;
+            if (!b._ts[ds]) b._ts[ds] = { r:0, o:0 };
+            b._ts[ds].r += rev; b._ts[ds].o += ord;
             
-            if (ds >= ranges.curr.s && ds <= ranges.curr.e) { b.data.curr.r += rev; b.data.curr.o += ord; b.data.curr.q += qty; }
-            if (ds >= ranges.prev.s && ds <= ranges.prev.e) { b.data.prev.r += rev; b.data.prev.o += ord; b.data.prev.q += qty; }
-            if (ds >= ranges.lw.s && ds <= ranges.lw.e) { b.data.lw.r += rev; b.data.lw.o += ord; b.data.lw.q += qty; }
-            if (ds >= ranges.lm.s && ds <= ranges.lm.e) { b.data.lm.r += rev; b.data.lm.o += ord; b.data.lm.q += qty; }
-            if (ds >= ranges.lq.s && ds <= ranges.lq.e) { b.data.lq.r += rev; b.data.lq.o += ord; b.data.lq.q += qty; }
-            if (ds >= ranges.ly.s && ds <= ranges.ly.e) { b.data.ly.r += rev; b.data.ly.o += ord; b.data.ly.q += qty; }
+            if (ds >= ranges.curr.s && ds <= ranges.curr.e) { b.data.curr.r += rev; b.data.curr.o += ord; }
+            if (ds >= ranges.prev.s && ds <= ranges.prev.e) { b.data.prev.r += rev; b.data.prev.o += ord; }
+            if (ds >= ranges.lw.s && ds <= ranges.lw.e) { b.data.lw.r += rev; b.data.lw.o += ord; }
+            if (ds >= ranges.lm.s && ds <= ranges.lm.e) { b.data.lm.r += rev; b.data.lm.o += ord; }
+            if (ds >= ranges.lq.s && ds <= ranges.lq.e) { b.data.lq.r += rev; b.data.lq.o += ord; }
+            if (ds >= ranges.ly.s && ds <= ranges.ly.e) { b.data.ly.r += rev; b.data.ly.o += ord; }
         });
         return struct;
     };
 
     const globalBranches = processRows(globalRows);
-    const tableBranches = processRows(tableRows);
+    const tableBranches = tableCategory === category ? globalBranches : processRows(tableRows);
 
     // Rollup from Global Branches to Global Level KPIs
     const roll = (periodKey) => globalBranches.reduce((acc, b) => {
@@ -11201,19 +11016,10 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
       target: globalBranches.reduce((a, b) => a + (b.target || 0), 0)
     };
 
-    if (traffic && traffic._debug) {
-      console.log("=== TRAFFIC DEBUG INFO ===");
-      console.log("Headers:", traffic._debug.headers);
-      console.log("Sample Rows:", traffic._debug.sampleRows);
-      console.log("==========================");
-    }
-
     // Trend Generator from Global Branches
     const trendData = { labels: [], revenue: [], orders: [], traffic: [], aov: [] };
-    const nowLocal = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
     const currSObj = new Date(ranges.curr.rawS);
     while (currSObj <= new Date(ranges.curr.rawE)) {
-      if (currSObj > nowLocal) break;
       const ds = formatVNDate(currSObj);
       trendData.labels.push(ds.substring(5)); // MM-DD
       let dR = 0, dO = 0, dT = 0;
@@ -11227,6 +11033,7 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
       currSObj.setDate(currSObj.getDate() + 1);
     }
     
+    const nowLocal = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
     const elapsed = ranges.curr.rawE > ranges.curr.rawS ? Math.min(100, Math.max(0, ((nowLocal - ranges.curr.rawS) / (ranges.curr.rawE - ranges.curr.rawS)) * 100)) : 0;
     const daysLeft = Math.max(0, Math.ceil((ranges.curr.rawE - nowLocal) / 86400000));
 
@@ -11237,8 +11044,7 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
       sums, 
       branches: tableBranches,
       globalBranches,
-      trends: trendData,
-      trafficDebug: traffic ? traffic._debug : null
+      trends: trendData 
     });
   } catch (e) {
     console.error('EXECUTIVE API CRITICAL ERROR:', e);
@@ -11246,100 +11052,6 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/executive/salesman-data - Salesman Revenue by Category
-app.get('/api/executive/salesman-data', requireAuth, async (req, res) => {
-  try {
-    const user = req.session.user;
-    if (user.role !== 'manager' && user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-
-    const { period = 'month', region = 'ALL', branch = 'ALL', date = null, tableCategory = 'ALL' } = req.query;
-    const ranges = getDashboardDateRange(period, date);
-
-    let where = `WHERE (CAST(Report_date AS DATE) BETWEEN '${ranges.curr.s}' AND '${ranges.curr.e}')`;
-    
-    // Category filter using Cat_group_ID
-    if (tableCategory === 'CUSTOM_1') {
-      where += ` AND Cat_group_ID IN ('NH01', 'NH02', 'NH03', 'NH05')`;
-    } else if (tableCategory !== 'ALL') {
-      where += ` AND Cat_group_ID = '${tableCategory}'`;
-    }
-    
-    // Role-based branch restriction — BQ sales table uses Branch_code (lowercase c)
-    const isGlobalAdmin = user.role === 'admin' || user.branch_code === 'HCM.BD';
-    if (!isGlobalAdmin && user.branch_code) {
-      where += ` AND Branch_code = '${user.branch_code}'`;
-    } else if (branch !== 'ALL') {
-      where += ` AND Branch_code = '${branch}'`;
-    } else if (region !== 'ALL') {
-      const regB = EXECUTIVE_BRANCH_LIST.filter(b => b.region === region).map(b => b.id);
-      where += ` AND Branch_code IN (${regB.map(id => `'${id}'`).join(',')})`;
-    } else {
-      const allBranches = EXECUTIVE_BRANCH_LIST.map(b => b.id);
-      where += ` AND Branch_code IN (${allBranches.map(id => `'${id}'`).join(',')})`;
-    }
-
-    // BQ: Group by Email (salesperson's login email = Email column in BQ table)
-    const bqQuery = `
-      SELECT 
-        LOWER(Email) as email,
-        MAX(Branch_code) as branch_code,
-        MAX(Salesman) as salesman_name,
-        SUM(Revenue) as Revenue
-      FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\`
-      ${where}
-        AND Order_type = 'don_xuat_ban'
-        AND Email IS NOT NULL
-        AND TRIM(Email) != ''
-      GROUP BY LOWER(Email)
-      ORDER BY Revenue DESC
-      LIMIT 200
-    `;
-
-    const [bqRows] = await bigquery.query({ query: bqQuery });
-    
-    // Enrich with Supabase users table to get full_name and hrm_id
-    const emails = (bqRows || []).map(r => (r.email || '').trim().toLowerCase()).filter(Boolean);
-    let userMap = {};
-    if (emails.length > 0) {
-      const allSearchEmails = [...new Set([
-          ...emails, 
-          ...emails.map(e => Object.assign(e.replace('@phongvu-mna.vn', '@phongvu.vn')))
-      ])];
-      const { data: usersData } = await supabase
-        .from('users')
-        .select('email, full_name, hrm_id')
-        .in('email', allSearchEmails);
-      (usersData || []).forEach(u => {
-        if (u.email) {
-            const ue = u.email.toLowerCase();
-            userMap[ue] = u;
-            if (ue.endsWith('@phongvu.vn')) {
-                userMap[ue.replace('@phongvu.vn', '@phongvu-mna.vn')] = u;
-            }
-        }
-      });
-    }
-
-    const rows = (bqRows || []).map(r => {
-      const email = (r.email || '').trim().toLowerCase();
-      const u = userMap[email] || {};
-      return {
-        Salesman: u.full_name || r.salesman_name || email,
-        Email: email,
-        Branch_code: r.branch_code || '—',
-        HRM_ID: u.hrm_id || '—',
-        Revenue: r.Revenue || 0
-      };
-    });
-
-    res.json({ rows });
-  } catch (e) {
-    console.error('SALESMAN API ERROR:', e);
-    res.status(500).json({ error: e.message || 'Internal Server Error' });
-  }
-});
-
-// ------------------------- END EXECUTIVE DASHBOARD -------------------------
 
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;

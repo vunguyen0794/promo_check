@@ -147,6 +147,7 @@
 
                         <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
                         <a href="/sales-dashboard" class="<%= currentPage === 'sales-dashboard' ? 'active' : '' %>"><span class="menu-icon">📈</span> Doanh Thu RT</a>
+                        <a href="/executive-dashboard" class="<%= currentPage === 'executive-dashboard' ? 'active' : '' %>"><span class="menu-icon">📊</span> Executive Dashboard</a>
                         <% } %>
                         <a href="/bom-check"><span class="menu-icon">🔍</span> Check BOM</a>
                         <a href="/bom-dashboard"><span class="menu-icon">📊</span> BOM Dashboard</a>
