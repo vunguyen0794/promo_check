@@ -25,13 +25,28 @@ async function syncInventory() {
                 Serial AS Serial,
                 CAST(SKU AS STRING) AS SKU,
                 SKU_name AS \`SKU name\`,
-                Brand AS Brand,
-                Location AS Location,
-                BIN_zone AS \`BIN zone\`,
                 Branch_ID AS \`Branch ID\`,
+                Branch_name AS \`Branch name\`,
+                Brand AS Brand,
+                Category_ID AS \`Category ID\`,
+                Category_name AS \`Category name\`,
+                SubCategory_ID AS \`SubCategory ID\`,
                 SubCategory_name AS \`SubCategory name\`,
+                Subcat_ID_lowest_level AS \`Subcat ID lowest level\`,
+                Subcat_name_lowest_level AS \`Subcat name lowest level\`,
+                Location AS Location,
+                BIN_type AS \`BIN type\`,
+                BIN_zone AS \`BIN zone\`,
                 FORMAT_DATE('%Y-%m-%d', Date_import_company) AS \`Date import company \`,
-                Aging_company AS \`Aging company\`
+                Aging_company AS \`Aging company\`,
+                Bad_stock_company AS \`Bad stock company\`,
+                FORMAT_DATE('%Y-%m-%d', Date_import_site) AS \`Date import site\`,
+                Aging_site AS \`Aging site\`,
+                Stock_day_site AS \`Stock day site\`,
+                Bad_stock_site AS \`Bad stock site\`,
+                Stock_day_company AS \`Stock day company\`,
+                Inventory AS Inventory,
+                Inventory_amount AS \`Inventory amount\`
             FROM ${BIGQUERY_TABLE}
         `;
 
