@@ -24,14 +24,14 @@ async function syncInventory() {
             SELECT 
                 Serial AS Serial,
                 CAST(SKU AS STRING) AS SKU,
-                SKU_name AS "SKU name",
+                SKU_name AS \`SKU name\`,
                 Brand AS Brand,
                 Location AS Location,
-                BIN_zone AS "BIN zone",
-                Branch_ID AS "Branch ID",
-                SubCategory_name AS "SubCategory name",
-                FORMAT_DATE('%Y-%m-%d', Date_import_company) AS "Date import company ",
-                Aging_company AS "Aging company"
+                BIN_zone AS \`BIN zone\`,
+                Branch_ID AS \`Branch ID\`,
+                SubCategory_name AS \`SubCategory name\`,
+                FORMAT_DATE('%Y-%m-%d', Date_import_company) AS \`Date import company \`,
+                Aging_company AS \`Aging company\`
             FROM ${BIGQUERY_TABLE}
         `;
 
