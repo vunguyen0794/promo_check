@@ -6632,6 +6632,11 @@ app.get('/api/cron/sync-all', async (req, res) => {
     results.inventory = { ok: true };
     console.log('[CRON] Inventory Sync OK');
 
+    // 3. Sync Clearance
+    await syncClearanceData();
+    results.clearance = { ok: true };
+    console.log('[CRON] Clearance Sync OK');
+
     res.json({ ok: true, source: 'cron-sync-all', ...results });
   } catch (e) {
     console.error('[CRON SYNC ALL] Fail:', e.message);
@@ -8320,31 +8325,7 @@ app.get('/api/admin/sync-clearance', requireAuth, requireManager, async (req, re
 // ============================================================
 // ROUTE CRON JOB CHO VERCEL (KHÔNG CẦN LOGIN, CẦN KEY)
 // ============================================================
-app.get('/api/cron/sync-clearance', async (req, res) => {
-  // 1. Bảo mật: Kiểm tra Cron Secret (Cấu hình trong Env Vercel)
-  // Vercel sẽ tự động gửi header 'authorization' chứa CRON_SECRET
-  const authHeader = req.headers['authorization'];
-  const cronSecret = process.env.CRON_SECRET;
-
-  // Nếu chạy test tay thì có thể dùng query param ?key=...
-  const queryKey = req.query.key;
-
-  if (
-    (!authHeader || authHeader !== `Bearer ${cronSecret}`) &&
-    (!queryKey || queryKey !== cronSecret)
-  ) {
-    return res.status(401).json({ ok: false, error: 'Unauthorized Cron Request' });
-  }
-
-  try {
-    console.log('[VERCEL CRON] Bắt đầu đồng bộ Thanh lý...');
-    await syncClearanceData(); // Gọi hàm đồng bộ có sẵn
-    res.json({ ok: true, message: 'Đồng bộ thành công (Vercel Cron)' });
-  } catch (e) {
-    console.error('[VERCEL CRON] Lỗi:', e);
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
+// Endpoint /api/cron/sync-clearance đã được gộp vào /api/cron/sync-all để tiết kiệm Slot Cron Vercel Hobby
 
 app.get('/api/admin/search-sku-stock', requireAuth, async (req, res) => {
   try {

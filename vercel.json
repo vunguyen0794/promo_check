@@ -8,10 +8,6 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/sync-clearance",
-      "schedule": "0 1,7 * * *"
-    },
-    {
       "path": "/api/cron/sync-all",
       "schedule": "30 0 * * *"
     }
