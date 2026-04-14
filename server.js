@@ -31,6 +31,7 @@ const cron = require('node-cron');
 
 const nodemailer = require('nodemailer');
 const crypto = require('crypto'); // Có sẵn trong Node.js
+const { syncInventory } = require('./sync_inventory'); // IMPORT SCRIPT SYNC
 
 const isVercel = !!process.env.VERCEL;
 
@@ -74,6 +75,19 @@ try {
 } catch (e) {
   console.error("LỖI KHỞI TẠO BIGQUERY:", e.message);
 }
+
+// === CÀI ĐẶT LỊCH SYNC TỰ ĐỘNG (7:30 AM Giờ Việt Nam) ===
+// '30 7 * * *' chạy vào 7:30 mỗi ngày. 
+// Nếu server chạy giờ UTC (thường là vậy), 7:30 VN = 00:30 UTC. 
+// Ta cấu hình linh hoạt hoặc dùng timezone.
+cron.schedule('30 7 * * *', () => {
+    console.log("[CRON] Bắt đầu đồng bộ định kỳ dữ liệu BQ -> Supabase (07:30 AM)...");
+    syncInventory();
+}, {
+    scheduled: true,
+    timezone: "Asia/Ho_Chi_Minh"
+});
+
 // -------------------------------------------------------------------
 
 const CSI_BIGQUERY_SOURCES = (
@@ -157,8 +171,16 @@ const EXECUTIVE_BRANCH_LIST = [
   { id: 'CP67', name: 'Thủ Đức 2', region: 'HCM2' }, { id: 'CP69', name: 'Dĩ An', region: 'HCM2' }
 ];
 
+function parseLocalNoon(dStr) {
+    if(!dStr) return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+    if(dStr instanceof Date) return new Date(dStr.getFullYear(), dStr.getMonth(), dStr.getDate(), 12, 0, 0);
+    const parts = dStr.split('-');
+    if (parts.length === 3) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+    return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+}
+
 function formatVNDate(d) {
-  const date = new Date(d);
+  const date = parseLocalNoon(d);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -166,15 +188,7 @@ function formatVNDate(d) {
 }
 
 function getDashboardDateRange(period, anchorDateStr, endDateStr) {
-  let anchor;
-  const parseLocalNoon = (dStr) => {
-      if(!dStr) return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-      const parts = dStr.split('-');
-      if (parts.length === 3) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
-      return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-  };
-  
-  anchor = parseLocalNoon(anchorDateStr);
+  let anchor = parseLocalNoon(anchorDateStr);
   if (isNaN(anchor.getTime())) anchor = parseLocalNoon();
   
   let endAnchor = endDateStr ? parseLocalNoon(endDateStr) : anchor;
@@ -194,24 +208,38 @@ function getDashboardDateRange(period, anchorDateStr, endDateStr) {
     const diff = anchor.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(anchor); monday.setDate(diff);
     cS = formatVNDate(monday);
-    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-    cE = endAnchor < sunday ? formatVNDate(endAnchor) : formatVNDate(sunday);
+    
+    if (endDateStr) {
+      cE = formatVNDate(endAnchor);
+    } else {
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      cE = formatVNDate(sunday);
+    }
   } else if (period === 'month') {
     cS = formatVNDate(new Date(year, month, 1));
-    const lastDayOfMonth = new Date(year, month + 1, 0);
-    cE = endAnchor < lastDayOfMonth ? formatVNDate(endAnchor) : formatVNDate(lastDayOfMonth);
+    if (endDateStr) {
+      cE = formatVNDate(endAnchor);
+    } else {
+      cE = formatVNDate(new Date(year, month + 1, 0));
+    }
   } else if (period === 'quarter') {
     const q = Math.floor(month / 3);
     cS = formatVNDate(new Date(year, q * 3, 1));
-    const lastDayOfQ = new Date(year, (q + 1) * 3, 0);
-    cE = endAnchor < lastDayOfQ ? formatVNDate(endAnchor) : formatVNDate(lastDayOfQ);
+    if (endDateStr) {
+      cE = formatVNDate(endAnchor);
+    } else {
+      cE = formatVNDate(new Date(year, (q + 1) * 3, 0));
+    }
   } else if (period === 'year') {
     cS = formatVNDate(new Date(year, 0, 1));
-    const lastDayOfYear = new Date(year, 11, 31);
-    cE = endAnchor < lastDayOfYear ? formatVNDate(endAnchor) : formatVNDate(lastDayOfYear);
+    if (endDateStr) {
+      cE = formatVNDate(endAnchor);
+    } else {
+      cE = formatVNDate(new Date(year, 11, 31));
+    }
   }
 
-  const rawS = new Date(cS), rawE = new Date(cE);
+  const rawS = parseLocalNoon(cS), rawE = parseLocalNoon(cE);
   const diffTime = rawE - rawS;
   const diffDays = Math.round(diffTime / 86400000);
 
@@ -4744,31 +4772,50 @@ app.post('/admin/bom/create', requireAuth, async (req, res) => {
  * Lấy tồn HÀNG BÁN MỚI (Phiên bản An Toàn - Fix lỗi mất tồn)
  */
 async function getSkuNewStockByBranch(skus) {
-  if (!bigquery) return {};
-
   // Chuẩn hóa SKU đầu vào
   const cleanSkus = (skus || []).map(s => String(s).trim().toUpperCase()).filter(Boolean);
   if (cleanSkus.length === 0) return {};
 
-  // Query: Lấy dữ liệu thô (không ép UPPER bin_zone ở SQL để tránh lỗi font tiếng Việt)
-  const query = `
-    SELECT
-      UPPER(TRIM(CAST(sku AS STRING))) AS sku,
-      branch_id,
-      bin_zone, 
-      Serial
-    FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
-    WHERE UPPER(TRIM(CAST(sku AS STRING))) IN UNNEST(@skus)
-      AND Serial IS NOT NULL AND Serial != ''
-  `;
-
   let rows = [];
-  try {
-    const [bqRows] = await bigquery.query({ query, params: { skus: cleanSkus } });
-    rows = bqRows;
-  } catch (e) {
-    console.error("Lỗi BQ:", e.message);
-    return {};
+
+  // --- THỬ BIGQUERY ---
+  if (bigquery) {
+    const query = `
+      SELECT UPPER(TRIM(CAST(sku AS STRING))) AS sku, branch_id, bin_zone, Serial
+      FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
+      WHERE UPPER(TRIM(CAST(sku AS STRING))) IN UNNEST(@skus)
+        AND Serial IS NOT NULL AND Serial != ''
+    `;
+    try {
+      const [bqRows] = await bigquery.query({ query, params: { skus: cleanSkus } });
+      rows = bqRows;
+    } catch (e) {
+      if (e.message.includes('Quota exceeded')) {
+        console.warn("⚠️ getSkuNewStockByBranch: BQ Quota Exceeded! Switching to Supabase Fallback...");
+      } else {
+        console.error("Lỗi BQ (getSkuNewStockByBranch):", e.message);
+      }
+    }
+  }
+
+  // --- FALLBACK SUPABASE ---
+  if (rows.length === 0) {
+    console.log("[FALLBACK] getSkuNewStockByBranch: Fetching from Supabase...");
+    try {
+      // Map c?t m?i: sku -> "SKU", branch_id -> "Branch ID", bin_zone -> "BIN zone", serial -> "Serial"
+      const { data, error } = await supabase.from('inventory_serials')
+        .select('"SKU", "Branch ID", "BIN zone", "Serial"')
+        .in('SKU', cleanSkus);
+      if (error) throw error;
+      rows = (data || []).map(r => ({ 
+        sku: r.SKU, 
+        branch_id: r["Branch ID"], 
+        bin_zone: r["BIN zone"], 
+        Serial: r.Serial 
+      }));
+    } catch (err) {
+      console.error("SUPABASE FALLBACK ERROR (getSkuNewStockByBranch):", err.message);
+    }
   }
 
   if (rows.length === 0) return {};
@@ -4815,153 +4862,121 @@ async function getSkuNewStockByBranch(skus) {
 
 // ========================= FIFO CHECKING ROUTES =========================
 // server.js (THAY THẾ HÀM NÀY - bắt đầu từ dòng 256)
-async function fetchInventoryFromBigQuery(branchCode, masterQuery, giftFilter, isAdminBranch, filters, page = 1, pageSize = 50) { // Thêm page, pageSize
-  if (!bigquery) {
-    console.warn("Sử dụng dữ liệu giả lập vì BigQuery chưa cấu hình.");
-    // (Phần fallback mock data giữ nguyên, nhưng cần tính total giả lập)
-    const mockData = [
-      // ... (dữ liệu mock của bạn) ...
-      { sku: '220902468', sku_name: 'HP AiO ProOne 400 G4', brand: 'HP', serial: '8CG8404MWW', location: 'TL-A-01-A', bin_zone: 'Lưu kho thanh lý', branch_id: 'CP01', subcategory_name: 'Máy tính bộ Văn phòng', date_in: '2025-10-24', days_old: 1 },
-      { sku: '250804341', sku_name: 'Brother DCP-L2520D', brand: 'Brother', serial: 'E7380GTN330059', location: 'CD.03-VK5.01-a', bin_zone: 'Trung bày chính', branch_id: 'CP01', subcategory_name: 'Máy in', date_in: '2025-10-22', days_old: 3 },
-      { sku: 'MOCK001', sku_name: 'Mock Product 1', brand: 'MockBrand', serial: 'MOCKSERIAL001', location: 'A1', bin_zone: 'Zone A', branch_id: 'CP01', subcategory_name: 'Mock Subcat', date_in: '2025-01-01', days_old: 200 },
-      // Thêm nhiều dòng mock nếu cần test phân trang
-    ];
-    // Lọc giả lập
-    let filteredData = mockData.filter(item => item.branch_id === branchCode);
-    if (filters && filters.bin_zone) {
-      filteredData = filteredData.filter(item => item.bin_zone === filters.bin_zone);
-    }
-    if (masterQuery) {
-      const mqLower = masterQuery.toLowerCase();
-      filteredData = filteredData.filter(item =>
-        (item.sku && String(item.sku).toLowerCase().includes(mqLower)) ||
-        (item.serial && String(item.serial).toLowerCase().includes(mqLower)) ||
-        (item.sku_name && String(item.sku_name).toLowerCase().includes(mqLower)) ||
-        (item.brand && String(item.brand).toLowerCase().includes(mqLower)) ||
-        (item.location && String(item.location).toLowerCase().includes(mqLower))
-      );
-    }
-    const total = filteredData.length;
-    const offset = (page - 1) * pageSize;
-    const paginatedData = filteredData.slice(offset, offset + pageSize);
-
-    return {
-      data: paginatedData,
-      total: total, // Trả về tổng số (sau lọc)
-      searchedItem: (masterQuery ? filteredData.find(i => i.serial === masterQuery) : null)
+async function fetchInventoryFromBigQuery(branchCode, masterQuery, giftFilter, isAdminBranch, filters, page = 1, pageSize = 50) { 
+  // --- THỬ BIGQUERY TRƯỚC ---
+  if (bigquery) {
+    const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
+    const params = {
+      branchCode: branchCode,
+      masterQuery: masterQuery,
+      likeQuery: `%${masterQuery}%`,
+      pageSize: pageSize,
+      offset: (page - 1) * pageSize
     };
+
+    let filterConditions = '';
+    if (!isAdminBranch) filterConditions += ' AND Branch_ID = @branchCode';
+    if (giftFilter === 'no') filterConditions += " AND (SubCategory_name NOT LIKE 'Quà tặng%' OR SubCategory_name IS NULL)";
+    
+    if (filters) {
+      if (filters.subcategory) { filterConditions += ` AND SubCategory_name = @subcategory`; params.subcategory = filters.subcategory; }
+      if (filters.brand) { filterConditions += ` AND Brand = @brand`; params.brand = filters.brand; }
+      if (filters.location) { filterConditions += ` AND Location = @location`; params.location = filters.location; }
+      if (filters.bin_zone) { filterConditions += ` AND BIN_zone = @bin_zone`; params.bin_zone = filters.bin_zone; }
+    }
+
+    const searchQueryCondition = `
+           AND ( @masterQuery = '' OR CAST(SKU AS STRING) LIKE @likeQuery OR SKU_name LIKE @likeQuery
+                 OR Serial LIKE @likeQuery OR Location LIKE @likeQuery OR Brand LIKE @likeQuery )
+       `;
+
+    const query = `
+          SELECT
+              CAST(SKU AS STRING) AS sku, SKU_name AS sku_name, Brand AS brand, Serial AS serial,
+              Location AS location, BIN_zone AS bin_zone, Branch_ID AS branch_id,
+              SubCategory_name AS subcategory_name,
+              FORMAT_DATE('%Y-%m-%d', Date_import_company) AS date_in,
+              Aging_company AS days_old
+          FROM ${BIGQUERY_TABLE}
+          WHERE 1=1 ${filterConditions} ${searchQueryCondition}
+          ORDER BY Date_import_company ASC
+          LIMIT @pageSize OFFSET @offset
+      `;
+
+    const countQuery = `SELECT COUNT(*) as total FROM ${BIGQUERY_TABLE} WHERE 1=1 ${filterConditions} ${searchQueryCondition}`;
+
+    try {
+      const [[rows], [countResult]] = await Promise.all([
+        bigquery.query({ query, location: 'asia-southeast1', params }),
+        bigquery.query({ query: countQuery, location: 'asia-southeast1', params })
+      ]);
+
+      const total = countResult[0]?.total || 0;
+      const mappedRows = rows.map(r => ({ ...r, branch_id: String(r.branch_id), date_in: r.date_in || null, days_old: r.days_old || 0 }));
+      const isLikelySerialSearch = masterQuery.length >= 8 && !/^\d+$/.test(masterQuery);
+      let searchedItem = (isLikelySerialSearch && masterQuery) ? mappedRows.find(item => item.serial === masterQuery) : null;
+
+      return { data: mappedRows, total: total, searchedItem: searchedItem };
+
+    } catch (e) {
+      if (e.message.includes('Quota exceeded')) {
+        console.warn("⚠️ BIGQUERY QUOTA EXCEEDED! Switching to Supabase Fallback...");
+      } else {
+        console.error("BIGQUERY QUERY ERROR:", e.message);
+        throw e;
+      }
+    }
   }
 
-  const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
-
-  // --- Xử lý bộ lọc ---
-  const params = {
-    branchCode: branchCode,
-    masterQuery: masterQuery,
-    likeQuery: `%${masterQuery}%`,
-    pageSize: pageSize, // Thêm pageSize vào params
-    offset: (page - 1) * pageSize // Thêm offset vào params
-  };
-
-  let filterConditions = '';
-  // Lọc chi nhánh (chỉ áp dụng nếu không phải admin)
-  if (!isAdminBranch) {
-    filterConditions += ' AND Branch_ID = @branchCode';
-  }
-  // Lọc quà tặng
-  if (giftFilter === 'no') {
-    filterConditions += " AND (SubCategory_name NOT LIKE 'Quà tặng%' OR SubCategory_name IS NULL)";
-  }
-  // Lọc từ dropdowns (filters)
-  if (filters) {
-    if (filters.subcategory) {
-      filterConditions += ` AND SubCategory_name = @subcategory`;
-      params.subcategory = filters.subcategory;
-    }
-    if (filters.brand) {
-      filterConditions += ` AND Brand = @brand`;
-      params.brand = filters.brand;
-    }
-    if (filters.location) {
-      filterConditions += ` AND Location = @location`;
-      params.location = filters.location;
-    }
-    if (filters.bin_zone) {
-      filterConditions += ` AND BIN_zone = @bin_zone`;
-      params.bin_zone = filters.bin_zone;
-    }
-  }
-  // Điều kiện tìm kiếm chính (ô input)
-  const searchQueryCondition = `
-         AND ( @masterQuery = '' OR CAST(SKU AS STRING) LIKE @likeQuery OR SKU_name LIKE @likeQuery
-               OR Serial LIKE @likeQuery OR Location LIKE @likeQuery OR Brand LIKE @likeQuery )
-     `;
-  // --- Kết thúc xử lý bộ lọc ---
-
-  const isLikelySerialSearch = masterQuery.length >= 8 && !/^\d+$/.test(masterQuery);
-
-  // --- Query chính (lấy dữ liệu trang hiện tại) ---
-  const query = `
-        SELECT
-            CAST(SKU AS STRING) AS sku, SKU_name AS sku_name, Brand AS brand, Serial AS serial,
-            Location AS location, BIN_zone AS bin_zone, Branch_ID AS branch_id,
-            SubCategory_name AS subcategory_name,
-            FORMAT_DATE('%Y-%m-%d', Date_import_company) AS date_in,
-            Aging_company AS days_old
-        FROM ${BIGQUERY_TABLE}
-        WHERE 1=1
-            ${filterConditions} -- Áp dụng bộ lọc dropdown + branch
-            ${searchQueryCondition} -- Áp dụng ô tìm kiếm
-        ORDER BY Date_import_company ASC
-        LIMIT @pageSize OFFSET @offset -- Áp dụng phân trang
-    `;
-
-  // --- Query đếm tổng số kết quả ---
-  const countQuery = `
-        SELECT COUNT(*) as total
-        FROM ${BIGQUERY_TABLE}
-        WHERE 1=1
-            ${filterConditions} -- Áp dụng bộ lọc dropdown + branch
-            ${searchQueryCondition} -- Áp dụng ô tìm kiếm
-    `;
-
-  // Bỏ pagination params khỏi query đếm
-  const countParams = { ...params };
-  delete countParams.pageSize;
-  delete countParams.offset;
-
-  const options = {
-    query: query,
-    location: 'asia-southeast1',
-    params: params,
-  };
-  const countOptions = {
-    query: countQuery,
-    location: 'asia-southeast1',
-    params: countParams,
-  };
-
-
+  // --- FALLBACK S? D?NG SUPABASE (inventory_serials) ---
+  console.log(`[FALLBACK] Fetching inventory from Supabase (Page ${page})...`);
   try {
-    // Chạy song song 2 query
-    const [[rows], [countResult]] = await Promise.all([
-      bigquery.query(options),
-      bigquery.query(countOptions)
-    ]);
+    // Map c?t m?i
+    let query = supabase.from('inventory_serials').select('*', { count: 'exact' });
 
-    const total = countResult[0]?.total || 0;
-    const mappedRows = rows.map(r => ({ ...r, branch_id: String(r.branch_id), date_in: r.date_in || null, days_old: r.days_old || 0 }));
+    if (!isAdminBranch) query = query.eq('"Branch ID"', branchCode);
+    if (giftFilter === 'no') query = query.not('"SubCategory name"', 'like', 'Quà tặng%');
 
-    let searchedItem = null;
-    if (isLikelySerialSearch && masterQuery) {
-      searchedItem = mappedRows.find(item => item.serial === masterQuery);
+    if (filters) {
+      if (filters.subcategory) query = query.eq('"SubCategory name"', filters.subcategory);
+      if (filters.brand) query = query.eq('"Brand"', filters.brand);
+      if (filters.location) query = query.eq('"Location"', filters.location);
+      if (filters.bin_zone) query = query.eq('"BIN zone"', filters.bin_zone);
     }
 
-    return { data: mappedRows, total: total, searchedItem: searchedItem }; // Trả về total
+    if (masterQuery) {
+      query = query.or(`"SKU".ilike.%${masterQuery}%,"SKU name".ilike.%${masterQuery}%,"Serial".ilike.%${masterQuery}%,"Location".ilike.%${masterQuery}%,"Brand".ilike.%${masterQuery}%`);
+    }
 
-  } catch (e) {
-    console.error("BIGQUERY QUERY ERROR:", e.message);
-    throw new Error("BigQuery Query Error: " + e.message);
+    const { data, count, error } = await query
+      .order('"Date import company "', { ascending: true }) // Dùng ngo?c kép k? c? d?u cách th?a
+      .range((page - 1) * pageSize, page * pageSize - 1);
+
+    if (error) throw error;
+
+    const mappedRows = (data || []).map(r => ({
+      ...r,
+      sku: r.SKU,
+      sku_name: r["SKU name"],
+      serial: r.Serial,
+      brand: r.Brand,
+      location: r.Location,
+      bin_zone: r["BIN zone"],
+      branch_id: r["Branch ID"],
+      subcategory_name: r["SubCategory name"],
+      date_in: r["Date import company "],
+      days_old: parseInt(r["Aging company"] || 0)
+    }));
+
+    const isLikelySerialSearch = masterQuery.length >= 8 && !/^\d+$/.test(masterQuery);
+    let searchedItem = (isLikelySerialSearch && masterQuery) ? mappedRows.find(item => item.serial === masterQuery) : null;
+
+    return { data: mappedRows, total: count || 0, searchedItem: searchedItem };
+
+  } catch (err) {
+    console.error("SUPABASE FALLBACK ERROR:", err.message);
+    // Nếu cả 2 đều lỗi thì mới trả về rỗng
+    return { data: [], total: 0, searchedItem: null };
   }
 }
 
@@ -4984,80 +4999,92 @@ async function getInventoryCounts(skuList, userBranch, isGlobalAdmin, checkDate)
     branchFilter = 'AND Branch_ID = @userBranch';
   }
 
-  // 2. Query BigQuery để lấy TẤT CẢ serial/bin_zone/branch cho các SKU
-  const bqQuery = `
-        SELECT
-            CAST(SKU AS STRING) AS sku,
-            Serial AS serial,
-            BIN_zone AS bin_zone,
-            Branch_ID AS branch_id
-        FROM ${BIGQUERY_TABLE}
-        WHERE CAST(SKU AS STRING) IN UNNEST(@skuList)
-          ${branchFilter} 
-          AND Serial IS NOT NULL
-          AND Serial != ''
-    `;
-
+  // 2. Query BigQuery d? l?y T?T C? serial/bin_zone/branch cho các SKU
   let bqRows = [];
-  try {
-    const [rows] = await bigquery.query({
-      query: bqQuery,
-      location: 'asia-southeast1',
-      params: params,
-    });
-    bqRows = rows;
-  } catch (e) {
-    console.error("Lỗi query BQ (getInventoryCounts):", e.message);
-    return new Map(); // Trả về rỗng nếu BQ lỗi
+  
+  if (bigquery) {
+    let bqBranchFilter = isGlobalAdmin ? '' : 'AND Branch_ID = @userBranch';
+
+    const bqQuery = `SELECT CAST(SKU AS STRING) AS sku, Serial AS serial, BIN_zone AS bin_zone, Branch_ID AS branch_id
+                    FROM ${BIGQUERY_TABLE} WHERE CAST(SKU AS STRING) IN UNNEST(@skuList) ${bqBranchFilter} 
+                    AND Serial IS NOT NULL AND Serial != ''`;
+
+    try {
+      const [rows] = await bigquery.query({ query: bqQuery, location: 'asia-southeast1', params });
+      bqRows = rows;
+    } catch (e) {
+      if (e.message.includes('Quota exceeded')) {
+        console.warn("⚠️ getInventoryCounts: BQ Quota Exceeded! Switching to Supabase Fallback...");
+      } else {
+        console.error("Lỗi query BQ (getInventoryCounts):", e.message);
+      }
+    }
+  }
+
+  // --- FALLBACK SUPABASE ---
+  if (bqRows.length === 0) {
+    console.log("[FALLBACK] getInventoryCounts: Fetching from Supabase...");
+    try {
+      let query = supabase.from('inventory_serials').select('"SKU", "Serial", "BIN zone", "Branch ID"').in('"SKU"', skuList);
+      if (!isGlobalAdmin) query = query.eq('"Branch ID"', userBranch);
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      bqRows = (data || []).map(r => ({ 
+        sku: r.SKU, 
+        serial: r.Serial, 
+        bin_zone: r["BIN zone"], 
+        branch_id: r["Branch ID"],
+        Serial: r.Serial, 
+        BIN_zone: r["BIN zone"], 
+        Branch_ID: r["Branch ID"] 
+      }));
+    } catch (err) {
+      console.error("SUPABASE FALLBACK ERROR (getInventoryCounts):", err.message);
+    }
   }
 
   if (bqRows.length === 0) {
-    return new Map(); // Không có tồn BQ
+    return new Map(); // Không có t?n BQ ho?c fallback
   }
 
-  // 3. Lấy danh sách serial đã xuất TỪ SUPABASE
-  const allSerials = bqRows.map(r => r.serial);
+  // 3. L?y danh sách serial dã xu?t T? SUPABASE
+  const allSerials = bqRows.map(r => r.serial || r.Serial);
   let checkedOutSerials = new Set();
   
   if (allSerials.length > 0) {
     try {
-      // Chia nhỏ mảng allSerials thành các batch (ví dụ: mỗi batch 500 serials) để tránh lỗi URI Too Large
+      // Chia nh? m?ng allSerials thành các batch
       const batchSize = 500;
       for (let i = 0; i < allSerials.length; i += batchSize) {
         const batchSerials = allSerials.slice(i, i + batchSize);
         
-        // Lấy log của batch serials tìm thấy trong ngày
         const { data: logData, error } = await supabase
           .from('serial_check_log')
           .select('serial')
           .in('serial', batchSerials)
           .eq('check_date', checkDate)
-          .eq('checked_out', true); // Chỉ lấy serial đã tick "Đã xuất"
+          .eq('checked_out', true);
 
         if (error) throw error;
-
         (logData || []).forEach(log => {
           checkedOutSerials.add(log.serial);
         });
       }
     } catch (e) {
-      console.error("Lỗi query Supabase (getInventoryCounts):", e.message);
+      console.error("L?i query Supabase (getInventoryCounts):", e.message);
     }
   }
 
-  // 4. Lọc bỏ serial đã xuất và đếm theo SKU -> Branch -> Bin_zone
-  // Cấu trúc mới: Map<SKU, Map<Branch, CountsObject>>
+  // 4. L?c b? serial dã xu?t và d?m theo SKU -> Branch -> Bin_zone
   const inventoryMap = new Map();
 
-  // Khởi tạo Map cho tất cả SKU
   skuList.forEach(sku => {
     inventoryMap.set(sku, new Map());
   });
 
-  // Lấy danh sách tất cả các chi nhánh xuất hiện trong kết quả BQ
   const allBranchesInResult = [...new Set(bqRows.map(r => r.branch_id))];
 
-  // Khởi tạo cấu trúc đếm cho từng SKU, từng Branch
   skuList.forEach(sku => {
     const branchMap = inventoryMap.get(sku);
     allBranchesInResult.forEach(branchId => {
@@ -5072,24 +5099,19 @@ async function getInventoryCounts(skuList, userBranch, isGlobalAdmin, checkDate)
     });
   });
 
-  // 5. Duyệt qua kết quả BQ để đếm
   bqRows.forEach(row => {
-    // Bỏ qua nếu serial này đã bị tick "Đã xuất"
-    if (checkedOutSerials.has(row.serial)) {
-      return;
-    }
+    if (checkedOutSerials.has(row.serial)) return;
 
     const sku = row.sku;
     const branchId = row.branch_id;
     const binZone = (row.bin_zone || '').trim();
 
     const branchMap = inventoryMap.get(sku);
-    if (!branchMap) return; // SKU không có trong list
+    if (!branchMap) return;
 
     const counts = branchMap.get(branchId);
-    if (!counts) return; // Branch này không liên quan
+    if (!counts) return;
 
-    // Phân loại theo yêu cầu của user
     if (binZone === 'Trưng bày hàng bán mới' || binZone === 'Lưu kho hàng bán mới') {
       counts.hang_ban_moi += 1;
     } else if (binZone === 'Trưng bày chỉ định') {
@@ -5098,72 +5120,79 @@ async function getInventoryCounts(skuList, userBranch, isGlobalAdmin, checkDate)
       counts.luu_kho_tl += 1;
     } else if (binZone === 'Trưng bày thanh lý') {
       counts.trung_bay_tl += 1;
-    } else if (binZone === 'Hàng MKT') { // <-- THÊM KHỐI NÀY
+    } else if (binZone === 'Hàng MKT') {
       counts.hang_mkt += 1;
     } else {
       counts.ton_khac += 1;
     }
   });
 
-  // 6. Dọn dẹp: Xóa các Map rỗng (nếu tồn kho = 0)
   inventoryMap.forEach((branchMap, sku) => {
     branchMap.forEach((counts, branchId) => {
       const total = counts.hang_ban_moi + counts.trung_bay_chi_dinh + counts.luu_kho_tl + counts.trung_bay_tl + counts.hang_mkt + counts.ton_khac;
-      if (total === 0) {
-        branchMap.delete(branchId); // Xóa branch này nếu tồn = 0
-      }
+      if (total === 0) branchMap.delete(branchId);
     });
-    if (branchMap.size === 0) {
-      inventoryMap.delete(sku); // Xóa SKU này nếu không có tồn ở đâu
-    }
+    if (branchMap.size === 0) inventoryMap.delete(sku);
   });
 
   return inventoryMap;
 }
 
-// === HÀM HELPER MỚI: LẤY TOP 5 SERIAL CŨ NHẤT (ĐÃ CẬP NHẬT) ===
+// === HÀM HELPER M?I: L?Y TOP 5 SERIAL C? NH?T (DÃ C?P NH?T) ===
 async function getOldestSerials(sku, userBranch, isGlobalAdmin, checkDate, limit = 5) {
   if (!bigquery || !sku || !userBranch || !checkDate) {
     return [];
   }
 
   const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
-  const params = {
-    sku: String(sku),
-    userBranch: userBranch,
-    isGlobalAdmin: isGlobalAdmin, // Truyền cờ admin
-  };
-
-  // Lọc chi nhánh (nếu không phải admin)
-  const branchFilter = isGlobalAdmin ? '' : 'AND Branch_ID = @userBranch';
-
-  // 1. Query BQ để lấy serials cũ nhất
-  const bqQuery = `
-        SELECT
-            Serial AS serial,
-            Location AS location, -- YÊU CẦU MỚI: Lấy Location
-            Aging_company AS days_old
-        FROM ${BIGQUERY_TABLE}
-        WHERE CAST(SKU AS STRING) = @sku
-          ${branchFilter}
-          AND BIN_zone IN ('Trưng bày hàng bán mới', 'Lưu kho hàng bán mới') -- YÊU CẦU MỚI: Lọc theo Bin_zone
-          AND Serial IS NOT NULL AND Serial != ''
-        ORDER BY Date_import_company ASC -- ASC = Cũ nhất trước
-        LIMIT 50 -- Lấy dư 50 để lọc serial đã xuất
-    `;
-
   let bqRows = [];
-  try {
-    const [rows] = await bigquery.query({
-      query: bqQuery,
-      location: 'asia-southeast1',
-      params: params,
-    });
-    bqRows = rows;
-  } catch (e) {
-    console.error("Lỗi query BQ (getOldestSerials):", e.message);
-    return [];
+
+  if (bigquery) {
+    const params = { sku: String(sku), userBranch: userBranch };
+    const branchFilter = isGlobalAdmin ? '' : 'AND Branch_ID = @userBranch';
+
+    const bqQuery = `SELECT Serial AS serial, Location AS location, Aging_company AS days_old, Date_import_company
+                    FROM ${BIGQUERY_TABLE} WHERE CAST(SKU AS STRING) = @sku ${branchFilter}
+                    AND BIN_zone IN ('Trưng bày hàng bán mới', 'Lưu kho hàng bán mới')
+                    AND Serial IS NOT NULL AND Serial != '' ORDER BY Date_import_company ASC LIMIT 50`;
+
+    try {
+      const [rows] = await bigquery.query({ query: bqQuery, location: 'asia-southeast1', params });
+      bqRows = rows;
+    } catch (e) {
+      if (e.message.includes('Quota exceeded')) {
+        console.warn("⚠️ getOldestSerials: BQ Quota Exceeded! Switching to Supabase Fallback...");
+      } else {
+        console.error("Lỗi query BQ (getOldestSerials):", e.message);
+      }
+    }
   }
+
+  // --- FALLBACK SUPABASE ---
+  if (bqRows.length === 0) {
+    console.log("[FALLBACK] getOldestSerials: Fetching from Supabase...");
+    try {
+      let query = supabase.from('inventory_serials')
+        .select('"Serial", "Location", "Aging company", "Date import company "')
+        .eq('"SKU"', sku)
+        .in('"BIN zone"', ['Trưng bày hàng bán mới', 'Lưu kho hàng bán mới']);
+
+      if (!isGlobalAdmin) query = query.eq('"Branch ID"', userBranch);
+
+      const { data, error } = await query.order('"Date import company "', { ascending: true }).limit(50);
+      if (error) throw error;
+      bqRows = (data || []).map(r => ({ 
+        serial: r.Serial, 
+        location: r.Location, 
+        days_old: r["Aging company"],
+        date_in: r["Date import company "]
+      }));
+    } catch (err) {
+      console.error("SUPABASE FALLBACK ERROR (getOldestSerials):", err.message);
+    }
+  }
+
+  if (bqRows.length === 0) return [];
 
   if (bqRows.length === 0) {
     return [];
@@ -5230,66 +5259,70 @@ app.get('/fifo-checking', requireAuth, async (req, res) => {
 // DÁN ĐOẠN CODE MỚI NÀY VÀO server.js (trước route /api/fifo/serials)
 
 async function fetchFilterOptions(branchCode, giftFilter, isAdminBranch) {
-  if (!bigquery) {
-    console.warn("BQ chưa cấu hình, trả về filter giả lập.");
-    return {
-      subcategories: ['Mock Subcat', 'Máy in', 'Máy tính bộ Văn phòng'],
-      brands: ['MockBrand', 'HP', 'Brother'],
-      locations: ['A1', 'TL-A-01-A', 'CD.03-VK5.01-a'],
-      bin_zones: ['Zone A', 'Lưu kho thanh lý', 'Trung bày chính'],
-    };
+  // --- THỬ BIGQUERY TRƯỚC ---
+  if (bigquery) {
+    const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
+    const params = { branchCode: branchCode };
+    let filterConditions = '';
+    if (!isAdminBranch) filterConditions += ' AND Branch_ID = @branchCode';
+    if (giftFilter === 'no') filterConditions += " AND (SubCategory_name NOT LIKE 'Quà tặng%' OR SubCategory_name IS NULL)";
+
+    const qOpts = (f) => ({
+      query: `SELECT DISTINCT ${f} FROM ${BIGQUERY_TABLE} WHERE ${f} IS NOT NULL AND ${f} != '' ${filterConditions} ORDER BY ${f} ASC LIMIT 1000`,
+      location: 'asia-southeast1', params
+    });
+
+    try {
+      const [[sc], [br], [loc], [bz]] = await Promise.all([
+        bigquery.query(qOpts('SubCategory_name')),
+        bigquery.query(qOpts('Brand')),
+        bigquery.query(qOpts('Location')),
+        bigquery.query(qOpts('BIN_zone')),
+      ]);
+      return { subcategories: sc.map(r => r.SubCategory_name), brands: br.map(r => r.Brand), locations: loc.map(r => r.Location), bin_zones: bz.map(r => r.BIN_zone) };
+    } catch (e) {
+      if (e.message.includes('Quota exceeded')) {
+        console.warn("⚠️ BIGQUERY FILTER QUOTA EXCEEDED! Switching to Supabase Fallback...");
+      } else {
+        console.error("BIGQUERY FILTER QUERY ERROR:", e.message);
+        throw e;
+      }
+    }
   }
 
-  const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
-  const params = { branchCode: branchCode };
-
-  let filterConditions = '';
-  // Lọc chi nhánh
-  if (!isAdminBranch) {
-    filterConditions += ' AND Branch_ID = @branchCode';
-  }
-  // Lọc quà tặng
-  if (giftFilter === 'no') {
-    filterConditions += " AND (SubCategory_name NOT LIKE 'Quà tặng%' OR SubCategory_name IS NULL)";
-  }
-
-  const queryOptions = (field) => ({
-    query: `
-            SELECT DISTINCT ${field}
-            FROM ${BIGQUERY_TABLE}
-            WHERE ${field} IS NOT NULL AND ${field} != ''
-            ${filterConditions}
-            ORDER BY ${field} ASC
-            LIMIT 1000
-        `,
-    location: 'asia-southeast1',
-    params: params,
-  });
-
+  // --- FALLBACK S? D?NG SUPABASE ---
+  console.log("[FALLBACK] Fetching filters from Supabase...");
   try {
-    // Chạy song song 4 query
-    const [
-      [subcategories],
-      [brands],
-      [locations],
-      [bin_zones]
-    ] = await Promise.all([
-      bigquery.query(queryOptions('SubCategory_name')),
-      bigquery.query(queryOptions('Brand')),
-      bigquery.query(queryOptions('Location')),
-      bigquery.query(queryOptions('BIN_zone')),
-    ]);
+    const fieldsMap = {
+      'subcategory_name': 'SubCategory name',
+      'brand': 'Brand',
+      'location': 'Location',
+      'bin_zone': 'BIN zone'
+    };
+    const results = {};
+
+    for (const [key, field] of Object.entries(fieldsMap)) {
+      // Nh? d?t tên c?t trong d?u ngo?c kép d? Supabase hi?u
+      const quotedField = `"${field}"`;
+      let query = supabase.from('inventory_serials').select(quotedField).not(quotedField, 'is', null).neq(quotedField, '');
+      if (!isAdminBranch) query = query.eq('"Branch ID"', branchCode);
+      if (giftFilter === 'no') query = query.not('"SubCategory name"', 'like', 'Quà tặng%');
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      results[key] = [...new Set(data.map(item => item[field]))].sort();
+    }
 
     return {
-      subcategories: subcategories.map(r => r.SubCategory_name),
-      brands: brands.map(r => r.Brand),
-      locations: locations.map(r => r.Location),
-      bin_zones: bin_zones.map(r => r.BIN_zone),
+      subcategories: results.subcategory_name,
+      brands: results.brand,
+      locations: results.location,
+      bin_zones: results.bin_zone
     };
-
-  } catch (e) {
-    console.error("BIGQUERY FILTER QUERY ERROR:", e.message);
-    throw new Error("BigQuery Filter Query Error: " + e.message);
+  } catch (err) {
+    console.error("SUPABASE FILTER FALLBACK ERROR:", err.message);
+    return { subcategories: [], brands: [], locations: [], bin_zones: [] };
   }
 }
 
@@ -5404,7 +5437,25 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
       };
 
       try {
-        const [allSkuSerials] = await bigquery.query(rankOptions);
+        let allSkuSerials = [];
+        try {
+          const [bqSerials] = await bigquery.query(rankOptions);
+          allSkuSerials = bqSerials;
+        } catch (e) {
+          if (e.message.includes('Quota exceeded')) {
+            console.warn("⚠️ RANK BQ QUOTA EXCEEDED! Switching to Supabase Fallback...");
+            let query = supabase.from('inventory_serials')
+              .select('"Serial", "Date import company "')
+              .eq('"SKU"', skuToRank).in('"BIN zone"', ['Trưng bày hàng bán mới', 'Lưu kho hàng bán mới']);
+            
+            if (!isGlobalAdmin) query = query.eq('"Branch ID"', userBranch);
+            const { data, error } = await query;
+            if (error) throw error;
+            allSkuSerials = (data || []).map(r => ({ Serial: r.Serial, Date_import_company: r["Date import company "] }));
+          } else {
+            throw e;
+          }
+        }
 
         // Lấy log đã xuất
         const skuSerialList = allSkuSerials.map(s => s.Serial);
@@ -11078,8 +11129,8 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
     const user = req.session.user;
     if (user.role !== 'manager' && user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
 
-    const { period = 'month', category = 'ALL', region = 'ALL', branch = 'ALL', date = null, tableCategory = 'ALL' } = req.query;
-    const ranges = getDashboardDateRange(period, date);
+    const { period = 'month', category = 'ALL', region = 'ALL', branch = 'ALL', date = null, endDate = null, tableCategory = 'ALL' } = req.query;
+    const ranges = getDashboardDateRange(period, date, endDate);
 
     const minS = ranges.ly.s, currE = ranges.curr.e;
     let globalWhere = `WHERE (CAST(Report_date AS DATE) BETWEEN '${minS}' AND '${currE}')`;
@@ -11211,8 +11262,8 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
     // Trend Generator from Global Branches
     const trendData = { labels: [], revenue: [], orders: [], traffic: [], aov: [] };
     const nowLocal = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-    const currSObj = new Date(ranges.curr.rawS);
-    while (currSObj <= new Date(ranges.curr.rawE)) {
+    const currSObj = parseLocalNoon(ranges.curr.rawS);
+    while (currSObj <= parseLocalNoon(ranges.curr.rawE)) {
       if (currSObj > nowLocal) break;
       const ds = formatVNDate(currSObj);
       trendData.labels.push(ds.substring(5)); // MM-DD
@@ -11252,8 +11303,8 @@ app.get('/api/executive/salesman-data', requireAuth, async (req, res) => {
     const user = req.session.user;
     if (user.role !== 'manager' && user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
 
-    const { period = 'month', region = 'ALL', branch = 'ALL', date = null, tableCategory = 'ALL' } = req.query;
-    const ranges = getDashboardDateRange(period, date);
+    const { period = 'month', region = 'ALL', branch = 'ALL', date = null, endDate = null, tableCategory = 'ALL' } = req.query;
+    const ranges = getDashboardDateRange(period, date, endDate);
 
     let where = `WHERE (CAST(Report_date AS DATE) BETWEEN '${ranges.curr.s}' AND '${ranges.curr.e}')`;
     
@@ -11303,8 +11354,10 @@ app.get('/api/executive/salesman-data', requireAuth, async (req, res) => {
     if (emails.length > 0) {
       const allSearchEmails = [...new Set([
           ...emails, 
-          ...emails.map(e => Object.assign(e.replace('@phongvu-mna.vn', '@phongvu.vn')))
-      ])];
+          ...emails.map(e => e.replace('@phongvu-mna.vn', '@phongvu.vn')),
+          ...emails.map(e => e.replace('@phongvu.vn', '@phongvu-mna.vn'))
+      ])].map(e => e.toLowerCase());
+      
       const { data: usersData } = await supabase
         .from('users')
         .select('email, full_name, hrm_id')
@@ -11336,6 +11389,21 @@ app.get('/api/executive/salesman-data', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('SALESMAN API ERROR:', e);
     res.status(500).json({ error: e.message || 'Internal Server Error' });
+  }
+});
+
+// ------------------------- CRON API ENDPOINTS -------------------------
+
+app.get('/api/cron/sync-inventory', async (req, res) => {
+  // Option: Security via Vercel Cron header (authorization can be added if needed)
+  console.log('Vercel triggered Cron: /api/cron/sync-inventory');
+  try {
+    const { syncInventory } = require('./sync_inventory');
+    await syncInventory();
+    res.json({ success: true, message: "Inventory synced successfully by Cron!" });
+  } catch (error) {
+    console.error("Cron /api/cron/sync-inventory failed:", error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

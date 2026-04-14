@@ -263,6 +263,7 @@
         
         <% if ((user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
             <button type="button" class="btn btn-warning" id="btnSyncBigQuery" style="padding: 5px 10px; font-size: 0.8rem;">Sync BQ</button>
+            <button type="button" class="btn" id="btnSyncInventory" style="padding: 5px 10px; font-size: 0.8rem; margin-left: 5px; background-color: #06b6d4; color: white; border: none; border-radius: 4px;">Sync Supabase Fallback</button>
         <% } %>
 
         <form action="/logout" method="POST" style="display: inline;">
@@ -503,6 +504,31 @@
                 } finally {
                     syncButton.disabled = false;
                     syncButton.textContent = 'Sync BQ';
+                }
+            });
+        }
+
+        // Logic Manual Sync Inventory (Dành cho Fallback)
+        const syncInvButton = document.getElementById('btnSyncInventory');
+        if (syncInvButton) {
+            syncInvButton.addEventListener('click', async () => {
+                if (!confirm('Bạn có chắc muốn NẠP LẠI TỒN KHO từ BigQuery sang Supabase ngay bây giờ?\n(Chỉ nên dùng khi data bị sai hoặc thiếu. Quá trình có thể mất 30s-1p.)')) return;
+                
+                syncInvButton.disabled = true;
+                syncInvButton.textContent = 'Đang sync...';
+                
+                try {
+                    const res = await fetch('/api/cron/sync-inventory', { method: 'GET' });
+                    const data = await res.json(); 
+
+                    if (!res.ok) throw new Error(data.error || 'Lỗi không xác định');
+
+                    alert(`✅ Đồng bộ Tồn Kho Dự Phòng thành công!\nHệ thống đã nạp dữ liệu fallback từ BQ.`);
+                } catch (err) {
+                    alert('❌ Lỗi đồng bộ Tồn Kho: ' + err.message);
+                } finally {
+                    syncInvButton.disabled = false;
+                    syncInvButton.textContent = 'Sync Supabase Fallback';
                 }
             });
         }
