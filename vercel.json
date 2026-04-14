@@ -12,11 +12,7 @@
       "schedule": "0 1,7 * * *"
     },
     {
-      "path": "/api/cron/sync-bq-skus",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron/sync-inventory",
+      "path": "/api/cron/sync-all",
       "schedule": "30 0 * * *"
     }
   ]

@@ -6598,20 +6598,44 @@ app.post('/api/admin/sync-bq-skus', requireAuth, requireManager, async (req, res
   }
 });
 
-// ROUTE CRON TỰ ĐỘNG: Chạy hằng ngày (Trigger bởi Vercel)
-app.get('/api/cron/sync-bq-skus', async (req, res) => {
-  // Bảo mật: Nếu có CRON_SECRET trong env thì kiểm tra
+// Thêm endpoint manual sync inventory cho nút bấm Admin
+app.post('/api/admin/sync-inventory', requireAuth, requireManager, async (req, res) => {
+  try {
+    const { syncInventory } = require('./sync_inventory');
+    await syncInventory();
+    res.json({ ok: true, message: 'Inventory synced successfully' });
+  } catch (e) {
+    console.error('[SYNC INV] Lỗi:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ROUTE CRON T? D?NG: Ch?y h?ng ngày (Trigger b?i Vercel)
+// G?p chung SKU Sync và Inventory Sync d? ti?t ki?m Slot Cron (Vercel Hobby ch? cho 2 cái)
+app.get('/api/cron/sync-all', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  console.log('[CRON] Starting combined sync (SKUs + Inventory)...');
+  const results = { skus: null, inventory: null };
+
   try {
-    const result = await runBqSkuSync('Automation System');
-    res.json({ ok: true, source: 'cron', ...result });
+    // 1. Sync SKUs
+    results.skus = await runBqSkuSync('Automation System');
+    console.log('[CRON] SKU Sync OK');
+
+    // 2. Sync Inventory
+    const { syncInventory } = require('./sync_inventory');
+    await syncInventory();
+    results.inventory = { ok: true };
+    console.log('[CRON] Inventory Sync OK');
+
+    res.json({ ok: true, source: 'cron-sync-all', ...results });
   } catch (e) {
-    console.error('[CRON SYNC] Fail:', e.message);
-    res.status(500).json({ ok: false, error: e.message });
+    console.error('[CRON SYNC ALL] Fail:', e.message);
+    res.status(500).json({ ok: false, error: e.message, partial_results: results });
   }
 });
 
@@ -11389,21 +11413,6 @@ app.get('/api/executive/salesman-data', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('SALESMAN API ERROR:', e);
     res.status(500).json({ error: e.message || 'Internal Server Error' });
-  }
-});
-
-// ------------------------- CRON API ENDPOINTS -------------------------
-
-app.get('/api/cron/sync-inventory', async (req, res) => {
-  // Option: Security via Vercel Cron header (authorization can be added if needed)
-  console.log('Vercel triggered Cron: /api/cron/sync-inventory');
-  try {
-    const { syncInventory } = require('./sync_inventory');
-    await syncInventory();
-    res.json({ success: true, message: "Inventory synced successfully by Cron!" });
-  } catch (error) {
-    console.error("Cron /api/cron/sync-inventory failed:", error.message);
-    res.status(500).json({ success: false, error: error.message });
   }
 });
 

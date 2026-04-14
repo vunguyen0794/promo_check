@@ -518,7 +518,7 @@
                 syncInvButton.textContent = 'Đang sync...';
                 
                 try {
-                    const res = await fetch('/api/cron/sync-inventory', { method: 'GET' });
+                    const res = await fetch('/api/admin/sync-inventory', { method: 'POST' });
                     const data = await res.json(); 
 
                     if (!res.ok) throw new Error(data.error || 'Lỗi không xác định');
