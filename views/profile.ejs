@@ -111,7 +111,7 @@
                             <select name="branch" class="filter-select" onchange="this.form.submit()">
                                 <option value="">-- Tất cả Chi Nhánh --</option>
                                 <% branchList.forEach(br => { %>
-                                    <option value="<%= br %>" <%= filterBranch === br ? 'selected' : '' %>><%= br %></option>
+                                    <option value="<%= br.id %>" <%= filterBranch === br.id ? 'selected' : '' %>>Chi nhánh <%= br.id %></option>
                                 <% }) %>
                             </select>
                         <% } %>
@@ -213,7 +213,7 @@
                         <div class="kpi-sub" style="font-size: 11px; color: #92400e; margin-top: 5px; font-weight: 600;">
                             <% if (csiData.unavailable) { %>
                                 <span style="color:#92400e; background:#fef3c7; padding: 2px 6px; border-radius: 4px;">
-                                    Nguồn CSI chưa được cấu hình trên BigQuery
+                                    <% if (csiData.quotaExceeded) { %>Vuot quota BigQuery thang nay<% } else { %>CSI chua duoc cau hinh tren BigQuery<% } %>
                                 </span>
                             <% } else if(csiData.feedback_count > 0) { %>
                                 <span style="color:#dc2626; background: #fee2e2; padding: 2px 6px; border-radius: 4px;">

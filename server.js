@@ -4864,7 +4864,7 @@ async function getSkuNewStockByBranch(skus) {
 // server.js (THAY THẾ HÀM NÀY - bắt đầu từ dòng 256)
 async function fetchInventoryFromBigQuery(branchCode, masterQuery, giftFilter, isAdminBranch, filters, page = 1, pageSize = 50) { 
   // --- THỬ BIGQUERY TRƯỚC ---
-  if (bigquery) {
+  if (false) {
     const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
     const params = {
       branchCode: branchCode,
@@ -5260,7 +5260,7 @@ app.get('/fifo-checking', requireAuth, async (req, res) => {
 
 async function fetchFilterOptions(branchCode, giftFilter, isAdminBranch) {
   // --- THỬ BIGQUERY TRƯỚC ---
-  if (bigquery) {
+  if (false) {
     const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
     const params = { branchCode: branchCode };
     let filterConditions = '';
@@ -7825,7 +7825,7 @@ async function getAllBranchTargets(periodInput, yearInput = null) {
       if (periodInput === 'year') {
         currentPeriodTarget = totalYearTarget;
       } else {
-        const monthIndex = parseInt(periodInput);
+        const monthIndex = parseInt(periodInput) - 1;
         // Đảm bảo index nằm trong 0-11
         if (monthIndex >= 0 && monthIndex < 12) {
           currentPeriodTarget = monthlyTargets[monthIndex];
@@ -8070,239 +8070,296 @@ async function getStaffMonthlyChart(email) {
 app.get('/profile', requireAuth, async (req, res) => {
   try {
     const user = req.session.user;
-    const period = req.query.period || 'month';
+    const periodValue = req.query.period || 'month';
     const filterBranch = req.query.branch || '';
-    const dateInfo = getDateFilterCondition(period);
-
-    // --- 1. XÁC ĐỊNH THAM SỐ TARGET (THÁNG & NĂM) ---
-    let targetMonthParam = new Date().getMonth();
-    let targetYearParam = new Date().getFullYear(); // Mặc định năm hiện tại
-
-    if (period === 'year') {
-      targetMonthParam = 'year';
-      // targetYearParam giữ nguyên
-    }
-    else if (period === 'last_year') {
-      targetMonthParam = 'year';
-      targetYearParam = new Date().getFullYear() - 1; // Lùi 1 năm
-    }
-    else if (/^\d{4}-\d{2}$/.test(period)) {
-      // Trường hợp chọn tháng cụ thể (VD: 2025-11)
-      const parts = period.split('-');
-      targetYearParam = parseInt(parts[0]);
-      targetMonthParam = parseInt(parts[1]) - 1;
-    }
-    else if (period === 'today' || period === 'week') {
-      targetMonthParam = new Date().getMonth();
-      // targetYearParam giữ nguyên
-    }
-
-    // --- 2. XÁC ĐỊNH ROLE ---
-    const isGlobalAdmin = (user.role === 'admin' || user.role === 'manager') && user.branch_code === 'HCM.BD';
-    const isManager = user.role === 'manager' && !isGlobalAdmin;
+    const isGlobalAdmin = user.role === 'admin' || user.branch_code === 'HCM.BD';
+    const isManager = user.role === 'manager';
     const isStaff = !isGlobalAdmin && !isManager;
-
-    // --- 3. LẤY DATA CƠ BẢN (Cache & DB) ---
-    // Chạy song song để tối ưu tốc độ
-    const [empMap, { data: userData }] = await Promise.all([
-      getAllEmployeesFromSheet(),
-      supabase.from('users').select('last_seen').eq('id', user.id).single()
-    ]);
-
-    const myProfile = empMap[user.email.toLowerCase()] || { full_name: user.full_name, branch: user.branch_code, hrm_id: '---', position: 'N/A' };
-    const lastSeen = userData?.last_seen ? new Date(userData.last_seen).toLocaleString('vi-VN') : 'N/A';
-
-    // --- 4. LẤY TARGET TOÀN HỆ THỐNG ---
-    // [QUAN TRỌNG] Truyền cả Month và Year vào hàm mới
-    const allTargetsMap = await getAllBranchTargets(targetMonthParam, targetYearParam);
-
-    // --- 5. TÍNH SCALE & BASE TARGET ---
-    let scale = 1;
-    if (period === 'today' || period === 'week') scale = dateInfo.scaleFactor;
-
-    let baseTargetData = { branch_target: 0, individual_target: 0 };
-
-    if (isGlobalAdmin && !filterBranch) {
-      // Admin xem tổng: Cộng dồn tất cả chi nhánh
-      let totalSystem = 0;
-      Object.values(allTargetsMap).forEach(t => totalSystem += t.branch_target);
-      baseTargetData.branch_target = totalSystem;
-    } else {
-      // Xem chi nhánh/cá nhân: Tra cứu Map
-      let targetCode = filterBranch || user.branch_code;
-      if (allTargetsMap[targetCode]) {
-        baseTargetData = allTargetsMap[targetCode];
-      }
+    
+    // Date Condition
+    const now = new Date();
+    let targetMonthStr = '';
+    
+    if (periodValue === 'month' || periodValue === 'today' || periodValue === 'week') {
+      const y = now.getFullYear();
+      const m = (now.getMonth() + 1).toString().padStart(2, '0');
+      targetMonthStr = `${y}-${m}`;
+    } else if (/^\d{4}-\d{2}$/.test(periodValue)) {
+      targetMonthStr = periodValue;
+    } else if (periodValue === 'year' || periodValue === 'last_year') {
+      const baseYear = periodValue === 'last_year' ? now.getFullYear() - 1 : now.getFullYear();
+      targetMonthStr = `${baseYear}-`;
     }
 
-    const finalTarget = baseTargetData.branch_target * scale;
-    const finalIndTarget = baseTargetData.individual_target * scale;
-
-    // --- 6. XỬ LÝ LOGIC CHÍNH THEO ROLE ---
-    let dashboardData = {};
-    let tableSales = [];
-    let tableBranch = [];
-    let lastUpdateStr = '';
-    let staffChartData = null;
-
+    // Branch visibility filter
+    let qBranch = null;
     if (isStaff) {
-      // --- A. ROLE STAFF ---
-      const stats = await getPerformanceStats({ email: user.email, period });
-      dashboardData = calculateBonusMetrics(stats, finalIndTarget, true);
-
-      // [LOGIC CHART STAFF] Lấy data biểu đồ & Map Target
-      const chartRaw = await getStaffMonthlyChart(user.email);
-      staffChartData = chartRaw.map(row => {
-        // Lấy target của Branch mà user đang thuộc về
-        const branchTargetData = allTargetsMap[user.branch_code];
-        const monthlyTarget = branchTargetData ? branchTargetData.individual_target : 0;
-
-        return {
-          month: row.month_str,
-          revenue: row.calculated_revenue,
-          target: monthlyTarget,
-          percent: monthlyTarget > 0 ? ((row.calculated_revenue / monthlyTarget) * 100).toFixed(1) : 0
-        };
-      });
-
-    } else if (isManager || (isGlobalAdmin && filterBranch)) {
-      // --- B. ROLE MANAGER / ADMIN FILTER BRANCH ---
-      let targetCode = filterBranch || user.branch_code;
-
-      // Lấy số liệu tổng chi nhánh
-      const branchStats = await getPerformanceStats({ branch: targetCode, period });
-      dashboardData = calculateBonusMetrics(branchStats, finalTarget, false);
-
-      // Lấy danh sách nhân viên trong chi nhánh
-      const salesStats = await getPerformanceStats({ branch: targetCode, period, groupBy: 'email' });
-
-      // Xử lý ngày cập nhật (chỉ lấy ngày hợp lệ)
-      if (salesStats && salesStats.length > 0) {
-        const dates = salesStats
-          .map(s => s.max_date ? (s.max_date.value || s.max_date) : null)
-          .filter(d => d && typeof d === 'string' && d.includes('-'))
-          .sort().reverse();
-
-        if (dates.length > 0) {
-          const [y, m, d] = dates[0].split('-');
-          lastUpdateStr = `${d}/${m}/${y}`;
-        }
-      }
-
-      tableSales = salesStats.map(s => {
-        const info = empMap[s.key_id] || { full_name: s.name, hrm_id: '' };
-        // Chỉ hiện nhân viên có chức danh Bán hàng
-        if (!(info.position || '').toLowerCase().includes('bán hàng')) return null;
-        return {
-          salesman: info.full_name, msnv: info.hrm_id,
-          ...calculateBonusMetrics(s, finalIndTarget, true)
-        };
-      })
-        .filter(Boolean)
-        .sort((a, b) => parseFloat(b.percent_completion) - parseFloat(a.percent_completion));
-
-    } else if (isGlobalAdmin && !filterBranch) {
-      // --- C. ROLE GLOBAL ADMIN (TOÀN HỆ THỐNG) ---
-      const globalStats = await getPerformanceStats({ branch: 'HCM.BD', period });
-      dashboardData = calculateBonusMetrics(globalStats, finalTarget, false);
-
-      // Bảng Branch: Tra cứu Target từ Map đã lấy
-      const branchStats = await getPerformanceStats({ branch: 'HCM.BD', period, groupBy: 'branch' });
-      tableBranch = branchStats.map(b => {
-        const tData = allTargetsMap[b.key_id];
-        const bTarget = (tData ? tData.branch_target : 0) * scale;
-        const metrics = calculateBonusMetrics(b, bTarget, false);
-        const forecast = calculateForecast(metrics.revenue, bTarget, period);
-        return { branch: b.key_id, ...metrics, ...forecast };
-      }).sort((a, b) => parseFloat(b.percent_completion) - parseFloat(a.percent_completion));
-
-      // Bảng Top Sales toàn hệ thống
-      const allSalesStats = await getPerformanceStats({ branch: 'HCM.BD', period, groupBy: 'email' });
-
-      if (allSalesStats && allSalesStats.length > 0) {
-        const dates = allSalesStats
-          .map(s => s.max_date ? (s.max_date.value || s.max_date) : null)
-          .filter(d => d && d.includes('-'))
-          .sort().reverse();
-        if (dates.length > 0) {
-          const [y, m, d] = dates[0].split('-'); lastUpdateStr = `${d}/${m}/${y}`;
-        }
-      }
-
-      tableSales = allSalesStats.map(s => {
-        const info = empMap[s.key_id] || {};
-        if (!(info.position || '').toLowerCase().includes('bán hàng')) return null;
-
-        let sTarget = 0;
-        if (info.branch && allTargetsMap[info.branch]) {
-          sTarget = allTargetsMap[info.branch].individual_target * scale;
-        }
-        return {
-          branch: info.branch, salesman: info.full_name, msnv: info.hrm_id,
-          ...calculateBonusMetrics(s, sTarget, true)
-        };
-      }).filter(Boolean).sort((a, b) => parseFloat(b.percent_completion) - parseFloat(a.percent_completion));
+      // none, handles below
+    } else if (!isGlobalAdmin) {
+      qBranch = user.branch_code;
+    } else if (filterBranch) {
+      qBranch = filterBranch;
     }
 
-    // --- 7. TÍNH FORECAST & FORMAT ---
-    const mainForecast = calculateForecast(dashboardData.revenue, finalTarget, period);
-    dashboardData.revenue_forecast = mainForecast.revenue_forecast;
-    dashboardData.percent_forecast = mainForecast.percent_forecast;
+    const { getLocalSalesRows } = require('./local_sales_query');
+    let salesRows = [];
+    
+    if (periodValue === 'today' || periodValue === 'week') {
+        const targetEmail = isStaff ? user.email : null;
+        salesRows = await getLocalSalesRows(periodValue, targetEmail, qBranch);
+    } else if (targetMonthStr.endsWith('-')) {
+        // yearly
+        let q = supabase.from('salesman_performance').select('*').ilike('month', `${targetMonthStr.replace('-', '')}-%`);
+        if (qBranch) q = q.eq('branch_code', qBranch);
+        else if (isStaff) q = q.eq('email', user.email);
+        const { data } = await q;
+        salesRows = data || [];
+    } else {
+        // monthly
+        let q = supabase.from('salesman_performance').select('*').eq('month', targetMonthStr);
+        if (qBranch) q = q.eq('branch_code', qBranch);
+        else if (isStaff) q = q.eq('email', user.email);
+        const { data } = await q;
+        salesRows = data || [];
+    }
 
-    const formatCompact = (num) => {
-      if (!num) return '0';
-      const n = Number(num);
-      if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2).replace(/\.00$/, '') + ' Tỷ';
-      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + ' Tr';
-      if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + ' K';
-      return new Intl.NumberFormat('vi-VN').format(n);
+    const { data: fullUser } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
+    let myProfile = { 
+       ...(fullUser || user),
+       branch: (fullUser || user)?.branch_code || '-',
+       position: (fullUser || user)?.role || '-',
+       hrm_id: '-',
+       dob: '-',
+       join_date: '-',
+       rank: '-', total_revenue: 0, 
+       total_orders: 0, results_summary: 'Chưa có data' 
     };
 
-    // --- 8. LẤY DATA CSI & FEEDBACK (BIGQUERY) ---
-    let csiData = { csi_percent: 0, feedback_count: 0, unavailable: false };
-    let feedbackList = [];
+    // Enrich profile from HR Google Sheet
+    try {
+       const hrSheets = await getGlobalSheetsClient();
+       const hrRes = await hrSheets.spreadsheets.values.get({ 
+         spreadsheetId: HR_SPREADSHEET_ID, range: 'A2:J' 
+       });
+       const hrRows = hrRes.data.values || [];
+       const userEmail = user.email.toLowerCase().trim();
+       const hrMatch = hrRows.find(r => (r[1] || '').toLowerCase().trim() === userEmail);
+       if (hrMatch) {
+         myProfile.hrm_id = hrMatch[0] || '-';
+         myProfile.position = hrMatch[7] || myProfile.position;  // Position col
+         myProfile.branch = hrMatch[3] || myProfile.branch;       // branch_id col
+         myProfile.dob = hrMatch[8] || '-';                       // Birthday col
+         myProfile.join_date = hrMatch[9] || '-';                  // Firts_day col
+       }
+    } catch(hrErr) {
+       console.error('HR enrichment error:', hrErr.message);
+    }
 
-    // Logic Filter CSI:
-    // - Staff: Lấy theo Email
-    // - Manager/Admin Filter: Lấy theo Branch
-    // - Admin All: Lấy hết
-    let csiParams = { period: period };
+    let lastSeen = 'Trống';
+    if (isStaff && salesRows.length > 0) {
+       const sumRev = salesRows.reduce((a,b)=>a+(b.revenue||0), 0);
+       const sumOrders = salesRows.reduce((a,b)=>a+(b.orders||0), 0);
+       myProfile.total_revenue = sumRev;
+       myProfile.total_orders = sumOrders;
+       if (!myProfile.hrm_id || myProfile.hrm_id === '-') {
+         myProfile.hrm_id = salesRows[0].hrm_id || '-';
+       }
+       
+       const userLogs = await supabase.from('customer_care_logs').select('created_at').eq('staff_id', user.id).order('created_at', {ascending: false}).limit(1);
+       if (userLogs.data && userLogs.data.length > 0) {
+           const d = new Date(userLogs.data[0].created_at);
+           lastSeen = d.toLocaleString('vi-VN');
+       }
+    }
 
-    if (isStaff) {
-      csiParams.email = user.email;
+    // Targets
+    const monthCol = targetMonthStr.endsWith('-') ? null : 'm' + targetMonthStr.split('-')[1];
+    let dashboard = { revenue: 0, raw_revenue: 0, iphone_revenue: 0, revenue_forecast: 0, orders: 0, kfi: 0, target: 0, percent_completion: '0.0', missing: 0 };
+    
+    salesRows.forEach(r => {
+       const iphone = r.iphone_revenue || 0;
+       const raw = r.revenue || 0;
+       dashboard.raw_revenue += raw;
+       dashboard.iphone_revenue += iphone;
+       dashboard.revenue += (raw - iphone + (iphone * 0.6));
+       dashboard.orders += (r.orders || 0);
+       dashboard.kfi += (r.kfi || 0);
+    });
+
+    let targetQuery = supabase.from('pv_terminal_monthly_targets').select('*');
+    if (qBranch) targetQuery = targetQuery.eq('terminal_code', qBranch);
+    else if (isStaff) targetQuery = targetQuery.eq('terminal_code', user.branch_code);
+    
+    const { data: targetRows } = await targetQuery;
+    
+    let targetRatio = 1;
+    if (periodValue === 'today') {
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        targetRatio = 1 / daysInMonth;
+    } else if (periodValue === 'week') {
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        targetRatio = 7 / daysInMonth;
+    }
+    
+    if (monthCol) {
+       dashboard.target = (targetRows || []).reduce((sum, r) => sum + Number(r[monthCol] || 0), 0) * 1000000 * targetRatio;
     } else {
-      if (filterBranch || (isManager && user.branch_code)) {
-        csiParams.branch = filterBranch || user.branch_code;
+       dashboard.target = (targetRows || []).reduce((sum, r) => {
+           let ySum = 0;
+           for(let i=1; i<=12; i++) {
+               const mc = 'm' + i.toString().padStart(2, '0');
+               ySum += Number(r[mc] || 0);
+           }
+           return sum + ySum;
+       }, 0) * 1000000 * targetRatio;
+    }
+    
+    if (dashboard.target > 0) {
+      dashboard.percent_completion = ((dashboard.revenue / dashboard.target) * 100).toFixed(1);
+      dashboard.missing = Math.max(0, dashboard.target - dashboard.revenue);
+      if (isStaff) {
+          const statsD = { total_revenue: dashboard.revenue, iphone_revenue: salesRows.reduce((s,r) => s+(r.iphone_revenue||0), 0), total_kfi: dashboard.kfi};
+          const bMetrics = calculateBonusMetrics(statsD, dashboard.target, true);
+          dashboard.bonus_total = bMetrics.bonus_total;
+          dashboard.bonus_over = bMetrics.bonus_over;
       }
     }
 
-    // Kiểm tra an toàn trước khi gọi BigQuery
-    if (typeof bigquery !== 'undefined' && bigquery) {
-      const [csi, fbList] = await Promise.all([
-        getCsiStats(csiParams),
-        getFeedbackList(csiParams)
-      ]);
-      csiData = csi;
-      feedbackList = fbList;
+    const dayOfMonth = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    if (periodValue === 'month' && dayOfMonth > 0) {
+      dashboard.revenue_forecast = Math.round((dashboard.revenue / dayOfMonth) * daysInMonth);
+      if (dashboard.target > 0) dashboard.percent_forecast = ((dashboard.revenue_forecast / dashboard.target) * 100).toFixed(1);
+    }
+    
+    const allTargetRows = (await supabase.from('pv_terminal_monthly_targets').select('*')).data || [];
+    const targetMap = {};
+    const globalBranchList = [];
+    allTargetRows.forEach(r => { 
+        if (monthCol) targetMap[r.terminal_code] = Number(r[monthCol] || 0) * 1000000 * targetRatio;
+        let brName = 'Chi Nhánh ' + r.terminal_code;
+        for (const [name, code] of Object.entries(TERMINAL_CODE_MAP)) {
+            if (code === r.terminal_code) {
+                brName = name.split(',')[0].trim();
+                break;
+            }
+        }
+        globalBranchList.push({ id: r.terminal_code, name: brName });
+    });
+
+    let tableSales = [];
+    let tableBranch = [];
+    
+    if (!isStaff) {
+      let hcTargets = {};
+      if (!targetMonthStr.endsWith('-')) {
+          const monthParts = targetMonthStr.split('-');
+          hcTargets = await getAllBranchTargets(parseInt(monthParts[1], 10), parseInt(monthParts[0], 10));
+      }
+
+      tableSales = (salesRows || []).map(r => {
+        const branchTarget = targetMap[r.branch_code] || 0;
+        let indTarget = 0;
+        if (hcTargets && hcTargets[r.branch_code]) {
+           indTarget = hcTargets[r.branch_code].individual_target || 0;
+        } else {
+           const branchStaffCount = (salesRows || []).filter(s => s.branch_code === r.branch_code).length || 1;
+           indTarget = branchTarget / branchStaffCount;
+        }
+
+        const smIphone = r.iphone_revenue || 0;
+        const smRevenue = (r.revenue || 0) - smIphone + (smIphone * 0.6);
+        const pctObj = indTarget > 0 ? (smRevenue / indTarget) * 100 : 0;
+        const pct = pctObj !== 0 ? pctObj.toFixed(1) : '0.0';
+        
+        let bonus_total = 0; let bonus_over = 0;
+        if (indTarget > 0) {
+          const numPct = parseFloat(pct);
+          const cappedPct = Math.min(numPct, 120) / 100;
+          const kfi = r.kfi || 0;
+          bonus_total = Math.round(kfi * cappedPct * 1000);
+          if (numPct > 120) bonus_over = Math.round((smRevenue - indTarget * 1.2) * 0.001);
+        }
+        return {
+          salesman: r.full_name || r.email, msnv: r.hrm_id || '',
+          branch: r.branch_code, email: r.email,
+          revenue: smRevenue, iphone_revenue: smIphone,
+          target: indTarget, percent_completion: pct,
+          missing: Math.max(0, indTarget - smRevenue),
+          kfi: r.kfi || 0, bonus_total, bonus_over
+        };
+      }).sort((a, b) => parseFloat(b.percent_completion || 0) - parseFloat(a.percent_completion || 0));
+
+      const branchMap = {};
+      salesRows.forEach(r => {
+         if(!branchMap[r.branch_code]) branchMap[r.branch_code] = { branch: r.branch_code, revenue: 0, iphone_revenue: 0, orders: 0, kfi: 0 };
+         branchMap[r.branch_code].revenue += (r.revenue || 0);
+         branchMap[r.branch_code].iphone_revenue += (r.iphone_revenue || 0);
+         branchMap[r.branch_code].orders += (r.orders || 0);
+         branchMap[r.branch_code].kfi += (r.kfi || 0);
+      });
+
+      tableBranch = Object.values(branchMap).map(b => {
+        const bt = targetMap[b.branch] || 0;
+        const bIphone = b.iphone_revenue || 0;
+        const bRevenue = (b.revenue - bIphone) + (bIphone * 0.6);
+        const pctObj = bt > 0 ? (bRevenue / bt) * 100 : 0;
+        const pct = pctObj !== 0 ? pctObj.toFixed(1) : '0.0';
+        const forecast = dayOfMonth > 0 ? Math.round((bRevenue / dayOfMonth) * daysInMonth) : 0;
+        const pfObj = bt > 0 ? (forecast / bt) * 100 : 0;
+        const pf = pfObj !== 0 ? pfObj.toFixed(1) : '0.0';
+        return { ...b, revenue: bRevenue, iphone_revenue: bIphone, target: bt, percent_completion: pct, missing: Math.max(0, bt - bRevenue), revenue_forecast: forecast, percent_forecast: pf };
+      }).sort((a, b) => parseFloat(b.percent_completion || 0) - parseFloat(a.percent_completion || 0));
     }
 
-    // --- 9. RENDER VIEW ---
+    let displayDate = targetMonthStr;
+    if (!targetMonthStr.endsWith('-')) {
+        const [yStr, mStr] = targetMonthStr.split('-');
+        const maxD = new Date(parseInt(yStr, 10), parseInt(mStr, 10), 0).getDate();
+        const { data: latestKp } = await supabase
+          .from('daily_kpi_summaries')
+          .select('report_date')
+          .gte('report_date', `${targetMonthStr}-01`)
+          .lte('report_date', `${targetMonthStr}-${maxD}`)
+          .order('report_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (latestKp && latestKp.report_date) displayDate = latestKp.report_date;
+    }
+
+    let csiParams = { period: targetMonthStr };
+    if (isStaff) csiParams.email = user.email;
+    else if (qBranch) csiParams.branch = qBranch;
+
+    let csiData = { csi_percent: 0, feedback_count: 0, unavailable: false };
+    let feedbackList = [];
+    try {
+      const [csi, fbList] = await Promise.all([getCsiStats(csiParams), getFeedbackList(csiParams)]);
+      csiData = csi; feedbackList = fbList;
+    } catch (csiErr) {
+      csiData = { unavailable: true, quotaExceeded: false };
+    }
+
     res.render('profile', {
       title: 'Dashboard Hiệu Suất', currentPage: 'profile', user,
       role: { isStaff, isManager, isGlobalAdmin },
-      period: { value: period, label: dateInfo.label },
+      period: { value: periodValue, label: periodValue },
       filterBranch,
-      branchList: Object.keys(allTargetsMap).sort(),
+      branchList: globalBranchList.sort(),
       profile: myProfile,
       onlineTime: lastSeen,
-      staffChartData: staffChartData,
-      dashboard: dashboardData,
-      tableSales,
-      tableBranch,
-      formatCompact,
-      dataDate: lastUpdateStr,
-      csiData: csiData,
-      feedbackList: feedbackList
+      staffChartData: [],
+      dashboard, tableSales, tableBranch,
+      formatCompact: (num) => {
+          if (!num) return '0';
+          const n = Number(num);
+          if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2).replace(/\.00$/, '') + ' Tỷ';
+          if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + ' Tr';
+          if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + ' K';
+          return new Intl.NumberFormat('vi-VN').format(n);
+      },
+      dataDate: displayDate,
+      csiData, feedbackList
     });
 
   } catch (e) {
@@ -10596,165 +10653,144 @@ app.post('/admin/send-notification', requireAuth, async (req, res) => {
 
 // --- [HELPER] Lấy chỉ số CSI từ View đã Map (CẬP NHẬT LOGIC VALUE MỚI) ---
 // --- [HELPER] Lấy chỉ số CSI (PHIÊN BẢN FIX LỖI DATA RÁC) ---
-async function getCsiStats(options) {
-  const { email, branch, period } = options;
-  const dateFilter = getDateFilterCondition(period);
-  const csiSource = await resolveCsiSourceTable();
-  if (!csiSource) {
-    return { csi_percent: 0, feedback_count: 0, unavailable: true };
+// ==========================================
+// GOOGLE SHEETS CSI FALLBACK
+// ==========================================
+const CSI_SHEET_ID = '1ArSb_yXETKWKdXfODGSFzBh24RISwrpg5C0asWVxhwg';
+const CSI_RANGE = 'A2:AB';
+let csiSheetCache = null;
+let csiSheetCacheTime = 0;
+
+async function fetchCSISheetData() {
+  if (csiSheetCache && Date.now() - csiSheetCacheTime < 3600000) return csiSheetCache;
+  const sheets = await getGlobalSheetsClient();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: CSI_SHEET_ID });
+  let dataRows = [];
+  
+  for(let s of meta.data.sheets) {
+      const sheetName = s.properties.title;
+      try {
+          const res = await sheets.spreadsheets.values.get({ spreadsheetId: CSI_SHEET_ID, range: `'${sheetName}'!${CSI_RANGE}` });
+          if (res.data.values) {
+              dataRows = dataRows.concat(res.data.values);
+          }
+      } catch (e) {
+          console.error("Error reading sheet:", sheetName, e);
+      }
   }
-
-  const queryParams = {
-    startDate: dateFilter.start,
-    endDate: dateFilter.end
-  };
-
-  let whereClause = `WHERE PARSE_DATE('%d/%m/%Y', Ngay_KS) BETWEEN @startDate AND @endDate`;
-
-  if (email) {
-    whereClause += ` AND LOWER(Sale_Email_System) = LOWER(@email)`;
-    queryParams.email = email;
-  }
-  if (branch && branch !== 'HCM.BD') {
-    whereClause += ` AND (Branch_System = @branch OR Ma_SR = @branch)`;
-    queryParams.branch = branch;
-  }
-
-  const query = `
-        SELECT 
-            -- 1. Điểm Chuẩn (Dùng LIKE và TRIM để tránh lỗi dấu cách thừa)
-            COUNT(CASE 
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64) = 6 THEN 1 
-            END) * 3 as standard_score,
-
-            -- 2. Tính Điểm Thưởng (Dùng LIKE '%...%' để bắt đúng từ khóa quan trọng)
-            
-            -- Chào hỏi
-            SUM(CASE 
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Chao_hoi) LIKE 'Có%' THEN 3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Chao_hoi) LIKE 'Không%' THEN -3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Chao_hoi) LIKE '%quên%' THEN 1
-                ELSE 0 
-            END) as score_greeting,
-
-            -- Tư vấn
-            SUM(CASE 
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Tu_van) LIKE '%Tốt%' THEN 3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Tu_van) LIKE 'Tệ%' THEN -3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Tu_van) LIKE 'Bình thường%' THEN 1
-                ELSE 0 
-            END) as score_advice,
-
-            -- Lựa chọn
-            SUM(CASE 
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Lua_chon) LIKE 'Có%' THEN 3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Lua_chon) LIKE 'Không%' THEN -3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Lua_chon) LIKE 'Ko nhớ%' THEN 1
-                ELSE 0 
-            END) as score_choice,
-
-            -- Sản phẩm (Dùng 'Có' thay vì Hài lòng theo data thực tế bạn gửi)
-            SUM(CASE 
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(San_pham) LIKE 'Có%' THEN 3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(San_pham) LIKE 'Không%' THEN -3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(San_pham) LIKE 'Chưa sử dụng%' THEN 1
-                ELSE 0 
-            END) as score_satisfaction,
-
-            -- Giới thiệu
-            SUM(CASE 
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Gioi_thieu) LIKE 'Sẵn sàng%' THEN 3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Gioi_thieu) LIKE 'Không sẵn sàng%' THEN -3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Gioi_thieu) LIKE 'Đang cân nhắc%' THEN 1
-                ELSE 0 
-            END) as score_referral,
-
-            -- Zalo/App
-            SUM(CASE 
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Zalo_App) LIKE 'Có%' THEN 3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Zalo_App) LIKE 'Không%' THEN -3
-                WHEN TRIM(Ghi_nhan_cuoc_goi) LIKE '1.Đồng ý KS%' AND SAFE_CAST(Check_col AS INT64)=6 AND TRIM(Zalo_App) LIKE 'Ko nhớ%' THEN 1
-                ELSE 0 
-            END) as score_zalo,
-
-            -- Đếm số góp ý (Dùng Length > 1 để lọc ô chỉ có dấu cách)
-            COUNT(CASE WHEN Gop_y IS NOT NULL AND LENGTH(TRIM(Gop_y)) > 1 THEN 1 END) as feedback_count
-
-        FROM \`${csiSource}\`
-        ${whereClause}
-    `;
-
-  try {
-    const [rows] = await bigquery.query({ query, params: queryParams });
-    const res = rows[0] || {};
-
-    const totalBonus = (res.score_greeting || 0) * 0.05 +
-      (res.score_advice || 0) * 0.30 +
-      (res.score_choice || 0) * 0.15 +
-      (res.score_satisfaction || 0) * 0.30 +
-      (res.score_referral || 0) * 0.15 +
-      (res.score_zalo || 0) * 0.05;
-
-    const standard = res.standard_score || 1;
-    const csiPercent = (totalBonus / standard) * 100;
-
-    return {
-      csi_percent: csiPercent.toFixed(1),
-      feedback_count: res.feedback_count || 0,
-      unavailable: false
-    };
-
-  } catch (e) {
-    console.error("CSI Error:", e.message);
-    return { csi_percent: 0, feedback_count: 0, unavailable: true };
-  }
+  csiSheetCache = dataRows;
+  csiSheetCacheTime = Date.now();
+  return csiSheetCache;
 }
 
-// --- [HELPER] Lấy danh sách góp ý từ View ---
+async function getCsiStats(options) {
+  const data = await fetchCSISheetData();
+  let totalBonusScore = 0;
+  let standardScore = 0;
+  let feedbackCount = 0;
+  
+  data.forEach((row) => {
+    if (!row[1]) return;
+    const dateStr = (row[1] || '').trim();
+    
+    // Date filter
+    if (options.period) {
+        if (options.period === 'today') {
+           const d = new Date().toISOString().split('T')[0];
+           if (dateStr !== d) return;
+        } else if (/^\d{4}-\d{2}$/.test(options.period)) {
+           const [py, pm] = options.period.split('-');
+           const tSub = pm + '/' + py;
+           if (!dateStr.includes(tSub)) return;
+        }
+    }
+    
+    // Branch filter
+    const branch = (row[4] || '').trim();
+    if (options.branch && branch) {
+      if (branch.toLowerCase() !== options.branch.toLowerCase()) return;
+    }
+    
+    // Count feedback (col 19 = Góp ý)
+    const fb = (row[19] || '').trim();
+    if (fb !== '') {
+        feedbackCount++;
+    }
+
+    // Valid survey: col[12] starts with "1.Đồng ý KS" AND col[24] = "6"
+    const callRecord = (row[12] || '').trim();
+    const checkCol = (row[24] || '').trim();
+    if (!callRecord.startsWith('1.Đồng ý KS') || checkCol !== '6') return;
+    
+    // This is a valid survey — add base score of 3
+    standardScore += 3;
+    
+    // Weighted scoring per question
+    const q13 = (row[13] || '').trim(); // Chào hỏi
+    const q14 = (row[14] || '').trim(); // Tư vấn
+    const q15 = (row[15] || '').trim(); // Lựa chọn
+    const q16 = (row[16] || '').trim(); // Sản phẩm
+    const q17 = (row[17] || '').trim(); // Giới thiệu
+    const q18 = (row[18] || '').trim(); // Zalo/App
+    
+    // Score per question: positive=+3, negative=-3, neutral=+1
+    function scoreQ(val, pos, neg) {
+      if (val.startsWith(pos)) return 3;
+      if (val.startsWith(neg)) return -3;
+      return 1;
+    }
+    
+    const s_greeting    = scoreQ(q13, 'Có', 'Không') * 0.05;
+    const s_advice      = (q14.includes('Tốt') ? 3 : q14.startsWith('Tệ') ? -3 : 1) * 0.30;
+    const s_choice      = scoreQ(q15, 'Có', 'Không') * 0.15;
+    const s_satisfaction = scoreQ(q16, 'Có', 'Không') * 0.30;
+    const s_referral    = (q17.startsWith('Sẵn sàng') ? 3 : q17.startsWith('Không') ? -3 : 1) * 0.15;
+    const s_zalo        = scoreQ(q18, 'Có', 'Không') * 0.05;
+    
+    totalBonusScore += s_greeting + s_advice + s_choice + s_satisfaction + s_referral + s_zalo;
+  });
+  
+  const csi_percent = standardScore > 0 ? (totalBonusScore / standardScore) * 100 : 0;
+  return { csi_percent: csi_percent.toFixed(1), feedback_count: feedbackCount };
+}
+
 async function getFeedbackList(options) {
-  const { email, branch, period } = options;
-  const dateFilter = getDateFilterCondition(period);
-  const csiSource = await resolveCsiSourceTable();
-  if (!csiSource) return [];
-
-  const queryParams = { startDate: dateFilter.start, endDate: dateFilter.end };
-  let whereClause = `WHERE PARSE_DATE('%d/%m/%Y', Ngay_KS) BETWEEN @startDate AND @endDate AND Gop_y IS NOT NULL AND Gop_y != ''`;
-
-  // 1. Lọc theo Email (Chuẩn xác hơn nhờ View)
-  if (email) {
-    whereClause += ` AND LOWER(Sale_Email_System) = LOWER(@email)`;
-    queryParams.email = email;
-  }
-  // 2. Lọc theo Chi nhánh
-  if (branch && branch !== 'HCM.BD') {
-    whereClause += ` AND (Branch_System = @branch OR Ma_SR = @branch)`;
-    queryParams.branch = branch;
-  }
-
-  const query = `
-        SELECT 
-            Ngay_mua_hang, 
-            -- Ưu tiên lấy tên khách từ hệ thống Sales cho chuẩn, nếu ko có thì lấy từ Sheet
-            COALESCE(Customer_System, Nguoi_mua) as Nguoi_mua, 
-            SDT, 
-            COALESCE(Branch_System, Ma_SR) as Ma_SR, 
-            Ten_NV_Ban_hang, -- Vẫn hiển thị tên nhập tay để tham khảo
-            Sale_Email_System, -- Lấy thêm email hệ thống (nếu cần hiển thị tooltip)
-            Gop_y, 
-            Ghi_chu
-        FROM \`${csiSource}\`
-        ${whereClause}
-        ORDER BY PARSE_DATE('%d/%m/%Y', Ngay_KS) DESC
-        LIMIT 50
-    `;
-
-  try {
-    const [rows] = await bigquery.query({ query, params: queryParams });
-    return rows;
-  } catch (e) {
-    console.error("Feedback List Error:", e.message);
-    return [];
-  }
+  const data = await fetchCSISheetData();
+  const list = [];
+  data.forEach((row) => {
+    if (!row[1]) return;
+    const dateStr = row[1];
+    
+    if (options.period) {
+        if (options.period === 'today') {
+           const d = new Date().toISOString().split('T')[0];
+           if (dateStr !== d) return;
+        } else if (/^\d{4}-\d{2}$/.test(options.period)) {
+           const [py, pm] = options.period.split('-');
+           const tSub = pm + '/' + py;
+           if (!dateStr.includes(tSub)) return;
+        }
+    }
+    
+    const branch = row[4];
+    if (options.branch && branch) {
+      if (branch.toLowerCase() !== options.branch.toLowerCase()) return;
+    }
+    
+    const fb = (row[19] || '').trim();
+    if (fb.length > 1) {
+        list.push({
+            Ngay_mua_hang: row[7] || row[1] || '',
+            Nguoi_mua: row[8] || 'Khách',
+            SDT: row[9] || '',
+            Ma_SR: row[4] || '',
+            Ten_NV_Ban_hang: row[5] || '',
+            Gop_y: fb,
+            Ghi_chu: row[22] || ''
+        });
+    }
+  });
+  return list;
 }
 // ======================= SALES DASHBOARD =======================
 
