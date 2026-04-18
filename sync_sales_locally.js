@@ -39,8 +39,8 @@ async function syncSalesData() {
         }
 
         console.log(`Processing ${fileObj.year} data from ${fileObj.path}...`);
-        
-        const stream = fileObj.isGz 
+
+        const stream = fileObj.isGz
             ? fs.createReadStream(fileObj.path).pipe(zlib.createGunzip())
             : fs.createReadStream(fileObj.path);
 
@@ -54,7 +54,7 @@ async function syncSalesData() {
 
                         const date = new Date(reportDateRaw);
                         if (isNaN(date.getTime())) return;
-                        
+
                         const dateStr = date.toISOString().split('T')[0];
                         const monthStr = dateStr.substring(0, 7); // YYYY-MM
                         const branchCode = row['Branch_code'] || row['Branch code'];
@@ -68,7 +68,7 @@ async function syncSalesData() {
                         const isIphone = subcatId === 'NH05-02-01-01';
                         // KFI: CSV uses Sale_point_per_item (underscore) - fallback to space version for older files
                         const kfi = parseFloat(row['Sale_point_per_item'] || row['Sale point per item'] || row['KFI'] || 0);
-                        
+
                         const taxCode = (row['Billing_tax_code'] || row['Billing tax code'] || row['Tax_Code'] || '').trim();
                         const customerName = row['Customer_full_name'] || row['Customer full name'] || row['Customer_Name'] || 'Khách lẻ';
                         const phone = row['SDT'] || row['Phone'] || '';
@@ -159,7 +159,7 @@ async function upsertInBatches(table, data, onConflictColumns) {
         const { error } = await supabase
             .from(table)
             .upsert(batch, { onConflict: onConflictColumns.join(',') });
-        
+
         if (error) {
             console.error(`Error upserting ${table} batch at index ${i}:`, error.message);
         }

@@ -1102,9 +1102,8 @@ const assignedBadge = cust.is_assigned_group
                 ? `<input type="checkbox" class="form-check-input bulk-check" value="${repOrderCode}" onchange="updateBulkAction()">`
                 : `<span style="color:#cbd5e1">•</span>`;
 
-            // --- RENDER DÒNG CHA ---
             html += `
-                <tr class="parent-row" onclick="toggleDetail('${rowId}', this)">
+                <tr class="parent-row" onclick="toggleDetail(${index}, '${rowId}', this)">
                     <td style="text-align:center;" onclick="event.stopPropagation()">
                         ${checkCell}
                     </td>
@@ -1135,7 +1134,7 @@ const assignedBadge = cust.is_assigned_group
                                 📞 Care
                             </button>
                             <button class="btn-care" style="background:#fff; color:#2563eb; padding:4px 8px;"
-                                onclick="event.stopPropagation(); toggleDetail('${rowId}', this.closest('tr'))">
+                                onclick="event.stopPropagation(); toggleDetail(${index}, '${rowId}', this.closest('tr'))">
                                 👁️ Xem
                             </button>
                         </div>
@@ -1191,14 +1190,69 @@ const assignedBadge = cust.is_assigned_group
         container.innerHTML = html;
     }
 
-    function toggleDetail(rowId, trElement) {
+    async function toggleDetail(index, rowId, trElement) {
         const detailRow = document.getElementById(rowId);
         if (detailRow.classList.contains('show')) {
             detailRow.classList.remove('show');
             trElement.classList.remove('expanded');
-        } else {
-            detailRow.classList.add('show');
-            trElement.classList.add('expanded');
+            return;
+        } 
+        
+        detailRow.classList.add('show');
+        trElement.classList.add('expanded');
+
+        const cust = globalWorkListData[index];
+        if (!cust) return;
+
+        if (!cust.fullLoaded) {
+            const tbody = detailRow.querySelector('tbody');
+            if(tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">⏳ Đang tải sản phẩm...</td></tr>';
+            
+            try {
+                const taxCode = cust.Tax_Code || '';
+                const custName = cust.Customer_Name || '';
+                const month = document.getElementById('wlMonth') ? document.getElementById('wlMonth').value : 'all';
+                const branch = document.getElementById('wlBranch') ? document.getElementById('wlBranch').value : 'all';
+                
+                const res = await fetch(`/api/cskh/customer-orders?taxCode=${encodeURIComponent(taxCode)}&customerName=${encodeURIComponent(custName)}&month=${month}&branch=${branch}`);
+                const json = await res.json();
+                
+                if (json.ok && json.data) {
+                    cust.Orders = json.data;
+                    cust.fullLoaded = true;
+                    
+                    let html = '';
+                    const seenOrders = new Set();
+                    cust.Orders.forEach(order => {
+                        if(seenOrders.has(order.Order_code)) return;
+                        seenOrders.add(order.Order_code);
+
+                        const orderRev = new Intl.NumberFormat('vi-VN').format(order.Revenue);
+                        const orderStatus = order.status === 'Đã chăm sóc' 
+                            ? `<span style="color:#16a34a; font-weight:600; font-size:12px;">${order.result} ${order.carer_name ? `(${order.carer_name})` : ''}</span>` 
+                            : '<span style="color:#94a3b8; font-size:12px;">-</span>';
+
+                        const productDisplay = `<div style="font-size:13px; line-height:1.6;">${order.Product_Display_Html}</div>`;
+                        
+                        html += `
+                            <tr>
+                                <td>${order.Report_date || '-'}</td>
+                                <td><span class="badge badge-subgroup">${order.Branch_code || '-'}</span></td>
+                                <td style="font-size:11px; color:#64748b;">${order.Sales_Email ? order.Sales_Email.split('@')[0] : 'N/A'}</td>
+                                <td style="color:#2563eb; font-weight:600;">${order.Order_code}</td>
+                                <td>${productDisplay}</td>
+                                <td style="font-weight:700;">${orderRev} ₫</td>
+                                <td>${orderStatus}</td>
+                            </tr>`;
+                    });
+                    if(html === '') html = '<tr><td colspan="7" style="text-align:center;">Không có dữ liệu</td></tr>';
+                    if(tbody) tbody.innerHTML = html;
+                } else {
+                    if(tbody) tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Lỗi: ${json.error}</td></tr>`;
+                }
+            } catch(e) {
+                if(tbody) tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Lỗi kết nối</td></tr>`;
+            }
         }
     }
 
@@ -1341,10 +1395,39 @@ const assignedBadge = cust.is_assigned_group
     let currentBreakdownIndex = null; // Lưu index khách hàng đang xem
 
 // 1. HÀM MỞ MODAL (CẤP 1)
-function showOrderBreakdown(index) {
+async function showOrderBreakdown(index) {
     currentBreakdownIndex = index;
     const cust = globalWorkListData[index];
-    if (!cust || !cust.Orders) return;
+    if (!cust) return;
+
+    if (!cust.Orders || !cust.Orders[0] || !cust.Orders[0].Order_code) {
+        try {
+            const taxCode = cust.Tax_Code || '';
+            const custName = cust.Customer_Name || '';
+            const month = document.getElementById('wlMonth') ? document.getElementById('wlMonth').value : 'all';
+            const branch = document.getElementById('wlBranch') ? document.getElementById('wlBranch').value : 'all';
+            
+            document.getElementById('breakdownCustomerName').innerText = `Khách hàng: ${custName} (Đang tải...)`;
+            document.getElementById('breakdownModal').style.display = 'flex';
+            document.getElementById('breakdownTableBody').innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px;">⏳ Đang tải chi tiết đơn hàng...</td></tr>';
+            
+            const res = await fetch(`/api/cskh/customer-orders?taxCode=${encodeURIComponent(taxCode)}&customerName=${encodeURIComponent(custName)}&month=${month}&branch=${branch}`);
+            const json = await res.json();
+            if (json.ok) {
+                cust.Orders = json.data;
+                cust.fullLoaded = true;
+            } else {
+                alert('Lỗi tải chi tiết đơn hàng: ' + json.error);
+                return;
+            }
+        } catch (e) {
+            console.error(e);
+            return;
+        }
+    }
+
+    // Nếu không có mảng Orders thì set dạng mảng rỗng để không lỗi
+    if (!cust.Orders) cust.Orders = [];
 
     // Reset giao diện về cấp 1
     document.getElementById('breakdownNav').style.display = 'none';
@@ -1454,21 +1537,16 @@ async function openMatrixDetail(userId, resultType, branchName) {
     const tbody = document.getElementById('matrixDetailBody');
     const title = document.getElementById('matrixDetailTitle');
     
-    // Lấy tháng đang chọn ở bộ lọc (để biết xem tháng nào)
-    const currentMonth = document.getElementById('wlMonth').value; 
-    // Nếu đang chọn "All" hoặc filter khác, mặc định lấy tháng hiện tại cho dashboard này (vì dashboard là "Tháng này")
-    // Tuy nhiên dashboard của bạn đang cố định là "Tháng này" (logic server). 
-    // Tốt nhất lấy giá trị từ input month, nếu 'all' thì fallback về tháng hiện tại.
-    const d = new Date();
-    const queryMonth = (currentMonth === 'all') ? d.toISOString().slice(0, 7) : currentMonth;
+    const startDate = "<%= filters.start %>";
+    const endDate = "<%= filters.end %>";
 
-    title.innerText = `${resultType} - ${branchName} (Tháng ${queryMonth})`;
+    title.innerText = `${resultType} - ${branchName} (${startDate} đến ${endDate})`;
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">⏳ Đang tải dữ liệu...</td></tr>';
     modal.style.display = 'flex';
 
     try {
         // 2. Gọi API
-        const res = await fetch(`/api/cskh/matrix-detail?userId=${userId}&resultType=${encodeURIComponent(resultType)}&month=${queryMonth}&branch=${encodeURIComponent(branchName)}`);
+        const res = await fetch(`/api/cskh/matrix-detail?userId=${userId}&resultType=${encodeURIComponent(resultType)}&start=${startDate}&end=${endDate}&branch=${encodeURIComponent(branchName)}`);
         const json = await res.json();
 
         if (json.ok) {

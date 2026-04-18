@@ -1,543 +1,306 @@
 <%- include('partials/header', { title, currentPage }) %>
 
 <style>
-  .bom-dashboard-card {
-    border-radius: 18px;
-    border: 1px solid #dbeafe;
-    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 32%);
-    box-shadow: 0 12px 32px rgba(2, 132, 199, 0.09);
-  }
+  /* ======================================================
+     BOM DASHBOARD - MODERN REDESIGN
+     ====================================================== */
+  .bom-page { padding: 0; }
 
-  .bom-heading {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 14px;
-  }
-
-  .bom-heading .dash-title {
-    margin-bottom: 0;
-  }
-
-  .bom-subtitle {
-    margin-top: 6px;
-    color: #475569;
-    font-size: 13px;
-  }
-
-  .bom-top-panels {
+  /* ── KPI Header cards ── */
+  .bom-kpi-strip {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 20px;
   }
-
-  .bottleneck-overview {
-    border: 1px solid #fed7aa;
+  .bom-kpi {
+    background: #fff;
+    border: 1px solid #e2e8f0;
     border-radius: 14px;
-    background: linear-gradient(145deg, #fff7ed, #fff);
-    padding: 12px;
-  }
-
-  .bottleneck-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-
-  .bottleneck-title {
-    font-size: 14px;
-    font-weight: 800;
-    color: #9a3412;
-  }
-
-  .bottleneck-note {
-    font-size: 12px;
-    color: #9a3412;
-    background: #ffedd5;
-    border: 1px solid #fdba74;
-    border-radius: 999px;
-    padding: 4px 10px;
-    font-weight: 700;
-  }
-
-  .bottleneck-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-    gap: 8px;
-  }
-
-  .bottleneck-card {
-    border: 1px solid #fdba74;
-    border-radius: 10px;
-    background: #fff;
-    padding: 9px 10px;
-  }
-
-  .bottleneck-card .sku {
-    font-size: 12px;
-    font-weight: 800;
-    color: #7c2d12;
-    margin-bottom: 3px;
-  }
-
-  .bottleneck-card .name {
-    font-size: 12px;
-    color: #7c2d12;
-    min-height: 32px;
-  }
-
-  .bottleneck-stats {
-    margin-top: 6px;
-    display: flex;
-    gap: 8px;
-    font-size: 11px;
-  }
-
-  .bottleneck-stats span {
-    border-radius: 999px;
-    padding: 2px 8px;
-    font-weight: 700;
-    background: #fff7ed;
-    color: #9a3412;
-    border: 1px solid #fdba74;
-  }
-
-  .bottleneck-empty {
-    font-size: 12px;
-    color: #64748b;
-    background: #fff;
-    border: 1px dashed #cbd5e1;
-    border-radius: 10px;
-    padding: 10px;
-  }
-
-  .bom-metrics {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(130px, 1fr));
-    gap: 10px;
-    min-width: 320px;
-  }
-
-  .bom-metric {
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid #dbeafe;
-    background: #f8fbff;
-  }
-
-  .bom-metric .label {
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #64748b;
-    margin-bottom: 4px;
-  }
-
-  .bom-metric .value {
-    font-size: 19px;
-    font-weight: 800;
-    color: #0f172a;
-  }
-
-  .toolbar-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: flex-end;
-    margin-bottom: 14px;
-  }
-
-  .action-controls {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .action-controls .btn {
-    white-space: nowrap;
-  }
-
-  .btn-status {
-    background: #f8fafc;
-    color: #334155;
-    border: 1px solid #cbd5e1;
-  }
-
-  .btn-status.active {
-    background: #0ea5e9;
-    border-color: #0284c7;
-    color: #fff;
-  }
-
-  .sort-control {
-    min-width: 190px;
-    border: 1px solid #cbd5e1;
-    background: #fff;
-    border-radius: 10px;
-    padding: 8px 10px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #334155;
-  }
-
-  .btn-highlight {
-    background: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fcd34d;
-  }
-
-  .btn-highlight.active {
-    background: #f59e0b;
-    color: #fff;
-    border-color: #d97706;
-  }
-
-  .search-controls {
-    display: flex;
-    gap: 10px;
-    width: 100%;
-  }
-
-  .search-controls .search-input {
-    flex: 1;
-    min-width: 230px;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 14px;
-    background: #fff;
-  }
-
-  .search-controls .search-input:focus {
-    outline: none;
-    border-color: #0ea5e9;
-    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
-  }
-
-  .filter-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 12px;
-  }
-
-  .filter-tabs a {
-    text-decoration: none;
-    padding: 8px 14px;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 700;
-    color: #334155;
-    background: #f1f5f9;
-    border: 1px solid transparent;
-    transition: all 0.2s ease;
-  }
-
-  .filter-tabs a:hover {
-    background: #e2e8f0;
-  }
-
-  .filter-tabs a.active {
-    background: #0ea5e9;
-    color: #fff;
-    border-color: #0284c7;
-    box-shadow: 0 6px 14px rgba(14, 165, 233, 0.22);
-  }
-
-  .term-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
-
-  .term-chip {
-    font-size: 12px;
-    color: #334155;
-    background: #f8fafc;
-    border: 1px solid #cbd5e1;
-    border-radius: 999px;
-    padding: 5px 10px;
-    font-weight: 600;
-  }
-
-  .term-chip strong {
-    color: #0f172a;
-  }
-
-  .table-scroll-wrapper {
-    overflow: auto;
-    max-height: 72vh;
-    border: 1px solid #dbeafe;
-    border-radius: 12px;
-    background: #fff;
-  }
-
-  .info-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 980px;
-  }
-
-  .info-table th {
-    background: #f8fafc;
-    padding: 11px 12px;
-    text-align: left;
-    font-size: 12px;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    font-weight: 700;
-    color: #334155;
-    border: 1px solid #dee2e6;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-  }
-
-  .info-table td {
-    padding: 9px 12px;
-    border: 1px solid #dee2e6;
-    background: white;
-    font-size: 13px;
-    vertical-align: top;
-  }
-
-  .info-table tbody tr:hover td {
-    background: #f8fafc;
-  }
-
-  .total-column {
-    text-align: right;
-    background: #f0f9ff !important;
-    border-left: 2px solid #0284c7 !important;
-    border-right: 2px solid #0284c7 !important;
-  }
-
-  .branch-column {
-    text-align: right;
-  }
-
-  .toggle-cell {
-    width: 56px;
-    text-align: center;
-  }
-
-  .toggle-details {
-    width: 30px;
-    height: 30px;
-    border: 1px solid #bae6fd;
-    border-radius: 999px;
-    background: #ecfeff;
-    color: #0c4a6e;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-  }
-
-  .toggle-details:hover {
-    background: #dbeafe;
-    transform: translateY(-1px);
-  }
-
-  .toggle-details .chevron {
-    font-size: 14px;
-    line-height: 1;
-    transition: transform 0.2s ease;
-  }
-
-  .toggle-details.open .chevron {
-    transform: rotate(180deg);
-  }
-
-  .stock-chip {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 4px;
-  }
-
-  .stock-chip:last-child {
-    margin-bottom: 0;
-  }
-
-  .product-main {
+    padding: 16px 18px;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    transition: box-shadow .2s ease;
   }
-
-  .product-name {
-    font-weight: 700;
-    color: #0f172a;
-  }
-
-  .product-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .meta-pill {
-    font-size: 11px;
-    font-weight: 700;
-    border-radius: 999px;
-    padding: 3px 8px;
-    border: 1px solid #cbd5e1;
-    background: #f8fafc;
-    color: #475569;
-  }
-
-  .meta-pill.warn {
-    background: #fff7ed;
-    border-color: #fdba74;
-    color: #9a3412;
-  }
-
-  .meta-pill.good {
-    background: #ecfeff;
-    border-color: #7dd3fc;
-    color: #0c4a6e;
-  }
-
-  .product-missing {
-    margin-top: 2px;
-    font-size: 11px;
-    color: #9a3412;
-    line-height: 1.5;
-    font-weight: 600;
-  }
-
-  .stock-label {
+  .bom-kpi:hover { box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+  .bom-kpi .kpi-label {
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.02em;
+    letter-spacing: .06em;
+    color: #64748b;
   }
-
-  .stock-label-ton {
-    color: #475569;
-  }
-
-  .stock-label-rap {
-    color: #0369a1;
-  }
-
-  .stock-value {
-    font-weight: 700;
+  .bom-kpi .kpi-value {
+    font-size: 26px;
+    font-weight: 800;
     color: #0f172a;
+    line-height: 1;
   }
-
-  .component-detail-row {
-    display: none;
-    background: #f8fafc;
-  }
-
-  .component-detail-row.open {
-    display: table-row;
-  }
-
-  .component-detail-row td {
-    font-size: 13px;
-    color: #334155;
-    border-top: 1px dashed #cbd5e1 !important;
-  }
-
-  .component-detail-row .sku-cell {
-    padding-left: 25px !important;
-  }
-
-  .component-detail-header th {
-    background: #eef2ff !important;
+  .bom-kpi .kpi-sub {
     font-size: 11px;
-    color: #475569;
+    color: #94a3b8;
   }
+  .bom-kpi.danger  { border-color: #fca5a5; background: #fff5f5; }
+  .bom-kpi.danger .kpi-value { color: #dc2626; }
+  .bom-kpi.success { border-color: #86efac; background: #f0fdf4; }
+  .bom-kpi.success .kpi-value { color: #16a34a; }
+  .bom-kpi.info    { border-color: #93c5fd; background: #eff6ff; }
+  .bom-kpi.info .kpi-value   { color: #2563eb; }
 
-  .bottleneck {
-    background-color: #fef9c3 !important;
-    color: #713f12 !important;
-    font-weight: 700 !important;
+  /* ── Bottleneck radar panel ── */
+  .bottleneck-radar {
+    background: linear-gradient(135deg, #fff7ed 0%, #fff 70%);
+    border: 1px solid #fed7aa;
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
   }
-
-  .component-cell {
-    font-size: 12px;
-    color: #0f172a;
-  }
-
-  .pagination-controls {
+  .bottleneck-radar-head {
     display: flex;
-    justify-content: center;
     align-items: center;
-    flex-wrap: wrap;
     gap: 10px;
-    margin-top: 20px;
+    margin-bottom: 12px;
+  }
+  .bottleneck-radar-title {
+    font-size: 14px; font-weight: 800; color: #9a3412;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .bottleneck-radar-badge {
+    background: #fef3c7; border: 1px solid #fcd34d;
+    color: #92400e; border-radius: 999px;
+    padding: 3px 10px; font-size: 11px; font-weight: 700;
+  }
+  .bottleneck-chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .bottleneck-chip {
+    background: #fff; border: 1px solid #fdba74;
+    border-radius: 10px; padding: 8px 12px;
+    display: flex; flex-direction: column; gap: 3px;
+    min-width: 170px; max-width: 220px;
+    box-shadow: 0 2px 5px rgba(251,146,60,.1);
+  }
+  .bottleneck-chip .chip-sku { font-size: 12px; font-weight: 800; color: #7c2d12; }
+  .bottleneck-chip .chip-name { font-size: 11px; color: #9a3412; line-height: 1.4; }
+  .bottleneck-chip .chip-stats { display: flex; gap: 6px; margin-top: 3px; }
+  .bottleneck-chip .chip-stats span {
+    font-size: 10px; font-weight: 700;
+    border-radius: 999px; padding: 2px 7px;
+    background: #ffedd5; color: #c2410c; border: 1px solid #fdba74;
+  }
+  .bottleneck-empty-msg {
+    font-size: 13px; color: #15803d;
+    background: #dcfce7; border: 1px solid #86efac;
+    border-radius: 10px; padding: 10px 14px; font-weight: 600;
   }
 
-  .pagination-controls a.btn[disabled] {
-    pointer-events: none;
-    opacity: 0.5;
+  /* ── Toolbar ── */
+  .bom-toolbar {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    align-items: center; margin-bottom: 16px;
+  }
+  .bom-search-input {
+    flex: 1; min-width: 220px;
+    border: 1px solid #cbd5e1; border-radius: 10px;
+    padding: 9px 14px; font-size: 14px; background: #fff;
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  .bom-search-input:focus {
+    outline: none; border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+  }
+  .bom-filter-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .bom-filter-btns .btn { font-size: 12px; padding: 6px 12px; border-radius: 8px; }
+  .bom-filter-btns .btn.active {
+    background: #2563eb; color: #fff; border-color: #2563eb;
+  }
+  .bom-sort-select {
+    border: 1px solid #cbd5e1; background: #fff;
+    border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600;
+    color: #334155; cursor: pointer;
   }
 
-  .pagination-controls .page-info select {
-    padding: 6px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
+  /* ── Type tabs ── */
+  .bom-type-tabs {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 14px;
+    border-bottom: 2px solid #f1f5f9;
+    padding-bottom: 14px;
+  }
+  .bom-type-tab {
+    text-decoration: none; padding: 7px 16px;
+    border-radius: 999px; font-size: 13px; font-weight: 700;
+    color: #64748b; background: #f8fafc; border: 1px solid transparent;
+    transition: all .2s ease;
+  }
+  .bom-type-tab:hover { background: #e2e8f0; color: #334155; }
+  .bom-type-tab.active {
+    background: #2563eb; color: #fff; border-color: #1d4ed8;
+    box-shadow: 0 4px 14px rgba(37,99,235,.25);
   }
 
-  .muted-row {
+  /* ── Main Product Cards ── */
+  .bom-card-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .bom-product-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    transition: box-shadow .2s ease, border-color .2s ease;
+  }
+  .bom-product-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.09); }
+  .bom-product-card.has-bottleneck { border-color: #fca5a5; }
+  .bom-product-card.all-good { border-color: #86efac; }
+
+  .bom-product-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; cursor: pointer;
+    user-select: none;
+  }
+  .bom-product-header:hover { background: #f8fafc; }
+
+  .bom-toggle-btn {
+    width: 28px; height: 28px; flex-shrink: 0;
+    border: 1px solid #e2e8f0; border-radius: 50%;
+    background: #f8fafc; color: #64748b;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; transition: all .2s ease; cursor: pointer;
+  }
+  .bom-toggle-btn.open { background: #eff6ff; border-color: #93c5fd; color: #2563eb; }
+  .bom-toggle-btn .chevron { transition: transform .25s ease; display: inline-block; }
+  .bom-toggle-btn.open .chevron { transform: rotate(180deg); }
+
+  .bom-product-info { flex: 1; min-width: 0; }
+  .bom-product-sku {
+    font-size: 12px; font-weight: 800; color: #2563eb;
+    margin-bottom: 2px; letter-spacing: .02em;
+  }
+  .bom-product-name {
+    font-size: 14px; font-weight: 700; color: #0f172a;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .bom-product-badges { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .bom-badge {
+    font-size: 11px; font-weight: 700; border-radius: 999px;
+    padding: 3px 9px; border: 1px solid transparent;
+  }
+  .bom-badge.ok { background: #dcfce7; color: #15803d; border-color: #86efac; }
+  .bom-badge.warn { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+  .bom-badge.danger { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+
+  .bom-stock-summary {
+    display: flex; gap: 16px; flex-shrink: 0;
+    align-items: center; text-align: right;
+  }
+  .bom-stock-block .sb-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; color: #94a3b8;
+    letter-spacing: .04em;
+  }
+  .bom-stock-block .sb-value {
+    font-size: 20px; font-weight: 800; color: #0f172a; line-height: 1.1;
+  }
+  .bom-stock-block .sb-value.blue { color: #2563eb; }
+  .bom-branch-pills {
+    display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
+    margin-top: 4px;
+  }
+  .branch-pill {
+    font-size: 10px; font-weight: 700; border-radius: 6px;
+    padding: 3px 7px; border: 1px solid #e2e8f0; background: #f8fafc;
+    color: #334155; white-space: nowrap;
+  }
+  .branch-pill.bp-ok { background: #dcfce7; border-color: #86efac; color: #15803d; }
+  .branch-pill.bp-warn { background: #fef9c3; border-color: #fde047; color: #854d0e; }
+  .branch-pill.bp-danger { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
+
+  /* ── Component detail block ── */
+  .bom-components-panel {
     display: none;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+    padding: 12px 16px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .bom-components-panel.open { display: flex; }
+  .bom-comp-header {
+    font-size: 11px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .06em; color: #94a3b8; margin-bottom: 4px;
+    padding-bottom: 6px; border-bottom: 1px dashed #e2e8f0;
+  }
+  .bom-comp-item {
+    display: grid;
+    grid-template-columns: 200px auto 1fr;
+    align-items: center;
+    gap: 12px;
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 10px; padding: 9px 14px;
+    transition: border-color .15s ease;
+  }
+  .bom-comp-item.comp-bottleneck {
+    border-color: #fca5a5; background: #fff5f5;
+  }
+  .bom-comp-item.comp-ok { border-color: #86efac; background: #f0fdf4; }
+  .bom-comp-meta { min-width: 0; }
+  .bom-comp-sku  { font-size: 11px; font-weight: 800; color: #2563eb; white-space: nowrap; }
+  .bom-comp-name { font-size: 12px; font-weight: 600; color: #0f172a; margin-top: 1px; }
+  .bom-comp-req {
+    font-size: 12px; color: #64748b; white-space: nowrap;
+    background: #f1f5f9; border-radius: 999px; display: inline-block;
+    padding: 3px 10px; font-weight: 700; text-align: center;
+  }
+  .bom-comp-stocks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
+  .comp-stock-chip {
+    display: flex; flex-direction: column; align-items: center;
+    border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 5px 9px; min-width: 72px; background: #f8fafc; gap: 1px;
+  }
+  .comp-stock-chip .csc-branch {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: #94a3b8;
+  }
+  .comp-stock-chip .csc-have {
+    font-size: 20px; font-weight: 800; line-height: 1.1;
+  }
+  .comp-stock-chip .csc-need {
+    font-size: 9px; color: #94a3b8; font-weight: 600;
+  }
+  .comp-stock-chip.csc-ok { border-color: #86efac; background: #f0fdf4; }
+  .comp-stock-chip.csc-ok .csc-have { color: #16a34a; }
+  .comp-stock-chip.csc-danger { border-color: #fca5a5; background: #fff5f5; }
+  .comp-stock-chip.csc-danger .csc-have { color: #dc2626; }
+  .comp-stock-chip.csc-warn { border-color: #fde047; background: #fefce8; }
+  .comp-stock-chip.csc-warn .csc-have { color: #ca8a04; }
+
+  /* ── No-result / Empty ── */
+  .bom-empty {
+    text-align: center; padding: 60px 20px; color: #64748b;
+  }
+  .bom-empty .bom-empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .bom-empty p { font-size: 14px; }
+
+  /* ── Pagination ── */
+  .bom-pagination {
+    display: flex; justify-content: center; align-items: center;
+    flex-wrap: wrap; gap: 8px; margin-top: 24px;
+  }
+  .bom-pagination a.btn[disabled] { pointer-events: none; opacity: .5; }
+  .bom-pagination select {
+    padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+    font-size: 13px; cursor: pointer;
   }
 
-  @media (max-width: 980px) {
-    .toolbar-row {
-      align-items: stretch;
-    }
-
-    .bom-metrics {
-      min-width: 100%;
-      grid-template-columns: repeat(3, minmax(90px, 1fr));
-    }
-
-    .action-controls {
-      width: 100%;
-    }
-
-    .sort-control {
-      width: 100%;
-    }
-  }
-
-  @media (max-width: 720px) {
-    .bom-heading {
-      flex-direction: column;
-    }
-
-    .bom-metrics {
-      grid-template-columns: repeat(2, minmax(120px, 1fr));
-    }
-
-    .search-controls {
-      flex-direction: column;
-    }
-
-    .search-controls .btn {
-      width: 100%;
-    }
-
-    .action-controls .btn {
-      flex: 1 1 48%;
-    }
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .bom-toolbar { flex-direction: column; align-items: stretch; }
+    .bom-product-header { flex-wrap: wrap; gap: 8px; }
+    .bom-stock-summary { flex-direction: row; justify-content: flex-start; }
+    .bom-kpi-strip { grid-template-columns: repeat(2, 1fr); }
+    .bom-comp-stocks { justify-content: flex-start; }
   }
 </style>
 
@@ -552,655 +315,443 @@
 
   (results || []).forEach((row) => {
     totalFinalStockPage += numberOf(row.finalStock_Total);
-    totalBuildablePage += numberOf(row.buildable_Total);
-    totalGapPage += Math.max(0, numberOf(row.finalStock_Total) - numberOf(row.buildable_Total));
+    totalBuildablePage  += numberOf(row.buildable_Total);
+    totalGapPage        += Math.max(0, numberOf(row.finalStock_Total) - numberOf(row.buildable_Total));
 
     let rowHasBottleneck = false;
     (row.components || []).forEach((comp) => {
       const needQty = Math.max(1, numberOf(comp.need || 1));
-      let componentShortageQty = 0;
-      let componentShortageBranches = 0;
+      let componentShortage = 0;
+      let componentAffected = 0;
       branchScope.forEach((branchName) => {
         const haveQty = numberOf(comp.branches?.[branchName]?.have);
         if (haveQty < needQty) {
-          componentShortageBranches += 1;
-          componentShortageQty += (needQty - haveQty);
+          componentAffected += 1;
+          componentShortage += (needQty - haveQty);
           rowHasBottleneck = true;
         }
       });
-
-      if (componentShortageBranches > 0) {
-        const cache = bottleneckAccumulator.get(comp.sku) || {
-          sku: comp.sku,
-          name: comp.name || 'Linh kiện',
-          shortageQty: 0,
-          affectedBranches: 0
-        };
-        cache.shortageQty += componentShortageQty;
-        cache.affectedBranches += componentShortageBranches;
+      if (componentAffected > 0) {
+        const cache = bottleneckAccumulator.get(comp.sku) || { sku: comp.sku, name: comp.name || 'Linh kiện', shortageQty: 0, affectedBranches: 0 };
+        cache.shortageQty    += componentShortage;
+        cache.affectedBranches += componentAffected;
         bottleneckAccumulator.set(comp.sku, cache);
       }
     });
-
     if (rowHasBottleneck) totalSkusHavingBottleneck += 1;
   });
 
   const topBottlenecks = Array.from(bottleneckAccumulator.values())
-    .sort((a, b) => {
-      if (b.shortageQty !== a.shortageQty) return b.shortageQty - a.shortageQty;
-      return b.affectedBranches - a.affectedBranches;
-    })
-    .slice(0, 8);
+    .sort((a, b) => (b.shortageQty !== a.shortageQty) ? b.shortageQty - a.shortageQty : b.affectedBranches - a.affectedBranches)
+    .slice(0, 10);
 
-  const baseSearch = (typeof searchQuery !== 'undefined' && searchQuery)
-    ? 'q=' + encodeURIComponent(searchQuery)
-    : '';
+  // URL helpers
+  const baseSearch = (typeof searchQuery !== 'undefined' && searchQuery) ? 'q=' + encodeURIComponent(searchQuery) : '';
   const currentType = (typeof filterType !== 'undefined' && filterType) ? filterType : '';
   const buildFilterUrl = (typeValue) => {
     const params = [];
     if (typeValue) params.push('type=' + encodeURIComponent(typeValue));
-    if (baseSearch) params.push(baseSearch);
+    if (baseSearch)  params.push(baseSearch);
     return '?' + params.join('&');
   };
   const buildPageUrl = (nextPage) => {
     const params = ['page=' + nextPage];
     if (currentType) params.push('type=' + encodeURIComponent(currentType));
-    if (baseSearch) params.push(baseSearch);
+    if (baseSearch)  params.push(baseSearch);
     return '?' + params.join('&');
   };
 %>
 
-<div class="dash-card bom-dashboard-card">
-  <div class="bom-heading">
+<div class="dash-card bom-page">
+
+  <!-- ── Tiêu đề ── -->
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
     <div>
-      <div class="dash-title">Dashboard Năng Lực Lắp Ráp</div>
-      <p class="bom-subtitle">Theo dõi tồn kho thành phẩm, năng lực ráp và linh kiện nghẽn tại từng chi nhánh.</p>
+      <div class="dash-title">📦 Dashboard Năng Lực Lắp Ráp</div>
+      <p style="margin-top:6px; color:#64748b; font-size:13px;">
+        Theo dõi tồn kho thành phẩm, năng lực ráp và linh kiện nghẽn
+        <% if (!isGlobalAdmin && userBranch) { %> – Chi nhánh <strong><%= userBranch %></strong><% } %>
+      </p>
     </div>
-    <div class="bom-metrics">
-      <div class="bom-metric">
-        <span class="label">SKU Hiển thị</span>
-        <span class="value"><%= results.length %></span>
-      </div>
-      <div class="bom-metric">
-        <span class="label">Tổng tồn (trang)</span>
-        <span class="value"><%= totalFinalStockPage %></span>
-      </div>
-      <div class="bom-metric">
-        <span class="label">Tổng ráp được (trang)</span>
-        <span class="value"><%= totalBuildablePage %></span>
-      </div>
+    <div style="font-size:12px; color:#94a3b8; align-self:flex-end;">
+      🔄 Dữ liệu từ kho thực tế · <%= new Date().toLocaleString('vi-VN') %>
     </div>
   </div>
 
-  <div class="bom-top-panels">
-    <div class="bottleneck-overview">
-      <div class="bottleneck-head">
-        <div class="bottleneck-title">Radar Nút Cổ Chai (Top trên trang hiện tại)</div>
-        <div class="bottleneck-note">SKU thiếu linh kiện: <%= totalSkusHavingBottleneck %> / <%= results.length %> - Chênh tồn-ráp được: <%= totalGapPage %></div>
-      </div>
-      <div class="bottleneck-grid">
-        <% if (topBottlenecks.length > 0) { %>
-          <% topBottlenecks.forEach(item => { %>
-            <div class="bottleneck-card">
-              <div class="sku"><%= item.sku %></div>
-              <div class="name"><%= item.name %></div>
-              <div class="bottleneck-stats">
-                <span>Thiếu: <%= item.shortageQty %></span>
-                <span>Nhánh ảnh hưởng: <%= item.affectedBranches %></span>
-              </div>
+  <!-- ── KPI Strip ── -->
+  <div class="bom-kpi-strip">
+    <div class="bom-kpi info">
+      <span class="kpi-label">SKU hiển thị</span>
+      <span class="kpi-value"><%= results.length %></span>
+      <span class="kpi-sub">/ <%= totalItems %> tổng</span>
+    </div>
+    <div class="bom-kpi">
+      <span class="kpi-label">Tổng tồn kho</span>
+      <span class="kpi-value"><%= totalFinalStockPage %></span>
+      <span class="kpi-sub">Thành phẩm (trang này)</span>
+    </div>
+    <div class="bom-kpi success">
+      <span class="kpi-label">Ráp được</span>
+      <span class="kpi-value"><%= totalBuildablePage %></span>
+      <span class="kpi-sub">Bộ từ linh kiện hiện có</span>
+    </div>
+    <div class="bom-kpi <%= totalSkusHavingBottleneck > 0 ? 'danger' : 'success' %>">
+      <span class="kpi-label">SKU thiếu linh kiện</span>
+      <span class="kpi-value"><%= totalSkusHavingBottleneck %></span>
+      <span class="kpi-sub">/ <%= results.length %> SKU</span>
+    </div>
+    <div class="bom-kpi <%= totalGapPage > 0 ? 'danger' : '' %>">
+      <span class="kpi-label">Chênh Tồn-Ráp được</span>
+      <span class="kpi-value"><%= totalGapPage %></span>
+      <span class="kpi-sub">Tổng khoảng thiếu</span>
+    </div>
+  </div>
+
+  <!-- ── Radar Nút Cổ Chai ── -->
+  <div class="bottleneck-radar">
+    <div class="bottleneck-radar-head">
+      <span class="bottleneck-radar-title">🚨 Radar Linh Kiện Nghẽn (Top <%= topBottlenecks.length %>)</span>
+      <span class="bottleneck-radar-badge">Ảnh hưởng <%= totalSkusHavingBottleneck %> SKU</span>
+    </div>
+    <% if (topBottlenecks.length > 0) { %>
+      <div class="bottleneck-chips">
+        <% topBottlenecks.forEach(item => { %>
+          <div class="bottleneck-chip">
+            <div class="chip-sku"><%= item.sku %></div>
+            <div class="chip-name"><%= item.name %></div>
+            <div class="chip-stats">
+              <span>Thiếu: <%= item.shortageQty %></span>
+              <span><%= item.affectedBranches %> NH</span>
             </div>
-          <% }); %>
-        <% } else { %>
-          <div class="bottleneck-empty">Không có linh kiện thiếu trong phạm vi đang xem. Đội lắp ráp hôm nay đỡ căng rồi Sếp.</div>
-        <% } %>
+          </div>
+        <% }); %>
       </div>
-    </div>
+    <% } else { %>
+      <div class="bottleneck-empty-msg">✅ Không có linh kiện nghẽn trên trang này. Đội lắp ráp sạch nước kèo!</div>
+    <% } %>
   </div>
 
-  <div class="toolbar-row">
-    <form method="GET" action="/bom-dashboard" style="flex: 1;">
-      <div class="search-controls">
-        <input type="text" name="q" class="search-input"
-               placeholder="Tìm theo SKU hoặc Tên Thành phẩm..."
-               value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
-        <button type="submit" class="btn btn-primary">Tìm</button>
-        <% if (typeof searchQuery !== 'undefined' && searchQuery) { %>
-          <a href="/bom-dashboard" class="btn btn-secondary">Xóa tìm kiếm</a>
-        <% } %>
-      </div>
+  <!-- ── Toolbar: Filter + Search ── -->
+  <div class="bom-toolbar">
+    <form method="GET" action="/bom-dashboard" style="display:contents;">
+      <input type="text" name="q" class="bom-search-input"
+             placeholder="🔍 Tìm SKU hoặc Tên thành phẩm..."
+             value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+      <button type="submit" class="btn btn-primary" style="padding:9px 16px;">Tìm</button>
+      <% if (typeof searchQuery !== 'undefined' && searchQuery) { %>
+        <a href="/bom-dashboard" class="btn btn-secondary">✕ Xóa</a>
+      <% } %>
     </form>
-    <div class="action-controls">
-      <select id="sortSelect" class="sort-control" aria-label="Sắp xếp bảng BOM">
-        <option value="default">Sắp xếp: Mặc định</option>
-        <option value="buildableAsc">Ráp được thấp lên đầu</option>
-        <option value="gapDesc">Chênh tồn-ráp được cao nhất</option>
-        <option value="bottleneckDesc">SKU thiếu linh kiện nhiều nhất</option>
-      </select>
-      <button type="button" id="btnShowAllStatus" class="btn btn-status active">Tất cả SKU</button>
-      <button type="button" id="btnOnlyReady" class="btn btn-status">Chỉ SKU đủ</button>
-      <button type="button" id="btnOnlyMissing" class="btn btn-status">Chỉ SKU thiếu</button>
+    <select id="bomSortSelect" class="bom-sort-select">
+      <option value="default">Sắp xếp: Mặc định</option>
+      <option value="buildableAsc">Ráp được thấp nhất</option>
+      <option value="gapDesc">Chênh lệch cao nhất</option>
+      <option value="bottleneckDesc">Nhiều linh kiện thiếu nhất</option>
+    </select>
+    <div class="bom-filter-btns">
+      <button type="button" id="btnShowAll" class="btn btn-secondary active" aria-pressed="true">Tất cả</button>
+      <button type="button" id="btnOnlyReady" class="btn btn-secondary" aria-pressed="false">✅ Đủ LK</button>
+      <button type="button" id="btnOnlyMissing" class="btn btn-secondary" aria-pressed="false">🚨 Thiếu LK</button>
+    </div>
+    <div style="display:flex; gap:6px;">
       <button type="button" id="btnExpandAll" class="btn btn-secondary">Mở tất cả</button>
       <button type="button" id="btnCollapseAll" class="btn btn-secondary">Thu gọn</button>
-      <button type="button" id="btnExportCsv" class="btn btn-primary">Xuất CSV</button>
+      <button type="button" id="btnExportCsv" class="btn btn-primary">⬇ CSV</button>
     </div>
   </div>
 
-  <div class="filter-tabs">
-    <a href="<%= buildFilterUrl('') %>" class="<%= (!currentType) ? 'active' : '' %>">Tất cả PCPV</a>
-    <a href="<%= buildFilterUrl('vanphong') %>" class="<%= (currentType === 'vanphong') ? 'active' : '' %>">PCPV Văn phòng</a>
-    <a href="<%= buildFilterUrl('gaming') %>" class="<%= (currentType === 'gaming') ? 'active' : '' %>">PCPV Gaming</a>
+  <!-- ── Type Tabs ── -->
+  <div class="bom-type-tabs">
+    <a href="<%= buildFilterUrl('') %>" class="bom-type-tab <%= (!currentType) ? 'active' : '' %>">Tất cả PCPV</a>
+    <a href="<%= buildFilterUrl('vanphong') %>" class="bom-type-tab <%= (currentType === 'vanphong') ? 'active' : '' %>">🖥 Văn phòng</a>
+    <a href="<%= buildFilterUrl('gaming') %>" class="bom-type-tab <%= (currentType === 'gaming') ? 'active' : '' %>">🎮 Gaming</a>
   </div>
 
-  <div class="term-legend">
-    <span class="term-chip"><strong>Tồn</strong>: tồn kho hiện tại</span>
-    <span class="term-chip"><strong>Ráp được</strong>: số bộ có thể ráp từ linh kiện hiện có</span>
-    <span class="term-chip"><strong>Cần/Tồn</strong>: định mức 1 bộ / tồn linh kiện thực tế theo chi nhánh</span>
-  </div>
-
-  <p class="dash-muted">
-    Hiển thị trang <strong><%= page %>/<%= totalPages %></strong> (Tổng số: <strong><%= totalItems %></strong> SKU thành phẩm).
+  <p class="dash-muted" style="margin-bottom:14px;">
+    Trang <strong><%= page %>/<%= totalPages %></strong> · Tổng <strong><%= totalItems %></strong> SKU thành phẩm
+    · <span style="font-size:12px; color:#94a3b8;">Cần/Tồn: số cần cho 1 bộ / số thực tế trong kho</span>
   </p>
 
-  <div class="table-scroll-wrapper">
-    <table class="info-table" id="bomDashboardTable">
-      <thead>
-        <tr>
-          <th style="width: 56px;"></th>
-          <th style="width: 140px;">SKU</th>
-          <th style="width: 350px;">Tên thành phẩm</th>
-          <th style="width: 140px;" class="total-column">Tổng (Tồn/ Ráp được)</th>
+  <!-- ── Card List ── -->
+  <div class="bom-card-list" id="bomCardList">
+    <% if (results.length === 0) { %>
+      <div class="bom-empty">
+        <div class="bom-empty-icon">📭</div>
+        <p>Không tìm thấy SKU thành phẩm nào.<br>Thử thay đổi từ khóa hoặc bộ lọc nhé.</p>
+      </div>
+    <% } %>
 
-          <% if (isGlobalAdmin) { %>
-            <% branches.forEach(branch => { %>
-              <th style="width: 130px;" class="branch-column">
-                <%= branch %> (Tồn/ Ráp được)
-              </th>
-            <% }); %>
-          <% } else if (userBranch) { %>
-              <th style="width: 130px;" class="branch-column">
-                <%= userBranch %> (Tồn/ Ráp được)
-              </th>
+    <% results.forEach(row => { %>
+      <%
+        let rowBottleneckCount = 0;
+        const rowGap = Math.max(0, numberOf(row.finalStock_Total) - numberOf(row.buildable_Total));
+
+        // Pre-calc per-component bottleneck status for this row's scope
+        const compStatusMap = new Map();
+        (row.components || []).forEach((comp) => {
+          const needQty = Math.max(1, numberOf(comp.need || 1));
+          let compShort = false;
+          branchScope.forEach((br) => {
+            const haveQty = numberOf(comp.branches?.[br]?.have);
+            if (haveQty < needQty) compShort = true;
+          });
+          compStatusMap.set(comp.sku, compShort);
+          if (compShort) rowBottleneckCount++;
+        });
+
+        const cardClass = rowBottleneckCount > 0 ? 'has-bottleneck' : 'all-good';
+      %>
+      <div class="bom-product-card <%= cardClass %>"
+           data-sku="<%= row.sku %>"
+           data-final-stock="<%= numberOf(row.finalStock_Total) %>"
+           data-buildable="<%= numberOf(row.buildable_Total) %>"
+           data-gap="<%= rowGap %>"
+           data-bottleneck-count="<%= rowBottleneckCount %>">
+
+        <!-- Card Header (clickable to expand) -->
+        <div class="bom-product-header" onclick="toggleBomCard(this)">
+          <button type="button" class="bom-toggle-btn" aria-label="Mở/Đóng linh kiện">
+            <span class="chevron">▾</span>
+          </button>
+
+          <div class="bom-product-info">
+            <div class="bom-product-sku"><%= row.sku %> <span style="font-weight:500; color:#475569; font-size:12px;">– <%= row.name %></span></div>
+            <div class="bom-product-badges">
+              <% if (rowBottleneckCount > 0) { %>
+                <span class="bom-badge danger">🚨 Thiếu <%= rowBottleneckCount %> LK</span>
+              <% } else { %>
+                <span class="bom-badge ok">✅ Đủ linh kiện</span>
+              <% } %>
+              <% if (rowGap > 0) { %>
+                <span class="bom-badge warn">⚠ Chênh Tồn-Ráp: <%= rowGap %></span>
+              <% } %>
+              <span class="bom-badge" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0;"><%= row.components.length %> linh kiện</span>
+            </div>
+          </div>
+
+          <!-- Stock blocks per-branch summary -->
+          <div class="bom-stock-summary">
+            <!-- Global Admin thấy tất cả branches -->
+            <% if (isGlobalAdmin) { %>
+              <div class="bom-stock-block">
+                <div class="sb-label">Tổng Tồn</div>
+                <div class="sb-value"><%= numberOf(row.finalStock_Total) %></div>
+                <div class="bom-branch-pills">
+                  <% branches.forEach(br => { %>
+                    <% const tonBr = numberOf(row.finalStock_ByBranch[br]); %>
+                    <% const rapBr = numberOf(row.buildable_ByBranch[br]); %>
+                    <span class="branch-pill" title="<%= br %> - Tồn:<%= tonBr %> Ráp:<%= rapBr %>"><%= br %>: <%= tonBr %>/<%= rapBr %></span>
+                  <% }); %>
+                </div>
+              </div>
+            <% } else if (userBranch) { %>
+              <div class="bom-stock-block">
+                <div class="sb-label">Tồn kho</div>
+                <div class="sb-value"><%= numberOf(row.finalStock_ByBranch[userBranch]) || 0 %></div>
+              </div>
+              <div class="bom-stock-block">
+                <div class="sb-label">Ráp được</div>
+                <div class="sb-value blue"><%= numberOf(row.buildable_ByBranch[userBranch]) || 0 %></div>
+              </div>
+            <% } else { %>
+              <div class="bom-stock-block">
+                <div class="sb-label">Tồn</div>
+                <div class="sb-value"><%= numberOf(row.finalStock_Total) %></div>
+              </div>
+              <div class="bom-stock-block">
+                <div class="sb-label">Ráp được</div>
+                <div class="sb-value blue"><%= numberOf(row.buildable_Total) %></div>
+              </div>
+            <% } %>
+          </div>
+        </div><!-- /bom-product-header -->
+
+        <!-- Component Detail Panel (hidden by default) -->
+        <div class="bom-components-panel">
+          <div class="bom-comp-header">Chi tiết linh kiện</div>
+          <% if (row.components.length === 0) { %>
+            <div style="font-size:13px; color:#64748b; padding:6px 0;">Không có linh kiện trong BOM.</div>
           <% } %>
-        </tr>
-      </thead>
-      <tbody id="bomDashboardBody">
-        <% results.forEach(row => { %>
-          <%
-            let rowBottleneckCount = 0;
-            const rowGap = Math.max(0, numberOf(row.finalStock_Total) - numberOf(row.buildable_Total));
-            const shortageByComponent = new Map();
-            (row.components || []).forEach((comp) => {
-              const needQty = Math.max(1, numberOf(comp.need || 1));
-              if (isGlobalAdmin) {
-                branches.forEach((branchName) => {
-                  const haveQty = numberOf(comp.branches?.[branchName]?.have);
-                  if (haveQty < needQty) {
-                    rowBottleneckCount += 1;
-                    if (!shortageByComponent.has(comp.sku)) shortageByComponent.set(comp.sku, new Set());
-                    shortageByComponent.get(comp.sku).add(branchName);
-                  }
-                });
-              } else if (userBranch) {
-                const haveQty = numberOf(comp.branches?.[userBranch]?.have);
-                if (haveQty < needQty) {
-                  rowBottleneckCount += 1;
-                  if (!shortageByComponent.has(comp.sku)) shortageByComponent.set(comp.sku, new Set());
-                  shortageByComponent.get(comp.sku).add(userBranch);
-                }
-              }
-            });
-            const shortageSummaries = Array.from(shortageByComponent.entries()).map(([compSku, branchSet]) => {
-              return compSku + ' (' + Array.from(branchSet).join(', ') + ')';
-            });
-            const visibleShortageSummaries = shortageSummaries.slice(0, 2);
-            const remainingShortageCount = Math.max(0, shortageSummaries.length - visibleShortageSummaries.length);
-          %>
-          <tr
-            data-sku="<%= row.sku %>"
-            data-final-stock="<%= numberOf(row.finalStock_Total) %>"
-            data-buildable="<%= numberOf(row.buildable_Total) %>"
-            data-gap="<%= rowGap %>"
-            data-bottleneck-count="<%= rowBottleneckCount %>"
-            class="summary-row">
-            <td class="toggle-cell">
-              <button
-                type="button"
-                class="toggle-details"
-                data-sku="<%= row.sku %>"
-                aria-expanded="false"
-                aria-label="Mở danh sách linh kiện cho <%= row.sku %>">
-                <span class="chevron">▾</span>
-              </button>
-            </td>
-            <td><strong><%= row.sku %></strong></td>
-            <td>
-              <div class="product-main">
-                <div class="product-name"><%= row.name %></div>
-                <div class="product-meta">
-                  <span class="meta-pill <%= rowGap > 0 ? 'warn' : 'good' %>">Chênh Tồn-Ráp được: <%= rowGap %></span>
-                  <span class="meta-pill <%= rowBottleneckCount > 0 ? 'warn' : 'good' %>"><%= rowBottleneckCount > 0 ? 'Thiếu linh kiện' : 'Đủ linh kiện' %></span>
-                </div>
-                <% if (visibleShortageSummaries.length > 0) { %>
-                  <div class="product-missing">
-                    Thiếu mã: <%= visibleShortageSummaries.join(' | ') %><%= remainingShortageCount > 0 ? ' | +' + remainingShortageCount + ' mã' : '' %>
-                  </div>
-                <% } else { %>
-                  <div class="product-missing" style="color:#0c4a6e;">Đủ linh kiện ở tất cả chi nhánh trong phạm vi xem.</div>
-                <% } %>
-              </div>
-            </td>
-            <td class="total-column">
-              <div class="stock-chip">
-                <span class="stock-label stock-label-ton">Tồn</span>
-                <span class="stock-value"><%= row.finalStock_Total %></span>
-              </div>
-              <div class="stock-chip">
-                <span class="stock-label stock-label-rap">Ráp được</span>
-                <span class="stock-value"><%= row.buildable_Total %></span>
-              </div>
-            </td>
-
-            <% if (isGlobalAdmin) { %>
-              <% branches.forEach(branch => { %>
-                <td class="branch-column">
-                  <div class="stock-chip">
-                    <span class="stock-label stock-label-ton">Tồn</span>
-                    <span class="stock-value"><%= row.finalStock_ByBranch[branch] || 0 %></span>
-                  </div>
-                  <div class="stock-chip">
-                    <span class="stock-label stock-label-rap">Ráp được</span>
-                    <span class="stock-value"><%= row.buildable_ByBranch[branch] || 0 %></span>
-                  </div>
-                </td>
-              <% }); %>
-            <% } else if (userBranch) { %>
-              <td class="branch-column">
-                <div class="stock-chip">
-                  <span class="stock-label stock-label-ton">Tồn</span>
-                  <span class="stock-value"><%= row.finalStock_ByBranch[userBranch] || 0 %></span>
-                </div>
-                <div class="stock-chip">
-                  <span class="stock-label stock-label-rap">Ráp được</span>
-                  <span class="stock-value"><%= row.buildable_ByBranch[userBranch] || 0 %></span>
-                </div>
-              </td>
-            <% } %>
-          </tr>
-
-          <tr class="component-detail-row component-detail-header" data-parent-sku="<%= row.sku %>" data-detail-header="1">
-            <td></td>
-            <th class="sku-cell">SKU linh kiện</th>
-            <th>Tên linh kiện</th>
-            <th style="text-align: right;">Tổng tồn LK</th>
-
-            <% if (isGlobalAdmin) { %>
-              <% branches.forEach(branch => { %>
-                <th style="text-align: right;"><%= branch %> (Cần/Tồn)</th>
-              <% }); %>
-            <% } else if (userBranch) { %>
-              <th style="text-align: right;"><%= userBranch %> (Cần/Tồn)</th>
-            <% } %>
-          </tr>
-
           <% row.components.forEach(comp => { %>
             <%
               const needQty = Math.max(1, numberOf(comp.need || 1));
-              const totalHave = Object.values(comp.branches || {}).reduce((sum, br) => sum + numberOf(br.have), 0);
-              let componentHasBottleneck = false;
-              if (isGlobalAdmin) {
-                branches.forEach((branchName) => {
-                  const haveQty = numberOf(comp.branches?.[branchName]?.have);
-                  if (haveQty < needQty) componentHasBottleneck = true;
-                });
-              } else if (userBranch) {
-                const haveQty = numberOf(comp.branches?.[userBranch]?.have);
-                componentHasBottleneck = haveQty < needQty;
-              }
+              const isCompBottleneck = compStatusMap.get(comp.sku) || false;
+              const compClass = isCompBottleneck ? 'comp-bottleneck' : 'comp-ok';
+              const totalHave = Object.values(comp.branches || {}).reduce((s, b) => s + numberOf(b.have), 0);
             %>
-            <tr class="component-detail-row" data-parent-sku="<%= row.sku %>" data-has-bottleneck="<%= componentHasBottleneck ? '1' : '0' %>">
-              <td></td>
-              <td class="sku-cell"><strong><%= comp.sku %></strong></td>
-              <td><%= comp.name %></td>
-              <td style="text-align: right; font-weight: 700;"><%= totalHave %></td>
-
-              <% if (isGlobalAdmin) { %>
-                <% branches.forEach(br => { %>
-                  <% const have = numberOf(comp.branches?.[br]?.have); %>
-                  <% const isBottleneck = have < needQty; %>
-                  <td class="component-cell <%= isBottleneck ? 'bottleneck' : '' %>" style="text-align: right;">
-                    Cần: <%= needQty %> / Tồn: <%= have %>
-                  </td>
-                <% }); %>
-              <% } else if (userBranch) { %>
-                <% const have = numberOf(comp.branches?.[userBranch]?.have); %>
-                <% const isBottleneck = have < needQty; %>
-                <td class="component-cell <%= isBottleneck ? 'bottleneck' : '' %>" style="text-align: right;">
-                  Cần: <%= needQty %> / Tồn: <%= have %>
-                </td>
-              <% } %>
-            </tr>
+            <div class="bom-comp-item <%= compClass %>">
+              <div class="bom-comp-meta">
+                <div class="bom-comp-sku"><%= comp.sku %></div>
+                <div class="bom-comp-name"><%= comp.name %></div>
+                <span class="bom-comp-req">Cần: <b><%= needQty %></b> / bộ</span>
+              </div>
+              <div class="bom-comp-stocks">
+                <% if (isGlobalAdmin) { %>
+                  <% branches.forEach(br => { %>
+                    <%
+                      const have = numberOf(comp.branches?.[br]?.have);
+                      const chipClass = have >= needQty ? 'csc-ok' : (have === 0 ? 'csc-danger' : 'csc-warn');
+                    %>
+                    <div class="comp-stock-chip <%= chipClass %>">
+                      <span class="csc-branch"><%= br %></span>
+                      <span class="csc-have"><%= have %></span>
+                      <span class="csc-need">Cần <%= needQty %></span>
+                    </div>
+                  <% }); %>
+                <% } else if (userBranch) { %>
+                  <%
+                    const have = numberOf(comp.branches?.[userBranch]?.have);
+                    const chipClass = have >= needQty ? 'csc-ok' : (have === 0 ? 'csc-danger' : 'csc-warn');
+                  %>
+                  <div class="comp-stock-chip <%= chipClass %>" style="min-width:110px;">
+                    <span class="csc-branch"><%= userBranch %></span>
+                    <span class="csc-have"><%= have %></span>
+                    <span class="csc-need">Cần <%= needQty %></span>
+                  </div>
+                <% } else { %>
+                  <div class="comp-stock-chip">
+                    <span class="csc-branch">Tổng</span>
+                    <span class="csc-have"><%= totalHave %></span>
+                    <span class="csc-need">Cần <%= needQty %>/bộ</span>
+                  </div>
+                <% } %>
+              </div>
+            </div>
           <% }); %>
-        <% }); %>
+        </div><!-- /bom-components-panel -->
 
-        <% if (results.length === 0) { %>
-          <tr>
-            <td colspan="100%" style="text-align: center;" class="dash-muted">
-              Không tìm thấy SKU Thành phẩm nào khớp với tìm kiếm của bạn.
-            </td>
-          </tr>
-        <% } %>
-        <tr id="bottleneckEmptyRow" class="muted-row">
-          <td colspan="100%" style="text-align: center;" class="dash-muted">
-            Bộ lọc trạng thái đang bật: không có SKU phù hợp trên trang này.
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+      </div><!-- /bom-product-card -->
+    <% }); %>
+  </div><!-- /bom-card-list -->
 
-<div class="pagination-controls">
-  <a href="<%= buildPageUrl(1) %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
-    &lt;&lt; Đầu
-  </a>
-  <a href="<%= buildPageUrl(page - 1) %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>
-    &lt; Trước
-  </a>
-
-  <span class="page-info">
-    Trang
-    <select id="pageSelect" onchange="window.location.href=this.value;">
+  <!-- ── Pagination ── -->
+  <div class="bom-pagination">
+    <a href="<%= buildPageUrl(1) %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>⟪ Đầu</a>
+    <a href="<%= buildPageUrl(page - 1) %>" class="btn btn-secondary" <%= page <= 1 ? 'disabled' : '' %>>⟨ Trước</a>
+    <select onchange="window.location.href=this.value;" title="Chọn trang">
       <% for (let i = 1; i <= totalPages; i++) { %>
         <% if (totalPages <= 100 || (i >= page - 5 && i <= page + 5) || i === 1 || i === totalPages) { %>
-          <option value="<%= buildPageUrl(i) %>" <%= i === page ? 'selected' : '' %>>
-            <%= i %>
-          </option>
+          <option value="<%= buildPageUrl(i) %>" <%= i === page ? 'selected' : '' %>>Trang <%= i %></option>
         <% } else if (i === page - 6 || i === page + 6) { %>
           <option disabled>...</option>
         <% } %>
       <% } %>
     </select>
-    / <%= totalPages %>
-  </span>
+    <span style="font-size:13px; color:#64748b;">/ <%= totalPages %></span>
+    <a href="<%= buildPageUrl(page + 1) %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>Sau ⟩</a>
+    <a href="<%= buildPageUrl(totalPages) %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>Cuối ⟫</a>
+  </div>
 
-  <a href="<%= buildPageUrl(page + 1) %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
-    Sau &gt;
-  </a>
-  <a href="<%= buildPageUrl(totalPages) %>" class="btn btn-secondary" <%= page >= totalPages ? 'disabled' : '' %>>
-    Cuối &gt;&gt;
-  </a>
-</div>
-</div>
+</div><!-- /dash-card -->
 
 <%- include('partials/toast') %>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const tableBody = document.getElementById('bomDashboardBody');
-  if (!tableBody) return;
+// ── Toggle expand/collapse ──
+function toggleBomCard(header) {
+  const card = header.closest('.bom-product-card');
+  const panel = card.querySelector('.bom-components-panel');
+  const btn   = header.querySelector('.bom-toggle-btn');
+  if (!panel) return;
+  const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+  btn.setAttribute('aria-label', isOpen ? 'Mở linh kiện' : 'Thu gọn linh kiện');
+}
 
-  const summaryRows = Array.from(tableBody.querySelectorAll('.summary-row'));
-  const allDetailRows = Array.from(tableBody.querySelectorAll('.component-detail-row'));
-  const emptyFilterRow = document.getElementById('bottleneckEmptyRow');
-  const sortSelect = document.getElementById('sortSelect');
-  const showAllStatusBtn = document.getElementById('btnShowAllStatus');
-  const onlyReadyBtn = document.getElementById('btnOnlyReady');
-  const onlyMissingBtn = document.getElementById('btnOnlyMissing');
-  const expandAllBtn = document.getElementById('btnExpandAll');
-  const collapseAllBtn = document.getElementById('btnCollapseAll');
-  const exportCsvBtn = document.getElementById('btnExportCsv');
-  const defaultOrderMap = new Map(summaryRows.map((row, index) => [row.dataset.sku, index]));
-  const detailRowsBySku = new Map();
-  let statusFilterMode = 'all';
+document.addEventListener('DOMContentLoaded', function () {
+  const cardList   = document.getElementById('bomCardList');
+  const cards      = Array.from(cardList.querySelectorAll('.bom-product-card'));
+  const defaultMap = new Map(cards.map((c, i) => [c.dataset.sku, i]));
+  let statusFilter = 'all';
 
-  allDetailRows.forEach((row) => {
-    const sku = row.dataset.parentSku;
-    if (!detailRowsBySku.has(sku)) detailRowsBySku.set(sku, []);
-    detailRowsBySku.get(sku).push(row);
-  });
-
-  const parseNumber = (value) => {
-    const parsed = Number(value || 0);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
-
-  const getDetailRows = (sku) => detailRowsBySku.get(sku) || [];
-
-  const syncOpenButtonState = (summaryRow, isOpen) => {
-    const button = summaryRow.querySelector('.toggle-details');
-    if (!button) return;
-    button.classList.toggle('open', isOpen);
-    button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    button.setAttribute(
-      'aria-label',
-      (isOpen ? 'Thu gọn' : 'Mở') + ' danh sách linh kiện cho ' + summaryRow.dataset.sku
-    );
-  };
-
-  const refreshDetailVisibility = (sku) => {
-    const rows = getDetailRows(sku);
-    if (rows.length === 0) return;
-
-    if (statusFilterMode !== 'missing') {
-      rows.forEach((row) => {
-        row.style.display = '';
-      });
-      return;
-    }
-
-    const hasVisibleBottleneckComponent = rows.some((row) => (
-      row.dataset.detailHeader !== '1' && row.dataset.hasBottleneck === '1'
-    ));
-
-    rows.forEach((row) => {
-      if (!row.classList.contains('open')) {
-        row.style.display = '';
-        return;
-      }
-
-      if (row.dataset.detailHeader === '1') {
-        row.style.display = hasVisibleBottleneckComponent ? 'table-row' : 'none';
-        return;
-      }
-
-      row.style.display = row.dataset.hasBottleneck === '1' ? 'table-row' : 'none';
+  // ── Status filter ──
+  function applyFilter() {
+    let visible = 0;
+    cards.forEach(c => {
+      const hasBN = Number(c.dataset.bottleneckCount) > 0;
+      const show = statusFilter === 'all'
+        || (statusFilter === 'missing' && hasBN)
+        || (statusFilter === 'ready'   && !hasBN);
+      c.style.display = show ? '' : 'none';
+      if (show) visible++;
     });
-  };
-
-  const setSummaryOpen = (summaryRow, shouldOpen) => {
-    const sku = summaryRow.dataset.sku;
-    const rows = getDetailRows(sku);
-    rows.forEach((row) => {
-      row.classList.toggle('open', shouldOpen);
-      if (!shouldOpen) row.style.display = '';
+    ['btnShowAll','btnOnlyReady','btnOnlyMissing'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      const mine = (id === 'btnShowAll' && statusFilter === 'all')
+                || (id === 'btnOnlyReady' && statusFilter === 'ready')
+                || (id === 'btnOnlyMissing' && statusFilter === 'missing');
+      btn.classList.toggle('active', mine);
+      btn.setAttribute('aria-pressed', mine ? 'true' : 'false');
     });
-    syncOpenButtonState(summaryRow, shouldOpen);
-    if (shouldOpen) refreshDetailVisibility(sku);
-  };
+  }
 
-  const applyStatusFilter = () => {
-    let visibleSummaryCount = 0;
-    summaryRows.forEach((summaryRow) => {
-      const hasBottleneck = parseNumber(summaryRow.dataset.bottleneckCount) > 0;
-      const shouldShow = (
-        statusFilterMode === 'all' ||
-        (statusFilterMode === 'missing' && hasBottleneck) ||
-        (statusFilterMode === 'ready' && !hasBottleneck)
-      );
-      summaryRow.style.display = shouldShow ? '' : 'none';
+  document.getElementById('btnShowAll')?.addEventListener('click', () => { statusFilter = 'all'; applyFilter(); });
+  document.getElementById('btnOnlyReady')?.addEventListener('click', () => { statusFilter = 'ready'; applyFilter(); });
+  document.getElementById('btnOnlyMissing')?.addEventListener('click', () => { statusFilter = 'missing'; applyFilter(); });
 
-      if (!shouldShow) {
-        setSummaryOpen(summaryRow, false);
-        return;
-      }
-
-      visibleSummaryCount += 1;
-      refreshDetailVisibility(summaryRow.dataset.sku);
-    });
-
-    if (emptyFilterRow) {
-      emptyFilterRow.style.display = (summaryRows.length > 0 && visibleSummaryCount === 0) ? 'table-row' : 'none';
-    }
-
-    if (showAllStatusBtn) {
-      showAllStatusBtn.classList.toggle('active', statusFilterMode === 'all');
-      showAllStatusBtn.setAttribute('aria-pressed', statusFilterMode === 'all' ? 'true' : 'false');
-    }
-    if (onlyReadyBtn) {
-      onlyReadyBtn.classList.toggle('active', statusFilterMode === 'ready');
-      onlyReadyBtn.setAttribute('aria-pressed', statusFilterMode === 'ready' ? 'true' : 'false');
-    }
-    if (onlyMissingBtn) {
-      onlyMissingBtn.classList.toggle('active', statusFilterMode === 'missing');
-      onlyMissingBtn.setAttribute('aria-pressed', statusFilterMode === 'missing' ? 'true' : 'false');
-    }
-
-    if (emptyFilterRow && summaryRows.length > 0 && visibleSummaryCount === 0) {
-      const cell = emptyFilterRow.querySelector('td');
-      if (cell) {
-        if (statusFilterMode === 'missing') {
-          cell.textContent = 'Không có SKU thiếu linh kiện trên trang này.';
-        } else if (statusFilterMode === 'ready') {
-          cell.textContent = 'Không có SKU đủ linh kiện trên trang này.';
-        } else {
-          cell.textContent = 'Không có SKU phù hợp trên trang này.';
-        }
-      }
-    }
-  };
-
-  const sortRows = (mode) => {
-    const rows = [...summaryRows];
-    rows.sort((a, b) => {
-      const aSku = a.dataset.sku;
-      const bSku = b.dataset.sku;
-
+  // ── Sort ──
+  document.getElementById('bomSortSelect')?.addEventListener('change', function() {
+    const mode = this.value;
+    const sorted = [...cards].sort((a, b) => {
       if (mode === 'buildableAsc') {
-        const diff = parseNumber(a.dataset.buildable) - parseNumber(b.dataset.buildable);
-        if (diff !== 0) return diff;
+        const d = Number(a.dataset.buildable) - Number(b.dataset.buildable);
+        if (d !== 0) return d;
       } else if (mode === 'gapDesc') {
-        const diff = parseNumber(b.dataset.gap) - parseNumber(a.dataset.gap);
-        if (diff !== 0) return diff;
+        const d = Number(b.dataset.gap) - Number(a.dataset.gap);
+        if (d !== 0) return d;
       } else if (mode === 'bottleneckDesc') {
-        const diff = parseNumber(b.dataset.bottleneckCount) - parseNumber(a.dataset.bottleneckCount);
-        if (diff !== 0) return diff;
-      } else {
-        return (defaultOrderMap.get(aSku) || 0) - (defaultOrderMap.get(bSku) || 0);
+        const d = Number(b.dataset.bottleneckCount) - Number(a.dataset.bottleneckCount);
+        if (d !== 0) return d;
       }
-
-      return (defaultOrderMap.get(aSku) || 0) - (defaultOrderMap.get(bSku) || 0);
+      return (defaultMap.get(a.dataset.sku) || 0) - (defaultMap.get(b.dataset.sku) || 0);
     });
+    sorted.forEach(c => cardList.appendChild(c));
+    applyFilter();
+  });
 
-    rows.forEach((summaryRow) => {
-      tableBody.appendChild(summaryRow);
-      getDetailRows(summaryRow.dataset.sku).forEach((detailRow) => {
-        tableBody.appendChild(detailRow);
-      });
+  // ── Expand / Collapse all ──
+  document.getElementById('btnExpandAll')?.addEventListener('click', () => {
+    cards.filter(c => c.style.display !== 'none').forEach(c => {
+      const panel = c.querySelector('.bom-components-panel');
+      const btn   = c.querySelector('.bom-toggle-btn');
+      if (panel) { panel.classList.add('open'); btn?.classList.add('open'); }
     });
-
-    if (emptyFilterRow) tableBody.appendChild(emptyFilterRow);
-    applyStatusFilter();
-  };
-
-  const exportVisibleToCsv = () => {
-    const visibleRows = summaryRows.filter((row) => row.style.display !== 'none');
-    if (visibleRows.length === 0) {
-      alert('Không có dữ liệu để xuất CSV ở chế độ hiện tại.');
-      return;
-    }
-
-    const headers = ['SKU', 'Ten thanh pham', 'Ton hien tai', 'Rap duoc', 'Chenh Ton-Rap duoc', 'Linh kien nghen'];
-    const records = visibleRows.map((row) => {
-      const nameNode = row.querySelector('.product-name');
-      return [
-        row.dataset.sku || '',
-        nameNode ? nameNode.textContent.trim() : '',
-        parseNumber(row.dataset.finalStock),
-        parseNumber(row.dataset.buildable),
-        parseNumber(row.dataset.gap),
-        parseNumber(row.dataset.bottleneckCount)
-      ];
-    });
-
-    const escapeCsv = (value) => {
-      const text = String(value ?? '');
-      if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-      return text;
-    };
-
-    const csv = [headers, ...records]
-      .map((line) => line.map(escapeCsv).join(','))
-      .join('\n');
-
-    const bom = '\uFEFF';
-    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    link.href = url;
-    link.download = 'bom-dashboard-' + timestamp + '.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  tableBody.querySelectorAll('.toggle-details').forEach((button) => {
-    button.addEventListener('click', () => {
-      const summaryRow = button.closest('.summary-row');
-      if (!summaryRow || summaryRow.style.display === 'none') return;
-      const detailRows = getDetailRows(summaryRow.dataset.sku);
-      if (detailRows.length === 0) return;
-      const shouldOpen = !detailRows[0].classList.contains('open');
-      setSummaryOpen(summaryRow, shouldOpen);
+  });
+  document.getElementById('btnCollapseAll')?.addEventListener('click', () => {
+    cards.forEach(c => {
+      const panel = c.querySelector('.bom-components-panel');
+      const btn   = c.querySelector('.bom-toggle-btn');
+      if (panel) { panel.classList.remove('open'); btn?.classList.remove('open'); }
     });
   });
 
-  if (showAllStatusBtn) {
-    showAllStatusBtn.addEventListener('click', () => {
-      statusFilterMode = 'all';
-      applyStatusFilter();
-    });
-  }
+  // ── Export CSV ──
+  document.getElementById('btnExportCsv')?.addEventListener('click', () => {
+    const visible = cards.filter(c => c.style.display !== 'none');
+    if (!visible.length) { alert('Không có dữ liệu để xuất.'); return; }
+    const headers = ['SKU','Ten thanh pham','Ton tong','Rap duoc','Chenh Ton-Rap duoc','LK thieu'];
+    const rows = visible.map(c => [
+      c.dataset.sku,
+      c.querySelector('.bom-product-name')?.textContent.trim() || '',
+      c.dataset.finalStock,
+      c.dataset.buildable,
+      c.dataset.gap,
+      c.dataset.bottleneckCount
+    ]);
+    const esc = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
+    const csv = [headers, ...rows].map(r => r.map(esc).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'bom-dashboard-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
 
-  if (onlyReadyBtn) {
-    onlyReadyBtn.addEventListener('click', () => {
-      statusFilterMode = 'ready';
-      applyStatusFilter();
-    });
-  }
-
-  if (onlyMissingBtn) {
-    onlyMissingBtn.addEventListener('click', () => {
-      statusFilterMode = 'missing';
-      applyStatusFilter();
-    });
-  }
-
-  if (expandAllBtn) {
-    expandAllBtn.addEventListener('click', () => {
-      summaryRows.forEach((summaryRow) => {
-        if (summaryRow.style.display !== 'none') setSummaryOpen(summaryRow, true);
-      });
-    });
-  }
-
-  if (collapseAllBtn) {
-    collapseAllBtn.addEventListener('click', () => {
-      summaryRows.forEach((summaryRow) => setSummaryOpen(summaryRow, false));
-    });
-  }
-
-  if (sortSelect) {
-    sortSelect.addEventListener('change', (event) => {
-      sortRows(event.target.value || 'default');
-    });
-  }
-
-  if (exportCsvBtn) {
-    exportCsvBtn.addEventListener('click', exportVisibleToCsv);
-  }
-
-  applyStatusFilter();
+  applyFilter();
 });
 </script>
 

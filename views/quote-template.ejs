@@ -8,6 +8,7 @@
         .container { width: 95%; margin: 0 auto; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         th, td { border: 1px solid #999; padding: 5px; text-align: left; vertical-align: top; }
+        tr { page-break-inside: avoid; break-inside: avoid; }
         th { background-color: #DDEBF7; color: #1F4E78; font-weight: bold; font-size: 9.5px; text-align: center; }
         .quote-title { text-align: center; font-size: 16px; font-weight: bold; color: #FFFFFF; background-color: #2F75B5; padding: 5px; margin: 15px 0 10px 0; }
         .right { text-align: right; } .center { text-align: center; } 
@@ -51,15 +52,13 @@
             <tr>
                 <td style="width: 50%;">
                     <table class="customer-table">
-                        <tr><td style="font-weight: bold;">Kính gửi:</td></tr>
-                        <tr><td><strong>Khách hàng:</strong> <%= customerName %></td></tr>
+                        <tr><td style="font-weight: bold;">Kính gửi: <%= customerName %></td></tr>
                         <tr><td><strong>SĐT:</strong> <%= customerPhone %></td></tr>
                     </table>
                 </td>
                 <td style="width: 50%;">
                     <table class="customer-table">
-                        <tr><td style="font-weight: bold;">Kinh doanh:</td></tr>
-                        <tr><td><strong>Họ tên:</strong> <%= salesName %></td></tr>
+                        <tr><td style="font-weight: bold;">Nhân Viên Kinh Doanh: <%= salesName %></td></tr>
                         <tr><td><strong>SĐT/Zalo:</strong> <%= salesContact %></td></tr>
                     </table>
                 </td>

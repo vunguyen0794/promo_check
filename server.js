@@ -4501,37 +4501,56 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
     const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
     const today = new Date().toISOString().split('T')[0];
 
-    // --- B. Lấy danh sách PCPV từ BigQuery (ĐÃ SỬA: Thêm bqFilterClause) ---
-
-    // (MỚI) Xác định điều kiện lọc cho BigQuery
-    let bqFilterClause = "WHERE SubCategory_name LIKE 'Máy tính bộ Phong Vũ%'"; // Mặc định (Tất cả)
+    // --- B. Lấy danh sách PCPV từ Supabase (bảng skus) ---
+    // Không dùng BigQuery nữa → tiết kiệm quota, không bị quota lỗi
+    let subcatPattern = 'Máy tính bộ Phong Vũ%'; // Mặc định (Tất cả)
     if (filterType === 'vanphong') {
-      bqFilterClause = "WHERE SubCategory_name LIKE 'Máy tính bộ Phong Vũ văn phòng%'";
+      subcatPattern = 'Máy tính bộ Phong Vũ văn phòng%';
     } else if (filterType === 'gaming') {
-      bqFilterClause = "WHERE SubCategory_name LIKE 'Máy tính bộ Phong Vũ gaming%'";
+      subcatPattern = 'Máy tính bộ Phong Vũ gaming%';
     }
 
-    const bqPcpvQuery = `
-      SELECT
-        DISTINCT CAST(SKU AS STRING) AS sku,
-        MAX(SKU_name) AS name
-      FROM \`nimble-volt-459313-b8.Inventory.inv_seri_1\`
-      ${bqFilterClause}
-      GROUP BY 1
-    `;
-
     let allFinalSkus = [];
-    if (bigquery) {
-      const [bqRows] = await bigquery.query({
-        query: bqPcpvQuery,
-        location: 'asia-southeast1'
+    // Lấy từ bảng skus của Supabase, lọc theo subcat
+    const { data: spSkus, error: spSkusErr } = await supabase
+      .from('skus')
+      .select('sku, product_name, subcat')
+      .ilike('subcat', subcatPattern);
+
+    if (spSkusErr) {
+      console.error('BOM Dashboard: Lỗi lấy SKU từ Supabase:', spSkusErr.message);
+    }
+
+    if (spSkus && spSkus.length > 0) {
+      // Lấy được từ bảng skus → dùng product_name
+      const skuMap = new Map();
+      spSkus.forEach(r => {
+        if (!skuMap.has(r.sku)) skuMap.set(r.sku, r.product_name || null);
       });
-      allFinalSkus = bqRows.map(r => ({ sku: r.sku, name: r.name || r.sku }));
+      allFinalSkus = Array.from(skuMap.entries()).map(([sku, name]) => ({ sku, name: name || sku }));
     } else {
-      console.warn('BOM Dashboard: BigQuery chưa cấu hình, không thể lấy danh sách PCPV.');
-      // (Fallback logic)
-      const { data: allFinalsData } = await supabase.from('bom_relations').select('final_sku, final_name');
-      allFinalSkus = Array.from(new Map((allFinalsData || []).map(f => [f.final_sku, { sku: f.final_sku, name: f.final_name || f.final_sku }])).values());
+      // Fallback: lấy danh sách SKU từ bom_relations
+      console.warn('BOM Dashboard: Không có SKU từ Supabase.skus, fallback sang bom_relations.');
+      const { data: allFinalsData } = await supabase.from('bom_relations').select('final_sku');
+      const uniqueSkus = [...new Set((allFinalsData || []).map(f => f.final_sku))];
+      allFinalSkus = uniqueSkus.map(sku => ({ sku, name: sku })); // tạm thời dùng SKU làm name
+    }
+
+    // === Enrich tên sản phẩm từ bảng skus (áp dụng cho cả 2 path) ===
+    // Đảm bảo luôn có tên đẹp, không bị SKU lặp lại
+    if (allFinalSkus.some(f => f.name === f.sku)) {
+      const missingNameSkus = allFinalSkus.filter(f => f.name === f.sku).map(f => f.sku);
+      if (missingNameSkus.length > 0) {
+        const { data: nameData } = await supabase
+          .from('skus')
+          .select('sku, product_name')
+          .in('sku', missingNameSkus);
+        const nameMap = new Map((nameData || []).map(r => [r.sku, r.product_name]));
+        allFinalSkus = allFinalSkus.map(f => ({
+          sku: f.sku,
+          name: (f.name !== f.sku ? f.name : (nameMap.get(f.sku) || f.sku))
+        }));
+      }
     }
 
     // === (MỚI) Lọc theo Search Query ===
@@ -6219,6 +6238,58 @@ app.delete('/api/ranking/delete/:id', requireManager, async (req, res) => {
   }
 });
 
+// ==========================================
+// BÁO GIÁ NHANH - LỊCH SỬ
+// ==========================================
+
+app.post('/api/quote-history', requireAuth, async (req, res) => {
+  try {
+    const { customerName, customerPhone, contactInfo, buildConfig, totalAmount, templateType } = req.body;
+    const userId = req.session.user?.id || req.session.user?.uid || req.session.user?.email || 'unknown';
+    const userName = req.session.user?.full_name || req.session.user?.email || 'Nhân viên';
+
+    const { data, error } = await supabase
+      .from('quote_history')
+      .insert([{
+        user_id: userId,
+        user_name: userName,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        contact_info: contactInfo,
+        build_config: buildConfig,
+        total_amount: totalAmount || 0,
+        template_type: templateType
+      }])
+      .select();
+
+    if (error) throw error;
+    res.json({ ok: true, data: data[0] });
+  } catch (error) {
+    console.error('Lỗi lưu lịch sử báo giá:', error);
+    res.status(500).json({ ok: false, error: 'Không thể lưu lịch sử báo giá: ' + error.message });
+  }
+});
+
+app.get('/api/quote-history/my-quotes', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user?.id || req.session.user?.uid || req.session.user?.email || 'unknown';
+    
+    // Lấy 50 báo giá gần nhất của User này
+    const { data, error } = await supabase
+      .from('quote_history')
+      .select('id, customer_name, customer_phone, total_amount, created_at, build_config, template_type, contact_info')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+    res.json({ ok: true, quotes: data || [] });
+  } catch (error) {
+    console.error('Lỗi tải lịch sử báo giá:', error);
+    res.status(500).json({ ok: false, error: 'Lỗi tải lịch sử báo giá: ' + error.message });
+  }
+});
+
 
 app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
   let browser = null;
@@ -7067,7 +7138,12 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
     params.filterMonth = filterMonth;
 
     if (filterMonth !== 'all') {
-      whereClause += ` AND FORMAT_DATE('%Y-%m', Report_date) = @filterMonth`;
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+      params.monthStart = filterMonth + '-01';
+      const [yy, mm] = filterMonth.split('-');
+      const d = new Date(parseInt(yy), parseInt(mm), 0);
+      d.setDate(d.getDate() + 1); // Get first day of next month
+      params.monthEnd = d.toISOString().split('T')[0];
     } else {
       if (type !== 'order_code') {
         whereClause += ` AND Report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)`;
@@ -7159,11 +7235,11 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
                     Order_code,
                     MAX(Customer_full_name) as Customer_full_name,
                     MAX(Billing_tax_code) as Billing_tax_code,
-                    MAX(Report_date) as Report_date,
+                    CAST(MAX(Report_date) AS STRING) as Report_date,
                     MAX(Branch_code) as Branch_code,
                     MAX(Email) as Sales_Email,
                     SUM(Revenue_with_VAT) as Order_Total_Val,
-                    STRING_AGG(CONCAT('<span style="color:#2563eb; font-weight:700;">', CAST(SKU AS STRING), '</span> - ', SKU_name, ' <span style="color:#64748b;">(x', CAST(Quantity AS STRING), ')</span>'), '<br>') as Full_Product_Info
+                    '' as Full_Product_Info
                 FROM ${tableName}
                 ${whereClause}
                 GROUP BY Order_code
@@ -7173,7 +7249,7 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
                 IFNULL(Billing_tax_code, '') as Tax_Code,
                 COUNT(Order_code) as Order_Count,
                 CAST(SUM(Order_Total_Val) AS FLOAT64) as Total_Revenue,
-                MAX(Report_date) as Max_Date,
+                CAST(MAX(Report_date) AS STRING) as Max_Date,
                 ARRAY_AGG(STRUCT(
                     Order_code,
                     Report_date,
@@ -7254,6 +7330,110 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
 
   } catch (e) {
     console.error('[Worklist Error]', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /api/cskh/customer-orders (Load details logic inside worklist breakdown)
+app.get('/api/cskh/customer-orders', requireAuth, async (req, res) => {
+  try {
+    const user = req.session.user;
+    const { taxCode, customerName, month, branch } = req.query;
+    if (!bigquery) return res.json({ ok: false, error: 'No BigQuery' });
+
+    let whereClause = 'WHERE 1=1';
+    const params = {};
+
+    if (month && month !== 'all') {
+        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+        params.monthStart = month + '-01';
+        const [yy, mm] = month.split('-');
+        const d = new Date(parseInt(yy), parseInt(mm), 0);
+        d.setDate(d.getDate() + 1);
+        params.monthEnd = d.toISOString().split('T')[0];
+    } else {
+        whereClause += ` AND Report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)`;
+    }
+
+    // Tax Code or Name filter
+    if (taxCode) {
+        whereClause += ` AND Billing_tax_code = @taxCode`;
+        params.taxCode = taxCode;
+    } else if (customerName) {
+        whereClause += ` AND Customer_full_name = @customerName AND (Billing_tax_code IS NULL OR Billing_tax_code = '')`;
+        params.customerName = customerName;
+    }
+
+    // Role filters
+    const isGlobalAdmin = user.branch_code === 'HCM.BD';
+    const isManager = user.role === 'manager' || user.role === 'admin' || isGlobalAdmin;
+    const allowedBranches = typeof getAllowedBranches === 'function' ? getAllowedBranches(user) : [user.branch_code];
+
+    if (isGlobalAdmin) {
+       if (branch && branch !== 'all') { whereClause += ' AND Branch_code = @branch'; params.branch = branch; }
+    } else if (isManager) {
+       if (branch && branch !== 'all' && allowedBranches && allowedBranches.includes(branch)) {
+           whereClause += ' AND Branch_code = @branch'; params.branch = branch;
+       } else if (allowedBranches) {
+           whereClause += ' AND Branch_code IN UNNEST(@regionalBranches)'; params.regionalBranches = allowedBranches;
+       } else {
+           whereClause += ' AND Branch_code = @branch'; params.branch = user.branch_code;
+       }
+    } else {
+       // Support assigned lookup implicitly? Staff can only see their branch orders
+       whereClause += ' AND LOWER(Email) = LOWER(@userEmail)'; params.userEmail = user.email;
+    }
+
+    const query = `
+      WITH OrderSummary AS (
+          SELECT 
+              Order_code,
+              CAST(MAX(Report_date) AS STRING) as Report_date,
+              MAX(Branch_code) as Branch_code,
+              MAX(Email) as Sales_Email,
+              SUM(Revenue_with_VAT) as Order_Total_Val,
+              STRING_AGG(CONCAT('<span style="color:#2563eb; font-weight:700;">', CAST(SKU AS STRING), '</span> - ', SKU_name, ' <span style="color:#64748b;">(x', CAST(Quantity AS STRING), ')</span>'), '<br>') as Full_Product_Info
+          FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\`
+          ${whereClause}
+          GROUP BY Order_code
+      )
+      SELECT
+          Order_code,
+          Report_date,
+          Branch_code,
+          Sales_Email,
+          CAST(Order_Total_Val AS FLOAT64) as Revenue,
+          Full_Product_Info as Product_Display_Html, 
+          1 as Quantity
+      FROM OrderSummary
+      ORDER BY Report_date DESC
+    `;
+
+    const [rows] = await bigquery.query({ query, params });
+
+    // Fetch carer names for these orders
+    if (rows.length > 0) {
+      const allOrderCodes = rows.map(r => r.Order_code);
+      const { data: logs } = await supabase.from('customer_care_logs').select('order_code, result, users!inner(full_name, email)').in('order_code', allOrderCodes).order('created_at', { ascending: true });
+      const logMap = new Map();
+      (logs || []).forEach(l => {
+         if (!logMap.has(l.order_code)) {
+            logMap.set(l.order_code, { ...l, carer_name: l.users?.full_name || l.users?.email || 'N/A' });
+         }
+      });
+      rows.forEach(r => {
+         if (logMap.has(r.Order_code)) {
+            const log = logMap.get(r.Order_code);
+            r.status = 'Đã chăm sóc'; r.result = log.result; r.carer_name = log.carer_name;
+         } else {
+            r.status = 'Chưa chăm sóc'; r.result = ''; r.carer_name = '';
+         }
+      });
+    }
+
+    res.json({ ok: true, data: rows });
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
@@ -8354,8 +8534,8 @@ app.get('/profile', requireAuth, async (req, res) => {
           if (!num) return '0';
           const n = Number(num);
           if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2).replace(/\.00$/, '') + ' Tỷ';
-          if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + ' Tr';
-          if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + ' K';
+          if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\\.0$/, '') + ' Tr ₫';
+          if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\\.0$/, '') + ' K ₫';
           return new Intl.NumberFormat('vi-VN').format(n);
       },
       dataDate: displayDate,
@@ -8456,7 +8636,7 @@ app.get('/api/admin/search-sku-stock', requireAuth, async (req, res) => {
 // --- API LẤY CHI TIẾT MATRIX (Đã Fix quyền cho Regional Manager) ---
 app.get('/api/cskh/matrix-detail', requireAuth, async (req, res) => {
   try {
-    const { userId, resultType, month, branch } = req.query;
+    const { userId, resultType, start, end, branch } = req.query;
     const currentUser = req.session.user;
 
     // ============================================================
@@ -8501,14 +8681,20 @@ app.get('/api/cskh/matrix-detail', requireAuth, async (req, res) => {
     // 2. LOGIC LẤY DỮ LIỆU (Giữ nguyên code của bạn)
     // ============================================================
 
-    // Lọc theo User, Result, và Tháng
-    const startOfMonth = new Date(month + '-01').toISOString();
-    // Tính ngày cuối tháng an toàn
-    const d = new Date(month + '-01');
-    d.setMonth(d.getMonth() + 1);
-    d.setDate(0);
-    d.setHours(23, 59, 59, 999);
-    const endOfMonth = d.toISOString();
+    // Lọc theo khoảng thời gian thực tế từ Dashboard
+    const startObj = new Date(start || new Date().toISOString().split('T')[0]);
+    const startOfMonth = startObj.toISOString();
+
+    let endOfMonth;
+    if (end) {
+        const dEnd = new Date(end);
+        dEnd.setHours(23, 59, 59, 999);
+        endOfMonth = dEnd.toISOString();
+    } else {
+        const dEnd = new Date();
+        dEnd.setHours(23, 59, 59, 999);
+        endOfMonth = dEnd.toISOString();
+    }
 
     let logQuery = supabase
       .from('customer_care_logs')

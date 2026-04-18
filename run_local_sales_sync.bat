@@ -1,10 +1,16 @@
 @echo off
-set LOG_FILE=D:\_Báo cáo\Báo cáo doanh thu\2025\Log_update_Bigquery\sales_sync_supabase.log
-echo [%date% %time%] --- BAT DAU DONG BO SALES SANG SUPABASE --- >> "%LOG_FILE%"
+echo ======================================================
+echo   PROMO CHECK - HE THONG DONG BO SALES (2024-2026)
+echo ======================================================
+echo.
+echo Dang doc du lieu tu CSV va tong hop len Supabase...
+echo Vui long cho trong giay lat (co the mat vai phut cho 1.5M dong).
+echo.
 
-cd /d d:\promotion-app\promotion-app
-node sync_sales_locally.js >> "%LOG_FILE%" 2>&1
+node sync_sales_locally.js
 
-echo [%date% %time%] --- HOAN TAT DONG BO --- >> "%LOG_FILE%"
-echo. >> "%LOG_FILE%"
-
+echo.
+echo ======================================================
+echo   DONG BO HOAN TAT!
+echo ======================================================
+pause

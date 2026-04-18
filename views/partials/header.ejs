@@ -1,538 +1,903 @@
 <% /* views/partials/header.ejs (Final: Full Backend Connected) */ %>
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="utf-8">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap&subset=vietnamese"
-    rel="stylesheet">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
-  <link rel="stylesheet" href="/css/style.css">
-  <title><%= title %></title>
-  <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="apple-touch-icon" href="/favicon.png">
-  <style>
-      /* CSS phụ trợ menu */
-      .dropdown-menu a { display: flex !important; align-items: center; gap: 8px; white-space: nowrap; }
-      .menu-icon { width: 20px; text-align: center; font-size: 16px; }
-      a.logo { text-decoration: none; color: inherit; cursor: pointer; }
+    <!DOCTYPE html>
+    <html lang="vi">
 
-      /* CSS NÚT CHUÔNG */
-      .notification-btn {
-          position: relative; display: flex; align-items: center; justify-content: center;
-          width: 40px; height: 40px; border-radius: 50%;
-          color: #ffffff !important; background-color: rgba(255, 255, 255, 0.15); 
-          border: 1px solid rgba(255, 255, 255, 0.1); margin-right: 15px;
-          transition: all 0.2s ease; text-decoration: none;
-      }
-      .notification-btn:hover { background-color: rgba(255, 255, 255, 0.3); transform: scale(1.05); box-shadow: 0 0 10px rgba(255, 255, 255, 0.2); }
-      .notification-badge {
-          position: absolute; top: -2px; right: -2px; background-color: #ef4444; color: white;
-          font-size: 10px; font-weight: 800; min-width: 18px; height: 18px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center; border: 2px solid #ffffff;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 10;
-      }
+    <head>
+        <meta charset="utf-8">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap&subset=vietnamese"
+            rel="stylesheet">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&family=Inter:wght@400;600;700;800&display=swap"
+            rel="stylesheet">
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+        <link rel="stylesheet" href="/css/style.css">
+        <title>
+            <%= title %>
+        </title>
+        <link rel="icon" type="image/png" href="/favicon.png">
+        <link rel="apple-touch-icon" href="/favicon.png">
+        <style>
+            /* CSS phụ trợ menu */
+            .dropdown-menu a {
+                display: flex !important;
+                align-items: center;
+                gap: 8px;
+                white-space: nowrap;
+            }
 
-      /* CSS DROPDOWN */
-      .notification-wrapper { position: relative; }
-      .notif-dropdown-menu {
-          display: none; position: absolute; top: 55px; right: 0; width: 320px;
-          background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-          z-index: 1000; overflow: hidden; border: 1px solid #e2e8f0;
-      }
-      .notif-dropdown-menu.show { display: block; animation: fadeIn 0.2s ease-out; }
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+            .menu-icon {
+                width: 20px;
+                text-align: center;
+                font-size: 16px;
+            }
 
-      .notif-header-bar { padding: 10px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 700; color: #334155; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
-      
-      .notif-item { padding: 10px 15px; border-bottom: 1px solid #f1f5f9; display: block; text-decoration: none; transition: background 0.2s; }
-      .notif-item:last-child { border-bottom: none; }
-      .notif-item:hover { background-color: #f0f9ff; }
-      /* Style cho tin ĐÃ ĐỌC vs CHƯA ĐỌC */
-      .notif-item.read { opacity: 0.7; background-color: #fff; }
-      .notif-item.unread { background-color: #fff; }
+            a.logo {
+                text-decoration: none;
+                color: inherit;
+                cursor: pointer;
+            }
 
-      .notif-row-1 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; width: 100%; }
-      .n-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; text-transform: uppercase; }
-      .n-badge.info { background: #dbeafe; color: #1e40af; }
-      .n-badge.update { background: #dcfce7; color: #166534; }
-      .n-badge.alert { background: #fee2e2; color: #991b1b; }
-      .n-title { font-size: 13px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-      .notif-row-2 { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
-      .notif-dot { width: 3px; height: 3px; background: #cbd5e1; border-radius: 50%; }
-      .notif-footer { text-align: center; padding: 8px; border-top: 1px solid #e2e8f0; font-size: 12px; }
-      .notif-footer a { color: #2563eb; font-weight: 600; text-decoration: none; }
+            /* CSS NÚT CHUÔNG */
+            .notification-btn {
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                color: #ffffff !important;
+                background-color: rgba(255, 255, 255, 0.15);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                margin-right: 15px;
+                transition: all 0.2s ease;
+                text-decoration: none;
+            }
 
-      /* CSS MODAL */
-      .notif-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-      .notif-modal-overlay.show { display: flex; animation: fadeInModal 0.2s ease-out; }
-      @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
-      .notif-modal-container { background: white; width: 90%; max-width: 600px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column; max-height: 80vh; }
-      .notif-modal-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
-      .notif-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #64748b; }
-      .notif-modal-body { padding: 20px; overflow-y: auto; }
-      #modal-title { margin: 0 0 10px 0; font-size: 18px; color: #0f172a; }
-      .notif-content-text { font-size: 15px; line-height: 1.6; color: #334155; }
-      .notif-modal-footer { padding: 15px; border-top: 1px solid #eee; text-align: right; background: white; }
-      .btn-close-modal { padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; color: #475569; cursor: pointer; }
-      .btn-close-modal:hover { background: #cbd5e1; }
+            .notification-btn:hover {
+                background-color: rgba(255, 255, 255, 0.3);
+                transform: scale(1.05);
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+            }
 
-      /* Style cho nút Truy cập ngay trong Modal */
-.btn-action-modal {
-    padding: 8px 16px;
-    background: #2563eb; /* Màu xanh nổi bật */
-    color: white !important;
-    text-decoration: none;
-    border-radius: 6px;
-    font-weight: 600;
-    transition: background 0.2s;
-    border: none;
-    display: inline-flex;
-    align-items: center;
-}
-.btn-action-modal:hover {
-    background: #1d4ed8;
-}
-  </style>
-</head>
-<body>
+            .notification-badge {
+                position: absolute;
+                top: -2px;
+                right: -2px;
+                background-color: #ef4444;
+                color: white;
+                font-size: 10px;
+                font-weight: 800;
+                min-width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 2px solid #ffffff;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                z-index: 10;
+            }
 
- <div class="sticky-top-bar">
-    <header class="header">
-        <div class="container">
-            <div class="header-content">
-                <a href="/" class="logo">Web Miền</a>
-                
-                <nav class="nav">
-                    <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">📦 FIFO</a>
-                    <% if (user && (user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
-                        <a href="/promo-management" class="<%= currentPage === 'promo-management' ? 'active' : '' %>">⚙️ QL CTKM</a>
-                    <% } %>  
-                </nav>
-                     
-                <% 
-                    const utilityPages = ['policy', 'pc-builder', 'quote-builder', 'bom-check', 'bom-dashboard', 'clearance-check', 'event-operations', 'event-orders', 'event-settings', 'customer-care', 'queue-admin', 'queue-tv'];
-                %>
-                <div class="dropdown">
-                    <a href="#" id="utilitiesDropdownToggle" style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none; padding: 6px 10px;" class="<%= utilityPages.includes(currentPage) ? 'active' : '' %>">
-                        Tiện ích <span style="font-size: 10px;">▼</span>
-                    </a>
-                    <div class="dropdown-menu" id="utilitiesDropdownMenu">
-                        <% if (user && ['vu.nt1@phongvu-mna.vn', 'thu.hm@phongvu-mna.vn'].includes(user.email)) { %>
-                        <a href="/refunds" class="<%= currentPage === 'refund_dashboard' ? 'active' : '' %>">💸 Hoàn tiền</a>
-                        <a href="/admin/send-notification" class="news-filters button" style="background-color: #6366f1; color: white;">
-            🔔 Gửi Noti
-        </a>
-                        <% } %>
-                        <a href="/policy" class="<%= currentPage === 'policy' ? 'active' : '' %>"><span class="menu-icon">📄</span> Chính sách</a>
-                        <div class="dropdown-submenu">
-                            <a href="#" class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;"><span>👨‍🔧 Technician</span></a>
-                            <div class="dropdown-menu-child">
-                                <a href="/queue/admin" class="dropdown-item">🎛 Điều phối (Admin)</a>
-                                <a href="/queue/tv" target="_blank" class="dropdown-item">📺 Màn hình TV</a>
-                                <a href="/queue/report" class="dropdown-item">📊 Báo cáo Dịch vụ</a>
+            /* CSS DROPDOWN */
+            .notification-wrapper {
+                position: relative;
+            }
+
+            .notif-dropdown-menu {
+                display: none;
+                position: absolute;
+                top: 55px;
+                right: 0;
+                width: 320px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
+                overflow: hidden;
+                border: 1px solid #e2e8f0;
+            }
+
+            .notif-dropdown-menu.show {
+                display: block;
+                animation: fadeIn 0.2s ease-out;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .notif-header-bar {
+                padding: 10px 15px;
+                background: #f8fafc;
+                border-bottom: 1px solid #e2e8f0;
+                font-weight: 700;
+                color: #334155;
+                font-size: 14px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .notif-item {
+                padding: 10px 15px;
+                border-bottom: 1px solid #f1f5f9;
+                display: block;
+                text-decoration: none;
+                transition: background 0.2s;
+            }
+
+            .notif-item:last-child {
+                border-bottom: none;
+            }
+
+            .notif-item:hover {
+                background-color: #f0f9ff;
+            }
+
+            /* Style cho tin ĐÃ ĐỌC vs CHƯA ĐỌC */
+            .notif-item.read {
+                opacity: 0.7;
+                background-color: #fff;
+            }
+
+            .notif-item.unread {
+                background-color: #fff;
+            }
+
+            .notif-row-1 {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 4px;
+                width: 100%;
+            }
+
+            .n-badge {
+                font-size: 10px;
+                font-weight: 700;
+                padding: 2px 6px;
+                border-radius: 4px;
+                white-space: nowrap;
+                text-transform: uppercase;
+            }
+
+            .n-badge.info {
+                background: #dbeafe;
+                color: #1e40af;
+            }
+
+            .n-badge.update {
+                background: #dcfce7;
+                color: #166534;
+            }
+
+            .n-badge.alert {
+                background: #fee2e2;
+                color: #991b1b;
+            }
+
+            .n-title {
+                font-size: 13px;
+                font-weight: 700;
+                color: #0f172a;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .notif-row-2 {
+                font-size: 11px;
+                color: #64748b;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .notif-dot {
+                width: 3px;
+                height: 3px;
+                background: #cbd5e1;
+                border-radius: 50%;
+            }
+
+            .notif-footer {
+                text-align: center;
+                padding: 8px;
+                border-top: 1px solid #e2e8f0;
+                font-size: 12px;
+            }
+
+            .notif-footer a {
+                color: #2563eb;
+                font-weight: 600;
+                text-decoration: none;
+            }
+
+            /* CSS MODAL */
+            .notif-modal-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+                align-items: center;
+                justify-content: center;
+                backdrop-filter: blur(2px);
+            }
+
+            .notif-modal-overlay.show {
+                display: flex;
+                animation: fadeInModal 0.2s ease-out;
+            }
+
+            @keyframes fadeInModal {
+                from {
+                    opacity: 0;
+                }
+
+                to {
+                    opacity: 1;
+                }
+            }
+
+            .notif-modal-container {
+                background: white;
+                width: 90%;
+                max-width: 600px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                max-height: 80vh;
+            }
+
+            .notif-modal-header {
+                padding: 15px 20px;
+                border-bottom: 1px solid #eee;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: #f8fafc;
+            }
+
+            .notif-close-btn {
+                background: none;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #64748b;
+            }
+
+            .notif-modal-body {
+                padding: 20px;
+                overflow-y: auto;
+            }
+
+            #modal-title {
+                margin: 0 0 10px 0;
+                font-size: 18px;
+                color: #0f172a;
+            }
+
+            .notif-content-text {
+                font-size: 15px;
+                line-height: 1.6;
+                color: #334155;
+            }
+
+            .notif-modal-footer {
+                padding: 15px;
+                border-top: 1px solid #eee;
+                text-align: right;
+                background: white;
+            }
+
+            .btn-close-modal {
+                padding: 8px 16px;
+                background: #e2e8f0;
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+                color: #475569;
+                cursor: pointer;
+            }
+
+            .btn-close-modal:hover {
+                background: #cbd5e1;
+            }
+
+            /* Style cho nút Truy cập ngay trong Modal */
+            .btn-action-modal {
+                padding: 8px 16px;
+                background: #2563eb;
+                /* Màu xanh nổi bật */
+                color: white !important;
+                text-decoration: none;
+                border-radius: 6px;
+                font-weight: 600;
+                transition: background 0.2s;
+                border: none;
+                display: inline-flex;
+                align-items: center;
+            }
+
+            .btn-action-modal:hover {
+                background: #1d4ed8;
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <div class="sticky-top-bar">
+            <header class="header">
+                <div class="container">
+                    <div class="header-content">
+                        <a href="/" class="logo">Web Miền</a>
+
+                        <nav class="nav">
+                            <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">📦
+                                FIFO</a>
+                            <% if (user && (user.role==='manager' || user.role==='admin' ) &&
+                                user.branch_code==='HCM.BD' ) { %>
+                                <a href="/promo-management"
+                                    class="<%= currentPage === 'promo-management' ? 'active' : '' %>">⚙️ QL CTKM</a>
+                                <% } %>
+                        </nav>
+
+                        <% const utilityPages=['policy', 'pc-builder' , 'quote-builder' , 'bom-check' , 'bom-dashboard'
+                            , 'clearance-check' , 'event-operations' , 'event-orders' , 'event-settings'
+                            , 'customer-care' , 'queue-admin' , 'queue-tv' ]; %>
+                            <div class="dropdown">
+                                <a href="#" id="utilitiesDropdownToggle"
+                                    style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none; padding: 6px 10px;"
+                                    class="<%= utilityPages.includes(currentPage) ? 'active' : '' %>">
+                                    Tiện ích <span style="font-size: 10px;">▼</span>
+                                </a>
+                                <div class="dropdown-menu" id="utilitiesDropdownMenu">
+                                    <% if (user && ['vu.nt1@phongvu-mna.vn', 'thu.hm@phongvu-mna.vn'
+                                        ].includes(user.email)) { %>
+                                        <a href="/refunds"
+                                            class="<%= currentPage === 'refund_dashboard' ? 'active' : '' %>">💸 Hoàn
+                                            tiền</a>
+                                        <a href="/admin/send-notification" class="news-filters button"
+                                            style="background-color: #6366f1; color: white;">
+                                            🔔 Gửi Noti
+                                        </a>
+                                        <% } %>
+                                            <a href="/policy"
+                                                class="<%= currentPage === 'policy' ? 'active' : '' %>"><span
+                                                    class="menu-icon">📄</span> Chính sách</a>
+                                            <div class="dropdown-submenu">
+                                                <a href="#" class="dropdown-item"
+                                                    style="display: flex; justify-content: space-between; align-items: center;"><span>👨‍🔧
+                                                        Technician</span></a>
+                                                <div class="dropdown-menu-child">
+                                                    <a href="/queue/admin" class="dropdown-item">🎛 Điều phối
+                                                        (Admin)</a>
+                                                    <a href="/queue/tv" target="_blank" class="dropdown-item">📺 Màn
+                                                        hình TV</a>
+                                                    <a href="/queue/report" class="dropdown-item">📊 Báo cáo Dịch vụ</a>
+                                                </div>
+                                            </div>
+                                            <a href="/customer-care"
+                                                class="<%= currentPage === 'customer-care' ? 'active' : '' %>"><span
+                                                    class="menu-icon">📞</span> CSKH</a>
+                                            <a href="/pc-builder"><span class="menu-icon">🖥️</span> Build PC</a>
+                                            <a href="/quote-builder"><span class="menu-icon">📄</span> Báo giá nhanh</a>
+                                            <a href="/clearance-check"
+                                                class="<%= currentPage === 'clearance-check' ? 'active' : '' %>"><span
+                                                    class="menu-icon">🏷️</span> Hàng thanh lý</a>
+
+                                            <% if (user && (user.role==='manager' || user.role==='admin' )) { %>
+                                                <a href="/sales-dashboard"
+                                                    class="<%= currentPage === 'sales-dashboard' ? 'active' : '' %>"><span
+                                                        class="menu-icon">📈</span> Doanh Thu RT</a>
+                                                <!-- <a href="/executive-dashboard"
+                                                    class="<%= currentPage === 'executive-dashboard' ? 'active' : '' %>"><span
+                                                        class="menu-icon">📊</span> Executive Dashboard</a> -->
+                                                <% } %>
+                                            <div class="dropdown-submenu">
+                                                <a href="#" class="dropdown-item"
+                                                   style="display: flex; justify-content: space-between; align-items: center;"
+                                                   class="<%= ['bom-check','bom-dashboard'].includes(currentPage) ? 'active' : '' %>">
+                                                    <span>📦 BOM PCPV</span>
+                                                </a>
+                                                <div class="dropdown-menu-child">
+                                                    <a href="/bom-check" class="dropdown-item <%= currentPage === 'bom-check' ? 'active' : '' %>">🔍 Check BOM</a>
+                                                    <a href="/bom-dashboard" class="dropdown-item <%= currentPage === 'bom-dashboard' ? 'active' : '' %>">📊 Dashboard SKU</a>
+                                                </div>
+                                            </div>
+                                                    <% if (user && user.email==='vu.nt1@phongvu-mna.vn' ) { %>
+                                                        <% if (locals.isBranchEventActive) { %>
+                                                            <div style="border-top: 1px solid #eee; margin: 4px 0;">
+                                                            </div>
+                                                            <a href="/event-operations"
+                                                                class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>"><span
+                                                                    class="menu-icon">🎉</span> Vận hành Event</a>
+                                                            <% } %>
+                                                                <% if ((user.role==='manager' || user.role==='admin' )
+                                                                    && user.branch_code==='HCM.BD' ) { %>
+                                                                    <% if (!locals.isBranchEventActive) { %>
+                                                                        <div
+                                                                            style="border-top: 1px solid #eee; margin: 4px 0;">
+                                                                        </div>
+                                                                        <% } %>
+                                                                            <a href="/admin/event-settings"
+                                                                                class="<%= currentPage === 'event-settings' ? 'active' : '' %>"><span
+                                                                                    class="menu-icon">⚙️</span> Cài đặt
+                                                                                Event</a>
+                                                                            <% } %>
+                                                                                <% } %>
+                                </div>
                             </div>
-                        </div>
-                        <a href="/customer-care" class="<%= currentPage === 'customer-care' ? 'active' : '' %>"><span class="menu-icon">📞</span> CSKH</a>
-                        <a href="/pc-builder"><span class="menu-icon">🖥️</span> Build PC</a>
-                        <a href="/quote-builder"><span class="menu-icon">📄</span> Báo giá nhanh</a>
-                        <a href="/clearance-check" class="<%= currentPage === 'clearance-check' ? 'active' : '' %>"><span class="menu-icon">🏷️</span> Hàng thanh lý</a>
 
-                        <% if (user && (user.role === 'manager' || user.role === 'admin')) { %>
-                        <a href="/sales-dashboard" class="<%= currentPage === 'sales-dashboard' ? 'active' : '' %>"><span class="menu-icon">📈</span> Doanh Thu RT</a>
-                        <a href="/executive-dashboard" class="<%= currentPage === 'executive-dashboard' ? 'active' : '' %>"><span class="menu-icon">📊</span> Executive Dashboard</a>
-                        <% } %>
-                        <a href="/bom-check"><span class="menu-icon">🔍</span> Check BOM</a>
-                        <a href="/bom-dashboard"><span class="menu-icon">📊</span> BOM Dashboard</a>
-                        <% if (user && user.email === 'vu.nt1@phongvu-mna.vn') { %>
-                            <% if (locals.isBranchEventActive) { %>
-                                <div style="border-top: 1px solid #eee; margin: 4px 0;"></div>
-                                <a href="/event-operations" class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>"><span class="menu-icon">🎉</span> Vận hành Event</a>
-                            <% } %>
-                            <% if ((user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
-                                <% if (!locals.isBranchEventActive) { %> <div style="border-top: 1px solid #eee; margin: 4px 0;"></div> <% } %>
-                                <a href="/admin/event-settings" class="<%= currentPage === 'event-settings' ? 'active' : '' %>"><span class="menu-icon">⚙️</span> Cài đặt Event</a>
-                            <% } %>
-                        <% } %>
+                            <% if (locals.user && (user.role==='manager' || user.role==='admin' ) &&
+                                user.branch_code==='HCM.BD' && locals.onlineUserCount !=null) { %>
+                                <style>
+                                    .online-user-indicator {
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 6px;
+                                        color: #2ecc71;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                        margin-right: 15px;
+                                        white-space: nowrap;
+                                    }
+
+                                    .online-user-indicator .dot {
+                                        width: 10px;
+                                        height: 10px;
+                                        background-color: #2ecc71;
+                                        border-radius: 50%;
+                                        animation: pulse 1.5s infinite ease-in-out;
+                                    }
+
+                                    @keyframes pulse {
+                                        0% {
+                                            opacity: 1;
+                                        }
+
+                                        50% {
+                                            opacity: 0.3;
+                                        }
+
+                                        100% {
+                                            opacity: 1;
+                                        }
+                                    }
+                                </style>
+                                <div class="online-user-indicator"><span class="dot"></span> Online: <strong>
+                                        <%= onlineUserCount %>
+                                    </strong></div>
+                                <% } %>
+
+                                    <% if (user) { %>
+                                        <div class="user-nav">
+                                            <% /* ƯU TIÊN DỮ LIỆU THẬT TỪ SERVER (locals.notifications), nếu không có mới dùng mock */
+                                                const notifList = locals.notifications || [];
+                                                const displayNotifs = notifList.slice(0, 4);
+                                                const unreadCountNum = locals.unreadCount || 0; %>
+
+                                                <div class="notification-wrapper">
+                                                    <a href="#" class="notification-btn" id="notifToggleBtn"
+                                                        title="Thông báo">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                                                            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                            stroke-width="2" stroke-linecap="round"
+                                                            stroke-linejoin="round">
+                                                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9">
+                                                            </path>
+                                                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                                        </svg>
+                                                        <% if (unreadCountNum> 0) { %>
+                                                            <span class="notification-badge" id="badge-count">
+                                                                <%= unreadCountNum> 99 ? '99+' : unreadCountNum %>
+                                                            </span>
+                                                            <% } else { %>
+                                                                <span class="notification-badge" id="badge-count"
+                                                                    style="display:none;">0</span>
+                                                                <% } %>
+                                                    </a>
+
+                                                    <div class="notif-dropdown-menu" id="notifDropdown">
+                                                        <div class="notif-header-bar">
+                                                            <span>Thông báo mới</span>
+                                                            <a href="#" onclick="markAllRead(event)"
+                                                                style="font-size:11px; color:#2563eb; text-decoration:none;">Đọc
+                                                                tất cả</a>
+                                                        </div>
+                                                        <div class="notif-list" id="notifListContainer">
+                                                            <% displayNotifs.forEach(n=> { %>
+                                                                <div class="notif-item <%= n.is_read ? 'read' : 'unread' %>"
+                                                                    style="cursor: pointer;"
+                                                                    onclick="handleNotificationClick(this)"
+                                                                    data-id="<%= n.id %>" data-read="<%= n.is_read %>"
+                                                                    data-link="<%= n.link || '' %>"
+                                                                    data-title="<%= n.title %>"
+                                                                    data-time="<%= new Date(n.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %>"
+                                                                    data-date="<%= new Date(n.created_at).toLocaleDateString('vi-VN') %>"
+                                                                    data-user="<%= n.user_ref %>"
+                                                                    data-type="<%= n.type || 'Thông báo' %>"
+                                                                    data-type-class="<%= n.type === 'alert' ? 'alert' : (n.type === 'update' ? 'update' : 'info') %>"
+                                                                    data-content="<%= n.content %>">
+
+                                                                    <div class="notif-row-1">
+                                                                        <span
+                                                                            class="n-badge <%= n.type === 'alert' ? 'alert' : (n.type === 'update' ? 'update' : 'info') %>">
+                                                                            <%= n.type || 'INFO' %>
+                                                                        </span>
+                                                                        <span class="n-title"
+                                                                            style="<%= !n.is_read ? 'font-weight: 800; color: #000;' : '' %>">
+                                                                            <%= n.title %>
+                                                                        </span>
+                                                                        <% if (!n.is_read) { %>
+                                                                            <span class="unread-dot"
+                                                                                style="width:8px; height:8px; background:blue; border-radius:50%; margin-left:auto;"></span>
+                                                                            <% } %>
+                                                                    </div>
+                                                                    <div class="notif-row-2">
+                                                                        <span>
+                                                                            <%= new
+                                                                                Date(n.created_at).toLocaleTimeString('vi-VN',
+                                                                                {hour:'2-digit', minute:'2-digit'}) %>
+                                                                        </span>
+                                                                        <span class="notif-dot"></span>
+
+                                                                        <span
+                                                                            style="display: flex; align-items: center; gap: 3px; margin-right: 5px;"
+                                                                            title="<%= n.view_count %> người đã xem">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                width="12" height="12"
+                                                                                viewBox="0 0 24 24" fill="none"
+                                                                                stroke="currentColor" stroke-width="2"
+                                                                                stroke-linecap="round"
+                                                                                stroke-linejoin="round"
+                                                                                style="color: #64748b;">
+                                                                                <path
+                                                                                    d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z">
+                                                                                </path>
+                                                                                <circle cx="12" cy="12" r="3"></circle>
+                                                                            </svg>
+                                                                            <%= n.view_count || 0 %>
+                                                                        </span>
+                                                                        <span>
+                                                                            <%= new
+                                                                                Date(n.created_at).toLocaleDateString('vi-VN')
+                                                                                %>
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <% }) %>
+
+                                                                    <% if (displayNotifs.length===0) { %>
+                                                                        <div
+                                                                            style="padding:20px; text-align:center; color:#94a3b8; font-size:13px;">
+                                                                            Không có thông báo mới
+                                                                        </div>
+                                                                        <% } %>
+                                                        </div>
+                                                        <div class="notif-footer"><a href="/notifications">Xem tất cả
+                                                                thông báo →</a></div>
+                                                    </div>
+                                                </div>
+
+                                                <a href="/profile" class="user-info"
+                                                    style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                                                    <div class="user-avatar">
+                                                        <%= user.full_name ? user.full_name.charAt(0).toUpperCase() :
+                                                            user.email.charAt(0).toUpperCase() %>
+                                                    </div>
+                                                    <span style="color: white; font-weight: 600;">
+                                                        <%= user.full_name || user.email %>
+                                                    </span>
+                                                </a>
+
+                                                <% if ((user.role==='manager' || user.role==='admin' ) &&
+                                                    user.branch_code==='HCM.BD' ) { %>
+                                                    <button type="button" class="btn btn-warning" id="btnSyncBigQuery"
+                                                        style="display: none; padding: 5px 10px; font-size: 0.8rem;">Sync BQ</button>
+                                                    <button type="button" class="btn" id="btnSyncInventory"
+                                                        style="display: none; padding: 5px 10px; font-size: 0.8rem; margin-left: 5px; background-color: #06b6d4; color: white; border: none; border-radius: 4px;">Sync
+                                                        Supabase Fallback</button>
+                                                    <% } %>
+
+                                                        <form action="/logout" method="POST" style="display: inline;">
+                                                            <button type="submit" class="logout-btn">Đăng xuất</button>
+                                                        </form>
+                                        </div>
+                                        <% } else { %>
+                                            <div class="user-nav"><a href="/login"
+                                                    style="color: white; text-decoration: none;">Đăng nhập</a></div>
+                                            <% } %>
                     </div>
                 </div>
+            </header>
 
-                <% if (locals.user && (user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD' && locals.onlineUserCount != null) { %>
-                  <style>
-                    .online-user-indicator { display: flex; align-items: center; gap: 6px; color: #2ecc71; font-size: 14px; font-weight: 600; margin-right: 15px; white-space: nowrap; }
-                    .online-user-indicator .dot { width: 10px; height: 10px; background-color: #2ecc71; border-radius: 50%; animation: pulse 1.5s infinite ease-in-out; }
-                    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-                  </style>
-                  <div class="online-user-indicator"><span class="dot"></span> Online: <strong><%= onlineUserCount %></strong></div>
-                <% } %>
-                
-                <% if (user) { %>
-    <div class="user-nav">
-        <% 
-            // ƯU TIÊN DỮ LIỆU THẬT TỪ SERVER (locals.notifications), nếu không có mới dùng mock
-            const notifList = locals.notifications || [];
-            const displayNotifs = notifList.slice(0, 4);
-            const unreadCountNum = locals.unreadCount || 0;
-        %>
-
-        <div class="notification-wrapper">
-            <a href="#" class="notification-btn" id="notifToggleBtn" title="Thông báo">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                </svg>
-                <% if (unreadCountNum > 0) { %>
-                    <span class="notification-badge" id="badge-count"><%= unreadCountNum > 99 ? '99+' : unreadCountNum %></span>
-                <% } else { %>
-                    <span class="notification-badge" id="badge-count" style="display:none;">0</span>
-                <% } %>
-            </a>
-
-            <div class="notif-dropdown-menu" id="notifDropdown">
-                <div class="notif-header-bar">
-                    <span>Thông báo mới</span>
-                    <a href="#" onclick="markAllRead(event)" style="font-size:11px; color:#2563eb; text-decoration:none;">Đọc tất cả</a>
+            <% if (globalTickerText) { %>
+                <div class="ticker-container">
+                    <div class="ticker-content">
+                        <%= globalTickerText %>
+                    </div>
                 </div>
-                <div class="notif-list" id="notifListContainer">
-                    <% displayNotifs.forEach(n => { %>
-                        <div class="notif-item <%= n.is_read ? 'read' : 'unread' %>" 
-                            style="cursor: pointer;"
-     onclick="handleNotificationClick(this)"  
-     data-id="<%= n.id %>" 
-     data-read="<%= n.is_read %>"
-     data-link="<%= n.link || '' %>"  data-title="<%= n.title %>"
-                             data-time="<%= new Date(n.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %>"
-                             data-date="<%= new Date(n.created_at).toLocaleDateString('vi-VN') %>"
-                             data-user="<%= n.user_ref %>"
-                             data-type="<%= n.type || 'Thông báo' %>"
-                             data-type-class="<%= n.type === 'alert' ? 'alert' : (n.type === 'update' ? 'update' : 'info') %>"
-                             data-content="<%= n.content %>">
-                             
-                            <div class="notif-row-1">
-                                <span class="n-badge <%= n.type === 'alert' ? 'alert' : (n.type === 'update' ? 'update' : 'info') %>">
-                                    <%= n.type || 'INFO' %>
-                                </span>
-                                <span class="n-title" style="<%= !n.is_read ? 'font-weight: 800; color: #000;' : '' %>">
-                                    <%= n.title %>
-                                </span>
-        <% if (!n.is_read) { %>
-                                    <span class="unread-dot" style="width:8px; height:8px; background:blue; border-radius:50%; margin-left:auto;"></span>
-                                <% } %>
-                            </div>
-                            <div class="notif-row-2">
-    <span><%= new Date(n.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) %></span>
-    <span class="notif-dot"></span>
-    
-    <span style="display: flex; align-items: center; gap: 3px; margin-right: 5px;" title="<%= n.view_count %> người đã xem">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #64748b;">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-        <%= n.view_count || 0 %>
-    </span>
-    <span><%= new Date(n.created_at).toLocaleDateString('vi-VN') %></span>
-</div>
-                        </div>
-                    <% }) %>
-                    
-                    <% if (displayNotifs.length === 0) { %>
-                        <div style="padding:20px; text-align:center; color:#94a3b8; font-size:13px;">
-                            Không có thông báo mới
-                        </div>
-                    <% } %>
-                </div>
-                <div class="notif-footer"><a href="/notifications">Xem tất cả thông báo →</a></div>
-            </div>
-        </div>
-        
-        <a href="/profile" class="user-info" style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
-            <div class="user-avatar">
-                <%= user.full_name ? user.full_name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() %>
-            </div>
-            <span style="color: white; font-weight: 600;">
-                <%= user.full_name || user.email %>
-            </span>
-        </a>
-        
-        <% if ((user.role === 'manager' || user.role === 'admin') && user.branch_code === 'HCM.BD') { %>
-            <button type="button" class="btn btn-warning" id="btnSyncBigQuery" style="padding: 5px 10px; font-size: 0.8rem;">Sync BQ</button>
-            <button type="button" class="btn" id="btnSyncInventory" style="padding: 5px 10px; font-size: 0.8rem; margin-left: 5px; background-color: #06b6d4; color: white; border: none; border-radius: 4px;">Sync Supabase Fallback</button>
-        <% } %>
-
-        <form action="/logout" method="POST" style="display: inline;">
-            <button type="submit" class="logout-btn">Đăng xuất</button>
-        </form>
-    </div>
-<% } else { %>
-                    <div class="user-nav"><a href="/login" style="color: white; text-decoration: none;">Đăng nhập</a></div>
                 <% } %>
+        </div>
+
+        <div id="notif-modal-overlay" class="notif-modal-overlay">
+            <div class="notif-modal-container">
+                <div class="notif-modal-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span id="modal-badge" class="n-badge">INFO</span>
+                        <span style="font-size:12px; color:#64748b;" id="modal-time">10:30 - 25/10</span>
+                    </div>
+                    <button onclick="closeNotifModal()" class="notif-close-btn">&times;</button>
+                </div>
+
+                <div class="notif-modal-body">
+                    <h3 id="modal-title">Tiêu đề</h3>
+
+                    <div class="notif-user-info">
+                        Gửi bởi: <strong>Ban Quản Trị</strong> <span style="color: #ccc">|</span>
+                        Gửi đến: <strong id="modal-user">User</strong>
+                    </div>
+                    <hr style="margin: 15px 0; border:0; border-top:1px solid #eee;">
+                    <div id="modal-content" class="notif-content-text">...</div>
+                </div>
+
+                <div class="notif-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <a id="modal-action-btn" href="#" class="btn-action-modal" style="display: none;">
+                        Truy cập ngay ➜
+                    </a>
+
+                    <button onclick="closeNotifModal()" class="btn-close-modal">Đóng</button>
+                </div>
             </div>
         </div>
-    </header>
 
-    <% if (globalTickerText) { %>
-      <div class="ticker-container"><div class="ticker-content"><%= globalTickerText %></div></div>
-    <% } %>
-  </div> 
+        <script>
+            // --- KHAI BÁO HÀM TOÀN CỤC (GLOBAL) ĐỂ HTML GỌI ĐƯỢC ---
 
-  <div id="notif-modal-overlay" class="notif-modal-overlay">
-    <div class="notif-modal-container">
-        <div class="notif-modal-header">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span id="modal-badge" class="n-badge">INFO</span>
-                <span style="font-size:12px; color:#64748b;" id="modal-time">10:30 - 25/10</span>
-            </div>
-            <button onclick="closeNotifModal()" class="notif-close-btn">&times;</button>
-        </div>
+            // 1. Hàm mở modal & GỌI API ĐÁNH DẤU ĐÃ ĐỌC
+            // --- [UPDATED] XỬ LÝ CLICK: LUÔN HIỆN MODAL + NÚT LINK (NẾU CÓ) ---
+            window.handleNotificationClick = async function (element) {
+                const id = element.getAttribute('data-id');
+                const isRead = element.getAttribute('data-read') === 'true';
+                const link = element.getAttribute('data-link'); // Lấy link từ data attribute
 
-        <div class="notif-modal-body">
-            <h3 id="modal-title">Tiêu đề</h3>
-            
-            <div class="notif-user-info">
-    Gửi bởi: <strong>Ban Quản Trị</strong> <span style="color: #ccc">|</span>
-    Gửi đến: <strong id="modal-user">User</strong>
-</div>
-            <hr style="margin: 15px 0; border:0; border-top:1px solid #eee;">
-            <div id="modal-content" class="notif-content-text">...</div>
-        </div>
+                // 1. GỌI API ĐÁNH DẤU ĐÃ ĐỌC (Giữ nguyên logic cũ)
+                if (!isRead && id) {
+                    try {
+                        fetch('/api/notifications/mark-read', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: id })
+                        });
 
-        <div class="notif-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
-            <a id="modal-action-btn" href="#" class="btn-action-modal" style="display: none;">
-                Truy cập ngay ➜
-            </a>
-            
-            <button onclick="closeNotifModal()" class="btn-close-modal">Đóng</button>
-        </div>
-    </div>
-</div>
-
-  <script>
-    // --- KHAI BÁO HÀM TOÀN CỤC (GLOBAL) ĐỂ HTML GỌI ĐƯỢC ---
-
-    // 1. Hàm mở modal & GỌI API ĐÁNH DẤU ĐÃ ĐỌC
-    // --- [UPDATED] XỬ LÝ CLICK: LUÔN HIỆN MODAL + NÚT LINK (NẾU CÓ) ---
-    window.handleNotificationClick = async function(element) {
-        const id = element.getAttribute('data-id');
-        const isRead = element.getAttribute('data-read') === 'true';
-        const link = element.getAttribute('data-link'); // Lấy link từ data attribute
-
-        // 1. GỌI API ĐÁNH DẤU ĐÃ ĐỌC (Giữ nguyên logic cũ)
-        if (!isRead && id) {
-            try {
-                fetch('/api/notifications/mark-read', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: id })
-                });
-
-                // Cập nhật UI Badge (ẩn chấm đỏ, giảm số)
-                const badgeCount = document.getElementById('badge-count');
-                if (badgeCount) {
-                    let currentCount = parseInt(badgeCount.innerText) || 0;
-                    if (currentCount > 0) {
-                        currentCount--;
-                        badgeCount.innerText = currentCount > 99 ? '99+' : currentCount;
-                        if (currentCount === 0) badgeCount.style.display = 'none';
-                    }
+                        // Cập nhật UI Badge (ẩn chấm đỏ, giảm số)
+                        const badgeCount = document.getElementById('badge-count');
+                        if (badgeCount) {
+                            let currentCount = parseInt(badgeCount.innerText) || 0;
+                            if (currentCount > 0) {
+                                currentCount--;
+                                badgeCount.innerText = currentCount > 99 ? '99+' : currentCount;
+                                if (currentCount === 0) badgeCount.style.display = 'none';
+                            }
+                        }
+                        // Làm mờ dòng thông báo
+                        element.style.opacity = '0.7';
+                        element.style.background = 'transparent';
+                        element.setAttribute('data-read', 'true');
+                        const titleEl = element.querySelector('.n-title');
+                        if (titleEl) titleEl.style.fontWeight = '400';
+                        const dot = element.querySelector('.unread-dot');
+                        if (dot) dot.style.display = 'none';
+                    } catch (err) { console.error('Lỗi mark read:', err); }
                 }
-                // Làm mờ dòng thông báo
-                element.style.opacity = '0.7';
-                element.style.background = 'transparent';
-                element.setAttribute('data-read', 'true');
-                const titleEl = element.querySelector('.n-title');
-                if(titleEl) titleEl.style.fontWeight = '400';
-                const dot = element.querySelector('.unread-dot');
-                if(dot) dot.style.display = 'none';
-            } catch (err) { console.error('Lỗi mark read:', err); }
-        }
 
-        // 2. [LOGIC MỚI] ĐỔ DỮ LIỆU VÀO MODAL
-        const modalOverlay = document.getElementById('notif-modal-overlay');
-        const notifDropdown = document.getElementById('notifDropdown');
-        const btnAction = document.getElementById('modal-action-btn'); // Nút truy cập
+                // 2. [LOGIC MỚI] ĐỔ DỮ LIỆU VÀO MODAL
+                const modalOverlay = document.getElementById('notif-modal-overlay');
+                const notifDropdown = document.getElementById('notifDropdown');
+                const btnAction = document.getElementById('modal-action-btn'); // Nút truy cập
 
-        document.getElementById('modal-title').innerText = element.getAttribute('data-title');
-        // Render HTML nội dung
-        document.getElementById('modal-content').innerHTML = element.getAttribute('data-content');
-        const timeStr = element.getAttribute('data-time'); // Ví dụ: 10:30
-        const dateStr = element.getAttribute('data-date'); // Ví dụ: 20/10/2025
-        document.getElementById('modal-time').innerText = `${timeStr} - ${dateStr}`; // Kết quả: 10:30 - 20/10/2025
+                document.getElementById('modal-title').innerText = element.getAttribute('data-title');
+                // Render HTML nội dung
+                document.getElementById('modal-content').innerHTML = element.getAttribute('data-content');
+                const timeStr = element.getAttribute('data-time'); // Ví dụ: 10:30
+                const dateStr = element.getAttribute('data-date'); // Ví dụ: 20/10/2025
+                document.getElementById('modal-time').innerText = `${timeStr} - ${dateStr}`; // Kết quả: 10:30 - 20/10/2025
 
-        document.getElementById('modal-user').innerText = element.getAttribute('data-user');
-
-        
-        const badge = document.getElementById('modal-badge');
-        badge.innerText = element.getAttribute('data-type');
-        badge.className = 'n-badge ' + element.getAttribute('data-type-class');
-
-        // 3. XỬ LÝ NÚT LIÊN KẾT
-        if (link && link !== '' && link !== 'null') {
-            // Nếu có link -> Hiện nút và gán href
-            btnAction.style.display = 'inline-flex';
-            btnAction.href = link;
-        } else {
-            // Nếu không có link -> Ẩn nút
-            btnAction.style.display = 'none';
-            btnAction.href = '#';
-        }
-
-        // 4. HIỆN MODAL
-        if (modalOverlay) modalOverlay.classList.add('show');
-        if (notifDropdown) notifDropdown.classList.remove('show');
-    };
-
-    // 2. Hàm Đọc Tất Cả
-   window.markAllRead = async function(e) {
-        e.preventDefault();
-        // Xóa dòng confirm nếu thấy phiền
-        // if(!confirm('Đánh dấu tất cả là đã đọc?')) return; 
-
-        try {
-            const res = await fetch('/api/notifications/mark-all-read', { method: 'POST' });
-            
-            if (res.ok) {
-                // Chỉ khi Server báo OK (200) thì mới ẩn số trên giao diện
-                const badgeCount = document.getElementById('badge-count');
-                if (badgeCount) badgeCount.style.display = 'none';
-                
-                // Làm mờ danh sách
-                const items = document.querySelectorAll('.notif-item');
-                items.forEach(item => {
-                    item.classList.remove('unread');
-                    item.classList.add('read');
-                    const dot = item.querySelector('.unread-dot');
-                    if(dot) dot.style.display = 'none';
-                    const title = item.querySelector('.n-title');
-                    if(title) title.style.fontWeight = '400';
-                });
-            } else {
-                console.error('Lỗi server khi đánh dấu đọc tất cả');
-            }
-        } catch (err) {
-            console.error('Lỗi kết nối:', err);
-        }
-    };
-
-    window.closeNotifModal = function() {
-        const modalOverlay = document.getElementById('notif-modal-overlay');
-        if (modalOverlay) modalOverlay.classList.remove('show');
-    };
+                document.getElementById('modal-user').innerText = element.getAttribute('data-user');
 
 
-    // --- SỰ KIỆN LOAD TRANG ---
-    document.addEventListener('DOMContentLoaded', function() {
-        // Logic Dropdown Tiện ích
-        const utilsBtn = document.getElementById('utilitiesDropdownToggle');
-        const utilsMenu = document.getElementById('utilitiesDropdownMenu');
-        if (utilsBtn && utilsMenu) {
-            utilsBtn.addEventListener('click', (e) => { e.preventDefault(); utilsMenu.classList.toggle('open'); });
-            document.addEventListener('click', (e) => {
-                if (!utilsBtn.contains(e.target) && !utilsMenu.contains(e.target)) utilsMenu.classList.remove('open');
-            });
-        }
+                const badge = document.getElementById('modal-badge');
+                badge.innerText = element.getAttribute('data-type');
+                badge.className = 'n-badge ' + element.getAttribute('data-type-class');
 
-        // Logic Sticky Header
-        const stickyBar = document.querySelector('.sticky-top-bar');
-        if (stickyBar) {
-            let lastScrollTop = 0;
-            window.addEventListener('scroll', () => {
-                let st = window.pageYOffset || document.documentElement.scrollTop;
-                if (st > lastScrollTop && st > 100) stickyBar.classList.add('sticky-top-bar--hidden');
-                else if (st < lastScrollTop) stickyBar.classList.remove('sticky-top-bar--hidden');
-                lastScrollTop = st <= 0 ? 0 : st;
-            }, { passive: true });
-        }
+                // 3. XỬ LÝ NÚT LIÊN KẾT
+                if (link && link !== '' && link !== 'null') {
+                    // Nếu có link -> Hiện nút và gán href
+                    btnAction.style.display = 'inline-flex';
+                    btnAction.href = link;
+                } else {
+                    // Nếu không có link -> Ẩn nút
+                    btnAction.style.display = 'none';
+                    btnAction.href = '#';
+                }
 
-        // Logic Dropdown Thông Báo
-        const notifBtn = document.getElementById('notifToggleBtn');
-        const notifDropdown = document.getElementById('notifDropdown');
-        if (notifBtn && notifDropdown) {
-            notifBtn.addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation();
-                notifDropdown.classList.toggle('show');
-            });
-            document.addEventListener('click', (e) => {
-                if (!notifDropdown.contains(e.target) && !notifBtn.contains(e.target)) notifDropdown.classList.remove('show');
-            });
-        }
-        
-        // Logic Click ngoài Modal để đóng
-        const modalOverlay = document.getElementById('notif-modal-overlay');
-        if (modalOverlay) {
-            modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) window.closeNotifModal(); });
-        }
+                // 4. HIỆN MODAL
+                if (modalOverlay) modalOverlay.classList.add('show');
+                if (notifDropdown) notifDropdown.classList.remove('show');
+            };
 
-        // Logic Sync BQ
-        // Logic Sync BQ
-        const syncButton = document.getElementById('btnSyncBigQuery');
-        if (syncButton) {
-            syncButton.addEventListener('click', async () => {
-                if (!confirm('Bạn có chắc muốn đồng bộ SKUs từ BigQuery?\nViệc này sẽ chèn các SKU mới vào hệ thống.')) return;
-                
-                syncButton.disabled = true;
-                syncButton.textContent = 'Đang sync...';
-                
+            // 2. Hàm Đọc Tất Cả
+            window.markAllRead = async function (e) {
+                e.preventDefault();
+                // Xóa dòng confirm nếu thấy phiền
+                // if(!confirm('Đánh dấu tất cả là đã đọc?')) return; 
+
                 try {
-                    // 1. Gọi API
-                    const res = await fetch('/api/admin/sync-bq-skus', { method: 'POST' });
-                    
-                    // 2. QUAN TRỌNG: Phải đọc dữ liệu JSON trả về từ server
-                    const data = await res.json(); 
+                    const res = await fetch('/api/notifications/mark-all-read', { method: 'POST' });
 
-                    if (!res.ok) throw new Error(data.error || 'Lỗi không xác định');
+                    if (res.ok) {
+                        // Chỉ khi Server báo OK (200) thì mới ẩn số trên giao diện
+                        const badgeCount = document.getElementById('badge-count');
+                        if (badgeCount) badgeCount.style.display = 'none';
 
-                    // 3. Hiển thị thông báo có kèm số lượng (data.new_skus)
-                    // Nếu server trả về data.new_skus = 0 thì báo "Không có mới", ngược lại báo số lượng.
-                    if (data.new_skus > 0) {
-                        alert(`✅ Đồng bộ thành công!\n📦 Đã thêm mới: ${data.new_skus} SKU.`);
+                        // Làm mờ danh sách
+                        const items = document.querySelectorAll('.notif-item');
+                        items.forEach(item => {
+                            item.classList.remove('unread');
+                            item.classList.add('read');
+                            const dot = item.querySelector('.unread-dot');
+                            if (dot) dot.style.display = 'none';
+                            const title = item.querySelector('.n-title');
+                            if (title) title.style.fontWeight = '400';
+                        });
                     } else {
-                        alert(`✅ Đồng bộ thành công!\n(Không phát hiện SKU mới nào)`);
+                        console.error('Lỗi server khi đánh dấu đọc tất cả');
                     }
-
-                    // Tải lại trang để cập nhật dữ liệu mới nếu cần
-                    // window.location.reload(); 
-
                 } catch (err) {
-                    alert('❌ Lỗi đồng bộ: ' + err.message);
-                } finally {
-                    syncButton.disabled = false;
-                    syncButton.textContent = 'Sync BQ';
+                    console.error('Lỗi kết nối:', err);
+                }
+            };
+
+            window.closeNotifModal = function () {
+                const modalOverlay = document.getElementById('notif-modal-overlay');
+                if (modalOverlay) modalOverlay.classList.remove('show');
+            };
+
+
+            // --- SỰ KIỆN LOAD TRANG ---
+            document.addEventListener('DOMContentLoaded', function () {
+                // Logic Dropdown Tiện ích
+                const utilsBtn = document.getElementById('utilitiesDropdownToggle');
+                const utilsMenu = document.getElementById('utilitiesDropdownMenu');
+                if (utilsBtn && utilsMenu) {
+                    utilsBtn.addEventListener('click', (e) => { e.preventDefault(); utilsMenu.classList.toggle('open'); });
+                    document.addEventListener('click', (e) => {
+                        if (!utilsBtn.contains(e.target) && !utilsMenu.contains(e.target)) utilsMenu.classList.remove('open');
+                    });
+                }
+
+                // Logic Sticky Header
+                const stickyBar = document.querySelector('.sticky-top-bar');
+                if (stickyBar) {
+                    let lastScrollTop = 0;
+                    window.addEventListener('scroll', () => {
+                        let st = window.pageYOffset || document.documentElement.scrollTop;
+                        if (st > lastScrollTop && st > 100) stickyBar.classList.add('sticky-top-bar--hidden');
+                        else if (st < lastScrollTop) stickyBar.classList.remove('sticky-top-bar--hidden');
+                        lastScrollTop = st <= 0 ? 0 : st;
+                    }, { passive: true });
+                }
+
+                // Logic Dropdown Thông Báo
+                const notifBtn = document.getElementById('notifToggleBtn');
+                const notifDropdown = document.getElementById('notifDropdown');
+                if (notifBtn && notifDropdown) {
+                    notifBtn.addEventListener('click', (e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        notifDropdown.classList.toggle('show');
+                    });
+                    document.addEventListener('click', (e) => {
+                        if (!notifDropdown.contains(e.target) && !notifBtn.contains(e.target)) notifDropdown.classList.remove('show');
+                    });
+                }
+
+                // Logic Click ngoài Modal để đóng
+                const modalOverlay = document.getElementById('notif-modal-overlay');
+                if (modalOverlay) {
+                    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) window.closeNotifModal(); });
+                }
+
+                // Logic Sync BQ
+                // Logic Sync BQ
+                const syncButton = document.getElementById('btnSyncBigQuery');
+                if (syncButton) {
+                    syncButton.addEventListener('click', async () => {
+                        if (!confirm('Bạn có chắc muốn đồng bộ SKUs từ BigQuery?\nViệc này sẽ chèn các SKU mới vào hệ thống.')) return;
+
+                        syncButton.disabled = true;
+                        syncButton.textContent = 'Đang sync...';
+
+                        try {
+                            // 1. Gọi API
+                            const res = await fetch('/api/admin/sync-bq-skus', { method: 'POST' });
+
+                            // 2. QUAN TRỌNG: Phải đọc dữ liệu JSON trả về từ server
+                            const data = await res.json();
+
+                            if (!res.ok) throw new Error(data.error || 'Lỗi không xác định');
+
+                            // 3. Hiển thị thông báo có kèm số lượng (data.new_skus)
+                            // Nếu server trả về data.new_skus = 0 thì báo "Không có mới", ngược lại báo số lượng.
+                            if (data.new_skus > 0) {
+                                alert(`✅ Đồng bộ thành công!\n📦 Đã thêm mới: ${data.new_skus} SKU.`);
+                            } else {
+                                alert(`✅ Đồng bộ thành công!\n(Không phát hiện SKU mới nào)`);
+                            }
+
+                            // Tải lại trang để cập nhật dữ liệu mới nếu cần
+                            // window.location.reload(); 
+
+                        } catch (err) {
+                            alert('❌ Lỗi đồng bộ: ' + err.message);
+                        } finally {
+                            syncButton.disabled = false;
+                            syncButton.textContent = 'Sync BQ';
+                        }
+                    });
+                }
+
+                // Logic Manual Sync Inventory (Dành cho Fallback)
+                const syncInvButton = document.getElementById('btnSyncInventory');
+                if (syncInvButton) {
+                    syncInvButton.addEventListener('click', async () => {
+                        if (!confirm('Bạn có chắc muốn NẠP LẠI TỒN KHO từ BigQuery sang Supabase ngay bây giờ?\n(Chỉ nên dùng khi data bị sai hoặc thiếu. Quá trình có thể mất 30s-1p.)')) return;
+
+                        syncInvButton.disabled = true;
+                        syncInvButton.textContent = 'Đang sync...';
+
+                        try {
+                            const res = await fetch('/api/admin/sync-inventory', { method: 'POST' });
+                            const data = await res.json();
+
+                            if (!res.ok) throw new Error(data.error || 'Lỗi không xác định');
+
+                            alert(`✅ Đồng bộ Tồn Kho Dự Phòng thành công!\nHệ thống đã nạp dữ liệu fallback từ BQ.`);
+                        } catch (err) {
+                            alert('❌ Lỗi đồng bộ Tồn Kho: ' + err.message);
+                        } finally {
+                            syncInvButton.disabled = false;
+                            syncInvButton.textContent = 'Sync Supabase Fallback';
+                        }
+                    });
                 }
             });
-        }
-
-        // Logic Manual Sync Inventory (Dành cho Fallback)
-        const syncInvButton = document.getElementById('btnSyncInventory');
-        if (syncInvButton) {
-            syncInvButton.addEventListener('click', async () => {
-                if (!confirm('Bạn có chắc muốn NẠP LẠI TỒN KHO từ BigQuery sang Supabase ngay bây giờ?\n(Chỉ nên dùng khi data bị sai hoặc thiếu. Quá trình có thể mất 30s-1p.)')) return;
-                
-                syncInvButton.disabled = true;
-                syncInvButton.textContent = 'Đang sync...';
-                
-                try {
-                    const res = await fetch('/api/admin/sync-inventory', { method: 'POST' });
-                    const data = await res.json(); 
-
-                    if (!res.ok) throw new Error(data.error || 'Lỗi không xác định');
-
-                    alert(`✅ Đồng bộ Tồn Kho Dự Phòng thành công!\nHệ thống đã nạp dữ liệu fallback từ BQ.`);
-                } catch (err) {
-                    alert('❌ Lỗi đồng bộ Tồn Kho: ' + err.message);
-                } finally {
-                    syncInvButton.disabled = false;
-                    syncInvButton.textContent = 'Sync Supabase Fallback';
-                }
-            });
-        }
-    });
-  </script>
-  <main class="main-content">
-    <div class="container">
+        </script>
+        <main class="main-content">
+            <div class="container">

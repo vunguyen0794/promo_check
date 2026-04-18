@@ -142,7 +142,10 @@
   
   <div class="builder-main">
     <div class="dash-card">
-      <div class="dash-title">Tạo báo giá nhanh</div>
+      <div class="dash-title" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>Tạo báo giá nhanh</span>
+          <button class="btn btn-secondary" style="font-size:12px; padding:4px 8px;" onclick="openQuoteHistoryModal()">🕒 Lịch sử cá nhân</button>
+      </div>
       
       <div class="quick-search-wrapper">
           <input type="text" id="quickSearchInput" class="quick-search-input" placeholder="🔍 Nhập mã SKU hoặc tên sản phẩm để thêm nhanh..." autocomplete="off">
@@ -231,6 +234,27 @@
       <thead><tr><th>Thời gian</th><th>Giá cũ</th><th>Giá mới</th><th>Người sửa</th></tr></thead>
       <tbody></tbody>
     </table>
+  </div>
+</div>
+
+<div id="myQuoteHistoryModal" class="modal" style="display:none">
+  <div class="modal-content" style="max-width: 800px;">
+    <span id="mqhClose" class="close">&times;</span>
+    <h3>Lịch sử báo giá của tôi</h3>
+    <div style="max-height: 400px; overflow-y: auto;">
+      <table class="detail-table" id="mqhTable" style="width: 100%; margin-top: 15px;">
+        <thead>
+          <tr>
+            <th>Ngày tạo</th>
+            <th>Khách hàng</th>
+            <th>SĐT</th>
+            <th style="text-align:right">Tổng tiền</th>
+            <th style="text-align:center">Hành động</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -832,6 +856,79 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   document.getElementById('phClose').onclick = () => priceHistoryModal.style.display = 'none';
 
+  // Lịch sử báo giá của tôi
+  const myQuoteHistoryModal = document.getElementById('myQuoteHistoryModal');
+  const mqhTbody = document.querySelector('#mqhTable tbody');
+  if(document.getElementById('mqhClose')) document.getElementById('mqhClose').onclick = () => myQuoteHistoryModal.style.display = 'none';
+
+  window.openQuoteHistoryModal = async () => {
+      mqhTbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Đang tải lịch sử...</td></tr>';
+      myQuoteHistoryModal.style.display = 'flex';
+      try {
+          const res = await fetch('/api/quote-history/my-quotes');
+          const d = await res.json();
+          if(!d.ok) throw new Error(d.error);
+          
+          if(d.quotes.length === 0) {
+              mqhTbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Bạn chưa lưu báo giá nào</td></tr>';
+              return;
+          }
+          window._loadedQuotes = d.quotes; // lưu tạm để restore
+          mqhTbody.innerHTML = d.quotes.map((r, i) => `
+            <tr>
+                <td>${new Date(r.created_at).toLocaleString('vi-VN')}</td>
+                <td><b>${escapeHtml(r.customer_name)}</b></td>
+                <td>${escapeHtml(r.customer_phone)}</td>
+                <td style="text-align:right; font-weight:bold; color:#2563eb">${formatVND(r.total_amount)}</td>
+                <td style="text-align:center">
+                    <button class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="restoreQuote(${i})">♻️ Tái sử dụng</button>
+                </td>
+            </tr>`).join('');
+      } catch(e) { mqhTbody.innerHTML = `<tr><td colspan="5" class="error-message">${e.message}</td></tr>`; }
+  };
+
+  window.restoreQuote = (idx) => {
+      const q = window._loadedQuotes[idx];
+      if(!q) return;
+      if(!confirm(`Bạn muốn lấy dữ liệu giỏ hàng của khách [${q.customer_name}] đè lên giỏ hiện tại? (Dữ liệu đang soạn sẽ bị xóa)`)) return;
+      
+      myQuoteHistoryModal.style.display = 'none';
+      
+      // Xóa giỏ hiện tại
+      for (const sku in quoteItemExtras) delete quoteItemExtras[sku];
+      currentBuildConfig = {};
+      
+      // Load giỏ mới
+      const bc = q.build_config || {};
+      for(const sku of Object.keys(bc)) {
+          const item = bc[sku];
+          currentBuildConfig[sku] = { ...item };
+          const extras = ensureItemExtras(sku);
+          extras.detailedSpecs = item.quote_detailed_specs || '';
+          
+          // Khôi phục ảnh (biến lại thành mảng url)
+          extras.images = (item.quote_image_urls || []).map(url => ({
+              id: createTempId(),
+              kind: 'url',
+              url: url,
+              label: 'Ảnh lịch sử',
+              previewUrl: url
+          }));
+      }
+
+      // Restore một số parameter
+      document.getElementById('quoteCustomerName').value = q.customer_name || '';
+      document.getElementById('quoteCustomerPhone').value = q.customer_phone || '';
+      document.getElementById('quoteContactInfo').value = q.contact_info || '';
+      if(q.template_type) {
+          const radio = document.querySelector(`input[name="printTemplate"][value="${q.template_type}"]`);
+          if(radio) radio.checked = true;
+      }
+      
+      updateSummaryAndTotal();
+      if(typeof showToast === 'function') showToast('Đã phục hồi giỏ hàng thành công!', 'success');
+  };
+
   // ==========================================
   // 4. XỬ LÝ TẠO BÁO GIÁ & TẢI PDF
   // ==========================================
@@ -917,6 +1014,7 @@ document.addEventListener('DOMContentLoaded', function() {
   window.onclick = (e) => { 
       if(e.target == priceHistoryModal) priceHistoryModal.style.display = 'none'; 
       if(e.target == quoteModal) quoteModal.style.display = 'none'; 
+      if(e.target == document.getElementById('myQuoteHistoryModal')) document.getElementById('myQuoteHistoryModal').style.display = 'none'; 
   };
 
   document.addEventListener('paste', (e) => {
@@ -1012,7 +1110,17 @@ document.addEventListener('DOMContentLoaded', function() {
       };
 
       try {
-          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file PDF...';
+          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu & tạo file PDF...';
+          
+          // Lưu lịch sử
+          const totalAmtElem = document.getElementById('final-total-price');
+          const totalAmt = Number((totalAmtElem.textContent||'').replace(/\D/g, '')) || 0;
+          fetch('/api/quote-history', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({...payload, totalAmount: totalAmt})
+          }).catch(e => console.error('Lỗi ngầm khi lưu lịch sử quote:', e));
+
           const res = await fetch('/api/pc-builder/generate-quote', {
               method: 'POST', 
               headers: {'Content-Type':'application/json'},
