@@ -7133,20 +7133,47 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
     // --- LỌC THỜI GIAN ---
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    let filterMonth = month;
+    let filterMonth = (month === 'undefined' || month === 'null') ? undefined : month;
     if (!filterMonth) filterMonth = (q || emp) ? 'all' : currentMonth;
     params.filterMonth = filterMonth;
 
-    if (filterMonth !== 'all') {
+    // [FIX] Xử lý filter theo Ngày / Tuần / Tháng / Năm
+    const isYearFilter = /^\d{4}$/.test(filterMonth);
+
+    if (filterMonth === 'today') {
+      const todayStr = now.toISOString().split('T')[0];
+      const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+      params.monthStart = todayStr;
+      params.monthEnd = tomorrow.toISOString().split('T')[0];
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+    } else if (filterMonth === 'yesterday') {
+      const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+      params.monthStart = yesterday.toISOString().split('T')[0];
+      params.monthEnd = now.toISOString().split('T')[0];
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+    } else if (filterMonth === 'this_week') {
+      const currDate = new Date(now);
+      const first = currDate.getDate() - currDate.getDay() + (currDate.getDay() === 0 ? -6 : 1); // Monday
+      const monday = new Date(currDate.setDate(first));
+      params.monthStart = monday.toISOString().split('T')[0];
+      const nextMonday = new Date(monday); nextMonday.setDate(nextMonday.getDate() + 7);
+      params.monthEnd = nextMonday.toISOString().split('T')[0];
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+    } else if (isYearFilter) {
+      // Cả năm: Report_date từ YYYY-01-01 đến YYYY-12-31
+      params.monthStart = `${filterMonth}-01-01`;
+      params.monthEnd   = `${parseInt(filterMonth) + 1}-01-01`;
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+    } else if (filterMonth !== 'all') {
+      // Tháng cụ thể: YYYY-MM
       whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
       params.monthStart = filterMonth + '-01';
       const [yy, mm] = filterMonth.split('-');
-      const d = new Date(parseInt(yy), parseInt(mm), 0);
-      d.setDate(d.getDate() + 1); // Get first day of next month
+      const d = new Date(parseInt(yy), parseInt(mm), 1); // First day of NEXT month
       params.monthEnd = d.toISOString().split('T')[0];
     } else {
       if (type !== 'order_code') {
-        whereClause += ` AND Report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)`;
+        whereClause += ` AND Report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)`;
       }
     }
 
@@ -7216,9 +7243,10 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
 
 
     // --- CÁC BỘ LỌC KHÁC ---
-    if (tax === 'has_tax') whereClause += ` AND Billing_tax_code IS NOT NULL AND LENGTH(CAST(Billing_tax_code AS STRING)) > 5`;
-    else if (tax === 'no_tax') whereClause += ` AND (Billing_tax_code IS NULL OR Billing_tax_code = '' OR LENGTH(CAST(Billing_tax_code AS STRING)) <= 5)`;
-    if (shouldHideGrab) whereClause += ` AND Billing_tax_code != '0316032128'`;
+    if (tax === 'has_tax') whereClause += ` AND Billing_tax_code IS NOT NULL AND TRIM(CAST(Billing_tax_code AS STRING)) != '' AND LENGTH(TRIM(CAST(Billing_tax_code AS STRING))) > 5`;
+    // [FIX] KH Cá nhân: Tax code rỗng, null hoặc quá ngắn (GRAB MST: 0316032128 dài hơn 5)
+    else if (tax === 'no_tax') whereClause += ` AND (Billing_tax_code IS NULL OR TRIM(CAST(Billing_tax_code AS STRING)) = '' OR LENGTH(TRIM(CAST(Billing_tax_code AS STRING))) <= 5)`;
+    if (shouldHideGrab) whereClause += ` AND (Billing_tax_code IS NULL OR TRIM(CAST(Billing_tax_code AS STRING)) != '0316032128')`;
 
     // --- SORTING ---
     let orderBy = 'ORDER BY Total_Revenue DESC';
@@ -7344,15 +7372,43 @@ app.get('/api/cskh/customer-orders', requireAuth, async (req, res) => {
     let whereClause = 'WHERE 1=1';
     const params = {};
 
-    if (month && month !== 'all') {
+    // [FIX] Xử lý filter theo NĂM hoặc NGÀY
+    let filterMonth = (month === 'undefined' || month === 'null') ? undefined : month;
+    const isYearFilter = filterMonth && /^\d{4}$/.test(filterMonth);
+    const now = new Date();
+
+    if (filterMonth === 'today') {
+        const todayStr = now.toISOString().split('T')[0];
+        const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+        params.monthStart = todayStr;
+        params.monthEnd = tomorrow.toISOString().split('T')[0];
         whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
-        params.monthStart = month + '-01';
-        const [yy, mm] = month.split('-');
+    } else if (filterMonth === 'yesterday') {
+        const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+        params.monthStart = yesterday.toISOString().split('T')[0];
+        params.monthEnd = now.toISOString().split('T')[0];
+        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+    } else if (filterMonth === 'this_week') {
+        const currDate = new Date(now);
+        const first = currDate.getDate() - currDate.getDay() + (currDate.getDay() === 0 ? -6 : 1); // Monday
+        const monday = new Date(currDate.setDate(first));
+        params.monthStart = monday.toISOString().split('T')[0];
+        const nextMonday = new Date(monday); nextMonday.setDate(nextMonday.getDate() + 7);
+        params.monthEnd = nextMonday.toISOString().split('T')[0];
+        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+    } else if (isYearFilter) {
+        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+        params.monthStart = `${filterMonth}-01-01`;
+        params.monthEnd = `${parseInt(filterMonth) + 1}-01-01`;
+    } else if (filterMonth && filterMonth !== 'all') {
+        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+        params.monthStart = filterMonth + '-01';
+        const [yy, mm] = filterMonth.split('-');
         const d = new Date(parseInt(yy), parseInt(mm), 0);
         d.setDate(d.getDate() + 1);
         params.monthEnd = d.toISOString().split('T')[0];
     } else {
-        whereClause += ` AND Report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)`;
+        whereClause += ` AND Report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)`;
     }
 
     // Tax Code or Name filter
@@ -8215,32 +8271,62 @@ function calculateForecast(revenue, target, period) {
 }
 
 // --- [HELPER MỚI] Lấy dữ liệu biểu đồ cho Staff ---
-async function getStaffMonthlyChart(email) {
-  if (!bigquery) return [];
-
-  // Lấy dữ liệu 12 tháng gần nhất hoặc năm hiện tại
-  const query = `
-        SELECT 
-            FORMAT_DATE('%Y-%m', Report_date) as month_str,
-            -- Tính doanh thu quy đổi ngay trong SQL cho biểu đồ
-            SUM(
-                CASE 
-                    WHEN Subcat_ID_lowest_level = 'NH05-02-01-01' THEN Revenue * 0.6 
-                    ELSE Revenue 
-                END
-            ) as calculated_revenuelet targetPeriodParam = new Date().getMonth();
-        FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\`
-        WHERE LOWER(Email) = LOWER(@email)
-          AND Report_date >= DATE_TRUNC(CURRENT_DATE(), YEAR) -- Lấy từ đầu năm nay
-        GROUP BY 1
-        ORDER BY 1
-    `;
-
+async function getStaffMonthlyChart(email, branchCode) {
+  // [FIX] Lấy từ Supabase salesman_performance thay vì BigQuery (đã có sẵn data)
   try {
-    const [rows] = await bigquery.query({ query, params: { email } });
-    return rows;
+    const currentYear = new Date().getFullYear();
+    const { data: rows, error } = await supabase
+      .from('salesman_performance')
+      .select('month, revenue, iphone_revenue, orders, kfi')
+      .eq('email', email.toLowerCase().trim())
+      .ilike('month', `${currentYear}-%`)
+      .order('month', { ascending: true });
+    if (error) throw error;
+
+    // Lấy target của năm để tính target từng tháng
+    let hcTargets = {};
+    let headcount = 1;
+    try {
+        hcTargets = await getAllBranchTargets('year', currentYear);
+        if (hcTargets && hcTargets[branchCode] && hcTargets[branchCode].headcount) {
+            headcount = hcTargets[branchCode].headcount;
+        } else {
+            const { count: branchStaffCount } = await supabase
+                .from('users')
+                .select('*', { count: 'exact', head: true })
+                .eq('branch_code', branchCode)
+                .eq('role', 'staff');
+            if (branchStaffCount > 0) headcount = branchStaffCount;
+        }
+    } catch(e) {}
+
+    return (rows || []).map(r => {
+      const iphone = r.iphone_revenue || 0;
+      const raw = r.revenue || 0;
+      const calculated_revenue = (raw - iphone) + (iphone * 0.6);
+      
+      let target = 0;
+      if (hcTargets && hcTargets[branchCode] && hcTargets[branchCode].monthly_targets_arr) {
+          const mIndex = parseInt(r.month.split('-')[1]) - 1;
+          target = (hcTargets[branchCode].monthly_targets_arr[mIndex] || 0) / headcount;
+      }
+      
+      let percent = 0;
+      if (target > 0) {
+          percent = parseFloat(((calculated_revenue / target) * 100).toFixed(1));
+      }
+
+      return {
+        month_str: r.month,
+        calculated_revenue: calculated_revenue,
+        target: target,
+        percent: percent,
+        orders: r.orders || 0,
+        kfi: r.kfi || 0
+      };
+    });
   } catch (e) {
-    console.error("Chart Error:", e.message);
+    console.error('Chart Error:', e.message);
     return [];
   }
 }
@@ -8288,8 +8374,9 @@ app.get('/profile', requireAuth, async (req, res) => {
         const targetEmail = isStaff ? user.email : null;
         salesRows = await getLocalSalesRows(periodValue, targetEmail, qBranch);
     } else if (targetMonthStr.endsWith('-')) {
-        // yearly
-        let q = supabase.from('salesman_performance').select('*').ilike('month', `${targetMonthStr.replace('-', '')}-%`);
+        // yearly — targetMonthStr format: "2025-" => ilike "2025-%"
+        const yearPrefix = targetMonthStr.replace(/-$/, ''); // "2025"
+        let q = supabase.from('salesman_performance').select('*').ilike('month', `${yearPrefix}-%`);
         if (qBranch) q = q.eq('branch_code', qBranch);
         else if (isStaff) q = q.eq('email', user.email);
         const { data } = await q;
@@ -8301,6 +8388,22 @@ app.get('/profile', requireAuth, async (req, res) => {
         else if (isStaff) q = q.eq('email', user.email);
         const { data } = await q;
         salesRows = data || [];
+    }
+
+    // [FIX] Chỉ giữ nhân viên có role = staff (loại bỏ SR, manager, admin khỏi bảng hiệu suất)
+    if (!isStaff && salesRows.length > 0) {
+      const allEmails = [...new Set(salesRows.map(r => r.email).filter(Boolean))];
+      const { data: staffUsers } = await supabase
+        .from('users')
+        .select('email, role')
+        .in('email', allEmails);
+      const staffEmailSet = new Set(
+        (staffUsers || []).filter(u => u.role === 'staff').map(u => (u.email || '').toLowerCase())
+      );
+      // Nếu có data từ users table, chỉ giữ staff
+      if (staffEmailSet.size > 0) {
+        salesRows = salesRows.filter(r => staffEmailSet.has((r.email || '').toLowerCase()));
+      }
     }
 
     const { data: fullUser } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
@@ -8339,8 +8442,11 @@ app.get('/profile', requireAuth, async (req, res) => {
     if (isStaff && salesRows.length > 0) {
        const sumRev = salesRows.reduce((a,b)=>a+(b.revenue||0), 0);
        const sumOrders = salesRows.reduce((a,b)=>a+(b.orders||0), 0);
+       // [FIX] KFI = tổng Sale_point (sum của kfi field trong từng tháng)
+       const sumKfi = salesRows.reduce((a,b)=>a+(b.kfi||0), 0);
        myProfile.total_revenue = sumRev;
        myProfile.total_orders = sumOrders;
+       myProfile.total_kfi = sumKfi;
        if (!myProfile.hrm_id || myProfile.hrm_id === '-') {
          myProfile.hrm_id = salesRows[0].hrm_id || '-';
        }
@@ -8392,6 +8498,35 @@ app.get('/profile', requireAuth, async (req, res) => {
            }
            return sum + ySum;
        }, 0) * 1000000 * targetRatio;
+    }
+
+    // [FIX] Nếu là staff, chia target của chi nhánh cho định biên (số lượng sale)
+    if (isStaff && dashboard.target > 0) {
+        let headcount = 1;
+        try {
+            let hcTargets = {};
+            if (!targetMonthStr.endsWith('-')) {
+                const monthParts = targetMonthStr.split('-');
+                hcTargets = await getAllBranchTargets(parseInt(monthParts[1], 10), parseInt(monthParts[0], 10));
+            } else {
+                const yearPrefix = targetMonthStr.replace(/-$/, '');
+                hcTargets = await getAllBranchTargets('year', parseInt(yearPrefix, 10));
+            }
+            if (hcTargets && hcTargets[user.branch_code] && hcTargets[user.branch_code].headcount) {
+                headcount = hcTargets[user.branch_code].headcount;
+            } else {
+                // Fallback: đếm số lượng nhân viên thực tế có role = staff trong chi nhánh
+                const { count: branchStaffCount } = await supabase
+                    .from('users')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('branch_code', user.branch_code)
+                    .eq('role', 'staff');
+                if (branchStaffCount > 0) headcount = branchStaffCount;
+            }
+        } catch (e) {
+            console.error("Lỗi lấy định biên cho staff:", e.message);
+        }
+        dashboard.target = dashboard.target / headcount;
     }
     
     if (dashboard.target > 0) {
@@ -8508,8 +8643,11 @@ app.get('/profile', requireAuth, async (req, res) => {
     }
 
     let csiParams = { period: targetMonthStr };
-    if (isStaff) csiParams.email = user.email;
-    else if (qBranch) csiParams.branch = qBranch;
+    if (isStaff) {
+      csiParams.email = user.email;  // [FIX] CSI filter by email for staff
+      // Fallback: staff name for CSI matching if email column not available
+      csiParams._staffName = myProfile.full_name || user.full_name || '';
+    } else if (qBranch) csiParams.branch = qBranch;
 
     let csiData = { csi_percent: 0, feedback_count: 0, unavailable: false };
     let feedbackList = [];
@@ -8520,6 +8658,12 @@ app.get('/profile', requireAuth, async (req, res) => {
       csiData = { unavailable: true, quotaExceeded: false };
     }
 
+    // [FIX] Biểu đồ 12 tháng cho Staff
+    let staffChartData = [];
+    if (isStaff) {
+      staffChartData = await getStaffMonthlyChart(user.email, user.branch_code);
+    }
+
     res.render('profile', {
       title: 'Dashboard Hiệu Suất', currentPage: 'profile', user,
       role: { isStaff, isManager, isGlobalAdmin },
@@ -8528,7 +8672,7 @@ app.get('/profile', requireAuth, async (req, res) => {
       branchList: globalBranchList.sort(),
       profile: myProfile,
       onlineTime: lastSeen,
-      staffChartData: [],
+      staffChartData,
       dashboard, tableSales, tableBranch,
       formatCompact: (num) => {
           if (!num) return '0';
@@ -10897,6 +11041,20 @@ async function getCsiStats(options) {
       if (branch.toLowerCase() !== options.branch.toLowerCase()) return;
     }
     
+    // [FIX] Email filter cho staff - so khớp theo cột email (cột 6) hoặc tên NV (cột 5)
+    if (options.email) {
+      const rowEmail = (row[6] || '').toLowerCase().trim();
+      const rowName  = (row[5] || '').toLowerCase().trim();
+      const filterEmail = options.email.toLowerCase().trim();
+      // Nếu cột 6 có dấu '@' → đây là cột email, so sánh trực tiếp
+      if (rowEmail.includes('@')) {
+        if (rowEmail !== filterEmail) return;
+      } else if (options._staffName) {
+        // Fallback: so sánh theo tên nhân viên
+        if (!rowName.includes(options._staffName.toLowerCase())) return;
+      }
+    }
+    
     // Count feedback (col 19 = Góp ý)
     const fb = (row[19] || '').trim();
     if (fb !== '') {
@@ -10963,6 +11121,18 @@ async function getFeedbackList(options) {
       if (branch.toLowerCase() !== options.branch.toLowerCase()) return;
     }
     
+    // [FIX] Email filter cho staff
+    if (options.email) {
+      const rowEmail = (row[6] || '').toLowerCase().trim();
+      const filterEmail = options.email.toLowerCase().trim();
+      if (rowEmail.includes('@')) {
+        if (rowEmail !== filterEmail) return;
+      } else if (options._staffName) {
+        const rowName = (row[5] || '').toLowerCase().trim();
+        if (!rowName.includes(options._staffName.toLowerCase())) return;
+      }
+    }
+    
     const fb = (row[19] || '').trim();
     if (fb.length > 1) {
         list.push({
@@ -10976,6 +11146,22 @@ async function getFeedbackList(options) {
         });
     }
   });
+
+  // [FIX] Sort theo ngày mua giảm dần (mới nhất trước)
+  list.sort((a, b) => {
+    const parseDate = (s) => {
+      if (!s) return new Date(0);
+      // Format DD/MM/YYYY
+      if (s.includes('/')) {
+        const parts = s.split('/');
+        if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
+      }
+      // Format YYYY-MM-DD
+      return new Date(s);
+    };
+    return parseDate(b.Ngay_mua_hang) - parseDate(a.Ngay_mua_hang);
+  });
+
   return list;
 }
 // ======================= SALES DASHBOARD =======================

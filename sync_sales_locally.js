@@ -66,8 +66,13 @@ async function syncSalesData() {
                         const hrmId = row['HRM_ID'] || row['HRM ID'] || '';
                         const subcatId = (row['Subcat_ID_lowest_level'] || row['Subcat ID lowest level'] || '').trim();
                         const isIphone = subcatId === 'NH05-02-01-01';
-                        // KFI: CSV uses Sale_point_per_item (underscore) - fallback to space version for older files
-                        const kfi = parseFloat(row['Sale_point_per_item'] || row['Sale point per item'] || row['KFI'] || 0);
+                        // [FIX] KFI = Sum của Sale_point (tổng điểm theo dòng sản phẩm, không phải per_item)
+                        // Ưu tiên: Sale_point > Sale_point_per_item (nhân Quantity) > KFI
+                        const kfi = parseFloat(
+                            row['Sale_point'] || row['Sale point'] ||
+                            row['Sale_point_per_item'] || row['Sale point per item'] ||
+                            row['KFI'] || 0
+                        );
 
                         const taxCode = (row['Billing_tax_code'] || row['Billing tax code'] || row['Tax_Code'] || '').trim();
                         const customerName = row['Customer_full_name'] || row['Customer full name'] || row['Customer_Name'] || 'Khách lẻ';

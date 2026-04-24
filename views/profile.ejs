@@ -392,52 +392,112 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script>
         const ctx = document.getElementById('staffPerformanceChart').getContext('2d');
         const chartData = <%- JSON.stringify(staffChartData) %>;
+        Chart.register(ChartDataLabels);
         
         new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: chartData.map(d => d.month),
+                // [FIX] Format YYYY-MM to MM/YYYY
+                labels: chartData.map(d => {
+                    const s = d.month_str || d.month || '';
+                    return s.length === 7 ? s.substring(5) + '/' + s.substring(0, 4) : s;
+                }),
                 datasets: [
                     {
                         type: 'line',
                         label: '% Đạt',
-                        data: chartData.map(d => d.percent),
+                        data: chartData.map(d => d.percent || 0),
                         borderColor: '#16a34a',
                         borderWidth: 2,
                         yAxisID: 'y1',
-                        tension: 0.3
+                        tension: 0.3,
+                        datalabels: {
+                            align: 'end',
+                            anchor: 'end',
+                            color: '#16a34a',
+                            font: { weight: 'bold', size: 11 },
+                            formatter: (v) => v > 0 ? v + '%' : ''
+                        }
                     },
                     {
                         type: 'bar',
                         label: 'Doanh thu (Quy đổi)',
-                        data: chartData.map(d => d.revenue),
+                        data: chartData.map(d => d.calculated_revenue || d.revenue || 0),
                         backgroundColor: 'rgba(37, 99, 235, 0.7)',
                         yAxisID: 'y',
-                        borderRadius: 4
+                        borderRadius: 4,
+                        datalabels: {
+                            align: 'center',
+                            anchor: 'center',
+                            color: 'white',
+                            font: { weight: 'bold', size: 10 },
+                            formatter: (v) => {
+                                if (v >= 1e9) return (v/1e9).toFixed(1) + ' Tỷ';
+                                if (v >= 1e6) return (v/1e6).toFixed(0) + ' Tr';
+                                return '';
+                            }
+                        }
                     },
                     {
-                        type: 'line',
-                        label: 'Target (Tham khảo)',
-                        data: chartData.map(d => d.target),
+                        type: 'bar',
+                        label: 'Target',
+                        data: chartData.map(d => d.target || 0),
+                        backgroundColor: 'rgba(148, 163, 184, 0.4)',
                         borderColor: '#94a3b8',
-                        borderDash: [5, 5],
-                        pointRadius: 0,
+                        borderWidth: 1,
                         yAxisID: 'y',
-                        fill: false
+                        borderRadius: 4,
+                        datalabels: {
+                            align: 'end',
+                            anchor: 'end',
+                            color: '#64748b',
+                            font: { size: 10 },
+                            formatter: (v) => {
+                                if (v >= 1e9) return (v/1e9).toFixed(1) + ' Tỷ';
+                                if (v >= 1e6) return (v/1e6).toFixed(0) + ' Tr';
+                                return '';
+                            }
+                        }
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.dataset.yAxisID === 'y1') {
+                                    label += context.raw + '%';
+                                } else {
+                                    label += new Intl.NumberFormat('vi-VN').format(context.raw) + ' ₫';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
                         position: 'left',
-                        title: { display: true, text: 'Doanh thu (VNĐ)' }
+                        title: { display: true, text: 'Doanh thu (VNĐ)' },
+                        ticks: {
+                            callback: (val) => {
+                                if (val >= 1e9) return (val/1e9).toFixed(1) + ' Tỷ';
+                                if (val >= 1e6) return (val/1e6).toFixed(0) + ' Tr';
+                                return val;
+                            }
+                        }
                     },
                     y1: {
                         beginAtZero: true,

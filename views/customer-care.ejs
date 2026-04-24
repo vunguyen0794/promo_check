@@ -313,6 +313,26 @@
             </div>
         </div>
     </form>
+    <% } else { %>
+    <!-- BỘ LỌC THỜI GIAN CHO SALE -->
+    <form method="GET" action="/customer-care" id="staffFilterForm">
+        <div class="admin-filter-bar" style="justify-content: flex-start;">
+            <div class="filter-item">
+                <label>📅 Từ ngày</label>
+                <input type="date" name="start" class="filter-input" value="<%= filters.start %>">
+            </div>
+            <div class="filter-item">
+                <label>📅 Đến ngày</label>
+                <input type="date" name="end" class="filter-input" value="<%= filters.end %>">
+            </div>
+            <button type="submit" class="btn-filter-apply">Lọc dữ liệu</button>
+            <div style="display:flex; gap:5px; margin-left:auto;">
+                <button type="button" class="btn-filter-preset" onclick="setPeriod('today')">Hôm nay</button>
+                <button type="button" class="btn-filter-preset" onclick="setPeriod('week')">Tuần này</button>
+                <button type="button" class="btn-filter-preset" onclick="setPeriod('month')">Tháng này</button>
+            </div>
+        </div>
+    </form>
     <% } %>
         <div class="cskh-dashboard">
             <div class="cskh-card">
@@ -505,7 +525,7 @@
 
             <select id="wlMonth" onchange="loadWorkList(1)" class="custom-select" style="border-left: 3px solid #e11d48;">
                 <% const d = new Date(); const currentM = d.toISOString().slice(0, 7); %>
-                <option value="<%= currentM %>">📌 Tháng này (<%= currentM %>)</option>
+                <option value="<%= currentM %>" selected>📌 Tháng này (<%= currentM %>)</option>
                 <option value="all">📅 Toàn thời gian (từ 2024)</option>
                 <% 
                   // Tạo dropdown nhóm theo năm từ năm hiện tại về 2024
@@ -827,7 +847,8 @@
             const totalRev = new Intl.NumberFormat('vi-VN').format(cust.Total_Revenue);
             const rowId = `search-detail-${index}`;
             const taxCode = cust.Tax_Code || '';
-            const isFav = taxCode && favoriteTaxCodes.has(taxCode);
+            const favKey = cust.Tax_Code || cust.Customer_Name || '';
+            const isFav = favKey && favoriteTaxCodes.has(favKey);
             
             // Badge trạng thái
             let statusBadge = '';
@@ -846,9 +867,9 @@
             const latestOrder = (cust.Orders && cust.Orders.length > 0) ? cust.Orders[0] : {};
             const modalData = { Order_code: latestOrder.Order_code || '', Customer_full_name: cust.Customer_Name };
 
-            // Star button
-            const starBtn = taxCode
-                ? `<button class="star-btn ${isFav ? 'active' : ''}" title="${isFav ? 'Bỏ lưu' : 'Lưu KH'}" onclick="event.stopPropagation(); toggleFavorite('${taxCode}', '${(cust.Customer_Name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}', this)">${isFav ? '⭐' : '☆'}</button>`
+            // Star button (Sử dụng favKey để KH cá nhân không có MST vẫn lưu được)
+            const starBtn = favKey
+                ? `<button class="star-btn ${isFav ? 'active' : ''}" title="${isFav ? 'Bỏ lưu' : 'Lưu KH'}" onclick="event.stopPropagation(); toggleFavorite('${favKey.replace(/'/g,"\\'").replace(/"/g,'&quot;')}', '${(cust.Customer_Name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}', this)">${isFav ? '⭐' : '☆'}</button>`
                 : '';
 
             // --- CÁC CỘT ---
@@ -990,7 +1011,10 @@
                 let displayData = json.data;
                 // Client-side filter: Nếu chọn "DS KH Đã lưu", chỉ hiện KH trong favorites
                 if (savedFilter === 'saved') {
-                    displayData = displayData.filter(c => c.Tax_Code && favoriteTaxCodes.has(c.Tax_Code));
+                    displayData = displayData.filter(c => {
+                        const key = c.Tax_Code || c.Customer_Name;
+                        return key && favoriteTaxCodes.has(key);
+                    });
                 }
                 if (displayData.length === 0 && page > 1) {
                     alert("Đã hết dữ liệu!");
@@ -1016,7 +1040,7 @@
         const container = document.getElementById('workListContainer');
         
         // Lấy quyền Manager từ EJS truyền xuống
-        const isManager = <%= isManager %>; 
+        const managerFlag = "<%= isManager %>" === "true"; 
 
         if (!customers || customers.length === 0) {
             container.innerHTML = '<div class="no-data" style="padding:40px; text-align:center; color:#64748b;">Không có dữ liệu phù hợp.</div>';
@@ -1024,7 +1048,7 @@
         }
 
         // Cấu hình Header: Nếu là Manager thì hiện ô checkbox chọn tất cả
-        const checkHeader = isManager 
+        const checkHeader = managerFlag 
             ? `<input type="checkbox" class="form-check-input" onclick="toggleAll(this)">`
             : ``;
 
@@ -1055,20 +1079,20 @@
 
             // Badge báo hiệu khách được Gán
             // [UPDATE] Badge nổi bật cho QLSR Gán
-const assignedBadge = cust.is_assigned_group 
-    ? `<span class="badge" 
-             style="background: linear-gradient(135deg, #ef4444, #f97316); 
-                    color: white; 
-                    font-weight: 700; 
-                    font-size: 11px; 
-                    margin-left: 8px; 
-                    padding: 5px 10px; 
-                    border-radius: 12px; 
-                    box-shadow: 0 3px 6px rgba(249, 115, 22, 0.3);
-                    border: 1px solid rgba(255,255,255,0.4);">
-         <i class="bi bi-bell-fill"></i> QLSR Gán
-       </span>` 
-    : ``;
+            const assignedBadge = cust.is_assigned_group 
+                ? `<span class="badge" 
+                         style="background: linear-gradient(135deg, #ef4444, #f97316); 
+                                color: white; 
+                                font-weight: 700; 
+                                font-size: 11px; 
+                                margin-left: 8px; 
+                                padding: 5px 10px; 
+                                border-radius: 12px; 
+                                box-shadow: 0 3px 6px rgba(249, 115, 22, 0.3);
+                                border: 1px solid rgba(255,255,255,0.4);">
+                     <i class="bi bi-bell-fill"></i> QLSR Gán
+                   </span>` 
+                : ``;
 
             // Lấy đơn mới nhất
             const sortedOrders = (cust.Orders || []).sort((a, b) => new Date(b.Report_date) - new Date(a.Report_date));
@@ -1083,9 +1107,10 @@ const assignedBadge = cust.is_assigned_group
 
             // Star / Favorite button (lớn hơn, dễ thao tác)
             const taxCode = cust.Tax_Code || '';
-            const isFav = taxCode && favoriteTaxCodes.has(taxCode);
-            const starBtn = taxCode
-                ? `<button class="star-btn ${isFav ? 'active' : ''}" title="${isFav ? 'Bỏ lưu' : 'Lưu KH'}" style="font-size:22px; padding:2px 6px;" onclick="event.stopPropagation(); toggleFavorite('${taxCode}', '${(cust.Customer_Name||'').replace(/'/g,"\\'")}', this)">${isFav ? '⭐' : '☆'}</button>`
+            const favKey = taxCode || cust.Customer_Name || '';
+            const isFav = favKey && favoriteTaxCodes.has(favKey);
+            const starBtn = favKey
+                ? `<button class="star-btn ${isFav ? 'active' : ''}" title="${isFav ? 'Bỏ lưu' : 'Lưu KH'}" style="font-size:22px; padding:2px 6px;" onclick="event.stopPropagation(); toggleFavorite('${favKey.replace(/'/g,"\\'").replace(/"/g,'&quot;')}', '${(cust.Customer_Name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}', this)">${isFav ? '⭐' : '☆'}</button>`
                 : '';
 
 
@@ -1098,7 +1123,7 @@ const assignedBadge = cust.is_assigned_group
             };
 
             // Cấu hình ô Checkbox từng dòng
-            const checkCell = isManager 
+            const checkCell = managerFlag 
                 ? `<input type="checkbox" class="form-check-input bulk-check" value="${repOrderCode}" onchange="updateBulkAction()">`
                 : `<span style="color:#cbd5e1">•</span>`;
 
@@ -1388,7 +1413,8 @@ const assignedBadge = cust.is_assigned_group
             endInput.value = toLocalISO(end);
             
             // Tự động Submit form sau khi chọn xong ngày
-            document.getElementById('adminFilterForm').submit();
+            const form = document.getElementById('adminFilterForm') || document.getElementById('staffFilterForm');
+            if (form) form.submit();
         }
     }
 
