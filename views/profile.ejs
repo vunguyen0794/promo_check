@@ -140,6 +140,17 @@
                 </div>
 
                 <div class="kpi-grid">
+                    <% if (locals.noSalesData) { %>
+                    <div style="grid-column: 1/-1; background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 22px;">📭</span>
+                        <div>
+                            <div style="font-weight: 700; color: #1e40af; font-size: 14px;">Chưa có dữ liệu bán hàng trong kỳ này</div>
+                            <div style="font-size: 12px; color: #3b82f6; margin-top: 3px;">
+                                Dữ liệu được cập nhật mỗi ngày từ hệ thống. Nếu bạn đã có đơn hàng, vui lòng thử lại sau hoặc liên hệ quản lý để đồng bộ dữ liệu.
+                            </div>
+                        </div>
+                    </div>
+                    <% } %>
                     <div class="kpi-card border-l-blue">
                         <div class="kpi-title">Tổng đơn hàng</div>
                         <div class="kpi-value"><%= dashboard.orders %></div>

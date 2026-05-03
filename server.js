@@ -8460,6 +8460,10 @@ app.get('/profile', requireAuth, async (req, res) => {
 
     // Targets
     const monthCol = targetMonthStr.endsWith('-') ? null : 'm' + targetMonthStr.split('-')[1];
+    // Xác định năm cần lấy target
+    const targetYear = targetMonthStr.endsWith('-')
+      ? parseInt(targetMonthStr.replace(/-$/, ''), 10)
+      : parseInt(targetMonthStr.split('-')[0], 10);
     let dashboard = { revenue: 0, raw_revenue: 0, iphone_revenue: 0, revenue_forecast: 0, orders: 0, kfi: 0, target: 0, percent_completion: '0.0', missing: 0 };
     
     salesRows.forEach(r => {
@@ -8472,7 +8476,8 @@ app.get('/profile', requireAuth, async (req, res) => {
        dashboard.kfi += (r.kfi || 0);
     });
 
-    let targetQuery = supabase.from('pv_terminal_monthly_targets').select('*');
+    // [FIX] Filter theo year để tránh cộng target 2 năm khi bảng có nhiều năm
+    let targetQuery = supabase.from('pv_terminal_monthly_targets').select('*').eq('year', targetYear);
     if (qBranch) targetQuery = targetQuery.eq('terminal_code', qBranch);
     else if (isStaff) targetQuery = targetQuery.eq('terminal_code', user.branch_code);
     
@@ -8664,6 +8669,9 @@ app.get('/profile', requireAuth, async (req, res) => {
       staffChartData = await getStaffMonthlyChart(user.email, user.branch_code);
     }
 
+    // [FIX] Thêm flag noSalesData: đúng khi staff chưa có đơn trong kỳ chọn
+    const noSalesData = isStaff && salesRows.length === 0;
+
     res.render('profile', {
       title: 'Dashboard Hiệu Suất', currentPage: 'profile', user,
       role: { isStaff, isManager, isGlobalAdmin },
@@ -8674,6 +8682,7 @@ app.get('/profile', requireAuth, async (req, res) => {
       onlineTime: lastSeen,
       staffChartData,
       dashboard, tableSales, tableBranch,
+      noSalesData,
       formatCompact: (num) => {
           if (!num) return '0';
           const n = Number(num);
