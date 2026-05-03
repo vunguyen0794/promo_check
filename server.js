@@ -8367,25 +8367,28 @@ app.get('/profile', requireAuth, async (req, res) => {
       qBranch = filterBranch;
     }
 
+    // [FIX] Normalize email về lowercase để tránh lệch case (VD: Hong.lx vs hong.lx)
+    const userEmail = (user.email || '').toLowerCase().trim();
+
     const { getLocalSalesRows } = require('./local_sales_query');
     let salesRows = [];
     
     if (periodValue === 'today' || periodValue === 'week') {
-        const targetEmail = isStaff ? user.email : null;
+        const targetEmail = isStaff ? userEmail : null;
         salesRows = await getLocalSalesRows(periodValue, targetEmail, qBranch);
     } else if (targetMonthStr.endsWith('-')) {
         // yearly — targetMonthStr format: "2025-" => ilike "2025-%"
         const yearPrefix = targetMonthStr.replace(/-$/, ''); // "2025"
         let q = supabase.from('salesman_performance').select('*').ilike('month', `${yearPrefix}-%`);
         if (qBranch) q = q.eq('branch_code', qBranch);
-        else if (isStaff) q = q.eq('email', user.email);
+        else if (isStaff) q = q.eq('email', userEmail);
         const { data } = await q;
         salesRows = data || [];
     } else {
         // monthly
         let q = supabase.from('salesman_performance').select('*').eq('month', targetMonthStr);
         if (qBranch) q = q.eq('branch_code', qBranch);
-        else if (isStaff) q = q.eq('email', user.email);
+        else if (isStaff) q = q.eq('email', userEmail);
         const { data } = await q;
         salesRows = data || [];
     }
@@ -8425,7 +8428,6 @@ app.get('/profile', requireAuth, async (req, res) => {
          spreadsheetId: HR_SPREADSHEET_ID, range: 'A2:J' 
        });
        const hrRows = hrRes.data.values || [];
-       const userEmail = user.email.toLowerCase().trim();
        const hrMatch = hrRows.find(r => (r[1] || '').toLowerCase().trim() === userEmail);
        if (hrMatch) {
          myProfile.hrm_id = hrMatch[0] || '-';
@@ -8649,7 +8651,7 @@ app.get('/profile', requireAuth, async (req, res) => {
 
     let csiParams = { period: targetMonthStr };
     if (isStaff) {
-      csiParams.email = user.email;  // [FIX] CSI filter by email for staff
+      csiParams.email = userEmail;  // [FIX] CSI filter by email (lowercase) for staff
       // Fallback: staff name for CSI matching if email column not available
       csiParams._staffName = myProfile.full_name || user.full_name || '';
     } else if (qBranch) csiParams.branch = qBranch;
@@ -8666,7 +8668,7 @@ app.get('/profile', requireAuth, async (req, res) => {
     // [FIX] Biểu đồ 12 tháng cho Staff
     let staffChartData = [];
     if (isStaff) {
-      staffChartData = await getStaffMonthlyChart(user.email, user.branch_code);
+      staffChartData = await getStaffMonthlyChart(userEmail, user.branch_code);
     }
 
     // [FIX] Thêm flag noSalesData: đúng khi staff chưa có đơn trong kỳ chọn
