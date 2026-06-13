@@ -514,6 +514,16 @@ const BRANCH_CONFIG = {
     bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
     bankAccount: "18PV124"
   },
+  'CP74': {
+    name: "PHONG VŨ (Chi nhánh Khánh Hội)",
+    address: "162 - 164 Khánh Hội, Phường Khánh Hội, Thành phố Hồ Chí Minh, Việt Nam",
+    mst: "0304998358",
+    hotline: "02873018388",
+    website: "phongvu.vn",
+    bankName: "Ngân Hàng TMCP Công Thương Việt Nam- CN2 TPHCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "18PVSU4"
+  },
   // (Thêm các chi nhánh khác ở đây)
 };
 
@@ -4488,6 +4498,155 @@ app.get('/bom-check', requireAuth, (req, res) => {
 // (TRONG server.js)
 
 // Route TỔNG HỢP (Dashboard) - BẢN CUỐI (Thêm Filter Type)
+// Cache dữ liệu doanh số PCPV
+let pcpvSalesCache = {};
+
+// Hàm lấy dữ liệu doanh số bán hàng của SKU PCPV
+async function getPcpvSalesData(timeframe, userBranch, isGlobalAdmin, reqBranch, actualSkus = []) {
+  const selectedBranch = isGlobalAdmin ? (reqBranch || 'all') : userBranch;
+  const cacheKey = `${timeframe}_${selectedBranch}_v2`;
+  const nowMs = Date.now();
+
+  // Kiểm tra cache (15 phút)
+  if (pcpvSalesCache[cacheKey] && (nowMs - pcpvSalesCache[cacheKey].timestamp < 15 * 60 * 1000)) {
+    console.log(`[CACHE HIT] Sử dụng dữ liệu Sales PCPV từ cache cho key: ${cacheKey}`);
+    return pcpvSalesCache[cacheKey].data;
+  }
+
+  // Tính toán thời gian theo múi giờ Việt Nam
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  let startDate, endDate;
+  endDate = now.toISOString().split('T')[0]; // Hôm nay
+
+  if (timeframe === 'today') {
+    startDate = endDate;
+  } else if (timeframe === 'week') {
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    startDate = monday.toISOString().split('T')[0];
+  } else if (timeframe === 'quarter') {
+    const currentMonth = now.getMonth();
+    const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
+    const firstDayOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
+    startDate = firstDayOfQuarter.toISOString().split('T')[0];
+  } else if (timeframe === 'year') {
+    startDate = `${now.getFullYear()}-01-01`;
+  } else {
+    startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  }
+
+  console.log(`[SALES QUERY] Truy vấn sales PCPV (by branch) từ ${startDate} đến ${endDate} cho branch: ${selectedBranch}`);
+
+  // salesMap: SKU -> total qty (tổng), salesByBranch: SKU -> { branch: qty }
+  const salesMap = new Map();
+  const salesByBranch = new Map();
+
+  // Kiểm tra nếu bigquery client được khởi tạo
+  if (bigquery) {
+    let branchFilter = '';
+    const queryParams = { startDate, endDate };
+
+    if (selectedBranch && selectedBranch !== 'all') {
+      branchFilter = 'AND Branch_Code = @branch';
+      queryParams.branch = selectedBranch;
+    }
+
+    // Query mới: GROUP BY cả SKU và Branch_Code để lấy doanh số theo chi nhánh
+    const bqQuery = `
+      SELECT 
+          CAST(SKU AS STRING) as sku,
+          CAST(Branch_Code AS STRING) as branch_code,
+          CAST(SUM(CASE WHEN Order_type = 'don_xuat_ban' THEN Quantity WHEN Order_type = 'don_nhap_hoan_ban' THEN -Quantity ELSE 0 END) AS INT64) as qty_sold
+      FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\`
+      WHERE (SKU LIKE 'PCPV%' OR SKU LIKE 'pcpv%')
+        AND CAST(Report_date AS DATE) >= CAST(@startDate AS DATE)
+        AND CAST(Report_date AS DATE) <= CAST(@endDate AS DATE)
+        ${branchFilter}
+      GROUP BY SKU, Branch_Code
+      ORDER BY qty_sold DESC
+    `;
+
+    try {
+      const [rows] = await bigquery.query({ query: bqQuery, params: queryParams });
+      (rows || []).forEach(r => {
+        if (r.sku) {
+          const skuKey = r.sku.trim().toUpperCase();
+          const branch = (r.branch_code || 'UNKNOWN').trim();
+          const qty = Number(r.qty_sold || 0);
+
+          // Cộng dồn tổng
+          salesMap.set(skuKey, (salesMap.get(skuKey) || 0) + qty);
+
+          // Cộng dồn theo branch
+          if (!salesByBranch.has(skuKey)) salesByBranch.set(skuKey, {});
+          const branchData = salesByBranch.get(skuKey);
+          branchData[branch] = (branchData[branch] || 0) + qty;
+        }
+      });
+      
+      const result = { salesMap, salesByBranch };
+      pcpvSalesCache[cacheKey] = { data: result, timestamp: Date.now() };
+      return result;
+    } catch (e) {
+      console.warn(`⚠️ getPcpvSalesData: BigQuery Query failed (${e.message}). Switching to Supabase Fallback...`);
+    }
+  } else {
+    console.warn(`⚠️ getPcpvSalesData: BigQuery client is not initialized. Switching to Supabase Fallback...`);
+  }
+
+  // --- FALLBACK SUPABASE ---
+  console.log(`[FALLBACK] getPcpvSalesData: Thử lấy dữ liệu Sales từ Supabase cho kỳ ${timeframe} của branch: ${selectedBranch}`);
+  try {
+    let query = supabase
+      .from('raw_sales_orders_all')
+      .select('SKU, Quantity, Order_type, Report_date, Branch_Code');
+
+    query = query.gte('Report_date', startDate).lte('Report_date', endDate);
+
+    if (selectedBranch && selectedBranch !== 'all') {
+      query = query.eq('Branch_Code', selectedBranch);
+    }
+
+    const { data: spRows, error: spErr } = await query;
+    if (spErr) throw spErr;
+
+    (spRows || []).forEach(r => {
+      const sku = (r.SKU || r.sku || '').trim().toUpperCase();
+      if (sku && (sku.startsWith('PCPV') || actualSkus.includes(sku))) {
+        const qty = Number(r.Quantity || r.quantity || 0);
+        const type = r.Order_type || r.order_type;
+        const branch = (r.Branch_Code || r.branch_code || 'UNKNOWN').trim();
+        
+        let delta = 0;
+        if (type === 'don_xuat_ban') delta = qty;
+        else if (type === 'don_nhap_hoan_ban') delta = -qty;
+        else delta = qty;
+
+        // Tổng
+        salesMap.set(sku, (salesMap.get(sku) || 0) + delta);
+
+        // Theo branch
+        if (!salesByBranch.has(sku)) salesByBranch.set(sku, {});
+        const branchData = salesByBranch.get(sku);
+        branchData[branch] = (branchData[branch] || 0) + delta;
+      }
+    });
+    console.log(`[FALLBACK SUCCESS] Lấy thành công dữ liệu Sales từ Supabase (by branch).`);
+  } catch (err) {
+    console.warn(`⚠️ SUPABASE FALLBACK ERROR (getPcpvSalesData): Không thể lấy dữ liệu Sales từ Supabase (${err.message}). Gán doanh số bằng 0.`);
+    actualSkus.forEach(sku => {
+      salesMap.set(sku.trim().toUpperCase(), 0);
+      salesByBranch.set(sku.trim().toUpperCase(), {});
+    });
+  }
+
+  const result = { salesMap, salesByBranch };
+  pcpvSalesCache[cacheKey] = { data: result, timestamp: Date.now() };
+  return result;
+}
+
+// Route TỔNG HỢP (Dashboard) - BẢN CUỐI (Thêm Filter Type)
 app.get('/bom-dashboard', requireAuth, async (req, res) => {
   try {
     // === (MỚI) Thêm Search Query + Filter Type ===
@@ -4495,6 +4654,8 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
     const pageSize = 20; // 20 PCPV mỗi trang
     const searchQuery = (req.query.q || '').trim().toLowerCase(); // Lấy query 'q'
     const filterType = (req.query.type || '').trim(); // Lấy query 'type' (vanphong, gaming)
+    const timeframe = (req.query.timeframe || 'month').trim(); // 'today', 'week', 'month', 'quarter', 'year'
+    const reqBranch = (req.query.branch || 'all').trim(); // Lấy chi nhánh cần lọc
 
     // --- A. Lấy thông tin User (Phân quyền) ---
     const userBranch = req.session.user?.branch_code;
@@ -4502,7 +4663,6 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
 
     // --- B. Lấy danh sách PCPV từ Supabase (bảng skus) ---
-    // Không dùng BigQuery nữa → tiết kiệm quota, không bị quota lỗi
     let subcatPattern = 'Máy tính bộ Phong Vũ%'; // Mặc định (Tất cả)
     if (filterType === 'vanphong') {
       subcatPattern = 'Máy tính bộ Phong Vũ văn phòng%';
@@ -4537,7 +4697,6 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
     }
 
     // === Enrich tên sản phẩm từ bảng skus (áp dụng cho cả 2 path) ===
-    // Đảm bảo luôn có tên đẹp, không bị SKU lặp lại
     if (allFinalSkus.some(f => f.name === f.sku)) {
       const missingNameSkus = allFinalSkus.filter(f => f.name === f.sku).map(f => f.sku);
       if (missingNameSkus.length > 0) {
@@ -4553,7 +4712,7 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
       }
     }
 
-    // === (MỚI) Lọc theo Search Query ===
+    // === Lọc theo Search Query ===
     let filteredFinalSkus = allFinalSkus;
     if (searchQuery) {
       filteredFinalSkus = allFinalSkus.filter(f =>
@@ -4561,43 +4720,42 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
         f.name.toLowerCase().includes(searchQuery)
       );
     }
-    // ===================================
 
-    const totalItems = filteredFinalSkus.length; // Sửa: đếm trên danh sách đã lọc
+    const totalItems = filteredFinalSkus.length;
     const totalPages = Math.ceil(totalItems / pageSize);
-    // (SỬA LỖI LOGIC PAGE)
     let correctedPage = page;
     if (totalPages > 0 && correctedPage > totalPages) correctedPage = totalPages;
 
-    // === SỬA LOGIC: Lấy TẤT CẢ SKU đã lọc (không phân trang vội) ===
     const allFilteredSkuList = filteredFinalSkus.map(f => f.sku);
 
     if (allFilteredSkuList.length === 0) {
-      // (Không tìm thấy kết quả hoặc không có BOM)
       return res.render('bom-dashboard', {
         title: 'Dashboard Lắp Ráp BOM', currentPage: 'bom-dashboard', time: res.locals.time,
         results: [], branches: [], page: 1, totalPages: 1, totalItems: 0,
-        searchQuery: (req.query.q || ''), // Trả lại query
-        filterType: filterType, // (MỚI) Trả lại filter
+        searchQuery: (req.query.q || ''),
+        filterType: filterType,
+        timeframe: timeframe,
+        selectedBranch: reqBranch,
         isGlobalAdmin: isGlobalAdmin, userBranch: userBranch
       });
     }
 
-    // --- C. Lấy BOM cho TẤT CẢ SKU đã lọc (từ Supabase) ---
+    // --- C. Lấy Sales Data cho các PCPV SKU (kèm chi tiết theo branch) ---
+    const { salesMap, salesByBranch } = await getPcpvSalesData(timeframe, userBranch, isGlobalAdmin, reqBranch, allFilteredSkuList);
+
+    // --- D. Lấy BOM cho TẤT CẢ SKU đã lọc (từ Supabase) ---
     const { data: bomParts, error: e2 } = await supabase
       .from('bom_relations')
       .select('final_sku, component_sku, component_name, qty_per')
-      .in('final_sku', allFilteredSkuList); // <-- SỬA: Dùng allFilteredSkuList
+      .in('final_sku', allFilteredSkuList);
     if (e2) throw e2;
 
-    // (Phần D và E - Lấy tồn kho và Tính toán giữ nguyên y hệt)
-
-    // --- D. Lấy tồn kho ---
+    // --- E. Lấy tồn kho ---
     const bomMap = new Map();
-    filteredFinalSkus.forEach(f => bomMap.set(f.sku, [])); // <-- SỬA: Dùng filteredFinalSkus
+    filteredFinalSkus.forEach(f => bomMap.set(f.sku, []));
     (bomParts || []).forEach(p => { bomMap.get(p.final_sku)?.push(p); });
     const allComponentSkus = Array.from(new Set((bomParts || []).map(p => p.component_sku)));
-    const skusToFetchStock = [...new Set([...allFilteredSkuList, ...allComponentSkus])]; // <-- SỬA: Dùng allFilteredSkuList
+    const skusToFetchStock = [...new Set([...allFilteredSkuList, ...allComponentSkus])];
     const inventoryMap = await getInventoryCounts(skusToFetchStock, userBranch, isGlobalAdmin, today);
     const allBranches = new Set();
     inventoryMap.forEach(branchMap => {
@@ -4605,9 +4763,9 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
     });
     const sortedBranches = [...allBranches].sort();
 
-    // --- E. Tính toán & Xây dựng dữ liệu render ---
-    const allResults = []; // <-- SỬA: Đổi tên thành allResults
-    for (const final of filteredFinalSkus) { // <-- SỬA: Lặp qua TẤT CẢ SKU
+    // --- F. Tính toán & Xây dựng dữ liệu render ---
+    const allResults = [];
+    for (const final of filteredFinalSkus) {
       const finalSku = final.sku;
       const components = bomMap.get(finalSku) || [];
       const finalProductStockMap = inventoryMap.get(finalSku);
@@ -4639,18 +4797,58 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
         buildableByBranch.set(br, finalBuildable);
         totalBuildable += finalBuildable;
       });
-      allResults.push({ // <-- SỬA: Thêm vào allResults
+
+      // Lấy số lượng đã bán (tổng + theo chi nhánh)
+      const skuKey = finalSku.trim().toUpperCase();
+      const qtySold = salesMap.get(skuKey) || salesMap.get(finalSku) || 0;
+      const qtySoldByBranch = salesByBranch.get(skuKey) || salesByBranch.get(finalSku) || {};
+
+      // Tính số lượng linh kiện thiếu ở chi nhánh lọc (hoặc toàn quốc)
+      let missingComponentsCount = 0;
+      components.forEach(c => {
+        const compSku = c.component_sku;
+        const needQty = Number(c.qty_per || 1);
+        const compStockMap = inventoryMap.get(compSku);
+        
+        let isMissing = false;
+        if (isGlobalAdmin && reqBranch === 'all') {
+          let hasShortage = false;
+          sortedBranches.forEach(br => {
+            const haveQty = compStockMap?.get(br)?.hang_ban_moi || 0;
+            if (haveQty < needQty) hasShortage = true;
+          });
+          if (hasShortage) isMissing = true;
+        } else {
+          const targetBr = isGlobalAdmin ? reqBranch : userBranch;
+          const haveQty = compStockMap?.get(targetBr)?.hang_ban_moi || 0;
+          if (haveQty < needQty) isMissing = true;
+        }
+        
+        if (isMissing) {
+          missingComponentsCount++;
+        }
+      });
+
+      allResults.push({
         sku: finalSku, name: final.name,
         finalStock_Total: totalFinalStock, finalStock_ByBranch: Object.fromEntries(finalStockByBranch),
         buildable_Total: totalBuildable, buildable_ByBranch: Object.fromEntries(buildableByBranch),
+        qty_sold: qtySold,
+        qty_sold_by_branch: qtySoldByBranch,
+        missing_components_count: missingComponentsCount,
         components: Array.from(componentDetails.entries()).map(([sku, data]) => ({ sku, ...data, branches: Object.fromEntries(data.branches) }))
       });
     }
 
-    // === SỬA: Sắp xếp TẤT CẢ kết quả (theo Tồn kho Thành phẩm) ===
-    allResults.sort((a, b) => b.finalStock_Total - a.finalStock_Total);
+    // === Sắp xếp kết quả theo Doanh số bán chạy giảm dần, sau đó theo Tồn kho Thành phẩm ===
+    allResults.sort((a, b) => {
+      if (b.qty_sold !== a.qty_sold) {
+        return b.qty_sold - a.qty_sold; // Doanh số cao xếp trước
+      }
+      return b.finalStock_Total - a.finalStock_Total; // Tồn kho nhiều xếp trước
+    });
 
-    // === SỬA: Phân trang SAU KHI SẮP XẾP ===
+    // === Phân trang SAU KHI SẮP XẾP ===
     const paginatedResults = allResults.slice((correctedPage - 1) * pageSize, correctedPage * pageSize);
 
     // 4. Render
@@ -4658,13 +4856,15 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
       title: 'Dashboard Lắp Ráp BOM',
       currentPage: 'bom-dashboard',
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      results: paginatedResults, // <-- SỬA: Gửi danh sách đã phân trang
+      results: paginatedResults,
       branches: sortedBranches,
-      page: correctedPage, // <-- SỬA: Gửi trang đã sửa lỗi
+      page: correctedPage,
       totalPages: totalPages,
       totalItems: totalItems,
-      searchQuery: (req.query.q || ''), // (MỚI) Trả lại query
-      filterType: filterType, // (MỚI) Trả lại filter
+      searchQuery: (req.query.q || ''),
+      filterType: filterType,
+      timeframe: timeframe,
+      selectedBranch: reqBranch,
       isGlobalAdmin: isGlobalAdmin,
       userBranch: userBranch
     });
@@ -6244,9 +6444,16 @@ app.delete('/api/ranking/delete/:id', requireManager, async (req, res) => {
 
 app.post('/api/quote-history', requireAuth, async (req, res) => {
   try {
-    const { customerName, customerPhone, contactInfo, buildConfig, totalAmount, templateType } = req.body;
+    const { customerName, customerPhone, contactInfo, buildConfig, totalAmount, templateType, notes, globalDiscount, validityDays } = req.body;
     const userId = req.session.user?.id || req.session.user?.uid || req.session.user?.email || 'unknown';
     const userName = req.session.user?.full_name || req.session.user?.email || 'Nhân viên';
+
+    const buildConfigWithNotes = {
+      ...(buildConfig && typeof buildConfig === 'object' ? buildConfig : {}),
+      _notes: notes || '',
+      _global_discount: globalDiscount || { value: 0, type: 'amount' },
+      _validity_days: validityDays || 3
+    };
 
     const { data, error } = await supabase
       .from('quote_history')
@@ -6256,7 +6463,7 @@ app.post('/api/quote-history', requireAuth, async (req, res) => {
         customer_name: customerName,
         customer_phone: customerPhone,
         contact_info: contactInfo,
-        build_config: buildConfig,
+        build_config: buildConfigWithNotes,
         total_amount: totalAmount || 0,
         template_type: templateType
       }])
@@ -6300,14 +6507,17 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
       isGeneralQuote = false,
       templateType = 'consumer',
       globalDiscount = { value: 0, type: 'amount' },
-      validityDays = 3
+      validityDays = 3,
+      notes = ''
     } = req.body;
 
     console.log(`[Báo giá] KH: ${customerName} | Mode: ${isGeneralQuote ? 'Báo giá nhanh' : 'Build PC'}`);
 
     // 2. Tính tiền hàng (Trừ giảm giá từng món item_discount)
     const buildConfigSafe = buildConfig && typeof buildConfig === 'object' ? buildConfig : {};
-    const items = Object.values(buildConfigSafe).map((rawItem) => {
+    const items = Object.entries(buildConfigSafe)
+      .filter(([key, val]) => !key.startsWith('_') && val && typeof val === 'object')
+      .map(([key, rawItem]) => {
       const item = { ...rawItem };
       item.quantity = Math.max(1, Number(item.quantity) || 1);
       item.item_discount = Math.max(0, Number(item.item_discount) || 0);
@@ -6406,6 +6616,7 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
         appliedPromo,       // Truyền promo xuống EJS để hiển thị
         finalTotal,
         validityDays,
+        notes,
         taxFreeSubcats: taxFreeSubcats,
 
         formatVND: (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0))
@@ -8481,7 +8692,7 @@ app.get('/profile', requireAuth, async (req, res) => {
     // [FIX] Filter theo year để tránh cộng target 2 năm khi bảng có nhiều năm
     let targetQuery = supabase.from('pv_terminal_monthly_targets').select('*').eq('year', targetYear);
     if (qBranch) targetQuery = targetQuery.eq('terminal_code', qBranch);
-    else if (isStaff) targetQuery = targetQuery.eq('terminal_code', user.branch_code);
+    else if (isStaff) targetQuery = targetQuery.eq('terminal_code', myProfile.branch);
     
     const { data: targetRows } = await targetQuery;
     
@@ -8519,14 +8730,14 @@ app.get('/profile', requireAuth, async (req, res) => {
                 const yearPrefix = targetMonthStr.replace(/-$/, '');
                 hcTargets = await getAllBranchTargets('year', parseInt(yearPrefix, 10));
             }
-            if (hcTargets && hcTargets[user.branch_code] && hcTargets[user.branch_code].headcount) {
-                headcount = hcTargets[user.branch_code].headcount;
+            if (hcTargets && hcTargets[myProfile.branch] && hcTargets[myProfile.branch].headcount) {
+                headcount = hcTargets[myProfile.branch].headcount;
             } else {
                 // Fallback: đếm số lượng nhân viên thực tế có role = staff trong chi nhánh
                 const { count: branchStaffCount } = await supabase
                     .from('users')
                     .select('*', { count: 'exact', head: true })
-                    .eq('branch_code', user.branch_code)
+                    .eq('branch_code', myProfile.branch)
                     .eq('role', 'staff');
                 if (branchStaffCount > 0) headcount = branchStaffCount;
             }
@@ -8556,18 +8767,22 @@ app.get('/profile', requireAuth, async (req, res) => {
     
     const allTargetRows = (await supabase.from('pv_terminal_monthly_targets').select('*')).data || [];
     const targetMap = {};
-    const globalBranchList = [];
+    const branchDedup = new Map(); // Dùng Map để loại bỏ trùng lặp branch
     allTargetRows.forEach(r => { 
         if (monthCol) targetMap[r.terminal_code] = Number(r[monthCol] || 0) * 1000000 * targetRatio;
-        let brName = 'Chi Nhánh ' + r.terminal_code;
-        for (const [name, code] of Object.entries(TERMINAL_CODE_MAP)) {
-            if (code === r.terminal_code) {
-                brName = name.split(',')[0].trim();
-                break;
+        // Chỉ thêm mỗi terminal_code 1 lần vào danh sách chi nhánh
+        if (!branchDedup.has(r.terminal_code)) {
+            let brName = 'Chi Nhánh ' + r.terminal_code;
+            for (const [name, code] of Object.entries(TERMINAL_CODE_MAP)) {
+                if (code === r.terminal_code) {
+                    brName = name.split(',')[0].trim();
+                    break;
+                }
             }
+            branchDedup.set(r.terminal_code, { id: r.terminal_code, name: brName });
         }
-        globalBranchList.push({ id: r.terminal_code, name: brName });
     });
+    const globalBranchList = Array.from(branchDedup.values());
 
     let tableSales = [];
     let tableBranch = [];
@@ -8583,7 +8798,8 @@ app.get('/profile', requireAuth, async (req, res) => {
         const branchTarget = targetMap[r.branch_code] || 0;
         let indTarget = 0;
         if (hcTargets && hcTargets[r.branch_code]) {
-           indTarget = hcTargets[r.branch_code].individual_target || 0;
+           const headcount = hcTargets[r.branch_code].headcount || 1;
+           indTarget = branchTarget / headcount;
         } else {
            const branchStaffCount = (salesRows || []).filter(s => s.branch_code === r.branch_code).length || 1;
            indTarget = branchTarget / branchStaffCount;
@@ -8654,6 +8870,7 @@ app.get('/profile', requireAuth, async (req, res) => {
       csiParams.email = userEmail;  // [FIX] CSI filter by email (lowercase) for staff
       // Fallback: staff name for CSI matching if email column not available
       csiParams._staffName = myProfile.full_name || user.full_name || '';
+      csiParams.branch = myProfile.branch; // [FIX] Gán branch code chuẩn của staff từ DB để lọc CSI
     } else if (qBranch) csiParams.branch = qBranch;
 
     let csiData = { csi_percent: 0, feedback_count: 0, unavailable: false };
@@ -8668,7 +8885,7 @@ app.get('/profile', requireAuth, async (req, res) => {
     // [FIX] Biểu đồ 12 tháng cho Staff
     let staffChartData = [];
     if (isStaff) {
-      staffChartData = await getStaffMonthlyChart(userEmail, user.branch_code);
+      staffChartData = await getStaffMonthlyChart(userEmail, myProfile.branch);
     }
 
     // [FIX] Thêm flag noSalesData: đúng khi staff chưa có đơn trong kỳ chọn

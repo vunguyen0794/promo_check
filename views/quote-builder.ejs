@@ -277,6 +277,10 @@
         <label style="font-weight: 600; font-size: 13px; color: #334155;">Thông tin liên hệ của bạn (SĐT/Zalo):</label>
         <input type="text" id="quoteContactInfo" required style="width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 6px;">
       </div>
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label style="font-weight: 600; font-size: 13px; color: #334155;">Ghi chú riêng (Hiển thị trên PDF):</label>
+        <textarea id="quoteNotes" style="width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 6px; height: 60px; resize: vertical;" placeholder="Nhập ghi chú riêng cho báo giá..."></textarea>
+      </div>
 
       <button type="button" class="btn btn-primary" style="width: 100%; padding: 12px; font-weight: 700;" id="btnDownloadPDF">
         <i class="fas fa-file-pdf"></i> Xác nhận & Tải PDF
@@ -897,10 +901,12 @@ document.addEventListener('DOMContentLoaded', function() {
       // Xóa giỏ hiện tại
       for (const sku in quoteItemExtras) delete quoteItemExtras[sku];
       currentBuildConfig = {};
+      activeImageSku = null;
       
       // Load giỏ mới
       const bc = q.build_config || {};
       for(const sku of Object.keys(bc)) {
+          if (sku.startsWith('_')) continue;
           const item = bc[sku];
           currentBuildConfig[sku] = { ...item };
           const extras = ensureItemExtras(sku);
@@ -920,6 +926,21 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('quoteCustomerName').value = q.customer_name || '';
       document.getElementById('quoteCustomerPhone').value = q.customer_phone || '';
       document.getElementById('quoteContactInfo').value = q.contact_info || '';
+      const quoteNotesEl = document.getElementById('quoteNotes');
+      if (quoteNotesEl) quoteNotesEl.value = bc._notes || '';
+      
+      // Khôi phục giảm giá toàn đơn & thời hạn báo giá
+      const globalDiscount = bc._global_discount || { value: 0, type: 'amount' };
+      const validityDays = bc._validity_days || 3;
+      
+      const globalDiscountValEl = document.getElementById('globalDiscountVal');
+      const globalDiscountTypeEl = document.getElementById('globalDiscountType');
+      const quoteValidityEl = document.getElementById('quoteValidity');
+      
+      if (globalDiscountValEl) globalDiscountValEl.value = globalDiscount.value || 0;
+      if (globalDiscountTypeEl) globalDiscountTypeEl.value = globalDiscount.type || 'amount';
+      if (quoteValidityEl) quoteValidityEl.value = validityDays;
+      
       if(q.template_type) {
           const radio = document.querySelector(`input[name="printTemplate"][value="${q.template_type}"]`);
           if(radio) radio.checked = true;
@@ -1073,6 +1094,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const name = document.getElementById('quoteCustomerName').value.trim();
       const phone = document.getElementById('quoteCustomerPhone').value.trim();
       const contact = document.getElementById('quoteContactInfo').value.trim();
+      const notes = document.getElementById('quoteNotes').value.trim();
       
       if(!name || !phone || !contact) {
           alert('Vui lòng nhập đầy đủ thông tin khách hàng và liên hệ.');
@@ -1100,6 +1122,7 @@ document.addEventListener('DOMContentLoaded', function() {
           customerPhone: phone, 
           contactInfo: contact,
           isGeneralQuote: true, 
+          notes: notes,
           
           globalDiscount: { 
               value: Number(globalDiscountVal.value)||0, 

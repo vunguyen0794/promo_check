@@ -6,13 +6,15 @@
     <style>
         body { font-family: Arial, sans-serif; color: #333; font-size: 10px; line-height: 1.4; }
         .container { width: 95%; margin: 0 auto; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        th, td { border: 1px solid #999; padding: 5px; text-align: left; vertical-align: top; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
+        th, td { border: 1px solid #999; padding: 5px; text-align: left; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
         tr { page-break-inside: avoid; break-inside: avoid; }
         th { background-color: #DDEBF7; color: #1F4E78; font-weight: bold; font-size: 9.5px; text-align: center; }
         .quote-title { text-align: center; font-size: 16px; font-weight: bold; color: #FFFFFF; background-color: #2F75B5; padding: 5px; margin: 15px 0 10px 0; }
         .right { text-align: right; } .center { text-align: center; } 
-        .header-table, .info-table, .customer-table { border: none; }
+        .price-cell { text-align: right; white-space: nowrap; }
+        .sku-cell { font-size: 9px; white-space: nowrap; }
+        .header-table, .info-table, .customer-table { border: none; table-layout: auto; }
         .header-table td, .info-table td, .customer-table td { border: none; padding: 1px; }
         .company-info { font-size: 11px; font-weight: bold; }
         .total-section { float: right; width: 45%; }
@@ -20,11 +22,20 @@
         .total-section .total-row.grand-total { font-weight: bold; font-size: 11px; background-color: #FFF2CC; border: 1px solid #999; margin-top: 5px;}
         .footer-terms { clear: both; margin-top: 20px; font-size: 9.5px; }
         .signature-section { margin-top: 20px; text-align: center; float: right; width: 40%; }
-        .specs-content { white-space: pre-wrap; line-height: 1.5; font-size: 9.5px; }
+        /* Cột Tên sản phẩm: chỉ hiển thị tên ngắn gọn */
+        .product-name-cell { font-size: 10px; font-weight: 600; line-height: 1.4; }
+        /* Cột Thông số kỹ thuật: hiển thị dạng danh sách dễ đọc */
+        .specs-content { 
+            white-space: pre-wrap; 
+            line-height: 1.6; 
+            font-size: 9px; 
+            color: #444;
+            word-break: break-word;
+        }
         .image-cell { padding: 2px !important; }
         .item-images-grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
         .item-image-box { border: 1px solid #d1d5db; border-radius: 3px; width: 100%; height: 118px; overflow: hidden; background: #fff; }
-        .item-image-box img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+        .item-image-box img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
     </style>
 </head>
 <body>
@@ -78,31 +89,32 @@
         <table>
             <thead>
                 <tr>
-                    <th class="center" style="width: 30px;">STT</th>
-                    <th style="width: 80px;">Mã SP</th>
-                    <th>Tên sản phẩm</th>
+                    <th class="center" style="width: 4%;">STT</th>
+                    <th style="width: 10%;">Mã SP</th>
+                    <th style="width: <%= hasAnyItemDetailedSpecs ? '20%' : '40%' %>;">Tên sản phẩm</th>
                     <% if (hasAnyItemDetailedSpecs) { %>
-                        <th style="width: 150px;">Thông số chi tiết</th>
+                        <th style="width: 25%;">Thông số chi tiết</th>
                     <% } %>
                     <% if (hasAnyItemImages) { %>
-                        <th style="width: 165px;">Hình ảnh thực tế</th>
+                        <th style="width: 12%;">Hình ảnh thực tế</th>
                     <% } %>
-                    <th class="center" style="width: 40px;">ĐVT</th>
-                    <th class="right" style="width: 30px;">SL</th>
+                    <th class="center" style="width: 4%;">ĐVT</th>
+                    <th class="right" style="width: 4%;">SL</th>
                     
                     <% if (templateType === 'b2b') { %>
-                        <th class="right">Đơn giá<br><i>(Chưa VAT)</i></th>
+                        <th class="right" style="width: 9%;">Đơn giá<br><i>(Chưa VAT)</i></th>
                         <% if (hasAnyDiscount) { %>
-                            <th class="right">Giảm giá<br><i>(Chi tiết)</i></th>
+                            <th class="right" style="width: 8%;">Giảm giá<br><i>(Chi tiết)</i></th>
                         <% } %>
-                        <th class="right">Thành tiền<br><i>(Chưa VAT)</i></th>
-                        <th class="right">Thuế VAT<br><i>(%)</i></th> <th class="right">Tổng cộng<br><i>(Gồm VAT)</i></th>
+                        <th class="right" style="width: 10%;">Thành tiền<br><i>(Chưa VAT)</i></th>
+                        <th class="right" style="width: 5%;">VAT<br><i>(%)</i></th> 
+                        <th class="right" style="width: 11%;">Tổng cộng<br><i>(Gồm VAT)</i></th>
                     <% } else { %>
-                        <th class="right">Đơn giá<br><i>(Gồm VAT)</i></th>
+                        <th class="right" style="width: 11%;">Đơn giá<br><i>(Gồm VAT)</i></th>
                         <% if (hasAnyDiscount) { %>
-                            <th class="right">Giảm giá<br><i>(Chi tiết)</i></th>
+                            <th class="right" style="width: 9%;">Giảm giá<br><i>(Chi tiết)</i></th>
                         <% } %>
-                        <th class="right">Thành tiền<br><i>(Gồm VAT)</i></th>
+                        <th class="right" style="width: 12%;">Thành tiền<br><i>(Gồm VAT)</i></th>
                     <% } %>
                 </tr>
             </thead>
@@ -135,8 +147,8 @@
                     %>
                     <tr>
                         <td class="center"><%= index + 1 %></td>
-                        <td><%= item.sku %></td>
-                        <td><%= item.product_name %></td>
+                        <td class="sku-cell"><%= item.sku %></td>
+                        <td class="product-name-cell"><%= item.product_name %></td>
                         <% if (hasAnyItemDetailedSpecs) { %>
                             <td>
                                 <% if (itemSpecs) { %>
@@ -168,31 +180,31 @@
                             </td>
                         <% } %>
                         <td class="center">Cái</td>
-                        <td class="right"><%= item.quantity %></td>
+                        <td class="center"><%= item.quantity %></td>
                         
                         <% if (templateType === 'b2b') { %>
-                            <td class="right"><%= formatVND(unitPriceExVat) %></td>
+                            <td class="price-cell"><%= formatVND(unitPriceExVat) %></td>
                             
                             <% if (hasAnyDiscount) { %>
-                                <td class="right" style="color: #e53935;">
+                                <td class="price-cell" style="color: #e53935;">
                                     <%= unitDiscountExVat > 0 ? '-' + formatVND(unitDiscountExVat) : '-' %>
                                 </td>
                             <% } %>
                             
-                            <td class="right"><%= formatVND(lineTotalExVat) %></td>
-                            <td class="right"><%= isTaxFree ? '0%' : '8%' %></td>
-                            <td class="right"><%= formatVND(lineTotalIncVat) %></td>
+                            <td class="price-cell"><%= formatVND(lineTotalExVat) %></td>
+                            <td class="center"><%= isTaxFree ? '0%' : '8%' %></td>
+                            <td class="price-cell"><%= formatVND(lineTotalIncVat) %></td>
 
                         <% } else { %>
-                            <td class="right"><%= formatVND(unitPriceIncVat) %></td>
+                            <td class="price-cell"><%= formatVND(unitPriceIncVat) %></td>
                             
                             <% if (hasAnyDiscount) { %>
-                                <td class="right" style="color: #e53935;">
+                                <td class="price-cell" style="color: #e53935;">
                                     <%= unitDiscountIncVat > 0 ? '-' + formatVND(unitDiscountIncVat) : '-' %>
                                 </td>
                             <% } %>
                             
-                            <td class="right" style="font-weight: bold;"><%= formatVND(lineTotalIncVat) %></td>
+                            <td class="price-cell" style="font-weight: bold;"><%= formatVND(lineTotalIncVat) %></td>
                         <% } %>
                     </tr>
                 <% }); %>
@@ -257,7 +269,11 @@
             <strong>Điều kiện giao hàng:</strong> Giao hàng 1 lần tại kho Phong Vũ.<br>
             <strong>Điều kiện thanh toán:</strong> 100% trước khi giao hàng.<br>
             <strong>Bảo hành:</strong> Theo tiêu chuẩn NSX.<br>
-            <strong>Ghi chú:</strong> Báo giá có hiệu lực <%= validityDays %> ngày.<br><br>
+            <strong>Hiệu lực báo giá:</strong> Báo giá có hiệu lực <%= validityDays %> ngày.<br>
+            <% if (typeof notes !== 'undefined' && notes && notes.trim()) { %>
+                <strong>Ghi chú:</strong> <%= notes %><br>
+            <% } %>
+            <br>
             
             <strong>Thông tin chuyển khoản:</strong><br>
             - Ngân hàng: <%= branchInfo.bankName %><br>

@@ -406,6 +406,10 @@
         <label>Thông tin liên hệ của bạn (SĐT/Zalo):</label>
         <input type="text" id="quoteContactInfo" class="info-input" placeholder="090..." required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
       </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>Ghi chú riêng (Hiển thị trên PDF):</label>
+        <textarea id="quoteNotes" class="info-input" placeholder="Nhập ghi chú riêng cho báo giá..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 60px; resize: vertical;"></textarea>
+      </div>
 
       <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -879,6 +883,7 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
         const name = document.getElementById('quoteCustomerName').value.trim();
         const phone = document.getElementById('quoteCustomerPhone').value.trim();
         const contact = document.getElementById('quoteContactInfo').value.trim();
+        const notes = document.getElementById('quoteNotes').value.trim();
         
         if (!name || !phone || !contact) {
             alert('Vui lòng nhập đủ thông tin khách hàng và liên hệ!');
@@ -904,6 +909,7 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
               customerName: name,
               customerPhone: phone,
               contactInfo: contact,
+              notes: notes,
               sendEmail: false, 
               isGeneralQuote: false, // Build PC -> Có KM
               
