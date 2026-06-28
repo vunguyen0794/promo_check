@@ -81,11 +81,11 @@ try {
 // Nếu server chạy giờ UTC (thường là vậy), 7:30 VN = 00:30 UTC. 
 // Ta cấu hình linh hoạt hoặc dùng timezone.
 cron.schedule('30 7 * * *', () => {
-    console.log("[CRON] Bắt đầu đồng bộ định kỳ dữ liệu BQ -> Supabase (07:30 AM)...");
-    syncInventory();
+  console.log("[CRON] Bắt đầu đồng bộ định kỳ dữ liệu BQ -> Supabase (07:30 AM)...");
+  syncInventory();
 }, {
-    scheduled: true,
-    timezone: "Asia/Ho_Chi_Minh"
+  scheduled: true,
+  timezone: "Asia/Ho_Chi_Minh"
 });
 
 // -------------------------------------------------------------------
@@ -168,15 +168,16 @@ const EXECUTIVE_BRANCH_LIST = [
   { id: 'CP08', name: 'Gò Vấp', region: 'HCM1' }, { id: 'CP40', name: 'HHT', region: 'HCM1' },
   { id: 'CP46', name: 'Thủ Đức 1', region: 'HCM2' }, { id: 'CP58', name: 'CMT8', region: 'HCM1' },
   { id: 'CP62', name: 'PDL', region: 'HCM1' }, { id: 'CP64', name: 'Quận 12', region: 'HCM2' },
-  { id: 'CP67', name: 'Thủ Đức 2', region: 'HCM2' }, { id: 'CP69', name: 'Dĩ An', region: 'HCM2' }
+  { id: 'CP67', name: 'Thủ Đức 2', region: 'HCM2' }, { id: 'CP69', name: 'Dĩ An', region: 'HCM2' },
+  { id: 'CP75', name: 'Bình Thạnh', region: 'HCM1' }
 ];
 
 function parseLocalNoon(dStr) {
-    if(!dStr) return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-    if(dStr instanceof Date) return new Date(dStr.getFullYear(), dStr.getMonth(), dStr.getDate(), 12, 0, 0);
-    const parts = dStr.split('-');
-    if (parts.length === 3) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
-    return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  if (!dStr) return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  if (dStr instanceof Date) return new Date(dStr.getFullYear(), dStr.getMonth(), dStr.getDate(), 12, 0, 0);
+  const parts = dStr.split('-');
+  if (parts.length === 3) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
 }
 
 function formatVNDate(d) {
@@ -190,25 +191,25 @@ function formatVNDate(d) {
 function getDashboardDateRange(period, anchorDateStr, endDateStr) {
   let anchor = parseLocalNoon(anchorDateStr);
   if (isNaN(anchor.getTime())) anchor = parseLocalNoon();
-  
+
   let endAnchor = endDateStr ? parseLocalNoon(endDateStr) : anchor;
-  if(isNaN(endAnchor.getTime())) endAnchor = anchor;
+  if (isNaN(endAnchor.getTime())) endAnchor = anchor;
   // Ensure anchor <= endAnchor
-  if(endAnchor < anchor) { const t = anchor; anchor = endAnchor; endAnchor = t; }
+  if (endAnchor < anchor) { const t = anchor; anchor = endAnchor; endAnchor = t; }
 
   let cS, cE;
   const year = anchor.getFullYear(), month = anchor.getMonth();
   const eYear = endAnchor.getFullYear(), eMonth = endAnchor.getMonth();
 
   if (period === 'day') {
-    cS = formatVNDate(anchor); 
+    cS = formatVNDate(anchor);
     cE = formatVNDate(endAnchor);
   } else if (period === 'week') {
     const day = anchor.getDay();
     const diff = anchor.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(anchor); monday.setDate(diff);
     cS = formatVNDate(monday);
-    
+
     if (endDateStr) {
       cE = formatVNDate(endAnchor);
     } else {
@@ -253,12 +254,12 @@ function getDashboardDateRange(period, anchorDateStr, endDateStr) {
     const [y, m, d] = dStr.split('-').map(Number);
     let newM = (m - 1) + mDiff;
     let newY = y + yDiff;
-    while(newM < 0) { newM += 12; newY--; }
-    while(newM > 11) { newM -= 12; newY++; }
+    while (newM < 0) { newM += 12; newY--; }
+    while (newM > 11) { newM -= 12; newY++; }
     const lastDay = new Date(newY, newM + 1, 0).getDate();
     return formatVNDate(new Date(newY, newM, Math.min(d, lastDay), 12, 0, 0));
   };
-  
+
   const shiftDays = (dStr, dDiff) => {
     const [y, m, d] = dStr.split('-').map(Number);
     return formatVNDate(new Date(y, m - 1, d + dDiff, 12, 0, 0));
@@ -297,44 +298,44 @@ async function fetchTrafficStats(ranges) {
     const dI = h.indexOf('date');
     const bI = h.indexOf('branch_id');
     const vI = h.indexOf('visit_count');
-    
+
     if (dI === -1 || bI === -1 || vI === -1) {
-        console.error('Traffic Header Mismatch. Parsed Headers:', h);
-        return null;
+      console.error('Traffic Header Mismatch. Parsed Headers:', h);
+      return null;
     }
 
     const normalizeDateStr = (d) => {
-        if (!d) return '';
-        // Try to handle both YYYY-MM-DD and DD/MM/YYYY
-        if (d.includes('/')) {
-            const p = d.split('/');
-            // If p[0] is year (length 4)
-            if (p[0].length === 4) return `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}`;
-            // Else assume DD/MM/YYYY
-            return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-        }
-        if (d.includes('-')) {
-            const p = d.split('-');
-            if (p[0].length === 4) return d;
-            return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-        }
-        return d;
+      if (!d) return '';
+      // Try to handle both YYYY-MM-DD and DD/MM/YYYY
+      if (d.includes('/')) {
+        const p = d.split('/');
+        // If p[0] is year (length 4)
+        if (p[0].length === 4) return `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}`;
+        // Else assume DD/MM/YYYY
+        return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+      }
+      if (d.includes('-')) {
+        const p = d.split('-');
+        if (p[0].length === 4) return d;
+        return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+      }
+      return d;
     };
 
     const map = { _debug: { headers: h, sampleRows: rows.slice(1, 4) } };
     for (let i = 1; i < rows.length; i++) {
-        const r = rows[i];
-        if (!r[bI]) continue;
-        const dStr = normalizeDateStr(r[dI]), b = r[bI], v = parseInt(r[vI] || '0');
-        
-        if(!map[b]) map[b] = { curr:0, prev:0, lw:0, lm:0, lq:0, ly:0, _ts:{} };
-        
-        if (dStr >= ranges.curr.s && dStr <= ranges.curr.e) { map[b].curr += v; map[b]._ts[dStr] = (map[b]._ts[dStr] || 0) + v; }
-        if (dStr >= ranges.prev.s && dStr <= ranges.prev.e) map[b].prev += v;
-        if (dStr >= ranges.lw.s && dStr <= ranges.lw.e) map[b].lw += v;
-        if (dStr >= ranges.lm.s && dStr <= ranges.lm.e) map[b].lm += v;
-        if (dStr >= ranges.lq.s && dStr <= ranges.lq.e) map[b].lq += v;
-        if (dStr >= ranges.ly.s && dStr <= ranges.ly.e) map[b].ly += v;
+      const r = rows[i];
+      if (!r[bI]) continue;
+      const dStr = normalizeDateStr(r[dI]), b = r[bI], v = parseInt(r[vI] || '0');
+
+      if (!map[b]) map[b] = { curr: 0, prev: 0, lw: 0, lm: 0, lq: 0, ly: 0, _ts: {} };
+
+      if (dStr >= ranges.curr.s && dStr <= ranges.curr.e) { map[b].curr += v; map[b]._ts[dStr] = (map[b]._ts[dStr] || 0) + v; }
+      if (dStr >= ranges.prev.s && dStr <= ranges.prev.e) map[b].prev += v;
+      if (dStr >= ranges.lw.s && dStr <= ranges.lw.e) map[b].lw += v;
+      if (dStr >= ranges.lm.s && dStr <= ranges.lm.e) map[b].lm += v;
+      if (dStr >= ranges.lq.s && dStr <= ranges.lq.e) map[b].lq += v;
+      if (dStr >= ranges.ly.s && dStr <= ranges.ly.e) map[b].ly += v;
     }
     console.log(`[Executive] Fetched Traffic for ${Object.keys(map).length - 1} branches`);
     return map;
@@ -367,21 +368,21 @@ const BRANCH_CONFIG = {
     mst: "0304998335",
     hotline: "1800 6867",
     website: "phongvu.vn",
-    bankName: "Ngân hàng TMCP Á Châu (ACB)",
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
     bankHolder: "Công ty Cổ phần Thương mại - Dịch vụ Phong Vũ",
-    bankAccount: "123456789"
+    bankAccount: "112000093118"
   },
 
   // ----- ĐIỀN THÔNG TIN CHI NHÁNH CỦA BẠN VÀO ĐÂY -----
   'HCM.BD': {
     name: "PHONG VŨ (Chi nhánh HCM.BD)",
-    address: "[ĐỊA CHỈ CỦA HCM.BD]",
-    mst: "0304998335-XXX",
-    hotline: "[SĐT CỦA HCM.BD]",
+    address: "677/2A Điện Biên Phủ, Phường Thạnh Mỹ Tây, Tp. Hồ Chí Minh",
+    mst: "0304998335",
+    hotline: "1800 6865",
     website: "phongvu.vn",
-    bankName: "Ngân hàng TMCP Á Châu (ACB)",
-    bankHolder: "Tên chủ tài khoản của HCM.BD",
-    bankAccount: "987654321"
+    bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
+    bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
+    bankAccount: "112000093118"
   },
 
   'CP01': {
@@ -482,15 +483,15 @@ const BRANCH_CONFIG = {
     bankAccount: "18PVIJO"
   },
 
-  'CP62': {
+  'CP75': {
     name: "PHONG VŨ (Chi nhánh Bình Thạnh)",
-    address: "26 Phan Đăng Lưu, Phường Gia Định, Tp. Hồ Chí Minh",
+    address: "26B Phan Đăng Lưu, Phường Gia Định, Tp. Hồ Chí Minh",
     mst: "0304998358",
     hotline: "0287.308.8867",
     website: "phongvu.vn",
     bankName: "Ngân hàng TMCP Công Thương Việt Nam – Chi nhánh 2 TP.HCM",
     bankHolder: "CTY CO PHAN THUONG MAI DV PHONG VU",
-    bankAccount: "18PVICU"
+    bankAccount: "18PVC4T"
   },
 
   'CP64': {
@@ -1101,7 +1102,7 @@ app.post('/api/policy/upload', requireAuth, requireManager, uploadDoc.single('fi
         const drive = google.drive({ version: 'v3', auth });
         const LOGBOOK_FOLDER_ID = '1TJn-ZTCvJS96YOPK2G462gEVS6zhggHr';
         const folderId = process.env.POLICY_DRIVE_FOLDER_ID || process.env.PRICE_BATTLE_DRIVE_FOLDER_ID || LOGBOOK_FOLDER_ID;
-        
+
         const fileMetadata = {
           name: `POLICY_${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '')}`,
         };
@@ -1194,11 +1195,11 @@ app.post('/api/policy/update', requireAuth, requireManager, uploadDoc.single('fi
       newFileAdded = true;
     } else if (upload_type === 'file' && req.file) {
       const file = req.file;
-      
+
       const drive = google.drive({ version: 'v3', auth });
       const LOGBOOK_FOLDER_ID = '1TJn-ZTCvJS96YOPK2G462gEVS6zhggHr';
       const folderId = process.env.POLICY_DRIVE_FOLDER_ID || process.env.PRICE_BATTLE_DRIVE_FOLDER_ID || LOGBOOK_FOLDER_ID;
-      
+
       const fileMetadata = {
         name: `POLICY_${Date.now()}_update_${file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '')}`,
       };
@@ -1599,7 +1600,7 @@ app.get('/', requireAuth, async (req, res) => {
     });
   } catch (e) {
     console.error('Lỗi trang chủ:', e);
-    res.render('index', { 
+    res.render('index', {
       title: 'Trang chủ', currentPage: 'home', error: e.message,
       featuredPromos: [], allGroups: [], selectedGroup: '', searchQuery: '',
       page: 1, totalPages: 1, totalItems: 0, matrixRows: [], competitorCols: [],
@@ -4440,10 +4441,10 @@ app.get('/api/utils/bom/by-component', async (req, res) => {
 
     // 2. Lấy tên thực tế từ bảng skus (vì bom_relations có thể thiếu tên)
     const finalSkusArray = uniqFinals.map(f => f.sku);
-    
+
     // Thêm chính comp vào danh sách này để lấy tên của linh kiện gốc luôn
     const querySkus = [...finalSkusArray, comp];
-    
+
     let compName = '';
 
     if (querySkus.length > 0) {
@@ -4451,10 +4452,10 @@ app.get('/api/utils/bom/by-component', async (req, res) => {
         .from('skus')
         .select('sku, product_name')
         .in('sku', querySkus);
-        
+
       if (!e2 && realProducts) {
         const productMap = new Map((realProducts).map(p => [p.sku, p.product_name]));
-        
+
         // Gán tên cho danh sách Thành phẩm
         uniqFinals.forEach(f => {
           if (productMap.has(f.sku) && productMap.get(f.sku)) {
@@ -4584,7 +4585,7 @@ async function getPcpvSalesData(timeframe, userBranch, isGlobalAdmin, reqBranch,
           branchData[branch] = (branchData[branch] || 0) + qty;
         }
       });
-      
+
       const result = { salesMap, salesByBranch };
       pcpvSalesCache[cacheKey] = { data: result, timestamp: Date.now() };
       return result;
@@ -4617,7 +4618,7 @@ async function getPcpvSalesData(timeframe, userBranch, isGlobalAdmin, reqBranch,
         const qty = Number(r.Quantity || r.quantity || 0);
         const type = r.Order_type || r.order_type;
         const branch = (r.Branch_Code || r.branch_code || 'UNKNOWN').trim();
-        
+
         let delta = 0;
         if (type === 'don_xuat_ban') delta = qty;
         else if (type === 'don_nhap_hoan_ban') delta = -qty;
@@ -4809,7 +4810,7 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
         const compSku = c.component_sku;
         const needQty = Number(c.qty_per || 1);
         const compStockMap = inventoryMap.get(compSku);
-        
+
         let isMissing = false;
         if (isGlobalAdmin && reqBranch === 'all') {
           let hasShortage = false;
@@ -4823,7 +4824,7 @@ app.get('/bom-dashboard', requireAuth, async (req, res) => {
           const haveQty = compStockMap?.get(targetBr)?.hang_ban_moi || 0;
           if (haveQty < needQty) isMissing = true;
         }
-        
+
         if (isMissing) {
           missingComponentsCount++;
         }
@@ -5026,11 +5027,11 @@ async function getSkuNewStockByBranch(skus) {
         .select('"SKU", "Branch ID", "BIN zone", "Serial"')
         .in('SKU', cleanSkus);
       if (error) throw error;
-      rows = (data || []).map(r => ({ 
-        sku: r.SKU, 
-        branch_id: r["Branch ID"], 
-        bin_zone: r["BIN zone"], 
-        Serial: r.Serial 
+      rows = (data || []).map(r => ({
+        sku: r.SKU,
+        branch_id: r["Branch ID"],
+        bin_zone: r["BIN zone"],
+        Serial: r.Serial
       }));
     } catch (err) {
       console.error("SUPABASE FALLBACK ERROR (getSkuNewStockByBranch):", err.message);
@@ -5081,7 +5082,7 @@ async function getSkuNewStockByBranch(skus) {
 
 // ========================= FIFO CHECKING ROUTES =========================
 // server.js (THAY THẾ HÀM NÀY - bắt đầu từ dòng 256)
-async function fetchInventoryFromBigQuery(branchCode, masterQuery, giftFilter, isAdminBranch, filters, page = 1, pageSize = 50) { 
+async function fetchInventoryFromBigQuery(branchCode, masterQuery, giftFilter, isAdminBranch, filters, page = 1, pageSize = 50) {
   // --- THỬ BIGQUERY TRƯỚC ---
   if (false) {
     const BIGQUERY_TABLE = '`nimble-volt-459313-b8.Inventory.inv_seri_1`';
@@ -5096,7 +5097,7 @@ async function fetchInventoryFromBigQuery(branchCode, masterQuery, giftFilter, i
     let filterConditions = '';
     if (!isAdminBranch) filterConditions += ' AND Branch_ID = @branchCode';
     if (giftFilter === 'no') filterConditions += " AND (SubCategory_name NOT LIKE 'Quà tặng%' OR SubCategory_name IS NULL)";
-    
+
     if (filters) {
       if (filters.subcategory) { filterConditions += ` AND SubCategory_name = @subcategory`; params.subcategory = filters.subcategory; }
       if (filters.brand) { filterConditions += ` AND Brand = @brand`; params.brand = filters.brand; }
@@ -5220,7 +5221,7 @@ async function getInventoryCounts(skuList, userBranch, isGlobalAdmin, checkDate)
 
   // 2. Query BigQuery d? l?y T?T C? serial/bin_zone/branch cho các SKU
   let bqRows = [];
-  
+
   if (bigquery) {
     let bqBranchFilter = isGlobalAdmin ? '' : 'AND Branch_ID = @userBranch';
 
@@ -5246,17 +5247,17 @@ async function getInventoryCounts(skuList, userBranch, isGlobalAdmin, checkDate)
     try {
       let query = supabase.from('inventory_serials').select('"SKU", "Serial", "BIN zone", "Branch ID"').in('"SKU"', skuList);
       if (!isGlobalAdmin) query = query.eq('"Branch ID"', userBranch);
-      
+
       const { data, error } = await query;
       if (error) throw error;
-      bqRows = (data || []).map(r => ({ 
-        sku: r.SKU, 
-        serial: r.Serial, 
-        bin_zone: r["BIN zone"], 
+      bqRows = (data || []).map(r => ({
+        sku: r.SKU,
+        serial: r.Serial,
+        bin_zone: r["BIN zone"],
         branch_id: r["Branch ID"],
-        Serial: r.Serial, 
-        BIN_zone: r["BIN zone"], 
-        Branch_ID: r["Branch ID"] 
+        Serial: r.Serial,
+        BIN_zone: r["BIN zone"],
+        Branch_ID: r["Branch ID"]
       }));
     } catch (err) {
       console.error("SUPABASE FALLBACK ERROR (getInventoryCounts):", err.message);
@@ -5270,14 +5271,14 @@ async function getInventoryCounts(skuList, userBranch, isGlobalAdmin, checkDate)
   // 3. L?y danh sách serial dã xu?t T? SUPABASE
   const allSerials = bqRows.map(r => r.serial || r.Serial);
   let checkedOutSerials = new Set();
-  
+
   if (allSerials.length > 0) {
     try {
       // Chia nh? m?ng allSerials thành các batch
       const batchSize = 500;
       for (let i = 0; i < allSerials.length; i += batchSize) {
         const batchSerials = allSerials.slice(i, i + batchSize);
-        
+
         const { data: logData, error } = await supabase
           .from('serial_check_log')
           .select('serial')
@@ -5400,9 +5401,9 @@ async function getOldestSerials(sku, userBranch, isGlobalAdmin, checkDate, limit
 
       const { data, error } = await query.order('"Date import company "', { ascending: true }).limit(50);
       if (error) throw error;
-      bqRows = (data || []).map(r => ({ 
-        serial: r.Serial, 
-        location: r.Location, 
+      bqRows = (data || []).map(r => ({
+        serial: r.Serial,
+        location: r.Location,
         days_old: r["Aging company"],
         date_in: r["Date import company "]
       }));
@@ -5526,10 +5527,10 @@ async function fetchFilterOptions(branchCode, giftFilter, isAdminBranch) {
       let query = supabase.from('inventory_serials').select(quotedField).not(quotedField, 'is', null).neq(quotedField, '');
       if (!isAdminBranch) query = query.eq('"Branch ID"', branchCode);
       if (giftFilter === 'no') query = query.not('"SubCategory name"', 'like', 'Quà tặng%');
-      
+
       const { data, error } = await query;
       if (error) throw error;
-      
+
       results[key] = [...new Set(data.map(item => item[field]))].sort();
     }
 
@@ -5666,7 +5667,7 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
             let query = supabase.from('inventory_serials')
               .select('"Serial", "Date import company "')
               .eq('"SKU"', skuToRank).in('"BIN zone"', ['Trưng bày hàng bán mới', 'Lưu kho hàng bán mới']);
-            
+
             if (!isGlobalAdmin) query = query.eq('"Branch ID"', userBranch);
             const { data, error } = await query;
             if (error) throw error;
@@ -6480,7 +6481,7 @@ app.post('/api/quote-history', requireAuth, async (req, res) => {
 app.get('/api/quote-history/my-quotes', requireAuth, async (req, res) => {
   try {
     const userId = req.session.user?.id || req.session.user?.uid || req.session.user?.email || 'unknown';
-    
+
     // Lấy 50 báo giá gần nhất của User này
     const { data, error } = await supabase
       .from('quote_history')
@@ -6518,26 +6519,26 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
     const items = Object.entries(buildConfigSafe)
       .filter(([key, val]) => !key.startsWith('_') && val && typeof val === 'object')
       .map(([key, rawItem]) => {
-      const item = { ...rawItem };
-      item.quantity = Math.max(1, Number(item.quantity) || 1);
-      item.item_discount = Math.max(0, Number(item.item_discount) || 0);
-      item.list_price = Number(item.list_price) || 0;
-      if (item.edited_price !== undefined && item.edited_price !== null && item.edited_price !== '') {
-        item.edited_price = Number(item.edited_price) || 0;
-      }
+        const item = { ...rawItem };
+        item.quantity = Math.max(1, Number(item.quantity) || 1);
+        item.item_discount = Math.max(0, Number(item.item_discount) || 0);
+        item.list_price = Number(item.list_price) || 0;
+        if (item.edited_price !== undefined && item.edited_price !== null && item.edited_price !== '') {
+          item.edited_price = Number(item.edited_price) || 0;
+        }
 
-      item.quote_detailed_specs = String(item.quote_detailed_specs || '')
-        .replace(/\r\n/g, '\n')
-        .slice(0, 12000);
+        item.quote_detailed_specs = String(item.quote_detailed_specs || '')
+          .replace(/\r\n/g, '\n')
+          .slice(0, 12000);
 
-      item.quote_image_urls = (Array.isArray(item.quote_image_urls) ? item.quote_image_urls : [item.quote_image_urls])
-        .flatMap((value) => String(value || '').split(/[\n,;]+/))
-        .map((value) => value.trim())
-        .filter((value) => /^https?:\/\//i.test(value))
-        .slice(0, 6);
+        item.quote_image_urls = (Array.isArray(item.quote_image_urls) ? item.quote_image_urls : [item.quote_image_urls])
+          .flatMap((value) => String(value || '').split(/[\n,;]+/))
+          .map((value) => value.trim())
+          .filter((value) => /^https?:\/\//i.test(value))
+          .slice(0, 6);
 
-      return item;
-    });
+        return item;
+      });
 
     if (items.length === 0) {
       return res.status(400).json({ ok: false, error: 'Không có sản phẩm để tạo báo giá.' });
@@ -7373,7 +7374,7 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
     } else if (isYearFilter) {
       // Cả năm: Report_date từ YYYY-01-01 đến YYYY-12-31
       params.monthStart = `${filterMonth}-01-01`;
-      params.monthEnd   = `${parseInt(filterMonth) + 1}-01-01`;
+      params.monthEnd = `${parseInt(filterMonth) + 1}-01-01`;
       whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
     } else if (filterMonth !== 'all') {
       // Tháng cụ thể: YYYY-MM
@@ -7589,46 +7590,46 @@ app.get('/api/cskh/customer-orders', requireAuth, async (req, res) => {
     const now = new Date();
 
     if (filterMonth === 'today') {
-        const todayStr = now.toISOString().split('T')[0];
-        const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
-        params.monthStart = todayStr;
-        params.monthEnd = tomorrow.toISOString().split('T')[0];
-        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+      const todayStr = now.toISOString().split('T')[0];
+      const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+      params.monthStart = todayStr;
+      params.monthEnd = tomorrow.toISOString().split('T')[0];
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
     } else if (filterMonth === 'yesterday') {
-        const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-        params.monthStart = yesterday.toISOString().split('T')[0];
-        params.monthEnd = now.toISOString().split('T')[0];
-        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+      const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+      params.monthStart = yesterday.toISOString().split('T')[0];
+      params.monthEnd = now.toISOString().split('T')[0];
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
     } else if (filterMonth === 'this_week') {
-        const currDate = new Date(now);
-        const first = currDate.getDate() - currDate.getDay() + (currDate.getDay() === 0 ? -6 : 1); // Monday
-        const monday = new Date(currDate.setDate(first));
-        params.monthStart = monday.toISOString().split('T')[0];
-        const nextMonday = new Date(monday); nextMonday.setDate(nextMonday.getDate() + 7);
-        params.monthEnd = nextMonday.toISOString().split('T')[0];
-        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+      const currDate = new Date(now);
+      const first = currDate.getDate() - currDate.getDay() + (currDate.getDay() === 0 ? -6 : 1); // Monday
+      const monday = new Date(currDate.setDate(first));
+      params.monthStart = monday.toISOString().split('T')[0];
+      const nextMonday = new Date(monday); nextMonday.setDate(nextMonday.getDate() + 7);
+      params.monthEnd = nextMonday.toISOString().split('T')[0];
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
     } else if (isYearFilter) {
-        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
-        params.monthStart = `${filterMonth}-01-01`;
-        params.monthEnd = `${parseInt(filterMonth) + 1}-01-01`;
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+      params.monthStart = `${filterMonth}-01-01`;
+      params.monthEnd = `${parseInt(filterMonth) + 1}-01-01`;
     } else if (filterMonth && filterMonth !== 'all') {
-        whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
-        params.monthStart = filterMonth + '-01';
-        const [yy, mm] = filterMonth.split('-');
-        const d = new Date(parseInt(yy), parseInt(mm), 0);
-        d.setDate(d.getDate() + 1);
-        params.monthEnd = d.toISOString().split('T')[0];
+      whereClause += ` AND Report_date >= @monthStart AND Report_date < @monthEnd`;
+      params.monthStart = filterMonth + '-01';
+      const [yy, mm] = filterMonth.split('-');
+      const d = new Date(parseInt(yy), parseInt(mm), 0);
+      d.setDate(d.getDate() + 1);
+      params.monthEnd = d.toISOString().split('T')[0];
     } else {
-        whereClause += ` AND Report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)`;
+      whereClause += ` AND Report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)`;
     }
 
     // Tax Code or Name filter
     if (taxCode) {
-        whereClause += ` AND Billing_tax_code = @taxCode`;
-        params.taxCode = taxCode;
+      whereClause += ` AND Billing_tax_code = @taxCode`;
+      params.taxCode = taxCode;
     } else if (customerName) {
-        whereClause += ` AND Customer_full_name = @customerName AND (Billing_tax_code IS NULL OR Billing_tax_code = '')`;
-        params.customerName = customerName;
+      whereClause += ` AND Customer_full_name = @customerName AND (Billing_tax_code IS NULL OR Billing_tax_code = '')`;
+      params.customerName = customerName;
     }
 
     // Role filters
@@ -7637,18 +7638,18 @@ app.get('/api/cskh/customer-orders', requireAuth, async (req, res) => {
     const allowedBranches = typeof getAllowedBranches === 'function' ? getAllowedBranches(user) : [user.branch_code];
 
     if (isGlobalAdmin) {
-       if (branch && branch !== 'all') { whereClause += ' AND Branch_code = @branch'; params.branch = branch; }
+      if (branch && branch !== 'all') { whereClause += ' AND Branch_code = @branch'; params.branch = branch; }
     } else if (isManager) {
-       if (branch && branch !== 'all' && allowedBranches && allowedBranches.includes(branch)) {
-           whereClause += ' AND Branch_code = @branch'; params.branch = branch;
-       } else if (allowedBranches) {
-           whereClause += ' AND Branch_code IN UNNEST(@regionalBranches)'; params.regionalBranches = allowedBranches;
-       } else {
-           whereClause += ' AND Branch_code = @branch'; params.branch = user.branch_code;
-       }
+      if (branch && branch !== 'all' && allowedBranches && allowedBranches.includes(branch)) {
+        whereClause += ' AND Branch_code = @branch'; params.branch = branch;
+      } else if (allowedBranches) {
+        whereClause += ' AND Branch_code IN UNNEST(@regionalBranches)'; params.regionalBranches = allowedBranches;
+      } else {
+        whereClause += ' AND Branch_code = @branch'; params.branch = user.branch_code;
+      }
     } else {
-       // Support assigned lookup implicitly? Staff can only see their branch orders
-       whereClause += ' AND LOWER(Email) = LOWER(@userEmail)'; params.userEmail = user.email;
+      // Support assigned lookup implicitly? Staff can only see their branch orders
+      whereClause += ' AND LOWER(Email) = LOWER(@userEmail)'; params.userEmail = user.email;
     }
 
     const query = `
@@ -7684,17 +7685,17 @@ app.get('/api/cskh/customer-orders', requireAuth, async (req, res) => {
       const { data: logs } = await supabase.from('customer_care_logs').select('order_code, result, users!inner(full_name, email)').in('order_code', allOrderCodes).order('created_at', { ascending: true });
       const logMap = new Map();
       (logs || []).forEach(l => {
-         if (!logMap.has(l.order_code)) {
-            logMap.set(l.order_code, { ...l, carer_name: l.users?.full_name || l.users?.email || 'N/A' });
-         }
+        if (!logMap.has(l.order_code)) {
+          logMap.set(l.order_code, { ...l, carer_name: l.users?.full_name || l.users?.email || 'N/A' });
+        }
       });
       rows.forEach(r => {
-         if (logMap.has(r.Order_code)) {
-            const log = logMap.get(r.Order_code);
-            r.status = 'Đã chăm sóc'; r.result = log.result; r.carer_name = log.carer_name;
-         } else {
-            r.status = 'Chưa chăm sóc'; r.result = ''; r.carer_name = '';
-         }
+        if (logMap.has(r.Order_code)) {
+          const log = logMap.get(r.Order_code);
+          r.status = 'Đã chăm sóc'; r.result = log.result; r.carer_name = log.carer_name;
+        } else {
+          r.status = 'Chưa chăm sóc'; r.result = ''; r.carer_name = '';
+        }
       });
     }
 
@@ -8289,6 +8290,68 @@ async function getAllBranchTargets(periodInput, yearInput = null) {
       };
     }
 
+    // Programmatically add CP75 and update CP62 for year 2026
+    if (currentYear === 2026 && targetMap['CP62']) {
+      const cp62Orig = targetMap['CP62'];
+      const origArr = cp62Orig.monthly_targets_arr || [];
+      
+      const origJune = origArr[5] || 0;
+      const splitJune = Math.round(origJune / 2);
+      
+      const cp62Arr = [
+        origArr[0] || 0,
+        origArr[1] || 0,
+        origArr[2] || 0,
+        origArr[3] || 0,
+        origArr[4] || 0,
+        splitJune,
+        0, 0, 0, 0, 0, 0
+      ];
+      
+      const cp75Arr = [
+        0, 0, 0, 0, 0,
+        splitJune,
+        origArr[6] || 0,
+        origArr[7] || 0,
+        origArr[8] || 0,
+        origArr[9] || 0,
+        origArr[10] || 0,
+        origArr[11] || 0
+      ];
+      
+      let cp62CurrentPeriodTarget = 0;
+      if (periodInput === 'year') {
+        cp62CurrentPeriodTarget = cp62Arr.reduce((a, b) => a + b, 0);
+      } else {
+        const monthIndex = parseInt(periodInput) - 1;
+        if (monthIndex >= 0 && monthIndex < 12) cp62CurrentPeriodTarget = cp62Arr[monthIndex];
+      }
+      
+      targetMap['CP62'] = {
+        branch_target: cp62CurrentPeriodTarget,
+        headcount: cp62Orig.headcount,
+        individual_target: cp62CurrentPeriodTarget / cp62Orig.headcount,
+        monthly_targets_arr: cp62Arr
+      };
+
+      let cp75CurrentPeriodTarget = 0;
+      if (periodInput === 'year') {
+        cp75CurrentPeriodTarget = cp75Arr.reduce((a, b) => a + b, 0);
+      } else {
+        const monthIndex = parseInt(periodInput) - 1;
+        if (monthIndex >= 0 && monthIndex < 12) cp75CurrentPeriodTarget = cp75Arr[monthIndex];
+      }
+      
+      let cp75Headcount = cp62Orig.headcount || 6;
+      
+      targetMap['CP75'] = {
+        branch_target: cp75CurrentPeriodTarget,
+        headcount: cp75Headcount,
+        individual_target: cp75CurrentPeriodTarget / cp75Headcount,
+        monthly_targets_arr: cp75Arr
+      };
+    }
+
     return targetMap;
 
   } catch (e) {
@@ -8498,33 +8561,60 @@ async function getStaffMonthlyChart(email, branchCode) {
     let hcTargets = {};
     let headcount = 1;
     try {
-        hcTargets = await getAllBranchTargets('year', currentYear);
-        if (hcTargets && hcTargets[branchCode] && hcTargets[branchCode].headcount) {
-            headcount = hcTargets[branchCode].headcount;
-        } else {
-            const { count: branchStaffCount } = await supabase
-                .from('users')
-                .select('*', { count: 'exact', head: true })
-                .eq('branch_code', branchCode)
-                .eq('role', 'staff');
-            if (branchStaffCount > 0) headcount = branchStaffCount;
-        }
-    } catch(e) {}
+      hcTargets = await getAllBranchTargets('year', currentYear);
+      if (hcTargets && hcTargets[branchCode] && hcTargets[branchCode].headcount) {
+        headcount = hcTargets[branchCode].headcount;
+      } else {
+        const { count: branchStaffCount } = await supabase
+          .from('users')
+          .select('*', { count: 'exact', head: true })
+          .eq('branch_code', branchCode)
+          .eq('role', 'staff');
+        if (branchStaffCount > 0) headcount = branchStaffCount;
+      }
+    } catch (e) { }
 
     return (rows || []).map(r => {
       const iphone = r.iphone_revenue || 0;
       const raw = r.revenue || 0;
       const calculated_revenue = (raw - iphone) + (iphone * 0.6);
-      
+
       let target = 0;
-      if (hcTargets && hcTargets[branchCode] && hcTargets[branchCode].monthly_targets_arr) {
-          const mIndex = parseInt(r.month.split('-')[1]) - 1;
+      const mIndex = parseInt(r.month.split('-')[1], 10) - 1;
+
+      if (branchCode === 'CP75' && currentYear === 2026) {
+        if (mIndex < 5) {
+          // Jan-May: use CP62 target and headcount
+          const cp62Hc = (hcTargets && hcTargets['CP62']) ? (hcTargets['CP62'].headcount || 6) : 6;
+          if (hcTargets && hcTargets['CP62'] && hcTargets['CP62'].monthly_targets_arr) {
+            target = (hcTargets['CP62'].monthly_targets_arr[mIndex] || 0) / cp62Hc;
+          }
+        } else if (mIndex === 5) {
+          // June: combined target (CP62 + CP75) divided by CP75 headcount
+          let target62 = 0;
+          let target75 = 0;
+          if (hcTargets && hcTargets['CP62'] && hcTargets['CP62'].monthly_targets_arr) {
+            target62 = hcTargets['CP62'].monthly_targets_arr[mIndex] || 0;
+          }
+          if (hcTargets && hcTargets['CP75'] && hcTargets['CP75'].monthly_targets_arr) {
+            target75 = hcTargets['CP75'].monthly_targets_arr[mIndex] || 0;
+          }
+          target = (target62 + target75) / headcount;
+        } else {
+          // Jul-Dec: use CP75 target
+          if (hcTargets && hcTargets['CP75'] && hcTargets['CP75'].monthly_targets_arr) {
+            target = (hcTargets['CP75'].monthly_targets_arr[mIndex] || 0) / headcount;
+          }
+        }
+      } else {
+        if (hcTargets && hcTargets[branchCode] && hcTargets[branchCode].monthly_targets_arr) {
           target = (hcTargets[branchCode].monthly_targets_arr[mIndex] || 0) / headcount;
+        }
       }
-      
+
       let percent = 0;
       if (target > 0) {
-          percent = parseFloat(((calculated_revenue / target) * 100).toFixed(1));
+        percent = parseFloat(((calculated_revenue / target) * 100).toFixed(1));
       }
 
       return {
@@ -8552,11 +8642,11 @@ app.get('/profile', requireAuth, async (req, res) => {
     const isGlobalAdmin = user.role === 'admin' || user.branch_code === 'HCM.BD';
     const isManager = user.role === 'manager';
     const isStaff = !isGlobalAdmin && !isManager;
-    
+
     // Date Condition
     const now = new Date();
     let targetMonthStr = '';
-    
+
     if (periodValue === 'month' || periodValue === 'today' || periodValue === 'week') {
       const y = now.getFullYear();
       const m = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -8583,25 +8673,41 @@ app.get('/profile', requireAuth, async (req, res) => {
 
     const { getLocalSalesRows } = require('./local_sales_query');
     let salesRows = [];
-    
+
     if (periodValue === 'today' || periodValue === 'week') {
-        const targetEmail = isStaff ? userEmail : null;
-        salesRows = await getLocalSalesRows(periodValue, targetEmail, qBranch);
+      const targetEmail = isStaff ? userEmail : null;
+      salesRows = await getLocalSalesRows(periodValue, targetEmail, qBranch);
     } else if (targetMonthStr.endsWith('-')) {
-        // yearly — targetMonthStr format: "2025-" => ilike "2025-%"
-        const yearPrefix = targetMonthStr.replace(/-$/, ''); // "2025"
-        let q = supabase.from('salesman_performance').select('*').ilike('month', `${yearPrefix}-%`);
-        if (qBranch) q = q.eq('branch_code', qBranch);
-        else if (isStaff) q = q.eq('email', userEmail);
-        const { data } = await q;
-        salesRows = data || [];
+      // yearly — targetMonthStr format: "2025-" => ilike "2025-%"
+      const yearPrefix = targetMonthStr.replace(/-$/, ''); // "2025"
+      let q = supabase.from('salesman_performance').select('*').ilike('month', `${yearPrefix}-%`);
+      if (qBranch) {
+        if (qBranch === 'CP75' && yearPrefix === '2026') {
+          q = q.in('branch_code', ['CP62', 'CP75']);
+        } else {
+          q = q.eq('branch_code', qBranch);
+        }
+      } else if (isStaff) {
+        q = q.eq('email', userEmail);
+      }
+      const { data } = await q;
+      salesRows = data || [];
     } else {
-        // monthly
-        let q = supabase.from('salesman_performance').select('*').eq('month', targetMonthStr);
-        if (qBranch) q = q.eq('branch_code', qBranch);
-        else if (isStaff) q = q.eq('email', userEmail);
-        const { data } = await q;
-        salesRows = data || [];
+      // monthly
+      let q = supabase.from('salesman_performance').select('*').eq('month', targetMonthStr);
+      if (qBranch) {
+        if (qBranch === 'CP75' && targetMonthStr === '2026-06') {
+          q = q.in('branch_code', ['CP62', 'CP75']);
+        } else if (qBranch === 'CP75' && /^2026-0[1-5]$/.test(targetMonthStr)) {
+          q = q.eq('branch_code', 'CP62');
+        } else {
+          q = q.eq('branch_code', qBranch);
+        }
+      } else if (isStaff) {
+        q = q.eq('email', userEmail);
+      }
+      const { data } = await q;
+      salesRows = data || [];
     }
 
     // [FIX] Chỉ giữ nhân viên có role = staff (loại bỏ SR, manager, admin khỏi bảng hiệu suất)
@@ -8621,54 +8727,54 @@ app.get('/profile', requireAuth, async (req, res) => {
     }
 
     const { data: fullUser } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
-    let myProfile = { 
-       ...(fullUser || user),
-       branch: (fullUser || user)?.branch_code || '-',
-       position: (fullUser || user)?.role || '-',
-       hrm_id: '-',
-       dob: '-',
-       join_date: '-',
-       rank: '-', total_revenue: 0, 
-       total_orders: 0, results_summary: 'Chưa có data' 
+    let myProfile = {
+      ...(fullUser || user),
+      branch: (fullUser || user)?.branch_code || '-',
+      position: (fullUser || user)?.role || '-',
+      hrm_id: '-',
+      dob: '-',
+      join_date: '-',
+      rank: '-', total_revenue: 0,
+      total_orders: 0, results_summary: 'Chưa có data'
     };
 
     // Enrich profile from HR Google Sheet
     try {
-       const hrSheets = await getGlobalSheetsClient();
-       const hrRes = await hrSheets.spreadsheets.values.get({ 
-         spreadsheetId: HR_SPREADSHEET_ID, range: 'A2:J' 
-       });
-       const hrRows = hrRes.data.values || [];
-       const hrMatch = hrRows.find(r => (r[1] || '').toLowerCase().trim() === userEmail);
-       if (hrMatch) {
-         myProfile.hrm_id = hrMatch[0] || '-';
-         myProfile.position = hrMatch[7] || myProfile.position;  // Position col
-         myProfile.branch = hrMatch[3] || myProfile.branch;       // branch_id col
-         myProfile.dob = hrMatch[8] || '-';                       // Birthday col
-         myProfile.join_date = hrMatch[9] || '-';                  // Firts_day col
-       }
-    } catch(hrErr) {
-       console.error('HR enrichment error:', hrErr.message);
+      const hrSheets = await getGlobalSheetsClient();
+      const hrRes = await hrSheets.spreadsheets.values.get({
+        spreadsheetId: HR_SPREADSHEET_ID, range: 'A2:J'
+      });
+      const hrRows = hrRes.data.values || [];
+      const hrMatch = hrRows.find(r => (r[1] || '').toLowerCase().trim() === userEmail);
+      if (hrMatch) {
+        myProfile.hrm_id = hrMatch[0] || '-';
+        myProfile.position = hrMatch[7] || myProfile.position;  // Position col
+        myProfile.branch = hrMatch[3] || myProfile.branch;       // branch_id col
+        myProfile.dob = hrMatch[8] || '-';                       // Birthday col
+        myProfile.join_date = hrMatch[9] || '-';                  // Firts_day col
+      }
+    } catch (hrErr) {
+      console.error('HR enrichment error:', hrErr.message);
     }
 
     let lastSeen = 'Trống';
     if (isStaff && salesRows.length > 0) {
-       const sumRev = salesRows.reduce((a,b)=>a+(b.revenue||0), 0);
-       const sumOrders = salesRows.reduce((a,b)=>a+(b.orders||0), 0);
-       // [FIX] KFI = tổng Sale_point (sum của kfi field trong từng tháng)
-       const sumKfi = salesRows.reduce((a,b)=>a+(b.kfi||0), 0);
-       myProfile.total_revenue = sumRev;
-       myProfile.total_orders = sumOrders;
-       myProfile.total_kfi = sumKfi;
-       if (!myProfile.hrm_id || myProfile.hrm_id === '-') {
-         myProfile.hrm_id = salesRows[0].hrm_id || '-';
-       }
-       
-       const userLogs = await supabase.from('customer_care_logs').select('created_at').eq('staff_id', user.id).order('created_at', {ascending: false}).limit(1);
-       if (userLogs.data && userLogs.data.length > 0) {
-           const d = new Date(userLogs.data[0].created_at);
-           lastSeen = d.toLocaleString('vi-VN');
-       }
+      const sumRev = salesRows.reduce((a, b) => a + (b.revenue || 0), 0);
+      const sumOrders = salesRows.reduce((a, b) => a + (b.orders || 0), 0);
+      // [FIX] KFI = tổng Sale_point (sum của kfi field trong từng tháng)
+      const sumKfi = salesRows.reduce((a, b) => a + (b.kfi || 0), 0);
+      myProfile.total_revenue = sumRev;
+      myProfile.total_orders = sumOrders;
+      myProfile.total_kfi = sumKfi;
+      if (!myProfile.hrm_id || myProfile.hrm_id === '-') {
+        myProfile.hrm_id = salesRows[0].hrm_id || '-';
+      }
+
+      const userLogs = await supabase.from('customer_care_logs').select('created_at').eq('staff_id', user.id).order('created_at', { ascending: false }).limit(1);
+      if (userLogs.data && userLogs.data.length > 0) {
+        const d = new Date(userLogs.data[0].created_at);
+        lastSeen = d.toLocaleString('vi-VN');
+      }
     }
 
     // Targets
@@ -8678,83 +8784,101 @@ app.get('/profile', requireAuth, async (req, res) => {
       ? parseInt(targetMonthStr.replace(/-$/, ''), 10)
       : parseInt(targetMonthStr.split('-')[0], 10);
     let dashboard = { revenue: 0, raw_revenue: 0, iphone_revenue: 0, revenue_forecast: 0, orders: 0, kfi: 0, target: 0, percent_completion: '0.0', missing: 0 };
-    
+
     salesRows.forEach(r => {
-       const iphone = r.iphone_revenue || 0;
-       const raw = r.revenue || 0;
-       dashboard.raw_revenue += raw;
-       dashboard.iphone_revenue += iphone;
-       dashboard.revenue += (raw - iphone + (iphone * 0.6));
-       dashboard.orders += (r.orders || 0);
-       dashboard.kfi += (r.kfi || 0);
+      const iphone = r.iphone_revenue || 0;
+      const raw = r.revenue || 0;
+      dashboard.raw_revenue += raw;
+      dashboard.iphone_revenue += iphone;
+      dashboard.revenue += (raw - iphone + (iphone * 0.6));
+      dashboard.orders += (r.orders || 0);
+      dashboard.kfi += (r.kfi || 0);
     });
 
     // [FIX] Filter theo year để tránh cộng target 2 năm khi bảng có nhiều năm
     let targetQuery = supabase.from('pv_terminal_monthly_targets').select('*').eq('year', targetYear);
-    if (qBranch) targetQuery = targetQuery.eq('terminal_code', qBranch);
-    else if (isStaff) targetQuery = targetQuery.eq('terminal_code', myProfile.branch);
-    
+    const targetBranchCode = qBranch || (isStaff ? myProfile.branch : null);
+    if (targetBranchCode) {
+      if (targetBranchCode === 'CP75' && targetYear === 2026) {
+        if (targetMonthStr === '2026-06' || targetMonthStr === '2026-') {
+          targetQuery = targetQuery.in('terminal_code', ['CP62', 'CP75']);
+        } else if (/^2026-0[1-5]$/.test(targetMonthStr)) {
+          targetQuery = targetQuery.eq('terminal_code', 'CP62');
+        } else {
+          targetQuery = targetQuery.eq('terminal_code', 'CP75');
+        }
+      } else {
+        targetQuery = targetQuery.eq('terminal_code', targetBranchCode);
+      }
+    }
+
     const { data: targetRows } = await targetQuery;
-    
+
     let targetRatio = 1;
     if (periodValue === 'today') {
-        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        targetRatio = 1 / daysInMonth;
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      targetRatio = 1 / daysInMonth;
     } else if (periodValue === 'week') {
-        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        targetRatio = 7 / daysInMonth;
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      targetRatio = 7 / daysInMonth;
     }
-    
+
     if (monthCol) {
-       dashboard.target = (targetRows || []).reduce((sum, r) => sum + Number(r[monthCol] || 0), 0) * 1000000 * targetRatio;
+      dashboard.target = (targetRows || []).reduce((sum, r) => sum + Number(r[monthCol] || 0), 0) * 1000000 * targetRatio;
     } else {
-       dashboard.target = (targetRows || []).reduce((sum, r) => {
-           let ySum = 0;
-           for(let i=1; i<=12; i++) {
-               const mc = 'm' + i.toString().padStart(2, '0');
-               ySum += Number(r[mc] || 0);
-           }
-           return sum + ySum;
-       }, 0) * 1000000 * targetRatio;
+      dashboard.target = (targetRows || []).reduce((sum, r) => {
+        let ySum = 0;
+        for (let i = 1; i <= 12; i++) {
+          const mc = 'm' + i.toString().padStart(2, '0');
+          ySum += Number(r[mc] || 0);
+        }
+        return sum + ySum;
+      }, 0) * 1000000 * targetRatio;
     }
 
     // [FIX] Nếu là staff, chia target của chi nhánh cho định biên (số lượng sale)
     if (isStaff && dashboard.target > 0) {
-        let headcount = 1;
-        try {
-            let hcTargets = {};
-            if (!targetMonthStr.endsWith('-')) {
-                const monthParts = targetMonthStr.split('-');
-                hcTargets = await getAllBranchTargets(parseInt(monthParts[1], 10), parseInt(monthParts[0], 10));
-            } else {
-                const yearPrefix = targetMonthStr.replace(/-$/, '');
-                hcTargets = await getAllBranchTargets('year', parseInt(yearPrefix, 10));
-            }
-            if (hcTargets && hcTargets[myProfile.branch] && hcTargets[myProfile.branch].headcount) {
-                headcount = hcTargets[myProfile.branch].headcount;
-            } else {
-                // Fallback: đếm số lượng nhân viên thực tế có role = staff trong chi nhánh
-                const { count: branchStaffCount } = await supabase
-                    .from('users')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('branch_code', myProfile.branch)
-                    .eq('role', 'staff');
-                if (branchStaffCount > 0) headcount = branchStaffCount;
-            }
-        } catch (e) {
-            console.error("Lỗi lấy định biên cho staff:", e.message);
+      let headcount = 1;
+      try {
+        let hcTargets = {};
+        if (!targetMonthStr.endsWith('-')) {
+          const monthParts = targetMonthStr.split('-');
+          hcTargets = await getAllBranchTargets(parseInt(monthParts[1], 10), parseInt(monthParts[0], 10));
+        } else {
+          const yearPrefix = targetMonthStr.replace(/-$/, '');
+          hcTargets = await getAllBranchTargets('year', parseInt(yearPrefix, 10));
         }
-        dashboard.target = dashboard.target / headcount;
+        let targetBranchForHeadcount = myProfile.branch;
+        if (myProfile.branch === 'CP75' && targetYear === 2026) {
+          if (/^2026-0[1-5]$/.test(targetMonthStr)) {
+            targetBranchForHeadcount = 'CP62';
+          }
+        }
+        if (hcTargets && hcTargets[targetBranchForHeadcount] && hcTargets[targetBranchForHeadcount].headcount) {
+          headcount = hcTargets[targetBranchForHeadcount].headcount;
+        } else {
+          // Fallback: đếm số lượng nhân viên thực tế có role = staff trong chi nhánh
+          const { count: branchStaffCount } = await supabase
+            .from('users')
+            .select('*', { count: 'exact', head: true })
+            .eq('branch_code', targetBranchForHeadcount)
+            .eq('role', 'staff');
+          if (branchStaffCount > 0) headcount = branchStaffCount;
+        }
+      } catch (e) {
+        console.error("Lỗi lấy định biên cho staff:", e.message);
+      }
+      dashboard.target = dashboard.target / headcount;
     }
-    
+
     if (dashboard.target > 0) {
       dashboard.percent_completion = ((dashboard.revenue / dashboard.target) * 100).toFixed(1);
       dashboard.missing = Math.max(0, dashboard.target - dashboard.revenue);
       if (isStaff) {
-          const statsD = { total_revenue: dashboard.revenue, iphone_revenue: salesRows.reduce((s,r) => s+(r.iphone_revenue||0), 0), total_kfi: dashboard.kfi};
-          const bMetrics = calculateBonusMetrics(statsD, dashboard.target, true);
-          dashboard.bonus_total = bMetrics.bonus_total;
-          dashboard.bonus_over = bMetrics.bonus_over;
+        const statsD = { total_revenue: dashboard.revenue, iphone_revenue: salesRows.reduce((s, r) => s + (r.iphone_revenue || 0), 0), total_kfi: dashboard.kfi };
+        const bMetrics = calculateBonusMetrics(statsD, dashboard.target, true);
+        dashboard.bonus_total = bMetrics.bonus_total;
+        dashboard.bonus_over = bMetrics.bonus_over;
       }
     }
 
@@ -8764,52 +8888,126 @@ app.get('/profile', requireAuth, async (req, res) => {
       dashboard.revenue_forecast = Math.round((dashboard.revenue / dayOfMonth) * daysInMonth);
       if (dashboard.target > 0) dashboard.percent_forecast = ((dashboard.revenue_forecast / dashboard.target) * 100).toFixed(1);
     }
-    
+
     const allTargetRows = (await supabase.from('pv_terminal_monthly_targets').select('*')).data || [];
     const targetMap = {};
     const branchDedup = new Map(); // Dùng Map để loại bỏ trùng lặp branch
-    allTargetRows.forEach(r => { 
-        if (monthCol) targetMap[r.terminal_code] = Number(r[monthCol] || 0) * 1000000 * targetRatio;
-        // Chỉ thêm mỗi terminal_code 1 lần vào danh sách chi nhánh
-        if (!branchDedup.has(r.terminal_code)) {
-            let brName = 'Chi Nhánh ' + r.terminal_code;
-            for (const [name, code] of Object.entries(TERMINAL_CODE_MAP)) {
-                if (code === r.terminal_code) {
-                    brName = name.split(',')[0].trim();
-                    break;
-                }
-            }
-            branchDedup.set(r.terminal_code, { id: r.terminal_code, name: brName });
+    allTargetRows.forEach(r => {
+      if (monthCol) {
+        targetMap[r.terminal_code] = Number(r[monthCol] || 0) * 1000000 * targetRatio;
+      } else {
+        // Yearly target: sum of all 12 months
+        let ySum = 0;
+        for (let i = 1; i <= 12; i++) {
+          const mc = 'm' + i.toString().padStart(2, '0');
+          ySum += Number(r[mc] || 0);
         }
+        targetMap[r.terminal_code] = ySum * 1000000 * targetRatio;
+      }
+      // Chỉ thêm mỗi terminal_code 1 lần vào danh sách chi nhánh
+      if (!branchDedup.has(r.terminal_code)) {
+        let brName = 'Chi Nhánh ' + r.terminal_code;
+        for (const [name, code] of Object.entries(TERMINAL_CODE_MAP)) {
+          if (code === r.terminal_code) {
+            brName = name.split(',')[0].trim();
+            break;
+          }
+        }
+        branchDedup.set(r.terminal_code, { id: r.terminal_code, name: brName });
+      }
     });
     const globalBranchList = Array.from(branchDedup.values());
 
     let tableSales = [];
     let tableBranch = [];
-    
+
     if (!isStaff) {
       let hcTargets = {};
       if (!targetMonthStr.endsWith('-')) {
-          const monthParts = targetMonthStr.split('-');
-          hcTargets = await getAllBranchTargets(parseInt(monthParts[1], 10), parseInt(monthParts[0], 10));
+        const monthParts = targetMonthStr.split('-');
+        hcTargets = await getAllBranchTargets(parseInt(monthParts[1], 10), parseInt(monthParts[0], 10));
+      } else {
+        const yearPrefix = targetMonthStr.replace(/-$/, '');
+        hcTargets = await getAllBranchTargets('year', parseInt(yearPrefix, 10));
       }
 
-      tableSales = (salesRows || []).map(r => {
-        const branchTarget = targetMap[r.branch_code] || 0;
+      // Group salesRows by email to combine salesperson performance (e.g. CP62 and CP75 sales in June 2026)
+      const groupedSales = {};
+      (salesRows || []).forEach(r => {
+        const email = (r.email || '').toLowerCase().trim();
+        if (!email) return;
+        if (!groupedSales[email]) {
+          groupedSales[email] = {
+            ...r,
+            revenue: 0,
+            iphone_revenue: 0,
+            orders: 0,
+            kfi: 0
+          };
+        }
+        groupedSales[email].revenue += (r.revenue || 0);
+        groupedSales[email].iphone_revenue += (r.iphone_revenue || 0);
+        groupedSales[email].orders += (r.orders || 0);
+        groupedSales[email].kfi += (r.kfi || 0);
+      });
+
+      tableSales = Object.values(groupedSales).map(r => {
+        const salesmanBranch = r.branch_code;
+        const branchTarget = targetMap[salesmanBranch] || 0;
         let indTarget = 0;
-        if (hcTargets && hcTargets[r.branch_code]) {
-           const headcount = hcTargets[r.branch_code].headcount || 1;
-           indTarget = branchTarget / headcount;
+
+        if ((salesmanBranch === 'CP62' || salesmanBranch === 'CP75') && targetYear === 2026) {
+          if (targetMonthStr === '2026-06') {
+            const target62 = (targetMap['CP62'] || 0);
+            const target75 = (targetMap['CP75'] || 0);
+            const cp62Hc = (hcTargets && hcTargets['CP62']) ? (hcTargets['CP62'].headcount || 6) : 6;
+            const headcount = (hcTargets && hcTargets['CP75']) ? (hcTargets['CP75'].headcount || cp62Hc) : cp62Hc;
+            indTarget = (target62 + target75) / headcount;
+          } else if (/^2026-0[1-5]$/.test(targetMonthStr)) {
+            const target62 = (targetMap['CP62'] || 0);
+            const headcount = (hcTargets && hcTargets['CP62']) ? (hcTargets['CP62'].headcount || 6) : 6;
+            indTarget = target62 / headcount;
+          } else if (targetMonthStr.endsWith('-')) {
+            // Yearly 2026 combined targets for CP62/CP75 staff
+            let yIndSum = 0;
+            const cp62Hc = (hcTargets && hcTargets['CP62']) ? (hcTargets['CP62'].headcount || 6) : 6;
+            const cp75Hc = (hcTargets && hcTargets['CP75']) ? (hcTargets['CP75'].headcount || cp62Hc) : cp62Hc;
+            const cp62TargetsArr = (hcTargets && hcTargets['CP62']) ? (hcTargets['CP62'].monthly_targets_arr || []) : [];
+            const cp75TargetsArr = (hcTargets && hcTargets['CP75']) ? (hcTargets['CP75'].monthly_targets_arr || []) : [];
+            
+            for (let m = 0; m < 12; m++) {
+              if (m < 5) {
+                yIndSum += (cp62TargetsArr[m] || 0) / cp62Hc;
+              } else if (m === 5) {
+                yIndSum += ((cp62TargetsArr[m] || 0) + (cp75TargetsArr[m] || 0)) / cp75Hc;
+              } else {
+                yIndSum += (cp75TargetsArr[m] || 0) / cp75Hc;
+              }
+            }
+            indTarget = yIndSum;
+          } else {
+            // T7-T12 monthly
+            const target75 = (targetMap['CP75'] || 0);
+            const cp62Hc = (hcTargets && hcTargets['CP62']) ? (hcTargets['CP62'].headcount || 6) : 6;
+            const headcount = (hcTargets && hcTargets['CP75']) ? (hcTargets['CP75'].headcount || cp62Hc) : cp62Hc;
+            indTarget = target75 / headcount;
+          }
         } else {
-           const branchStaffCount = (salesRows || []).filter(s => s.branch_code === r.branch_code).length || 1;
-           indTarget = branchTarget / branchStaffCount;
+          // Normal branch target calculation
+          if (hcTargets && hcTargets[salesmanBranch]) {
+            const headcount = hcTargets[salesmanBranch].headcount || 1;
+            indTarget = branchTarget / headcount;
+          } else {
+            const branchStaffCount = (salesRows || []).filter(s => s.branch_code === salesmanBranch).length || 1;
+            indTarget = branchTarget / branchStaffCount;
+          }
         }
 
         const smIphone = r.iphone_revenue || 0;
         const smRevenue = (r.revenue || 0) - smIphone + (smIphone * 0.6);
         const pctObj = indTarget > 0 ? (smRevenue / indTarget) * 100 : 0;
         const pct = pctObj !== 0 ? pctObj.toFixed(1) : '0.0';
-        
+
         let bonus_total = 0; let bonus_over = 0;
         if (indTarget > 0) {
           const numPct = parseFloat(pct);
@@ -8830,11 +9028,11 @@ app.get('/profile', requireAuth, async (req, res) => {
 
       const branchMap = {};
       salesRows.forEach(r => {
-         if(!branchMap[r.branch_code]) branchMap[r.branch_code] = { branch: r.branch_code, revenue: 0, iphone_revenue: 0, orders: 0, kfi: 0 };
-         branchMap[r.branch_code].revenue += (r.revenue || 0);
-         branchMap[r.branch_code].iphone_revenue += (r.iphone_revenue || 0);
-         branchMap[r.branch_code].orders += (r.orders || 0);
-         branchMap[r.branch_code].kfi += (r.kfi || 0);
+        if (!branchMap[r.branch_code]) branchMap[r.branch_code] = { branch: r.branch_code, revenue: 0, iphone_revenue: 0, orders: 0, kfi: 0 };
+        branchMap[r.branch_code].revenue += (r.revenue || 0);
+        branchMap[r.branch_code].iphone_revenue += (r.iphone_revenue || 0);
+        branchMap[r.branch_code].orders += (r.orders || 0);
+        branchMap[r.branch_code].kfi += (r.kfi || 0);
       });
 
       tableBranch = Object.values(branchMap).map(b => {
@@ -8848,21 +9046,33 @@ app.get('/profile', requireAuth, async (req, res) => {
         const pf = pfObj !== 0 ? pfObj.toFixed(1) : '0.0';
         return { ...b, revenue: bRevenue, iphone_revenue: bIphone, target: bt, percent_completion: pct, missing: Math.max(0, bt - bRevenue), revenue_forecast: forecast, percent_forecast: pf };
       }).sort((a, b) => parseFloat(b.percent_completion || 0) - parseFloat(a.percent_completion || 0));
+
+      // Fetch %CSI cho từng nhân viên trong bảng xếp hạng (batch, 1 lần fetch cache)
+      try {
+        const staffForCsi = tableSales.map(r => ({ email: r.email, full_name: r.salesman }));
+        const csiPerStaffMap = await getCsiPerStaff(staffForCsi, targetMonthStr);
+        tableSales = tableSales.map(r => ({
+          ...r,
+          csi_percent: csiPerStaffMap[(r.email || '').toLowerCase().trim()] ?? null
+        }));
+      } catch (csiErr) {
+        console.error('[CSI/Leaderboard] Error fetching per-staff CSI:', csiErr.message);
+      }
     }
 
     let displayDate = targetMonthStr;
     if (!targetMonthStr.endsWith('-')) {
-        const [yStr, mStr] = targetMonthStr.split('-');
-        const maxD = new Date(parseInt(yStr, 10), parseInt(mStr, 10), 0).getDate();
-        const { data: latestKp } = await supabase
-          .from('daily_kpi_summaries')
-          .select('report_date')
-          .gte('report_date', `${targetMonthStr}-01`)
-          .lte('report_date', `${targetMonthStr}-${maxD}`)
-          .order('report_date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (latestKp && latestKp.report_date) displayDate = latestKp.report_date;
+      const [yStr, mStr] = targetMonthStr.split('-');
+      const maxD = new Date(parseInt(yStr, 10), parseInt(mStr, 10), 0).getDate();
+      const { data: latestKp } = await supabase
+        .from('daily_kpi_summaries')
+        .select('report_date')
+        .gte('report_date', `${targetMonthStr}-01`)
+        .lte('report_date', `${targetMonthStr}-${maxD}`)
+        .order('report_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestKp && latestKp.report_date) displayDate = latestKp.report_date;
     }
 
     let csiParams = { period: targetMonthStr };
@@ -8903,12 +9113,12 @@ app.get('/profile', requireAuth, async (req, res) => {
       dashboard, tableSales, tableBranch,
       noSalesData,
       formatCompact: (num) => {
-          if (!num) return '0';
-          const n = Number(num);
-          if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2).replace(/\.00$/, '') + ' Tỷ';
-          if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\\.0$/, '') + ' Tr ₫';
-          if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\\.0$/, '') + ' K ₫';
-          return new Intl.NumberFormat('vi-VN').format(n);
+        if (!num) return '0';
+        const n = Number(num);
+        if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2).replace(/\.00$/, '') + ' Tỷ';
+        if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\\.0$/, '') + ' Tr ₫';
+        if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\\.0$/, '') + ' K ₫';
+        return new Intl.NumberFormat('vi-VN').format(n);
       },
       dataDate: displayDate,
       csiData, feedbackList
@@ -9059,13 +9269,13 @@ app.get('/api/cskh/matrix-detail', requireAuth, async (req, res) => {
 
     let endOfMonth;
     if (end) {
-        const dEnd = new Date(end);
-        dEnd.setHours(23, 59, 59, 999);
-        endOfMonth = dEnd.toISOString();
+      const dEnd = new Date(end);
+      dEnd.setHours(23, 59, 59, 999);
+      endOfMonth = dEnd.toISOString();
     } else {
-        const dEnd = new Date();
-        dEnd.setHours(23, 59, 59, 999);
-        endOfMonth = dEnd.toISOString();
+      const dEnd = new Date();
+      dEnd.setHours(23, 59, 59, 999);
+      endOfMonth = dEnd.toISOString();
     }
 
     let logQuery = supabase
@@ -11224,21 +11434,58 @@ async function fetchCSISheetData() {
   const sheets = await getGlobalSheetsClient();
   const meta = await sheets.spreadsheets.get({ spreadsheetId: CSI_SHEET_ID });
   let dataRows = [];
-  
-  for(let s of meta.data.sheets) {
-      const sheetName = s.properties.title;
-      try {
-          const res = await sheets.spreadsheets.values.get({ spreadsheetId: CSI_SHEET_ID, range: `'${sheetName}'!${CSI_RANGE}` });
-          if (res.data.values) {
-              dataRows = dataRows.concat(res.data.values);
-          }
-      } catch (e) {
-          console.error("Error reading sheet:", sheetName, e);
+
+  for (let s of meta.data.sheets) {
+    const sheetName = s.properties.title;
+    try {
+      const res = await sheets.spreadsheets.values.get({ spreadsheetId: CSI_SHEET_ID, range: `'${sheetName}'!${CSI_RANGE}` });
+      if (res.data.values) {
+        dataRows = dataRows.concat(res.data.values);
       }
+    } catch (e) {
+      console.error("Error reading sheet:", sheetName, e);
+    }
   }
   csiSheetCache = dataRows;
   csiSheetCacheTime = Date.now();
   return csiSheetCache;
+}
+
+function checkBranchMatch(rowBranch, filterBranch, period) {
+  if (!filterBranch) return true;
+  if (!rowBranch) return false;
+  const rB = rowBranch.toLowerCase().trim();
+  const fB = filterBranch.toLowerCase().trim();
+  if (rB === fB) return true;
+
+  if (fB === 'cp75') {
+    if (period) {
+      const periodStr = String(period).trim();
+      const monthMatch = periodStr.match(/^2026-(\d{2})$/);
+      if (monthMatch) {
+        const monthVal = parseInt(monthMatch[1], 10);
+        if (monthVal <= 5) {
+          return rB === 'cp62';
+        } else if (monthVal === 6) {
+          return rB === 'cp62' || rB === 'cp75';
+        } else {
+          return rB === 'cp75';
+        }
+      } else if (periodStr === '2026-' || periodStr === '2026') {
+        return rB === 'cp62' || rB === 'cp75';
+      }
+    }
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+    if (currentYear === 2026) {
+      if (currentMonth <= 5) {
+        return rB === 'cp62';
+      } else if (currentMonth === 6) {
+        return rB === 'cp62' || rB === 'cp75';
+      }
+    }
+  }
+  return false;
 }
 
 async function getCsiStats(options) {
@@ -11246,33 +11493,28 @@ async function getCsiStats(options) {
   let totalBonusScore = 0;
   let standardScore = 0;
   let feedbackCount = 0;
-  
+
   data.forEach((row) => {
     if (!row[1]) return;
     const dateStr = (row[1] || '').trim();
-    
+
     // Date filter
     if (options.period) {
-        if (options.period === 'today') {
-           const d = new Date().toISOString().split('T')[0];
-           if (dateStr !== d) return;
-        } else if (/^\d{4}-\d{2}$/.test(options.period)) {
-           const [py, pm] = options.period.split('-');
-           const tSub = pm + '/' + py;
-           if (!dateStr.includes(tSub)) return;
-        }
+      if (options.period === 'today') {
+        const d = new Date().toISOString().split('T')[0];
+        if (dateStr !== d) return;
+      } else if (/^\d{4}-\d{2}$/.test(options.period)) {
+        const [py, pm] = options.period.split('-');
+        const tSub = pm + '/' + py;
+        if (!dateStr.includes(tSub)) return;
+      }
     }
-    
-    // Branch filter
-    const branch = (row[4] || '').trim();
-    if (options.branch && branch) {
-      if (branch.toLowerCase() !== options.branch.toLowerCase()) return;
-    }
-    
+
     // [FIX] Email filter cho staff - so khớp theo cột email (cột 6) hoặc tên NV (cột 5)
+    // Khi có email filter (staff cá nhân), bỏ qua branch filter vì email đã đủ identify
     if (options.email) {
       const rowEmail = (row[6] || '').toLowerCase().trim();
-      const rowName  = (row[5] || '').toLowerCase().trim();
+      const rowName = (row[5] || '').toLowerCase().trim();
       const filterEmail = options.email.toLowerCase().trim();
       // Nếu cột 6 có dấu '@' → đây là cột email, so sánh trực tiếp
       if (rowEmail.includes('@')) {
@@ -11281,22 +11523,28 @@ async function getCsiStats(options) {
         // Fallback: so sánh theo tên nhân viên
         if (!rowName.includes(options._staffName.toLowerCase())) return;
       }
+    } else {
+      // Branch filter chỉ áp dụng khi KHÔNG có email filter (xem theo chi nhánh)
+      const branch = (row[4] || '').trim();
+      if (options.branch) {
+        if (!checkBranchMatch(branch, options.branch, options.period)) return;
+      }
     }
-    
+
     // Count feedback (col 19 = Góp ý)
     const fb = (row[19] || '').trim();
     if (fb !== '') {
-        feedbackCount++;
+      feedbackCount++;
     }
 
     // Valid survey: col[12] starts with "1.Đồng ý KS" AND col[24] = "6"
     const callRecord = (row[12] || '').trim();
     const checkCol = (row[24] || '').trim();
     if (!callRecord.startsWith('1.Đồng ý KS') || checkCol !== '6') return;
-    
+
     // This is a valid survey — add base score of 3
     standardScore += 3;
-    
+
     // Weighted scoring per question
     const q13 = (row[13] || '').trim(); // Chào hỏi
     const q14 = (row[14] || '').trim(); // Tư vấn
@@ -11304,26 +11552,113 @@ async function getCsiStats(options) {
     const q16 = (row[16] || '').trim(); // Sản phẩm
     const q17 = (row[17] || '').trim(); // Giới thiệu
     const q18 = (row[18] || '').trim(); // Zalo/App
-    
+
     // Score per question: positive=+3, negative=-3, neutral=+1
     function scoreQ(val, pos, neg) {
       if (val.startsWith(pos)) return 3;
       if (val.startsWith(neg)) return -3;
       return 1;
     }
-    
-    const s_greeting    = scoreQ(q13, 'Có', 'Không') * 0.05;
-    const s_advice      = (q14.includes('Tốt') ? 3 : q14.startsWith('Tệ') ? -3 : 1) * 0.30;
-    const s_choice      = scoreQ(q15, 'Có', 'Không') * 0.15;
+
+    const s_greeting = scoreQ(q13, 'Có', 'Không') * 0.05;
+    const s_advice = (q14.includes('Tốt') ? 3 : q14.startsWith('Tệ') ? -3 : 1) * 0.30;
+    const s_choice = scoreQ(q15, 'Có', 'Không') * 0.15;
     const s_satisfaction = scoreQ(q16, 'Có', 'Không') * 0.30;
-    const s_referral    = (q17.startsWith('Sẵn sàng') ? 3 : q17.startsWith('Không') ? -3 : 1) * 0.15;
-    const s_zalo        = scoreQ(q18, 'Có', 'Không') * 0.05;
-    
+    const s_referral = (q17.startsWith('Sẵn sàng') ? 3 : q17.startsWith('Không') ? -3 : 1) * 0.15;
+    const s_zalo = scoreQ(q18, 'Có', 'Không') * 0.05;
+
     totalBonusScore += s_greeting + s_advice + s_choice + s_satisfaction + s_referral + s_zalo;
   });
-  
+
   const csi_percent = standardScore > 0 ? (totalBonusScore / standardScore) * 100 : 0;
   return { csi_percent: csi_percent.toFixed(1), feedback_count: feedbackCount };
+}
+
+// Helper: tính %CSI cho danh sách nhiều nhân viên (batch, 1 lần fetch cache)
+async function getCsiPerStaff(staffList, period) {
+  const data = await fetchCSISheetData();
+
+  // Build lookup: email -> { totalBonus, standard }
+  const perStaff = {};
+  staffList.forEach(s => {
+    const key = (s.email || '').toLowerCase().trim();
+    if (key) perStaff[key] = { totalBonusScore: 0, standardScore: 0, name: (s.full_name || '').toLowerCase().trim() };
+  });
+
+  // Period filter helper
+  function matchPeriod(dateStr) {
+    if (!period) return true;
+    if (period === 'today') return dateStr === new Date().toISOString().split('T')[0];
+    if (/^\d{4}-\d{2}$/.test(period)) {
+      const [py, pm] = period.split('-');
+      return dateStr.includes(pm + '/' + py);
+    }
+    if (period.endsWith('-')) {
+      const yr = period.replace(/-$/, '');
+      return dateStr.includes('/' + yr);
+    }
+    return true;
+  }
+
+  data.forEach(row => {
+    if (!row[1]) return;
+    if (!matchPeriod((row[1] || '').trim())) return;
+
+    // Valid survey check
+    const callRecord = (row[12] || '').trim();
+    const checkCol = (row[24] || '').trim();
+
+    const rowEmail = (row[6] || '').toLowerCase().trim();
+    const rowName = (row[5] || '').toLowerCase().trim();
+
+    // Match to staff
+    let staffKey = null;
+    if (rowEmail.includes('@')) {
+      if (perStaff[rowEmail]) staffKey = rowEmail;
+    } else {
+      // fallback by name
+      for (const [k, v] of Object.entries(perStaff)) {
+        if (v.name && rowName.includes(v.name)) { staffKey = k; break; }
+      }
+    }
+    if (!staffKey) return;
+
+    // Count all rows toward feedback (col 19)
+    // Only count valid surveys for score
+    if (!callRecord.startsWith('1.Đồng ý KS') || checkCol !== '6') return;
+
+    perStaff[staffKey].standardScore += 3;
+
+    const q13 = (row[13] || '').trim();
+    const q14 = (row[14] || '').trim();
+    const q15 = (row[15] || '').trim();
+    const q16 = (row[16] || '').trim();
+    const q17 = (row[17] || '').trim();
+    const q18 = (row[18] || '').trim();
+
+    function scoreQ(val, pos, neg) {
+      if (val.startsWith(pos)) return 3;
+      if (val.startsWith(neg)) return -3;
+      return 1;
+    }
+
+    perStaff[staffKey].totalBonusScore +=
+      scoreQ(q13, 'Có', 'Không') * 0.05 +
+      (q14.includes('Tốt') ? 3 : q14.startsWith('Tệ') ? -3 : 1) * 0.30 +
+      scoreQ(q15, 'Có', 'Không') * 0.15 +
+      scoreQ(q16, 'Có', 'Không') * 0.30 +
+      (q17.startsWith('Sẵn sàng') ? 3 : q17.startsWith('Không') ? -3 : 1) * 0.15 +
+      scoreQ(q18, 'Có', 'Không') * 0.05;
+  });
+
+  // Build result map: email -> csi_percent string
+  const result = {};
+  for (const [email, s] of Object.entries(perStaff)) {
+    result[email] = s.standardScore > 0
+      ? ((s.totalBonusScore / s.standardScore) * 100).toFixed(1)
+      : null;
+  }
+  return result;
 }
 
 async function getFeedbackList(options) {
@@ -11332,24 +11667,19 @@ async function getFeedbackList(options) {
   data.forEach((row) => {
     if (!row[1]) return;
     const dateStr = row[1];
-    
+
     if (options.period) {
-        if (options.period === 'today') {
-           const d = new Date().toISOString().split('T')[0];
-           if (dateStr !== d) return;
-        } else if (/^\d{4}-\d{2}$/.test(options.period)) {
-           const [py, pm] = options.period.split('-');
-           const tSub = pm + '/' + py;
-           if (!dateStr.includes(tSub)) return;
-        }
+      if (options.period === 'today') {
+        const d = new Date().toISOString().split('T')[0];
+        if (dateStr !== d) return;
+      } else if (/^\d{4}-\d{2}$/.test(options.period)) {
+        const [py, pm] = options.period.split('-');
+        const tSub = pm + '/' + py;
+        if (!dateStr.includes(tSub)) return;
+      }
     }
-    
-    const branch = row[4];
-    if (options.branch && branch) {
-      if (branch.toLowerCase() !== options.branch.toLowerCase()) return;
-    }
-    
-    // [FIX] Email filter cho staff
+
+    // [FIX] Email filter cho staff - khi có email, bỏ qua branch filter vì email đã đủ identify
     if (options.email) {
       const rowEmail = (row[6] || '').toLowerCase().trim();
       const filterEmail = options.email.toLowerCase().trim();
@@ -11359,19 +11689,25 @@ async function getFeedbackList(options) {
         const rowName = (row[5] || '').toLowerCase().trim();
         if (!rowName.includes(options._staffName.toLowerCase())) return;
       }
+    } else {
+      // Branch filter chỉ áp dụng khi KHÔNG có email filter
+      const branch = row[4];
+      if (options.branch) {
+        if (!checkBranchMatch(branch, options.branch, options.period)) return;
+      }
     }
-    
+
     const fb = (row[19] || '').trim();
     if (fb.length > 1) {
-        list.push({
-            Ngay_mua_hang: row[7] || row[1] || '',
-            Nguoi_mua: row[8] || 'Khách',
-            SDT: row[9] || '',
-            Ma_SR: row[4] || '',
-            Ten_NV_Ban_hang: row[5] || '',
-            Gop_y: fb,
-            Ghi_chu: row[22] || ''
-        });
+      list.push({
+        Ngay_mua_hang: row[7] || row[1] || '',
+        Nguoi_mua: row[8] || 'Khách',
+        SDT: row[9] || '',
+        Ma_SR: row[4] || '',
+        Ten_NV_Ban_hang: row[5] || '',
+        Gop_y: fb,
+        Ghi_chu: row[22] || ''
+      });
     }
   });
 
@@ -11432,6 +11768,7 @@ const TERMINAL_CODE_MAP = {
   'ĐỊA ĐIỂM KINH DOANH 54 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ': 'CP64',
   'ĐỊA ĐIỂM KINH DOANH 57 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ': 'CP67',
   'CH Bình Dương 2': 'CP69',
+  'ĐỊA ĐIỂM KINH DOANH 63 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ': 'CP75',
 };
 // Mapping từ branch_code/terminal_code → terminal_names mà branch đó quản lý
 // Admin và HCM.BD xem tất cả; các branch khác chỉ xem cửa hàng của mình
@@ -11448,6 +11785,7 @@ const BRANCH_TERMINALS = {
   'CP64': ['ĐỊA ĐIỂM KINH DOANH 54 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ'],
   'CP67': ['ĐỊA ĐIỂM KINH DOANH 57 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ'],
   'CP69': ['CH Bình Dương 2'],
+  'CP75': ['ĐỊA ĐIỂM KINH DOANH 63 - CÔNG TY CỔ PHẦN THƯƠNG MẠI - DỊCH VỤ PHONG VŨ'],
 };
 // Helper: apply terminal_name filter cho non-admin/non-allbranch queries
 function applyTerminalFilter(query, branch, isAllBranch) {
@@ -11755,7 +12093,7 @@ app.get('/executive-dashboard', requireAuth, async (req, res) => {
   }
   const isGlobalAdmin = user.role === 'admin' || user.branch_code === 'HCM.BD';
   const userRegion = EXECUTIVE_BRANCH_LIST.find(b => b.id === user.branch_code)?.region || 'ALL';
-  
+
   res.render('executive-dashboard', {
     user: req.session.user,
     isGlobalAdmin,
@@ -11776,15 +12114,15 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
     const minS = ranges.ly.s, currE = ranges.curr.e;
     let globalWhere = `WHERE (CAST(Report_date AS DATE) BETWEEN '${minS}' AND '${currE}')`;
     if (category !== 'ALL') globalWhere += ` AND Category_Code = '${category}'`;
-    
+
     // FIX: tableCategory uses Cat_group_ID column (format NHxx)
     let tableWhere = `WHERE (CAST(Report_date AS DATE) BETWEEN '${minS}' AND '${currE}')`;
     if (tableCategory === 'CUSTOM_1') {
-        tableWhere += ` AND Cat_group_ID IN ('NH01', 'NH02', 'NH03', 'NH05')`;
+      tableWhere += ` AND Cat_group_ID IN ('NH01', 'NH02', 'NH03', 'NH05')`;
     } else if (tableCategory !== 'ALL') {
-        tableWhere += ` AND Cat_group_ID = '${tableCategory}'`;
+      tableWhere += ` AND Cat_group_ID = '${tableCategory}'`;
     }
-    
+
     // Explicit Branch or Region Filter applied to both
     let filterBranches = EXECUTIVE_BRANCH_LIST.map(b => b.id);
     // Role-based branch restriction: manager only sees their own branch
@@ -11795,17 +12133,17 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
       globalWhere += ` AND Branch_Code = '${user.branch_code}'`;
       tableWhere += ` AND Branch_Code = '${user.branch_code}'`;
     } else if (branch !== 'ALL') {
-       globalWhere += ` AND Branch_Code = '${branch}'`;
-       tableWhere += ` AND Branch_Code = '${branch}'`;
-       filterBranches = [branch];
+      globalWhere += ` AND Branch_Code = '${branch}'`;
+      tableWhere += ` AND Branch_Code = '${branch}'`;
+      filterBranches = [branch];
     } else if (region !== 'ALL') {
-       const regB = EXECUTIVE_BRANCH_LIST.filter(b => b.region === region).map(b => b.id);
-       globalWhere += ` AND Branch_Code IN (${regB.map(id => `'${id}'`).join(',')})`;
-       tableWhere += ` AND Branch_Code IN (${regB.map(id => `'${id}'`).join(',')})`;
-       filterBranches = regB;
+      const regB = EXECUTIVE_BRANCH_LIST.filter(b => b.region === region).map(b => b.id);
+      globalWhere += ` AND Branch_Code IN (${regB.map(id => `'${id}'`).join(',')})`;
+      tableWhere += ` AND Branch_Code IN (${regB.map(id => `'${id}'`).join(',')})`;
+      filterBranches = regB;
     } else {
-       globalWhere += ` AND Branch_Code IN (${filterBranches.map(id => `'${id}'`).join(',')})`;
-       tableWhere += ` AND Branch_Code IN (${filterBranches.map(id => `'${id}'`).join(',')})`;
+      globalWhere += ` AND Branch_Code IN (${filterBranches.map(id => `'${id}'`).join(',')})`;
+      tableWhere += ` AND Branch_Code IN (${filterBranches.map(id => `'${id}'`).join(',')})`;
     }
 
     const bqQueryGlobal = `SELECT Branch_Code as branch, CAST(Report_date AS DATE) as date, SUM(Revenue) as revenue, SUM(Quantity) as quantity, COUNT(DISTINCT CASE WHEN Order_type = 'don_xuat_ban' THEN Order_code END) - COUNT(DISTINCT CASE WHEN Order_type = 'don_nhap_hoan_ban' THEN Order_code END) as orders FROM \`nimble-volt-459313-b8.sales.raw_sales_orders_all\` ${globalWhere} GROUP BY branch, date ORDER BY date ASC`;
@@ -11818,7 +12156,7 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
       needSeparateTableQuery ? bigquery.query({ query: bqQueryTable }) : Promise.resolve(null),
       fetchTrafficStats(ranges)
     ]);
-    
+
     const globalRows = globalRes[0];
     const tableRows = tableRes ? tableRes[0] : globalRows;
 
@@ -11833,38 +12171,38 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
 
     // Create parsing helper for creating branch structures
     const processRows = (rowsData) => {
-        const struct = filterBranches.map(code => {
-            const inf = EXECUTIVE_BRANCH_LIST.find(b => b.id === code) || {};
-            const trMap = traffic && traffic[code] ? traffic[code] : { curr:0, prev:0, lw:0, lm:0, lq:0, ly:0 };
-            const m = { r:0, o:0, q:0, t: trMap.curr };
-            return {
-                id: code, name: inf.name, region: inf.region, target: targets[code],
-                data: { 
-                   curr:{...m}, prev:{...m, t:trMap.prev, q:0}, 
-                   lw:{...m, t:trMap.lw, q:0}, lm:{...m, t:trMap.lm, q:0}, 
-                   lq:{...m, t:trMap.lq, q:0}, ly:{...m, t:trMap.ly, q:0} 
-                },
-                _ts: {} // For trends
-            };
-        });
+      const struct = filterBranches.map(code => {
+        const inf = EXECUTIVE_BRANCH_LIST.find(b => b.id === code) || {};
+        const trMap = traffic && traffic[code] ? traffic[code] : { curr: 0, prev: 0, lw: 0, lm: 0, lq: 0, ly: 0 };
+        const m = { r: 0, o: 0, q: 0, t: trMap.curr };
+        return {
+          id: code, name: inf.name, region: inf.region, target: targets[code],
+          data: {
+            curr: { ...m }, prev: { ...m, t: trMap.prev, q: 0 },
+            lw: { ...m, t: trMap.lw, q: 0 }, lm: { ...m, t: trMap.lm, q: 0 },
+            lq: { ...m, t: trMap.lq, q: 0 }, ly: { ...m, t: trMap.ly, q: 0 }
+          },
+          _ts: {} // For trends
+        };
+      });
 
-        rowsData.forEach(r => {
-            const b = struct.find(x => x.id === r.branch);
-            if (!b) return;
-            const ds = r.date.value;
-            const rev = r.revenue || 0, ord = r.orders || 0, qty = r.quantity || 0;
-            
-            if (!b._ts[ds]) b._ts[ds] = { r:0, o:0, q:0 };
-            b._ts[ds].r += rev; b._ts[ds].o += ord; b._ts[ds].q += qty;
-            
-            if (ds >= ranges.curr.s && ds <= ranges.curr.e) { b.data.curr.r += rev; b.data.curr.o += ord; b.data.curr.q += qty; }
-            if (ds >= ranges.prev.s && ds <= ranges.prev.e) { b.data.prev.r += rev; b.data.prev.o += ord; b.data.prev.q += qty; }
-            if (ds >= ranges.lw.s && ds <= ranges.lw.e) { b.data.lw.r += rev; b.data.lw.o += ord; b.data.lw.q += qty; }
-            if (ds >= ranges.lm.s && ds <= ranges.lm.e) { b.data.lm.r += rev; b.data.lm.o += ord; b.data.lm.q += qty; }
-            if (ds >= ranges.lq.s && ds <= ranges.lq.e) { b.data.lq.r += rev; b.data.lq.o += ord; b.data.lq.q += qty; }
-            if (ds >= ranges.ly.s && ds <= ranges.ly.e) { b.data.ly.r += rev; b.data.ly.o += ord; b.data.ly.q += qty; }
-        });
-        return struct;
+      rowsData.forEach(r => {
+        const b = struct.find(x => x.id === r.branch);
+        if (!b) return;
+        const ds = r.date.value;
+        const rev = r.revenue || 0, ord = r.orders || 0, qty = r.quantity || 0;
+
+        if (!b._ts[ds]) b._ts[ds] = { r: 0, o: 0, q: 0 };
+        b._ts[ds].r += rev; b._ts[ds].o += ord; b._ts[ds].q += qty;
+
+        if (ds >= ranges.curr.s && ds <= ranges.curr.e) { b.data.curr.r += rev; b.data.curr.o += ord; b.data.curr.q += qty; }
+        if (ds >= ranges.prev.s && ds <= ranges.prev.e) { b.data.prev.r += rev; b.data.prev.o += ord; b.data.prev.q += qty; }
+        if (ds >= ranges.lw.s && ds <= ranges.lw.e) { b.data.lw.r += rev; b.data.lw.o += ord; b.data.lw.q += qty; }
+        if (ds >= ranges.lm.s && ds <= ranges.lm.e) { b.data.lm.r += rev; b.data.lm.o += ord; b.data.lm.q += qty; }
+        if (ds >= ranges.lq.s && ds <= ranges.lq.e) { b.data.lq.r += rev; b.data.lq.o += ord; b.data.lq.q += qty; }
+        if (ds >= ranges.ly.s && ds <= ranges.ly.e) { b.data.ly.r += rev; b.data.ly.o += ord; b.data.ly.q += qty; }
+      });
+      return struct;
     };
 
     const globalBranches = processRows(globalRows);
@@ -11874,11 +12212,11 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
     const roll = (periodKey) => globalBranches.reduce((acc, b) => {
       acc.r += b.data[periodKey].r; acc.o += b.data[periodKey].o; acc.t += b.data[periodKey].t;
       return acc;
-    }, { r:0, o:0, t:0, a:0 });
+    }, { r: 0, o: 0, t: 0, a: 0 });
 
     const currentMap = roll('curr');
     currentMap.a = currentMap.o > 0 ? currentMap.r / currentMap.o : 0;
-    
+
     // Sums 4-periods
     const sums = ['prev', 'lw', 'lm', 'lq', 'ly'].reduce((acc, k) => {
       const obj = roll(k);
@@ -11910,23 +12248,23 @@ app.get('/api/executive/sales-data', requireAuth, async (req, res) => {
       trendData.labels.push(ds.substring(5)); // MM-DD
       let dR = 0, dO = 0, dT = 0;
       globalBranches.forEach(b => {
-          if (b._ts[ds]) { dR += b._ts[ds].r; dO += b._ts[ds].o; }
-          const trafficSource = traffic && traffic[b.id] && traffic[b.id]._ts ? traffic[b.id]._ts[ds] : 0;
-          dT += trafficSource || 0;
+        if (b._ts[ds]) { dR += b._ts[ds].r; dO += b._ts[ds].o; }
+        const trafficSource = traffic && traffic[b.id] && traffic[b.id]._ts ? traffic[b.id]._ts[ds] : 0;
+        dT += trafficSource || 0;
       });
       trendData.revenue.push(dR); trendData.orders.push(dO);
       trendData.traffic.push(dT); trendData.aov.push(dO > 0 ? dR / dO : 0);
       currSObj.setDate(currSObj.getDate() + 1);
     }
-    
+
     const elapsed = ranges.curr.rawE > ranges.curr.rawS ? Math.min(100, Math.max(0, ((nowLocal - ranges.curr.rawS) / (ranges.curr.rawE - ranges.curr.rawS)) * 100)) : 0;
     const daysLeft = Math.max(0, Math.ceil((ranges.curr.rawE - nowLocal) / 86400000));
 
-    res.json({ 
-      startDate: ranges.curr.s, endDate: ranges.curr.e, 
-      daysLeft, elapsedPercent: elapsed.toFixed(0), 
-      current, 
-      sums, 
+    res.json({
+      startDate: ranges.curr.s, endDate: ranges.curr.e,
+      daysLeft, elapsedPercent: elapsed.toFixed(0),
+      current,
+      sums,
       branches: tableBranches,
       globalBranches,
       trends: trendData,
@@ -11948,14 +12286,14 @@ app.get('/api/executive/salesman-data', requireAuth, async (req, res) => {
     const ranges = getDashboardDateRange(period, date, endDate);
 
     let where = `WHERE (CAST(Report_date AS DATE) BETWEEN '${ranges.curr.s}' AND '${ranges.curr.e}')`;
-    
+
     // Category filter using Cat_group_ID
     if (tableCategory === 'CUSTOM_1') {
       where += ` AND Cat_group_ID IN ('NH01', 'NH02', 'NH03', 'NH05')`;
     } else if (tableCategory !== 'ALL') {
       where += ` AND Cat_group_ID = '${tableCategory}'`;
     }
-    
+
     // Role-based branch restriction — BQ sales table uses Branch_code (lowercase c)
     const isGlobalAdmin = user.role === 'admin' || user.branch_code === 'HCM.BD';
     if (!isGlobalAdmin && user.branch_code) {
@@ -11988,28 +12326,28 @@ app.get('/api/executive/salesman-data', requireAuth, async (req, res) => {
     `;
 
     const [bqRows] = await bigquery.query({ query: bqQuery });
-    
+
     // Enrich with Supabase users table to get full_name and hrm_id
     const emails = (bqRows || []).map(r => (r.email || '').trim().toLowerCase()).filter(Boolean);
     let userMap = {};
     if (emails.length > 0) {
       const allSearchEmails = [...new Set([
-          ...emails, 
-          ...emails.map(e => e.replace('@phongvu-mna.vn', '@phongvu.vn')),
-          ...emails.map(e => e.replace('@phongvu.vn', '@phongvu-mna.vn'))
+        ...emails,
+        ...emails.map(e => e.replace('@phongvu-mna.vn', '@phongvu.vn')),
+        ...emails.map(e => e.replace('@phongvu.vn', '@phongvu-mna.vn'))
       ])].map(e => e.toLowerCase());
-      
+
       const { data: usersData } = await supabase
         .from('users')
         .select('email, full_name, hrm_id')
         .in('email', allSearchEmails);
       (usersData || []).forEach(u => {
         if (u.email) {
-            const ue = u.email.toLowerCase();
-            userMap[ue] = u;
-            if (ue.endsWith('@phongvu.vn')) {
-                userMap[ue.replace('@phongvu.vn', '@phongvu-mna.vn')] = u;
-            }
+          const ue = u.email.toLowerCase();
+          userMap[ue] = u;
+          if (ue.endsWith('@phongvu.vn')) {
+            userMap[ue.replace('@phongvu.vn', '@phongvu-mna.vn')] = u;
+          }
         }
       });
     }

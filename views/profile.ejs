@@ -310,6 +310,7 @@
                                     <th style="text-align:right">Doanh thu<br><span style="font-size:10px; font-weight:normal; color:#64748b;">(Trong đó iPhone)</span></th>
                                     <th style="text-align:center">% HT</th>
                                     <th style="text-align:center">KFI</th>
+                                    <th style="text-align:center">%CSI</th>
                                     <th style="text-align:right">Thưởng</th>
                                     <th style="text-align:right">Vượt</th>
                                 </tr>
@@ -332,6 +333,19 @@
                                         </td>
                                         <td style="text-align:center"><span class="status-tag <%= row.percent_completion >= 100 ? 'st-done' : 'st-uncared' %>"><%= row.percent_completion %>%</span></td>
                                         <td style="text-align:center; font-weight:600"><%= new Intl.NumberFormat('vi-VN').format(row.kfi) %></td>
+                                        <td style="text-align:center">
+                                          <% if (row.csi_percent !== null && row.csi_percent !== undefined) { %>
+                                            <span style="display:inline-block; padding:2px 8px; border-radius:20px; font-size:12px; font-weight:700;
+                                              background:<%= parseFloat(row.csi_percent) >= 95 ? '#fef3c7' : parseFloat(row.csi_percent) >= 80 ? '#fff7ed' : '#fef2f2' %>;
+                                              color:<%= parseFloat(row.csi_percent) >= 95 ? '#92400e' : parseFloat(row.csi_percent) >= 80 ? '#c2410c' : '#dc2626' %>;
+                                              border:1px solid <%= parseFloat(row.csi_percent) >= 95 ? '#fcd34d' : parseFloat(row.csi_percent) >= 80 ? '#fdba74' : '#fca5a5' %>;
+                                            ">
+                                              <%= row.csi_percent %>%
+                                            </span>
+                                          <% } else { %>
+                                            <span style="color:#cbd5e1; font-size:12px;">-</span>
+                                          <% } %>
+                                        </td>
                                         <td style="text-align:right; color:#16a34a; font-weight:600"><%= new Intl.NumberFormat('vi-VN').format(row.bonus_total) %></td>
                                         <td style="text-align:right; color:#d97706"><%= new Intl.NumberFormat('vi-VN').format(row.bonus_over) %></td>
                                     </tr>

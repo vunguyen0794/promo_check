@@ -1,55 +1,202 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
-    <title>Báo giá <%= quoteNumber %></title>
+    <title>Báo giá <%= quoteNumber %>
+    </title>
     <style>
-        body { font-family: Arial, sans-serif; color: #333; font-size: 10px; line-height: 1.4; }
-        .container { width: 95%; margin: 0 auto; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
-        th, td { border: 1px solid #999; padding: 5px; text-align: left; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
-        tr { page-break-inside: avoid; break-inside: avoid; }
-        th { background-color: #DDEBF7; color: #1F4E78; font-weight: bold; font-size: 9.5px; text-align: center; }
-        .quote-title { text-align: center; font-size: 16px; font-weight: bold; color: #FFFFFF; background-color: #2F75B5; padding: 5px; margin: 15px 0 10px 0; }
-        .right { text-align: right; } .center { text-align: center; } 
-        .price-cell { text-align: right; white-space: nowrap; }
-        .sku-cell { font-size: 9px; white-space: nowrap; }
-        .header-table, .info-table, .customer-table { border: none; table-layout: auto; }
-        .header-table td, .info-table td, .customer-table td { border: none; padding: 1px; }
-        .company-info { font-size: 11px; font-weight: bold; }
-        .total-section { float: right; width: 45%; }
-        .total-section .total-row { display: flex; justify-content: space-between; padding: 4px 5px; }
-        .total-section .total-row.grand-total { font-weight: bold; font-size: 11px; background-color: #FFF2CC; border: 1px solid #999; margin-top: 5px;}
-        .footer-terms { clear: both; margin-top: 20px; font-size: 9.5px; }
-        .signature-section { margin-top: 20px; text-align: center; float: right; width: 40%; }
+        body {
+            font-family: Arial, sans-serif;
+            color: #333;
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        .container {
+            width: 95%;
+            margin: 0 auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            table-layout: fixed;
+        }
+
+        th,
+        td {
+            border: 1px solid #999;
+            padding: 5px;
+            text-align: left;
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        th {
+            background-color: #0c65ce;
+            color: #FFFFFF;
+            font-weight: bold;
+            font-size: 9.5px;
+            text-align: center;
+        }
+
+        .quote-title {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: #FFFFFF;
+            background-color: #0c65ce;
+            padding: 5px;
+            margin: 15px 0 10px 0;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .price-cell {
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .sku-cell {
+            font-size: 9px;
+            white-space: nowrap;
+        }
+
+        .header-table,
+        .info-table,
+        .customer-table {
+            border: none;
+            table-layout: auto;
+        }
+
+        .header-table td,
+        .info-table td,
+        .customer-table td {
+            border: none;
+            padding: 1px;
+        }
+
+        .company-info {
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .total-section {
+            float: right;
+            width: 45%;
+        }
+
+        .total-section .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 5px;
+        }
+
+        .total-section .total-row.grand-total {
+            font-weight: bold;
+            font-size: 11px;
+            background-color: #FFF2CC;
+            border: 1px solid #999;
+            margin-top: 5px;
+        }
+
+        .footer-terms {
+            clear: both;
+            margin-top: 50px;
+            font-size: 9.5px;
+        }
+
+        .signature-left {
+            margin-top: 20px;
+            text-align: center;
+            float: left;
+            width: 40%;
+        }
+
+        .signature-right {
+            margin-top: 20px;
+            text-align: center;
+            float: right;
+            width: 40%;
+        }
+
         /* Cột Tên sản phẩm: chỉ hiển thị tên ngắn gọn */
-        .product-name-cell { font-size: 10px; font-weight: 600; line-height: 1.4; }
+        .product-name-cell {
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
         /* Cột Thông số kỹ thuật: hiển thị dạng danh sách dễ đọc */
-        .specs-content { 
-            white-space: pre-wrap; 
-            line-height: 1.6; 
-            font-size: 9px; 
+        .specs-content {
+            white-space: pre-wrap;
+            line-height: 1.6;
+            font-size: 9px;
             color: #444;
             word-break: break-word;
         }
-        .image-cell { padding: 2px !important; }
-        .item-images-grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
-        .item-image-box { border: 1px solid #d1d5db; border-radius: 3px; width: 100%; height: 118px; overflow: hidden; background: #fff; }
-        .item-image-box img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
+
+        .image-cell {
+            padding: 2px !important;
+        }
+
+        .item-images-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 4px;
+        }
+
+        .item-image-box {
+            border: 1px solid #d1d5db;
+            border-radius: 3px;
+            width: 100%;
+            height: 118px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .item-image-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            object-position: center;
+            display: block;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <table class="header-table">
             <tr>
                 <td style="width: 50%;">
-                    <img src="data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMTkuNjMgNDQuNjEiPjxkZWZzPjxzdHlsZT4uY2xzLTF7ZmlsbDojMTQzNWMzO30uY2xzLTJ7ZmlsbDojNWZlN2ZmO308L3N0eWxlPjwvZGVmcz48dGl0bGU+UzJfbG9nb19wdl9ibHVlPC90aXRsZT48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xOTYuMzEsMzMuMXYzLjgzaDguMzR2Mi4zNWMtNC4zMSwwLTguNTIsMC0xMi43MywwLTEuMDksMC0xLjUzLS43NC0xLjUzLTEuNzYsMC0xLjU4LDAtMy4xNywwLTQuNzVzLjcxLTIuMjcsMi4zNS0yLjI1YzQuNC4wNyw4LjgsMCwxMy4yLDBoM1YyNi4zOWMtNi41MywwLTEyLjkxLS4wOS0xOS4yOC4wNWE0LjM2LDQuMzYsMCwwLDAtNCw0LjQzYy0uMSwyLjQ2LS4wOSw0LjkzLDAsNy4zOS4wNiwzLjMzLDEuOSw1LjI1LDUuMjUsNS4zMmwxMiwwaDYuNDhWMzMuMVoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSI5My4yNiAzNC41MiA5OC4xIDM0LjUyIDk4LjEgMjguNDYgMTEwLjk4IDI4LjQ2IDExMC45OCAzNC41NCAxMTUuNjcgMzQuNTQgMTE1LjY3IDE3LjQ2IDExMC44OSAxNy40NiAxMTAuODkgMjMuODggOTggMjMuODggOTggMTcuNDcgOTMuMjYgMTcuNDcgOTMuMjYgMzQuNTIiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0yNDUuNzgsMjYuNDJoLTQuODVsMCwxMi43M2MuMTIsMi42NiwyLjE1LDQuMzUsNSw0LjQyaDEyLjQ4YzIuNjEtLjA3LDQuNzYtMS42OSw0Ljg3LTQsMCwwLC4wNi04Ljc0LjA2LTEzLjE1aC00LjcybDAsMTAuNjVjMCwxLjU2LS42NywyLjI1LTIuMjIsMi4yMy0yLjgyLDAtNS42My0uMDYtOC40NCwwLTEuNjQsMC0yLjMzLS41OS0yLjI5LTIuMjhaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNy4yNiAtOS4wNSkiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0yMTIuNzMsMjYuMzIsMjIzLjM4LDQzLjZoNS4xNmwxMC43LTE3LjIyaC01LjY3UzIyOC4yNywzNS4yOSwyMjYsMzljLS40Ny0uNzMtLjg2LTEuMy0xLjIyLTEuODlsLTYuNDctMTAuNzRzLTMuNzktLjA2LTUuNi0uMDYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTI3NC42MiwyNi4zMiwyODUuMjcsNDMuNmg1LjE2bDEwLjY5LTE3LjIyaC01LjY2cy01LjMsOC45MS03LjU1LDEyLjYzYy0uNDgtLjczLS44Ni0xLjMtMS4yMi0xLjg5bC02LjQ3LTEwLjc0cy0zLjc5LS4wNi01LjYtLjA2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNy4yNiAtOS4wNSkiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xNDcuMSwyNi4zM2E0LjgsNC44LDAsMCwxLDUuMDYsNS4xcS4wNiwzLjQyLDAsNi44NmMwLDMuMTQtMS44MSw1LjE3LTQuOTMsNS4yNi00LjgxLjE0LTkuNjMuMTQtMTQuNDMsMC0zLjE2LS4wOS00LjkxLTIuMDYtNS01LjIyLDAtMi4zNCwwLTQuNjksMC03YTQuNyw0LjcsMCwwLDEsNS01YzIuNDEtLjA3LDExLjkxLS4wNiwxNC4yNiwwbS0xMi41MSw0LjJjLTEuMjMsMC0xLjg4LjUxLTEuODksMS44NSwwLDEuNzYsMCwzLjUyLDAsNS4yOGExLjUzLDEuNTMsMCwwLDAsMS43MiwxLjc0YzMuNjksMCw3LjM4LDAsMTEuMDcsMCwxLjIsMCwxLjg1LS41NiwxLjgyLTEuODMsMC0xLjcsMC0zLjQsMC01LjFhMS41OSwxLjU5LDAsMCwwLTEuODItMS44M1oiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSIxNzIuNzkgMzQuNTQgMTY3LjcgMzQuNTQgMTU1LjI1IDIzLjE2IDE1NS4yNSAzNC41NCAxNTAuNDMgMzQuNTQgMTUwLjQzIDE3LjUgMTU1Ljc3IDE3LjUgMTY3Ljk2IDI4Ljg4IDE2Ny45NiAxNy40NyAxNzIuNzkgMTcuNDcgMTcyLjc5IDM0LjU0Ii8+PHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjMxOS42MyAzNC41NCAzMTQuNTQgMzQuNTQgMzAyLjA5IDIzLjE2IDMwMi4wOSAzNC41NCAyOTcuMjcgMzQuNTQgMjk3LjI3IDE3LjUgMzAyLjYxIDE3LjUgMzE0LjggMjguODggMzE0LjggMTcuNDcgMzE5LjYzIDE3LjQ3IDMxOS42MyAzNC41NCIvPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTg5LjIyLDI2LjQxYy00LjIyLDAtOS42NSwwLTEzLjg3LDBINzEuMjZWNDMuNkg3NlYzOC4yNmgzLjI4YzMuNCwwLDYuOC4wOCwxMC4yLDAsMy42NC0uMTQsNS42Mi0yLjQxLDUuNTUtNi4wOGE1LjY2LDUuNjYsMCwwLDAtNS44NC01LjczbS0uOTEsNy43Nkg3Ni4xNFYzMC42NUg4OC4zMWExLjc2LDEuNzYsMCwwLDEsMCwzLjUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNy4yNiAtOS4wNSkiLz48cmVjdCBjbGFzcz0iY2xzLTEiIHg9IjI2MS41NyIgeT0iMjkuODMiIHdpZHRoPSI0Ljc2IiBoZWlnaHQ9IjQuNzYiLz48cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik0zNC4xNiwyMS4wOWE4LjUxLDguNTEsMCwxLDAsOC41MS04LjUxLDguNTEsOC41MSwwLDAsMC04LjUxLDguNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwYXRoIGNsYXNzPSJjbHMtMiIgZD0iTTEwLjc5LDQ1LjE1YTguNTEsOC41MSwwLDEsMCw4LjUxLTguNTEsOC41MSw4LjUxLDAsMCwwLTguNTEsOC41MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTcuMjYgLTkuMDUpIi8+PHJlY3QgY2xhc3M9ImNscy0yIiB4PSIxMC43OSIgeT0iMTIuNTgiIHdpZHRoPSIxNy4wMiIgaGVpZ2h0PSIxNy4wMiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE2LjUyIDEwLjc3KSByb3RhdGUoLTQ1KSIvPjxyZWN0IGNsYXNzPSJjbHMtMiIgeD0iMjYuOSIgeT0iMjcuNTkiIHdpZHRoPSIxNy4wMiIgaGVpZ2h0PSIxNy4wMiIvPjwvc3ZnPg==" alt="Logo" style="max-height: 60px;">
-                    <div class="company-info" style="margin-top: 5px;"><%= branchInfo.name.toUpperCase() %></div>
+                    <img src="data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMTkuNjMgNDQuNjEiPjxkZWZzPjxzdHlsZT4uY2xzLTF7ZmlsbDojMTQzNWMzO30uY2xzLTJ7ZmlsbDojNWZlN2ZmO308L3N0eWxlPjwvZGVmcz48dGl0bGU+UzJfbG9nb19wdl9ibHVlPC90aXRsZT48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xOTYuMzEsMzMuMXYzLjgzaDguMzR2Mi4zNWMtNC4zMSwwLTguNTIsMC0xMi43MywwLTEuMDksMC0xLjUzLS43NC0xLjUzLTEuNzYsMC0xLjU4LDAtMy4xNywwLTQuNzVzLjcxLTIuMjcsMi4zNS0yLjI1YzQuNC4wNyw4LjgsMCwxMy4yLDBoM1YyNi4zOWMtNi41MywwLTEyLjkxLS4wOS0xOS4yOC4wNWE0LjM2LDQuMzYsMCwwLDAtNCw0LjQzYy0uMSwyLjQ2LS4wOSw0LjkzLDAsNy4zOS4wNiwzLjMzLDEuOSw1LjI1LDUuMjUsNS4zMmwxMiwwaDYuNDhWMzMuMVoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSI5My4yNiAzNC41MiA5OC4xIDM0LjUyIDk4LjEgMjguNDYgMTEwLjk4IDI4LjQ2IDExMC45OCAzNC41NCAxMTUuNjcgMzQuNTQgMTE1LjY3IDE3LjQ2IDExMC44OSAxNy40NiAxMTAuODkgMjMuODggOTggMjMuODggOTggMTcuNDcgOTMuMjYgMTcuNDcgOTMuMjYgMzQuNTIiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0yNDUuNzgsMjYuNDJoLTQuODVsMCwxMi43M2MuMTIsMi42NiwyLjE1LDQuMzUsNSw0LjQyaDEyLjQ4YzIuNjEtLjA3LDQuNzYtMS42OSw0Ljg3LTQsMCwwLC4wNi04Ljc0LjA2LTEzLjE1aC00LjcybDAsMTAuNjVjMCwxLjU2LS42NywyLjI1LTIuMjIsMi4yMy0yLjgyLDAtNS42My0uMDYtOC40NCwwLTEuNjQsMC0yLjMzLS41OS0yLjI5LTIuMjhaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNy4yNiAtOS4wNSkiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0yMTIuNzMsMjYuMzIsMjIzLjM4LDQzLjZoNS4xNmwxMC43LTE3LjIyaC01LjY3UzIyOC4yNywzNS4yOSwyMjYsMzljLS40Ny0uNzMtLjg2LTEuMy0xLjIyLTEuODlsLTYuNDctMTAuNzRzLTMuNzktLjA2LTUuNi0uMDYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTI3NC42MiwyNi4zMiwyODUuMjcsNDMuNmg1LjE2bDEwLjY5LTE3LjIyaC01LjY2cy01LjMsOC45MS03LjU1LDEyLjYzYy0uNDgtLjczLS44Ni0xLjMtMS4yMi0xLjg5bC02LjQ3LTEwLjc0cy0zLjc5LS4wNi01LjYtLjA2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNy4yNiAtOS4wNSkiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xNDcuMSwyNi4zM2E0LjgsNC44LDAsMCwxLDUuMDYsNS4xcS4wNiwzLjQyLDAsNi44NmMwLDMuMTQtMS44MSw1LjE3LTQuOTMsNS4yNi00LjgxLjE0LTkuNjMuMTQtMTQuNDMsMC0zLjE2LS4wOS00LjkxLTIuMDYtNS01LjIyLDAtMi4zNCwwLTQuNjksMC03YTQuNyw0LjcsMCwwLDEsNS01YzIuNDEtLjA3LDExLjkxLS4wNiwxNC4yNiwwbS0xMi41MSw0LjJjLTEuMjMsMC0xLjg4LjUxLTEuODksMS44NSwwLDEuNzYsMCwzLjUyLDAsNS4yOGExLjUzLDEuNTMsMCwwLDAsMS43MiwxLjc0YzMuNjksMCw3LjM4LDAsMTEuMDcsMCwxLjIsMCwxLjg1LS41NiwxLjgyLTEuODMsMC0xLjcsMC0zLjQsMC01LjFhMS41OSwxLjU5LDAsMCwwLTEuODItMS44M1oiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSIxNzIuNzkgMzQuNTQgMTY3LjcgMzQuNTQgMTU1LjI1IDIzLjE2IDE1NS4yNSAzNC41NCAxNTAuNDMgMzQuNTQgMTUwLjQzIDE3LjUgMTU1Ljc3IDE3LjUgMTY3Ljk2IDI4Ljg4IDE2Ny45NiAxNy40NyAxNzIuNzkgMTcuNDcgMTcyLjc5IDM0LjU0Ii8+PHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjMxOS42MyAzNC41NCAzMTQuNTQgMzQuNTQgMzAyLjA5IDIzLjE2IDMwMi4wOSAzNC41NCAyOTcuMjcgMzQuNTQgMjk3LjI3IDE3LjUgMzAyLjYxIDE3LjUgMzE0LjggMjguODggMzE0LjggMTcuNDcgMzE5LjYzIDE3LjQ3IDMxOS42MyAzNC41NCIvPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTg5LjIyLDI2LjQxYy00LjIyLDAtOS42NSwwLTEzLjg3LDBINzEuMjZWNDMuNkg3NlYzOC4yNmgzLjI4YzMuNCwwLDYuOC4wOCwxMC4yLDAsMy42NC0uMTQsNS42Mi0yLjQxLDUuNTUtNi4wOGE1LjY2LDUuNjYsMCwwLDAtNS44NC01LjczbS0uOTEsNy43Nkg3Ni4xNFYzMC42NUg4OC4zMWExLjc2LDEuNzYsMCwwLDEsMCwzLjUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNy4yNiAtOS4wNSkiLz48cmVjdCBjbGFzcz0iY2xzLTEiIHg9IjI2MS41NyIgeT0iMjkuODMiIHdpZHRoPSI0Ljc2IiBoZWlnaHQ9IjQuNzYiLz48cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik0zNC4xNiwyMS4wOWE4LjUxLDguNTEsMCwxLDAsOC41MS04LjUxLDguNTEsOC41MSwwLDAsMC04LjUxLDguNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwYXRoIGNsYXNzPSJjbHMtMiIgZD0iTTEwLjc5LDQ1LjE1YTguNTEsOC41MSwwLDEsMCw4LjUxLTguNTEsOC41MSw4LjUxLDAsMCwwLTguNTEsOC41MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTcuMjYgLTkuMDUpIi8+PHJlY3QgY2xhc3M9ImNscy0yIiB4PSIxMC43OSIgeT0iMTIuNTgiIHdpZHRoPSIxNy4wMiIgaGVpZ2h0PSIxNy4wMiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE2LjUyIDEwLjc3KSByb3RhdGUoLTQ1KSIvPjxyZWN0IGNsYXNzPSJjbHMtMiIgeD0iMjYuOSIgeT0iMjcuNTkiIHdpZHRoPSIxNy4wMiIgaGVpZ2h0PSIxNy4wMiIvPjwvc3ZnPg=="
+                        alt="Logo" style="max-height: 60px;">
+                    <div class="company-info" style="margin-top: 5px;">
+                        <%= branchInfo.name.toUpperCase() %>
+                    </div>
                 </td>
                 <td style="width: 50%; text-align: right; font-size: 9.5px;">
-                    <strong>Đ/c:</strong> <%= branchInfo.address %><br>
-                    <strong>MST:</strong> <%= branchInfo.mst %><br>
-                    <strong>Hotline:</strong> <%= branchInfo.hotline %>
+                    <strong>Đ/c:</strong>
+                    <%= branchInfo.address %><br>
+                        <strong>MST:</strong>
+                        <%= branchInfo.mst %><br>
+                            <strong>Hotline:</strong>
+                            <%= branchInfo.hotline %>
                 </td>
             </tr>
         </table>
@@ -58,235 +205,303 @@
         <div class="center" style="margin-bottom: 15px; font-style: italic; font-size: 11px; color: #555;">
             (Ngày báo giá: <%= quoteDate %>)
         </div>
-        
+
         <table class="info-table">
             <tr>
                 <td style="width: 50%;">
                     <table class="customer-table">
-                        <tr><td style="font-weight: bold;">Kính gửi: <%= customerName %></td></tr>
-                        <tr><td><strong>SĐT:</strong> <%= customerPhone %></td></tr>
+                        <tr>
+                            <td style="font-weight: bold;">Kính gửi: <%= customerName %>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>SĐT:</strong>
+                                <%= customerPhone %>
+                            </td>
+                        </tr>
                     </table>
                 </td>
                 <td style="width: 50%;">
                     <table class="customer-table">
-                        <tr><td style="font-weight: bold;">Nhân Viên Kinh Doanh: <%= salesName %></td></tr>
-                        <tr><td><strong>SĐT/Zalo:</strong> <%= salesContact %></td></tr>
+                        <tr>
+                            <td style="font-weight: bold;">Nhân Viên Kinh Doanh: <%= salesName %>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>SĐT/Zalo:</strong>
+                                <%= salesContact %>
+                            </td>
+                        </tr>
                     </table>
                 </td>
             </tr>
         </table>
 
-        <% 
-           const hasAnyDiscount = items.some(i => (i.item_discount || 0) > 0);
-           const hasAnyItemDetailedSpecs = items.some(i => String(i.quote_detailed_specs || '').trim().length > 0);
-           const hasAnyItemImages = items.some(i => Array.isArray(i.quote_image_urls) && i.quote_image_urls.length > 0);
-           
-           // [MỚI] Khởi tạo biến tích lũy để tính tổng chính xác
-           let grandTotalExVat = 0;
-           let grandTotalVat = 0;
-        %>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th class="center" style="width: 4%;">STT</th>
-                    <th style="width: 10%;">Mã SP</th>
-                    <th style="width: <%= hasAnyItemDetailedSpecs ? '20%' : '40%' %>;">Tên sản phẩm</th>
-                    <% if (hasAnyItemDetailedSpecs) { %>
-                        <th style="width: 25%;">Thông số chi tiết</th>
-                    <% } %>
-                    <% if (hasAnyItemImages) { %>
-                        <th style="width: 12%;">Hình ảnh thực tế</th>
-                    <% } %>
-                    <th class="center" style="width: 4%;">ĐVT</th>
-                    <th class="right" style="width: 4%;">SL</th>
-                    
-                    <% if (templateType === 'b2b') { %>
-                        <th class="right" style="width: 9%;">Đơn giá<br><i>(Chưa VAT)</i></th>
-                        <% if (hasAnyDiscount) { %>
-                            <th class="right" style="width: 8%;">Giảm giá<br><i>(Chi tiết)</i></th>
-                        <% } %>
-                        <th class="right" style="width: 10%;">Thành tiền<br><i>(Chưa VAT)</i></th>
-                        <th class="right" style="width: 5%;">VAT<br><i>(%)</i></th> 
-                        <th class="right" style="width: 11%;">Tổng cộng<br><i>(Gồm VAT)</i></th>
-                    <% } else { %>
-                        <th class="right" style="width: 11%;">Đơn giá<br><i>(Gồm VAT)</i></th>
-                        <% if (hasAnyDiscount) { %>
-                            <th class="right" style="width: 9%;">Giảm giá<br><i>(Chi tiết)</i></th>
-                        <% } %>
-                        <th class="right" style="width: 12%;">Thành tiền<br><i>(Gồm VAT)</i></th>
-                    <% } %>
-                </tr>
-            </thead>
-            <tbody>
-                <% items.forEach((item, index) => { %>
-                    <% 
-                      // [MỚI] Logic xác định thuế suất dựa trên Subcat
-                      const isTaxFree = taxFreeSubcats.includes(item.subcat);
-                      const taxRate = isTaxFree ? 0 : 0.08;
-                      const taxDivisor = isTaxFree ? 1 : 1.08;
-                      
-                      const unitPriceIncVat = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
-                      const unitDiscountIncVat = item.item_discount || 0; 
-                      
-                      // Thành tiền dòng (Gồm VAT)
-                      const lineTotalIncVat = (unitPriceIncVat - unitDiscountIncVat) * item.quantity;
-                      
-                      // [MỚI] Tính ngược giá chưa VAT dựa trên thuế suất cụ thể của món này
-                      const unitPriceExVat = Math.round(unitPriceIncVat / taxDivisor);
-                      const unitDiscountExVat = Math.round(unitDiscountIncVat / taxDivisor);
-                      const lineTotalExVat = (unitPriceExVat - unitDiscountExVat) * item.quantity;
-                      
-                      const lineVat = lineTotalIncVat - lineTotalExVat;
-                      const itemSpecs = String(item.quote_detailed_specs || '').trim();
-                      const itemImages = Array.isArray(item.quote_image_urls) ? item.quote_image_urls : [];
+        <% const hasAnyDiscount=items.some(i=> (i.item_discount || 0) > 0);
+            const hasAnyItemDetailedSpecs = items.some(i => String(i.quote_detailed_specs || '').trim().length > 0);
+            const hasAnyItemImages = items.some(i => Array.isArray(i.quote_image_urls) && i.quote_image_urls.length >
+            0);
 
-                      // [MỚI] Cộng dồn vào tổng chung
-                      grandTotalExVat += lineTotalExVat;
-                      grandTotalVat += lineVat;
-                    %>
-                    <tr>
-                        <td class="center"><%= index + 1 %></td>
-                        <td class="sku-cell"><%= item.sku %></td>
-                        <td class="product-name-cell"><%= item.product_name %></td>
-                        <% if (hasAnyItemDetailedSpecs) { %>
-                            <td>
-                                <% if (itemSpecs) { %>
-                                    <div class="specs-content"><%= itemSpecs %></div>
-                                <% } else { %>
-                                    -
-                                <% } %>
-                            </td>
-                        <% } %>
-                        <% if (hasAnyItemImages) { %>
-                            <td class="image-cell">
-                                <% if (itemImages.length > 0) { %>
-                                    <div class="item-images-grid">
-                                        <% itemImages.forEach((imgUrl) => {
-                                            const rawImageUrl = String(imgUrl || '').trim();
-                                            const m = rawImageUrl.match(/(?:id=|\/d\/)([A-Za-z0-9_-]+)/);
-                                            const driveId = m ? m[1] : null;
-                                            const viewUrl = driveId ? ('https://drive.google.com/uc?export=view&id=' + driveId) : rawImageUrl;
-                                            const thumbUrl = driveId ? ('https://drive.google.com/thumbnail?id=' + driveId + '&sz=w1200') : rawImageUrl;
-                                        %>
-                                            <div class="item-image-box">
-                                                <img src="<%= thumbUrl %>" alt="Ảnh <%= item.sku %>" onerror="this.onerror=null;this.src='<%= viewUrl %>';">
-                                            </div>
-                                        <% }); %>
-                                    </div>
-                                <% } else { %>
-                                    -
-                                <% } %>
-                            </td>
-                        <% } %>
-                        <td class="center">Cái</td>
-                        <td class="center"><%= item.quantity %></td>
-                        
-                        <% if (templateType === 'b2b') { %>
-                            <td class="price-cell"><%= formatVND(unitPriceExVat) %></td>
-                            
-                            <% if (hasAnyDiscount) { %>
-                                <td class="price-cell" style="color: #e53935;">
-                                    <%= unitDiscountExVat > 0 ? '-' + formatVND(unitDiscountExVat) : '-' %>
-                                </td>
-                            <% } %>
-                            
-                            <td class="price-cell"><%= formatVND(lineTotalExVat) %></td>
-                            <td class="center"><%= isTaxFree ? '0%' : '8%' %></td>
-                            <td class="price-cell"><%= formatVND(lineTotalIncVat) %></td>
-
-                        <% } else { %>
-                            <td class="price-cell"><%= formatVND(unitPriceIncVat) %></td>
-                            
-                            <% if (hasAnyDiscount) { %>
-                                <td class="price-cell" style="color: #e53935;">
-                                    <%= unitDiscountIncVat > 0 ? '-' + formatVND(unitDiscountIncVat) : '-' %>
-                                </td>
-                            <% } %>
-                            
-                            <td class="price-cell" style="font-weight: bold;"><%= formatVND(lineTotalIncVat) %></td>
-                        <% } %>
-                    </tr>
-                <% }); %>
-            </tbody>
-        </table>
-
-        <div class="total-section">
-            <% 
-               // Xử lý Giảm giá tổng (Global Discount)
-               // Nếu có giảm giá tổng, ta sẽ trừ nó vào Total Inclusive VAT (Tổng thanh toán)
-               // Tuy nhiên, để hóa đơn B2B chính xác, ta nên tính lại tỷ lệ VAT trung bình hoặc trừ vào trước thuế
-               // Ở đây tôi giữ logic đơn giản: Giảm trên tổng thanh toán cuối cùng, 
-               // và hiển thị các dòng VAT dựa trên tổng hợp từ danh sách sản phẩm (chưa trừ giảm giá tổng để tham khảo)
-               
-               // Lưu ý: Nếu muốn giảm giá tổng ảnh hưởng đến VAT đầu ra trên hóa đơn đỏ, 
-               // bạn cần phân bổ giảm giá này vào từng dòng sản phẩm.
-               // Hiện tại hiển thị theo cách "Chiết khấu thương mại" sau thuế.
+            // [MỚI] Khởi tạo biến tích lũy để tính tổng chính xác
+            let grandTotalExVat = 0;
+            let grandTotalVat = 0;
             %>
 
-            <div class="total-row">
-                <span>Cộng tiền hàng (Gồm VAT):</span>
-                <span class="right"><%= formatVND(totalItemsPrice) %></span>
+            <div style="font-weight: bold; font-size: 11px; margin: 15px 0 5px 0; color: #0c65ce; border-bottom: 2px solid #0c65ce; padding-bottom: 3px;">
+                Chi tiết sản phẩm và đơn giá
             </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th class="center" style="width: 4%;">STT</th>
+                        <th style="width: 10%;">Mã SP</th>
+                        <th style="width: <%= hasAnyItemDetailedSpecs ? '20%' : '40%' %>;">Tên sản phẩm</th>
+                        <% if (hasAnyItemDetailedSpecs) { %>
+                            <th style="width: 25%;">Thông số chi tiết</th>
+                            <% } %>
+                                <% if (hasAnyItemImages) { %>
+                                    <th style="width: 12%;">Hình ảnh thực tế</th>
+                                    <% } %>
+                                        <th class="center" style="width: 4%;">ĐVT</th>
+                                        <th class="right" style="width: 4%;">SL</th>
 
-            <% if (globalDiscountAmt > 0) { %>
-            <div class="total-row">
-                <span>Giảm giá thêm / Chiết khấu:</span>
-                <span class="right" style="color: #e53935;">-<%= formatVND(globalDiscountAmt) %></span>
-            </div>
-            <% } %>
-            
-            <% if (appliedPromo) { %>
-            <div class="total-row">
-                <span><%= appliedPromo.name %>:</span>
-                <span class="right" style="color: #e53935;">-<%= formatVND(appliedPromo.discount_amount) %></span>
-            </div>
-            <% } %>
+                                        <% if (templateType==='b2b' ) { %>
+                                            <th class="right" style="width: 9%;">Đơn giá<br><i>(Chưa VAT)</i></th>
+                                            <% if (hasAnyDiscount) { %>
+                                                <th class="right" style="width: 8%;">Giảm giá<br><i>(Chi tiết)</i></th>
+                                                <% } %>
+                                                    <th class="right" style="width: 10%;">Thành tiền<br><i>(Chưa
+                                                            VAT)</i></th>
+                                                    <th class="right" style="width: 5%;">VAT<br><i>(%)</i></th>
+                                                    <th class="right" style="width: 11%;">Tổng cộng<br><i>(Gồm VAT)</i>
+                                                    </th>
+                                                    <% } else { %>
+                                                        <th class="right" style="width: 11%;">Đơn giá<br><i>(Gồm
+                                                                VAT)</i></th>
+                                                        <% if (hasAnyDiscount) { %>
+                                                            <th class="right" style="width: 9%;">Giảm giá<br><i>(Chi
+                                                                    tiết)</i></th>
+                                                            <% } %>
+                                                                <th class="right" style="width: 12%;">Thành
+                                                                    tiền<br><i>(Gồm VAT)</i></th>
+                                                                <% } %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% items.forEach((item, index)=> {
+                        const isTaxFree = taxFreeSubcats.includes(item.subcat);
+                        const taxRate = isTaxFree ? 0 : 0.08;
+                        const taxDivisor = isTaxFree ? 1 : 1.08;
+                        const unitPriceIncVat = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
+                        const unitDiscountIncVat = item.item_discount || 0;
+                        const lineTotalIncVat = (unitPriceIncVat - unitDiscountIncVat) * item.quantity;
+                        const unitPriceExVat = Math.round(unitPriceIncVat / taxDivisor);
+                        const unitDiscountExVat = Math.round(unitDiscountIncVat / taxDivisor);
+                        const lineTotalExVat = (unitPriceExVat - unitDiscountExVat) * item.quantity;
+                        const lineVat = lineTotalIncVat - lineTotalExVat;
+                        const itemSpecs = String(item.quote_detailed_specs || '').trim();
+                        const itemImages = Array.isArray(item.quote_image_urls) ? item.quote_image_urls : [];
+                        grandTotalExVat += lineTotalExVat;
+                        grandTotalVat += lineVat;
+                    %>
+                            <tr>
+                                <td class="center">
+                                    <%= index + 1 %>
+                                </td>
+                                <td class="sku-cell">
+                                    <%= item.sku %>
+                                </td>
+                                <td class="product-name-cell">
+                                    <%= item.product_name %>
+                                </td>
+                                <% if (hasAnyItemDetailedSpecs) { %>
+                                    <td>
+                                        <% if (itemSpecs) { %>
+                                            <div class="specs-content">
+                                                <%= itemSpecs %>
+                                            </div>
+                                            <% } else { %>
+                                                -
+                                                <% } %>
+                                    </td>
+                                    <% } %>
+                                        <% if (hasAnyItemImages) { %>
+                                            <td class="image-cell">
+                                                <% if (itemImages.length> 0) { %>
+                                                    <div class="item-images-grid">
+                                                        <% itemImages.forEach((imgUrl)=> {
+                                                            const rawImageUrl = String(imgUrl || '').trim();
+                                                            const m =
+                                                            rawImageUrl.match(/(?:id=|\/d\/)([A-Za-z0-9_-]+)/);
+                                                            const driveId = m ? m[1] : null;
+                                                            const viewUrl = driveId ?
+                                                            ('https://drive.google.com/uc?export=view&id=' + driveId) :
+                                                            rawImageUrl;
+                                                            const thumbUrl = driveId ?
+                                                            ('https://drive.google.com/thumbnail?id=' + driveId +
+                                                            '&sz=w1200') : rawImageUrl;
+                                                            %>
+                                                            <div class="item-image-box">
+                                                                <img src="<%= thumbUrl %>" alt="Ảnh <%= item.sku %>"
+                                                                    onerror="this.onerror=null;this.src='<%= viewUrl %>';">
+                                                            </div>
+                                                            <% }); %>
+                                                    </div>
+                                                    <% } else { %>
+                                                        -
+                                                        <% } %>
+                                            </td>
+                                            <% } %>
+                                                <td class="center">Cái</td>
+                                                <td class="center">
+                                                    <%= item.quantity %>
+                                                </td>
 
-            <% if (templateType === 'b2b') { %>
-                <div class="total-row" style="border-top: 1px dashed #ccc; margin-top: 2px; font-style: italic;">
-                    <span>Tổng tiền chưa thuế (Tạm tính):</span>
-                    <span class="right"><%= formatVND(grandTotalExVat) %></span>
-                </div>
-                <div class="total-row" style="font-style: italic;">
-                    <span>Tổng tiền thuế VAT (Tạm tính):</span>
-                    <span class="right"><%= formatVND(grandTotalVat) %></span>
-                </div>
-                <% if (globalDiscountAmt > 0 || appliedPromo) { %>
-                    <div class="total-row" style="font-size: 9px; color: #666;">
-                        <i>* Lưu ý: Giá trị chưa thuế và VAT ở trên chưa trừ chiết khấu tổng đơn (nếu có).</i>
+                                                <% if (templateType==='b2b' ) { %>
+                                                    <td class="price-cell">
+                                                        <%= formatVND(unitPriceExVat) %>
+                                                    </td>
+
+                                                    <% if (hasAnyDiscount) { %>
+                                                        <td class="price-cell" style="color: #e53935;">
+                                                            <%= unitDiscountExVat> 0 ? '-' +
+                                                                formatVND(unitDiscountExVat) : '-' %>
+                                                        </td>
+                                                        <% } %>
+
+                                                            <td class="price-cell">
+                                                                <%= formatVND(lineTotalExVat) %>
+                                                            </td>
+                                                            <td class="center">
+                                                                <%= isTaxFree ? '0%' : '8%' %>
+                                                            </td>
+                                                            <td class="price-cell">
+                                                                <%= formatVND(lineTotalIncVat) %>
+                                                            </td>
+
+                                                            <% } else { %>
+                                                                <td class="price-cell">
+                                                                    <%= formatVND(unitPriceIncVat) %>
+                                                                </td>
+
+                                                                <% if (hasAnyDiscount) { %>
+                                                                    <td class="price-cell" style="color: #e53935;">
+                                                                        <%= unitDiscountIncVat> 0 ? '-' +
+                                                                            formatVND(unitDiscountIncVat) : '-' %>
+                                                                    </td>
+                                                                    <% } %>
+
+                                                                        <td class="price-cell"
+                                                                            style="font-weight: bold;">
+                                                                            <%= formatVND(lineTotalIncVat) %>
+                                                                        </td>
+                                                                        <% } %>
+                            </tr>
+                            <% }); %>
+                </tbody>
+            </table>
+
+            <div class="total-section">
+                    <%# Xử lý Giảm giá tổng (Global Discount)
+                        Nếu có giảm giá tổng, ta sẽ trừ nó vào Total Inclusive VAT (Tổng thanh toán)
+                        Tuy nhiên, để hóa đơn B2B chính xác, ta nên tính lại tỷ lệ VAT trung bình hoặc trừ vào trước thuế
+                        Ở đây tôi giữ logic đơn giản: Giảm trên tổng thanh toán cuối cùng,
+                        và hiển thị các dòng VAT dựa trên tổng hợp từ danh sách sản phẩm (chưa trừ giảm giá tổng để tham khảo)
+                        Lưu ý: Nếu muốn giảm giá tổng ảnh hưởng đến VAT đầu ra trên hóa đơn đỏ,
+                        bạn cần phân bổ giảm giá này vào từng dòng sản phẩm.
+                        Hiện tại hiển thị theo cách "Chiết khấu thương mại" sau thuế. %>
+
+                    <div class="total-row">
+                        <span>Cộng tiền hàng (Gồm VAT):</span>
+                        <span class="right">
+                            <%= formatVND(totalItemsPrice) %>
+                        </span>
                     </div>
-                <% } %>
-            <% } %>
 
-            <div class="total-row grand-total">
-                <span>TỔNG THANH TOÁN:</span>
-                <span class="right"><%= formatVND(finalTotal) %></span>
+                    <% if (globalDiscountAmt> 0) { %>
+                        <div class="total-row">
+                            <span>Giảm giá thêm / Chiết khấu:</span>
+                            <span class="right" style="color: #e53935;">-<%= formatVND(globalDiscountAmt) %></span>
+                        </div>
+                        <% } %>
+
+                            <% if (appliedPromo) { %>
+                                <div class="total-row">
+                                    <span>
+                                        <%= appliedPromo.name %>:
+                                    </span>
+                                    <span class="right" style="color: #e53935;">-<%=
+                                            formatVND(appliedPromo.discount_amount) %></span>
+                                </div>
+                                <% } %>
+
+                                    <% if (templateType==='b2b' ) { %>
+                                        <div class="total-row"
+                                            style="border-top: 1px dashed #ccc; margin-top: 2px; font-style: italic;">
+                                            <span>Tổng tiền chưa thuế (Tạm tính):</span>
+                                            <span class="right">
+                                                <%= formatVND(grandTotalExVat) %>
+                                            </span>
+                                        </div>
+                                        <div class="total-row" style="font-style: italic;">
+                                            <span>Tổng tiền thuế VAT (Tạm tính):</span>
+                                            <span class="right">
+                                                <%= formatVND(grandTotalVat) %>
+                                            </span>
+                                        </div>
+                                        <% if (globalDiscountAmt> 0 || appliedPromo) { %>
+                                            <div class="total-row" style="font-size: 9px; color: #666;">
+                                                <i>* Lưu ý: Giá trị chưa thuế và VAT ở trên chưa trừ chiết khấu tổng đơn
+                                                    (nếu có).</i>
+                                            </div>
+                                            <% } %>
+                                                <% } %>
+
+                                                    <div class="total-row grand-total">
+                                                        <span>TỔNG THANH TOÁN:</span>
+                                                        <span class="right">
+                                                            <%= formatVND(finalTotal) %>
+                                                        </span>
+                                                    </div>
             </div>
-        </div>
 
-        <div class="footer-terms">
-            <strong>Điều kiện giao hàng:</strong> Giao hàng 1 lần tại kho Phong Vũ.<br>
-            <strong>Điều kiện thanh toán:</strong> 100% trước khi giao hàng.<br>
-            <strong>Bảo hành:</strong> Theo tiêu chuẩn NSX.<br>
-            <strong>Hiệu lực báo giá:</strong> Báo giá có hiệu lực <%= validityDays %> ngày.<br>
-            <% if (typeof notes !== 'undefined' && notes && notes.trim()) { %>
-                <strong>Ghi chú:</strong> <%= notes %><br>
-            <% } %>
-            <br>
-            
-            <strong>Thông tin chuyển khoản:</strong><br>
-            - Ngân hàng: <%= branchInfo.bankName %><br>
-            - Số tài khoản: <%= branchInfo.bankAccount %><br>
-            - Tên tài khoản: <%= branchInfo.bankHolder %>
-        </div>
-        
-        <div class="signature-section">
-            <strong>Đại diện Kinh doanh</strong><br>
-            <i>(Ký, ghi rõ họ tên)</i>
-            <br><br><br><br>
-            <strong><%= salesName %></strong>
-        </div>
+            <div style="clear: both; height: 20px;"></div>
+
+            <div class="footer-terms">
+                <strong>Đơn vị tiền tệ được sử dụng trong báo giá là Việt Nam Đồng (VNĐ).</strong><br>
+                <strong>Điều kiện giao hàng:</strong> Giao hàng 1 lần tại kho Phong Vũ.<br>
+                <strong>Điều kiện thanh toán:</strong> 100% trước khi giao hàng.<br>
+                <strong>Bảo hành:</strong> Theo tiêu chuẩn Nhà sản xuất, Địa điểm bảo hành: tham khảo website phongvu.vn
+                để biết thêm chi tiết.<br>
+                <strong>Hiệu lực báo giá:</strong> Báo giá có hiệu lực <%= validityDays %> ngày.<br>
+                    <% if (typeof notes !=='undefined' && notes && notes.trim()) { %>
+                        <strong>Ghi chú:</strong>
+                        <%= notes %><br>
+                            <% } %>
+                                <br>
+
+                                <strong>Thanh toán tại cửa hàng hoặc chuyển khoản:</strong><br>
+                                - Ngân hàng: <%= branchInfo.bankName %><br>
+                                    - Số tài khoản: <%= branchInfo.bankAccount %><br>
+                                        - Tên tài khoản: <%= branchInfo.bankHolder %>
+            </div>
+
+            <div class="signature-left">
+                <strong>Xác nhận đặt hàng</strong><br>
+                <i>(Ký, ghi rõ họ tên, đóng dấu)</i>
+                <br><br><br><br><br>
+            </div>
+
+            <div class="signature-right">
+                <strong>Đại diện Kinh doanh</strong><br>
+                <i>(Ký, ghi rõ họ tên)</i>
+                <br><br><br><br>
+                <strong>
+                    <%= salesName %>
+                </strong>
+            </div>
+            <div style="clear: both;"></div>
     </div>
 </body>
+
 </html>
