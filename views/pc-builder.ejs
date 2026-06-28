@@ -435,9 +435,14 @@
           </div>
       </div>
       
-      <button type="button" id="btnDownloadPDF" class="btn btn-primary" style="width: 100%; padding: 12px; font-weight: 700;">
-        <i class="fas fa-file-pdf"></i> Xác nhận & Tải PDF
-      </button>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" id="btnDownloadPDF" class="btn btn-primary" style="flex: 1; padding: 12px; font-weight: 700;">
+          <i class="fas fa-file-pdf"></i> Xuất PDF
+        </button>
+        <button type="button" id="btnDownloadExcel" class="btn" style="flex: 1; padding: 12px; font-weight: 700; background-color: #107c41; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          <i class="fas fa-file-excel"></i> Xuất Excel
+        </button>
+      </div>
       
       <div id="downloadError" style="color: red; text-align: center; margin-top: 10px; display: none;"></div>
       <div id="quoteLoading" class="dash-muted" style="text-align: center; padding: 20px; display: none;">
@@ -872,6 +877,8 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
     // Đảm bảo nút tải hiển thị lại khi mở modal
     const btnDownload = document.getElementById('btnDownloadPDF');
     if (btnDownload) { btnDownload.style.display = 'block'; btnDownload.disabled = false; }
+    const btnExcel = document.getElementById('btnDownloadExcel');
+    if (btnExcel) { btnExcel.style.display = 'block'; btnExcel.disabled = false; }
     document.getElementById('downloadError').style.display = 'none';
   });
 
@@ -951,6 +958,86 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
           }
         } finally {
           btnDownload.style.display = 'block';
+          const btnExcel = document.getElementById('btnDownloadExcel');
+          if (btnExcel) btnExcel.style.display = 'block';
+          quoteLoading.style.display = 'none';
+        }
+    } else if (e.target && e.target.id === 'btnDownloadExcel') {
+        const btnDownload = e.target;
+        
+        const name = document.getElementById('quoteCustomerName').value.trim();
+        const phone = document.getElementById('quoteCustomerPhone').value.trim();
+        const contact = document.getElementById('quoteContactInfo').value.trim();
+        const notes = document.getElementById('quoteNotes').value.trim();
+        
+        if (!name || !phone || !contact) {
+            alert('Vui lòng nhập đủ thông tin khách hàng và liên hệ!');
+            return;
+        }
+
+        btnDownload.style.display = 'none';
+        const btnPdf = document.getElementById('btnDownloadPDF');
+        if (btnPdf) btnPdf.style.display = 'none';
+        
+        quoteLoading.style.display = 'block';
+        document.getElementById('downloadError').style.display = 'none';
+
+        // Lấy tham số mới
+        const validityDays = Number(document.getElementById('quoteValidity').value) || 3;
+        let templateType = 'consumer';
+        const checkedRadio = document.querySelector('input[name="printTemplate"]:checked');
+        if (checkedRadio) templateType = checkedRadio.value;
+
+        try {
+          const res = await fetch('/api/pc-builder/generate-quote-excel', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              buildConfig: currentBuildConfig,
+              customerName: name,
+              customerPhone: phone,
+              contactInfo: contact,
+              notes: notes,
+              sendEmail: false, 
+              isGeneralQuote: false, 
+              validityDays: validityDays,
+              templateType: templateType,
+              globalDiscount: { value: 0, type: 'amount' } 
+            })
+          });
+          
+          if (!res.ok) {
+              const errJson = await res.json();
+              throw new Error(errJson.error || 'Lỗi server');
+          }
+
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none'; a.href = url;
+          const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g, '_');
+          a.download = `BaoGia_${safeName}.xlsx`;
+          
+          document.body.appendChild(a); a.click();
+          
+          window.URL.revokeObjectURL(url);
+          setTimeout(() => document.body.removeChild(a), 100);
+          
+          document.getElementById('quoteModal').style.display = 'none';
+          if(typeof showToast === 'function') showToast('Đã tải báo giá Excel thành công!', 'success');
+
+        } catch (err) {
+          console.error("Lỗi tải Excel:", err);
+          const errorDiv = document.getElementById('downloadError');
+          if (errorDiv) {
+              errorDiv.innerText = 'Lỗi: ' + err.message;
+              errorDiv.style.display = 'block';
+          } else {
+              alert('Lỗi: ' + err.message);
+          }
+        } finally {
+          btnDownload.style.display = 'block';
+          if (btnPdf) btnPdf.style.display = 'block';
           quoteLoading.style.display = 'none';
         }
     }

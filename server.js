@@ -6653,6 +6653,410 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
 });
 
 
+app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) => {
+  try {
+    const {
+      buildConfig, customerName, contactInfo, customerPhone,
+      isGeneralQuote = false, templateType = 'consumer',
+      globalDiscount = { value: 0, type: 'amount' },
+      validityDays = 3, notes = ''
+    } = req.body;
+
+    const buildConfigSafe = buildConfig && typeof buildConfig === 'object' ? buildConfig : {};
+    const items = Object.entries(buildConfigSafe)
+      .filter(([key, val]) => !key.startsWith('_') && val && typeof val === 'object')
+      .map(([key, rawItem]) => {
+        const item = { ...rawItem };
+        item.quantity = Math.max(1, Number(item.quantity) || 1);
+        item.item_discount = Math.max(0, Number(item.item_discount) || 0);
+        item.list_price = Number(item.list_price) || 0;
+        if (item.edited_price !== undefined && item.edited_price !== null && item.edited_price !== '') {
+          item.edited_price = Number(item.edited_price) || 0;
+        }
+        item.quote_detailed_specs = String(item.quote_detailed_specs || '').replace(/\r\n/g, '\n').slice(0, 12000);
+        return item;
+      });
+
+    if (items.length === 0) return res.status(400).json({ ok: false, error: 'Không có sản phẩm.' });
+
+    let totalItemsPrice = 0;
+    items.forEach(item => {
+      const price = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
+      totalItemsPrice += (price - (item.item_discount || 0)) * item.quantity;
+    });
+
+    let globalDiscountAmt = globalDiscount.type === 'percent'
+      ? Math.round(totalItemsPrice * (globalDiscount.value / 100))
+      : Number(globalDiscount.value) || 0;
+    if (globalDiscountAmt > totalItemsPrice) globalDiscountAmt = totalItemsPrice;
+
+    let promoDiscount = 0;
+    let promoName = '';
+    if (!isGeneralQuote) {
+      const tiers = [
+        { min: 50000000, discount: 1000000, name: 'Build PC - Giảm 1,000,000 VNĐ' },
+        { min: 30000000, discount: 600000,  name: 'Build PC - Giảm 600,000 VNĐ' },
+        { min: 20000000, discount: 400000,  name: 'Build PC - Giảm 400,000 VNĐ' },
+        { min: 10000000, discount: 200000,  name: 'Build PC - Giảm 200,000 VNĐ' }
+      ];
+      for (const tier of tiers) {
+        if (totalItemsPrice >= tier.min) { promoDiscount = tier.discount; promoName = tier.name; break; }
+      }
+    }
+
+    const finalTotal = totalItemsPrice - globalDiscountAmt - promoDiscount;
+    const taxFreeSubcats = ['NH09-02-01-01', 'NH09-02-01-02', 'NH09-01-01'];
+
+    const userFullName = req.session.user?.full_name || 'Nhân viên Phong Vũ';
+    const userBranchCode = req.session.user?.branch_code || 'DEFAULT';
+    const branchInfo = BRANCH_CONFIG[userBranchCode] || BRANCH_CONFIG['DEFAULT'];
+    const todayStr = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Báo giá', {
+      pageSetup: { paperSize: 9, orientation: 'landscape' }
+    });
+
+    // ─── Font & Style definitions ─────────────────────────────────────────────
+    const fNormal  = { name: 'Arial', size: 10 };
+    const fBold    = { name: 'Arial', size: 10, bold: true };
+    const fTitle   = { name: 'Arial', size: 16, bold: true };
+    const fHeader  = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    const fSmall   = { name: 'Arial', size: 9 };
+    const fSmallBold = { name: 'Arial', size: 9, bold: true };
+    const fRed     = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFCC0000' } };
+    const fBlue    = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0000CC' } };
+    const fillHdr  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0C65CE' } };
+    const fillSub  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0FE' } };
+    const bdrAll   = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+    const bdrTop   = { top: {style:'medium'}, bottom: {style:'thin'} };
+    const VND      = '#,##0';
+
+    // ─── Column definitions ───────────────────────────────────────────────────
+    const hasDiscount = items.some(i => (i.item_discount || 0) > 0);
+    const hasSpecs    = items.some(i => String(i.quote_detailed_specs || '').trim().length > 0);
+
+    const cols = [
+      { key: 'stt',  width: 5 },
+      { key: 'sku',  width: 16 },
+      { key: 'name', width: hasSpecs ? 28 : 46 },
+    ];
+    if (hasSpecs) cols.push({ key: 'specs', width: 36 });
+    cols.push({ key: 'dvt', width: 7 });
+    cols.push({ key: 'sl',  width: 6 });
+
+    if (templateType === 'b2b') {
+      cols.push({ key: 'price', width: 15 });
+      if (hasDiscount) cols.push({ key: 'discount', width: 14 });
+      cols.push({ key: 'total', width: 15 });
+      cols.push({ key: 'vat',   width: 8  });
+      cols.push({ key: 'final', width: 15 });
+    } else {
+      cols.push({ key: 'price', width: 15 });
+      if (hasDiscount) cols.push({ key: 'discount', width: 14 });
+      cols.push({ key: 'final', width: 15 });
+    }
+
+    cols.forEach((col, idx) => {
+      const c = ws.getColumn(idx + 1);
+      c.key   = col.key;
+      c.width = col.width;
+    });
+
+    const lastCol  = ws.getColumn(cols.length).letter;   // e.g. 'J'
+    const nCols    = cols.length;
+    const halfCol  = ws.getColumn(Math.ceil(nCols / 2)).letter; // midpoint
+
+    // Helper: addMergedRow(text, startLetter, endLetter, font, alignment, rowHeight)
+    function addMergedRow(text, startLetter, endLetter, font, align, height) {
+      const row = ws.addRow([]);
+      if (height) row.height = height;
+      ws.mergeCells(`${startLetter}${row.number}:${endLetter}${row.number}`);
+      const cell = row.getCell(startLetter);
+      cell.value = text;
+      if (font)  cell.font  = font;
+      if (align) cell.alignment = align;
+      return row;
+    }
+
+    // ─── ROW 1: Branch name (left) + address (right) ────────────────────────
+    const r1 = ws.addRow([]);
+    r1.height = 16;
+    ws.mergeCells(`A1:C1`);
+    ws.getCell('A1').value = branchInfo.name.toUpperCase();
+    ws.getCell('A1').font  = fBold;
+    ws.getCell('A1').alignment = { vertical: 'middle' };
+
+    ws.mergeCells(`D1:${lastCol}1`);
+    ws.getCell('D1').value = `Đ/c: ${branchInfo.address}`;
+    ws.getCell('D1').font  = fSmall;
+    ws.getCell('D1').alignment = { horizontal: 'right', vertical: 'middle' };
+
+    // ROW 2: MST + Hotline (right side only)
+    const r2 = ws.addRow([]);
+    r2.height = 14;
+    ws.mergeCells(`D2:${lastCol}2`);
+    ws.getCell('D2').value = `MST: ${branchInfo.mst} | Hotline: ${branchInfo.hotline} | Website: ${branchInfo.website || 'phongvu.vn'}`;
+    ws.getCell('D2').font  = fSmall;
+    ws.getCell('D2').alignment = { horizontal: 'right', vertical: 'middle' };
+
+    // ROW 3: blank separator
+    ws.addRow([]);
+
+    // ROW 4: Title
+    const titleRow = ws.addRow(['BẢNG BÁO GIÁ']);
+    titleRow.height = 28;
+    ws.mergeCells(`A${titleRow.number}:${lastCol}${titleRow.number}`);
+    titleRow.getCell(1).font      = fTitle;
+    titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // ROW 5: Date
+    const dateRow = ws.addRow([`(Ngày báo giá: ${todayStr})`]);
+    ws.mergeCells(`A${dateRow.number}:${lastCol}${dateRow.number}`);
+    dateRow.getCell(1).font      = { name:'Arial', size:10, italic:true, color:{ argb:'FF555555' } };
+    dateRow.getCell(1).alignment = { horizontal: 'center' };
+
+    // ROW 6: blank
+    ws.addRow([]);
+
+    // ROW 7-8: Customer | Sales info side by side
+    const midIdx = Math.floor(nCols / 2);
+    const midLetter = ws.getColumn(midIdx).letter;
+    const afterMidLetter = ws.getColumn(midIdx + 1).letter;
+
+    const cr1 = ws.addRow([]);
+    ws.mergeCells(`A${cr1.number}:${midLetter}${cr1.number}`);
+    ws.getCell(`A${cr1.number}`).value = `Kính gửi: ${customerName}`;
+    ws.getCell(`A${cr1.number}`).font  = fBold;
+    ws.mergeCells(`${afterMidLetter}${cr1.number}:${lastCol}${cr1.number}`);
+    ws.getCell(`${afterMidLetter}${cr1.number}`).value = `Nhân Viên Kinh Doanh: ${userFullName}`;
+    ws.getCell(`${afterMidLetter}${cr1.number}`).font  = fBold;
+
+    const cr2 = ws.addRow([]);
+    ws.mergeCells(`A${cr2.number}:${midLetter}${cr2.number}`);
+    ws.getCell(`A${cr2.number}`).value = `SĐT: ${customerPhone}`;
+    ws.getCell(`A${cr2.number}`).font  = fNormal;
+    ws.mergeCells(`${afterMidLetter}${cr2.number}:${lastCol}${cr2.number}`);
+    ws.getCell(`${afterMidLetter}${cr2.number}`).value = `SĐT/Zalo: ${contactInfo}`;
+    ws.getCell(`${afterMidLetter}${cr2.number}`).font  = fNormal;
+
+    ws.addRow([]);
+
+    // ─── TABLE HEADER ─────────────────────────────────────────────────────────
+    const hdrLabels = {
+      b2b: {
+        stt:'STT', sku:'Mã SP', name:'Tên sản phẩm', specs:'Thông số chi tiết',
+        dvt:'ĐVT', sl:'SL', price:'Đơn giá\n(Chưa VAT)', discount:'Giảm giá\n(Chi tiết)',
+        total:'Thành tiền\n(Chưa VAT)', vat:'VAT\n(%)', final:'Tổng cộng\n(Gồm VAT)'
+      },
+      consumer: {
+        stt:'STT', sku:'Mã SP', name:'Tên sản phẩm', specs:'Thông số chi tiết',
+        dvt:'ĐVT', sl:'SL', price:'Đơn giá\n(Gồm VAT)', discount:'Giảm giá\n(Chi tiết)',
+        final:'Thành tiền\n(Gồm VAT)'
+      }
+    };
+    const labels = hdrLabels[templateType] || hdrLabels.consumer;
+
+    const hdrValues = cols.map(c => labels[c.key] || c.key);
+    const hdrRow = ws.addRow(hdrValues);
+    hdrRow.height = 32;
+    hdrRow.eachCell(cell => {
+      cell.font      = fHeader;
+      cell.fill      = fillHdr;
+      cell.border    = bdrAll;
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    });
+
+    // ─── TABLE DATA ───────────────────────────────────────────────────────────
+    let grandExVat = 0, grandVat = 0;
+
+    items.forEach((item, idx) => {
+      const isTaxFree   = taxFreeSubcats.includes(item.subcat);
+      const taxDivisor  = isTaxFree ? 1 : 1.08;
+      const taxRate     = isTaxFree ? 0 : 0.08;
+
+      const uPriceInc   = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
+      const uDiscInc    = item.item_discount || 0;
+      const lineTotalInc= (uPriceInc - uDiscInc) * item.quantity;
+      const uPriceEx    = Math.round(uPriceInc / taxDivisor);
+      const uDiscEx     = Math.round(uDiscInc / taxDivisor);
+      const lineTotalEx = (uPriceEx - uDiscEx) * item.quantity;
+      const vatAmt      = lineTotalInc - lineTotalEx;
+
+      grandExVat += lineTotalEx;
+      grandVat   += vatAmt;
+
+      const rd = {
+        stt:  idx + 1,
+        sku:  item.sku,
+        name: item.product_name || item.name || '',
+        dvt: 'Cái',
+        sl:   item.quantity
+      };
+      if (hasSpecs) rd.specs = item.quote_detailed_specs || '';
+
+      if (templateType === 'b2b') {
+        rd.price    = uPriceEx;
+        if (hasDiscount) rd.discount = uDiscEx;
+        rd.total    = lineTotalEx;
+        rd.vat      = taxRate > 0 ? '8%' : '0%';
+        rd.final    = lineTotalInc;
+      } else {
+        rd.price    = uPriceInc;
+        if (hasDiscount) rd.discount = uDiscInc;
+        rd.final    = lineTotalInc;
+      }
+
+      const row = ws.addRow(rd);
+      // Không set row.height cố định → Excel tự giãn dòng theo nội dung (wrapText)
+      row.eachCell((cell, cNum) => {
+        const colKey = cols[cNum - 1]?.key;
+        cell.font    = fNormal;
+        cell.border  = bdrAll;
+        if (['stt','dvt','sl','vat'].includes(colKey)) {
+          cell.alignment = { horizontal: 'center', vertical: 'top', wrapText: true };
+        } else if (['price','discount','total','final'].includes(colKey)) {
+          cell.alignment = { horizontal: 'right', vertical: 'top', wrapText: true };
+          cell.numFmt    = VND;
+        } else {
+          cell.alignment = { vertical: 'top', wrapText: true };
+        }
+      });
+    });
+
+    // ─── TOTALS SECTION ───────────────────────────────────────────────────────
+    const colMergeEnd = ws.getColumn(nCols - 1).letter;
+
+    function addTotalRow(label, value, fontStyle) {
+      const row = ws.addRow([]);
+      ws.mergeCells(`A${row.number}:${colMergeEnd}${row.number}`);
+      row.getCell(1).value     = label;
+      row.getCell(1).font      = fontStyle || fBold;
+      row.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+      row.getCell(nCols).value  = value;
+      row.getCell(nCols).numFmt = VND;
+      row.getCell(nCols).font   = fontStyle || fBold;
+      row.getCell(nCols).border = bdrAll;
+      row.getCell(nCols).alignment = { horizontal: 'right', vertical: 'middle' };
+      return row;
+    }
+
+    if (templateType === 'b2b') {
+      addTotalRow('Cộng tiền hàng (Chưa VAT):', grandExVat, fBold);
+      addTotalRow('Tiền Thuế GTGT (8%):', grandVat, fBold);
+    }
+
+    addTotalRow('Cộng tiền hàng (Gồm VAT):', totalItemsPrice, fBold);
+
+    if (globalDiscountAmt > 0) addTotalRow('Giảm giá thêm / Chiết khấu:', -globalDiscountAmt, fRed);
+    if (promoDiscount > 0)     addTotalRow(`${promoName}:`, -promoDiscount, fRed);
+
+    const grandRow = addTotalRow('TỔNG THANH TOÁN:', finalTotal, fBlue);
+    grandRow.height = 22;
+    grandRow.getCell(1).font  = { name:'Arial', size:11, bold:true, color:{ argb:'FF0000CC' } };
+    grandRow.getCell(nCols).font = { name:'Arial', size:11, bold:true, color:{ argb:'FF0000CC' } };
+
+    // ─── FOOTER TERMS ─────────────────────────────────────────────────────────
+    ws.addRow([]);
+
+    const termsData = [
+      ['Đơn vị tiền tệ được sử dụng trong báo giá là Việt Nam Đồng (VNĐ).', true],
+      [`Điều kiện giao hàng: Giao hàng 1 lần tại kho Phong Vũ.`, false],
+      [`Điều kiện thanh toán: 100% trước khi giao hàng.`, false],
+      [`Bảo hành: Theo tiêu chuẩn Nhà sản xuất. Địa điểm bảo hành: tham khảo website phongvu.vn`, false],
+      [`Hiệu lực báo giá: Báo giá có hiệu lực ${validityDays} ngày kể từ ngày báo giá.`, false],
+    ];
+    if (notes && notes.trim()) termsData.push([`Ghi chú: ${notes}`, false]);
+
+    termsData.forEach(([text, bold]) => {
+      const row = ws.addRow([]);
+      ws.mergeCells(`A${row.number}:${lastCol}${row.number}`);
+      row.getCell(1).value = text;
+      row.getCell(1).font  = bold ? fSmallBold : fSmall;
+      row.getCell(1).alignment = { wrapText: true };
+    });
+
+    ws.addRow([]);
+
+    // Bank info
+    const bankRow = ws.addRow([]);
+    ws.mergeCells(`A${bankRow.number}:${lastCol}${bankRow.number}`);
+    bankRow.getCell(1).value = 'Thanh toán tại cửa hàng hoặc chuyển khoản:';
+    bankRow.getCell(1).font  = fSmallBold;
+
+    const bankLines = [
+      `- Ngân hàng: ${branchInfo.bankName}`,
+      `- Số tài khoản: ${branchInfo.bankAccount}`,
+      `- Tên tài khoản: ${branchInfo.bankHolder}`,
+    ];
+    bankLines.forEach(line => {
+      const row = ws.addRow([]);
+      ws.mergeCells(`A${row.number}:${lastCol}${row.number}`);
+      row.getCell(1).value = line;
+      row.getCell(1).font  = fSmall;
+    });
+
+    // ─── SIGNATURE SECTION ────────────────────────────────────────────────────
+    ws.addRow([]);
+    ws.addRow([]);
+
+    const sigRow = ws.addRow([]);
+    sigRow.height = 14;
+    ws.mergeCells(`A${sigRow.number}:${midLetter}${sigRow.number}`);
+    ws.getCell(`A${sigRow.number}`).value     = 'Xác nhận đặt hàng';
+    ws.getCell(`A${sigRow.number}`).font      = fBold;
+    ws.getCell(`A${sigRow.number}`).alignment = { horizontal: 'center' };
+
+    ws.mergeCells(`${afterMidLetter}${sigRow.number}:${lastCol}${sigRow.number}`);
+    ws.getCell(`${afterMidLetter}${sigRow.number}`).value     = 'Đại diện Kinh doanh';
+    ws.getCell(`${afterMidLetter}${sigRow.number}`).font      = fBold;
+    ws.getCell(`${afterMidLetter}${sigRow.number}`).alignment = { horizontal: 'center' };
+
+    const sigSub = ws.addRow([]);
+    ws.mergeCells(`A${sigSub.number}:${midLetter}${sigSub.number}`);
+    ws.getCell(`A${sigSub.number}`).value     = '(Ký, ghi rõ họ tên, đóng dấu)';
+    ws.getCell(`A${sigSub.number}`).font      = { name:'Arial', size:9, italic:true };
+    ws.getCell(`A${sigSub.number}`).alignment = { horizontal: 'center' };
+
+    ws.mergeCells(`${afterMidLetter}${sigSub.number}:${lastCol}${sigSub.number}`);
+    ws.getCell(`${afterMidLetter}${sigSub.number}`).value     = '(Ký, ghi rõ họ tên)';
+    ws.getCell(`${afterMidLetter}${sigSub.number}`).font      = { name:'Arial', size:9, italic:true };
+    ws.getCell(`${afterMidLetter}${sigSub.number}`).alignment = { horizontal: 'center' };
+
+    // Blank rows for signature space
+    for (let i = 0; i < 4; i++) {
+      const sr = ws.addRow([]);
+      sr.height = 16;
+    }
+
+    const sigName = ws.addRow([]);
+    ws.mergeCells(`${afterMidLetter}${sigName.number}:${lastCol}${sigName.number}`);
+    ws.getCell(`${afterMidLetter}${sigName.number}`).value     = userFullName;
+    ws.getCell(`${afterMidLetter}${sigName.number}`).font      = fBold;
+    ws.getCell(`${afterMidLetter}${sigName.number}`).alignment = { horizontal: 'center' };
+
+    // ─── SEND ─────────────────────────────────────────────────────────────────
+    const safeName = customerName.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D").replace(/[^a-zA-Z0-9]/g,'_');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="BaoGia_${safeName}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
+
+  } catch (e) {
+    console.error('Lỗi API Báo giá Excel:', e);
+    if (!res.headersSent) res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
+
+
+
+
+
+
+
 // (Trong file server.js)
 app.get('/quote-builder', requireAuth, (req, res) => {
   res.render('quote-builder', {

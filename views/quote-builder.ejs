@@ -282,9 +282,14 @@
         <textarea id="quoteNotes" style="width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 6px; height: 60px; resize: vertical;" placeholder="Nhập ghi chú riêng cho báo giá..."></textarea>
       </div>
 
-      <button type="button" class="btn btn-primary" style="width: 100%; padding: 12px; font-weight: 700;" id="btnDownloadPDF">
-        <i class="fas fa-file-pdf"></i> Xác nhận & Tải PDF
-      </button>
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button type="button" class="btn btn-primary" style="flex: 1; padding: 12px; font-weight: 700;" id="btnDownloadPDF">
+          <i class="fas fa-file-pdf"></i> Xuất PDF
+        </button>
+        <button type="button" class="btn" style="flex: 1; padding: 12px; font-weight: 700; background-color: #107c41; color: white; border: none; border-radius: 6px; cursor: pointer;" id="btnDownloadExcel">
+          <i class="fas fa-file-excel"></i> Xuất Excel
+        </button>
+      </div>
       
       <div id="downloadError" style="color: #ef4444; text-align: center; margin-top: 10px; font-size: 13px; display: none;"></div>
       <div id="quoteLoading" class="dash-muted" style="text-align: center; padding: 15px; display: none;">
@@ -1027,6 +1032,8 @@ document.addEventListener('DOMContentLoaded', function() {
       quoteModal.style.display = 'flex';
       btnDownload.style.display = 'block'; 
       btnDownload.disabled = false;
+      document.getElementById('btnDownloadExcel').style.display = 'block';
+      document.getElementById('btnDownloadExcel').disabled = false;
       quoteLoading.style.display = 'none';
       downloadError.style.display = 'none';
   };
@@ -1178,8 +1185,104 @@ document.addEventListener('DOMContentLoaded', function() {
           downloadError.style.display = 'block';
       } finally {
           btnDownload.style.display = 'block'; 
+          document.getElementById('btnDownloadExcel').style.display = 'block';
           quoteLoading.style.display = 'none';
-          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file PDF...';
+          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file...';
+      }
+  };
+
+  document.getElementById('btnDownloadExcel').onclick = async () => {
+      const name = document.getElementById('quoteCustomerName').value.trim();
+      const phone = document.getElementById('quoteCustomerPhone').value.trim();
+      const contact = document.getElementById('quoteContactInfo').value.trim();
+      const notes = document.getElementById('quoteNotes').value.trim();
+      
+      if(!name || !phone || !contact) {
+          alert('Vui lòng nhập đầy đủ thông tin khách hàng và liên hệ.');
+          return;
+      }
+
+      btnDownload.style.display = 'none'; 
+      document.getElementById('btnDownloadExcel').style.display = 'none';
+      quoteLoading.style.display = 'block';
+      downloadError.style.display = 'none';
+
+      let buildConfigPayload = {};
+      try {
+          buildConfigPayload = await buildConfigPayloadForExport();
+      } catch (uploadErr) {
+          quoteLoading.style.display = 'none';
+          btnDownload.style.display = 'block';
+          document.getElementById('btnDownloadExcel').style.display = 'block';
+          downloadError.innerText = 'Lỗi upload ảnh: ' + uploadErr.message;
+          downloadError.style.display = 'block';
+          return;
+      }
+      
+      const payload = {
+          buildConfig: buildConfigPayload,
+          customerName: name, 
+          customerPhone: phone, 
+          contactInfo: contact,
+          isGeneralQuote: true, 
+          notes: notes,
+          globalDiscount: { 
+              value: Number(globalDiscountVal.value)||0, 
+              type: globalDiscountType.value 
+          },
+          validityDays: Number(quoteValidity.value)||3,
+          templateType: document.querySelector('input[name="printTemplate"]:checked').value
+      };
+
+      try {
+          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu & tạo file Excel...';
+          
+          // Lưu lịch sử
+          const totalAmtElem = document.getElementById('final-total-price');
+          const totalAmt = Number((totalAmtElem.textContent||'').replace(/\D/g, '')) || 0;
+          fetch('/api/quote-history', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({...payload, totalAmount: totalAmt})
+          }).catch(e => console.error('Lỗi ngầm khi lưu lịch sử quote:', e));
+
+          const res = await fetch('/api/pc-builder/generate-quote-excel', {
+              method: 'POST', 
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify(payload)
+          });
+          
+          if(!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Lỗi kết nối server');
+          }
+          
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none'; 
+          a.href = url; 
+          
+          const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g,'_');
+          a.download = `BaoGia_${safeName}.xlsx`;
+          
+          document.body.appendChild(a); 
+          a.click();
+          
+          setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+          
+          quoteModal.style.display = 'none';
+          if(typeof showToast === 'function') showToast('Đã tải báo giá Excel thành công!', 'success');
+
+      } catch(e) {
+          console.error(e);
+          downloadError.innerText = 'Lỗi: ' + e.message;
+          downloadError.style.display = 'block';
+      } finally {
+          btnDownload.style.display = 'block'; 
+          document.getElementById('btnDownloadExcel').style.display = 'block';
+          quoteLoading.style.display = 'none';
+          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file...';
       }
   };
 
