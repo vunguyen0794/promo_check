@@ -1133,7 +1133,18 @@
                             <div><span class="copy-btn" onclick="showCouponListModal(this)" data-promo-name="<%= p.name %>" data-coupons='<%- JSON.stringify(p.coupon_list) %>'>Xem <%= p.coupon_list.length %> mã ❐</span></div>
                         <% } %>
                         
-                        <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                        <% if (typeof p.is_sheet_promo !== 'undefined' && p.is_sheet_promo) { %>
+                            <% if (p.conditions) { %>
+                                <div style="margin-top: 8px; font-size: 12px; color: #475569; border-top: 1px dashed #e2e8f0; padding-top: 6px; white-space: pre-line;">
+                                    <strong>Điều kiện:</strong> <%= p.conditions %>
+                                </div>
+                            <% } %>
+                            <% if (p.detail_link) { %>
+                                <a href="<%= p.detail_link %>" target="_blank" class="p-link" style="color: #059669; font-weight: bold; margin-top: 8px; display: inline-block;">Link vận hành ↗</a>
+                            <% } %>
+                        <% } else { %>
+                            <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                        <% } %>
                     </div>
                 <% }) %>
             </div>
@@ -1178,7 +1189,18 @@
                             </div>
                         <% } %>
 
-                        <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                        <% if (typeof p.is_sheet_promo !== 'undefined' && p.is_sheet_promo) { %>
+                            <% if (p.conditions) { %>
+                                <div style="margin-top: 8px; font-size: 12px; color: #475569; border-top: 1px dashed #e2e8f0; padding-top: 6px; white-space: pre-line;">
+                                    <strong>Điều kiện:</strong> <%= p.conditions %>
+                                </div>
+                            <% } %>
+                            <% if (p.detail_link) { %>
+                                <a href="<%= p.detail_link %>" target="_blank" class="p-link" style="color: #059669; font-weight: bold; margin-top: 8px; display: inline-block;">Link vận hành ↗</a>
+                            <% } %>
+                        <% } else { %>
+                            <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                        <% } %>
                     </div>
                 <% }) %>
             </div>
@@ -1226,7 +1248,18 @@
                         </div>
 
                         <div class="p-desc"><%= p.description || 'Giảm thêm khi thanh toán qua đối tác' %></div>
-                        <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                        <% if (typeof p.is_sheet_promo !== 'undefined' && p.is_sheet_promo) { %>
+                            <% if (p.conditions) { %>
+                                <div style="margin-top: 8px; font-size: 12px; color: #475569; border-top: 1px dashed #e2e8f0; padding-top: 6px; white-space: pre-line;">
+                                    <strong>Điều kiện:</strong> <%= p.conditions %>
+                                </div>
+                            <% } %>
+                            <% if (p.detail_link) { %>
+                                <a href="<%= p.detail_link %>" target="_blank" class="p-link" style="color: #059669; font-weight: bold; margin-top: 8px; display: inline-block;">Link vận hành ↗</a>
+                            <% } %>
+                        <% } else { %>
+                            <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                        <% } %>
                     </div>
                 <% }) %>
             </div>
@@ -1240,7 +1273,18 @@
                     <div class="promo-card-item">
                         <div class="p-title"><%= p.name %></div>
                         <div class="p-desc"><%= p.description || 'Lãi suất ưu đãi qua công ty tài chính hoặc thẻ tín dụng' %></div>
-                        <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                        <% if (typeof p.is_sheet_promo !== 'undefined' && p.is_sheet_promo) { %>
+                            <% if (p.conditions) { %>
+                                <div style="margin-top: 8px; font-size: 12px; color: #475569; border-top: 1px dashed #e2e8f0; padding-top: 6px; white-space: pre-line;">
+                                    <strong>Điều kiện:</strong> <%= p.conditions %>
+                                </div>
+                            <% } %>
+                            <% if (p.detail_link) { %>
+                                <a href="<%= p.detail_link %>" target="_blank" class="p-link" style="color: #059669; font-weight: bold; margin-top: 8px; display: inline-block;">Link vận hành ↗</a>
+                            <% } %>
+                        <% } else { %>
+                            <a href="/promotion-detail/<%= p.id %>" class="p-link">Chi tiết ></a>
+                        <% } %>
                     </div>
                 <% }) %>
             </div>
@@ -1248,7 +1292,7 @@
     
             <% if (hasOther) { %>
     <div class="block-std-wrapper">
-        <div class="block-title-std">🎁 Quà tặng & Combo khác</div>
+        <div class="block-title-std">CTKM Khả dụng</div>
         <% promoGroups.other.forEach(p => { %>
             <div class="promo-card-item">
                 <div class="p-title"><%= p.name %></div>
@@ -1406,7 +1450,18 @@
                     </div>
                 <% } %>
 
-                <a href="/promotion-detail/<%= p.id %>" class="p-link" style="margin-top:5px; display:inline-block;">Chi tiết chương trình ></a>
+                <% if (typeof p.is_sheet_promo !== 'undefined' && p.is_sheet_promo) { %>
+                    <% if (p.conditions) { %>
+                        <div style="margin-top: 8px; font-size: 12px; color: #475569; border-top: 1px dashed #e2e8f0; padding-top: 6px; white-space: pre-line;">
+                            <strong>Điều kiện:</strong> <%= p.conditions %>
+                        </div>
+                    <% } %>
+                    <% if (p.detail_link) { %>
+                        <a href="<%= p.detail_link %>" target="_blank" class="p-link" style="color: #059669; font-weight: bold; margin-top: 8px; display: inline-block;">Link vận hành ↗</a>
+                    <% } %>
+                <% } else { %>
+                    <a href="/promotion-detail/<%= p.id %>" class="p-link" style="margin-top:5px; display:inline-block;">Chi tiết chương trình ></a>
+                <% } %>
             </div>
         <% }) %>
     </div>

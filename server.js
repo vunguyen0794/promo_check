@@ -32,6 +32,7 @@ const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto'); // Có sẵn trong Node.js
 const { syncInventory } = require('./sync_inventory'); // IMPORT SCRIPT SYNC
+const { syncPromotions } = require('./utils/sync_promotions'); // IMPORT GOOGLE SHEET SYNC
 
 const isVercel = !!process.env.VERCEL;
 
@@ -1431,7 +1432,7 @@ app.get('/', requireAuth, async (req, res) => {
     const { data: compatRows } = await supabase.from('promotion_compat_allows').select('promotion_id').in('promotion_id', promoIds);
     const promosWithAllowRules = new Set((compatRows || []).map(r => r.promotion_id));
 
-    const promosWithStackInfo = allPromos.map(p => {
+    const promosWithStackInfoBase = allPromos.map(p => {
       let displayDiscount = null; let displayPrefix = 'Giảm'; let discountValueForSort = 0;
       if (p.coupon_list && p.coupon_list.length > 0) {
         const discounts = p.coupon_list.map(c => parseFloat(String(c.discount).replace(/[^0-9]/g, '')) || 0);
@@ -1447,6 +1448,81 @@ app.get('/', requireAuth, async (req, res) => {
       const isStackable = p.compatible_with_other_promos === true || promosWithAllowRules.has(p.id);
       return { ...p, __stackable: isStackable, __display_discount: displayDiscount, __display_prefix: displayPrefix, __sort_value: discountValueForSort };
     });
+
+    // 1.1. Query active sheet promos (promo_sku_master)
+    const { data: sheetPromosRaw } = await supabase
+      .from('promo_sku_master')
+      .select('id, sheet_name, program_name, sku, category, product_name, brand, list_price, promo_price, online_coupon, gift_sku, gift_name, limit_qty, kfi_value, start_date, end_date, detail_link, conditions')
+      .lte('start_date', today)
+      .gte('end_date', today);
+
+    // Group or filter to unique ones in JS and collect SKUs
+    const uniqueSheetPromosMap = {};
+    (sheetPromosRaw || []).forEach(sp => {
+      const key = sp.sheet_name + "_" + sp.program_name;
+      if (!uniqueSheetPromosMap[key]) {
+        uniqueSheetPromosMap[key] = {
+          ...sp,
+          skus: [sp.sku]
+        };
+      } else {
+        uniqueSheetPromosMap[key].skus.push(sp.sku);
+      }
+    });
+
+    const mappedSheetPromos = Object.values(uniqueSheetPromosMap).map(sp => {
+      let displayDiscount = null;
+      let displayPrefix = 'Giảm';
+      let discountValueForSort = 0;
+
+      if (sp.list_price && sp.promo_price) {
+        const amt = sp.list_price - sp.promo_price;
+        if (amt > 0) {
+          displayDiscount = amt;
+          discountValueForSort = amt;
+        }
+      } else if (sp.online_coupon) {
+        const match = sp.online_coupon.match(/(\d+)\s*(k|K)/);
+        if (match) {
+          const parsed = parseInt(match[1], 10) * 1000;
+          displayDiscount = parsed;
+          discountValueForSort = parsed;
+        }
+      }
+
+      const isGift = !!(sp.gift_name || sp.gift_sku);
+      const isKFI = !!sp.kfi_value;
+
+      let desc = sp.conditions || '';
+      if (sp.gift_name) {
+        desc = "🎁 Quà tặng: " + sp.gift_name + (desc ? ' | ' + desc : '');
+      } else if (sp.online_coupon) {
+        desc = "Coupon: " + sp.online_coupon + (desc ? ' | ' + desc : '');
+      }
+
+      return {
+        id: "sheet_" + sp.id,
+        name: sp.program_name || sp.sheet_name,
+        group_name: sp.sheet_name,
+        promo_type: isKFI ? 'KFI' : (isGift ? 'Gift' : 'Discount'),
+        description: desc,
+        start_date: sp.start_date,
+        end_date: sp.end_date,
+        is_sheet_promo: true,
+        detail_link: sp.detail_link,
+        conditions: sp.conditions,
+        promotion_skus: (sp.skus || []).map(s => ({ sku: s })),
+        __stackable: true,
+        __display_discount: displayDiscount,
+        __display_prefix: displayPrefix,
+        __sort_value: discountValueForSort
+      };
+    });
+
+    const promosWithStackInfo = [
+      ...promosWithStackInfoBase,
+      ...mappedSheetPromos
+    ];
 
     const userBranch = req.session.user?.branch_code;
 
@@ -1496,12 +1572,27 @@ app.get('/', requireAuth, async (req, res) => {
       // --- ƯU TIÊN 1: KFI LUÔN LÊN ĐẦU ---
       const isKfiA = (a.promo_type === 'KFI');
       const isKfiB = (b.promo_type === 'KFI');
+      if (isKfiA && !isKfiB) return -1;
+      if (!isKfiA && isKfiB) return 1;
 
-      if (isKfiA && !isKfiB) return -1; // A là KFI -> Lên trước
-      if (!isKfiA && isKfiB) return 1;  // B là KFI -> Lên trước
+      // --- ƯU TIÊN 2: SẮP THEO GIÁ TRỊ GIẢM ---
+      const valA = a.__sort_value || 0;
+      const valB = b.__sort_value || 0;
+      if (valA !== valB) return valB - valA;
 
-      // --- ƯU TIÊN 2: SẮP THEO GIÁ TRỊ GIẢM (Code cũ) ---
-      return b.__sort_value - a.__sort_value;
+      // --- ƯU TIÊN 3: CÓ QUÀ TẶNG LÊN TRƯỚC ---
+      const isGiftA = (a.promo_type === 'Gift' || a.promo_type === 'Quà tặng (Gift)');
+      const isGiftB = (b.promo_type === 'Gift' || b.promo_type === 'Quà tặng (Gift)');
+      if (isGiftA && !isGiftB) return -1;
+      if (!isGiftA && isGiftB) return 1;
+
+      // --- ƯU TIÊN 4: THỨ TỰ TRONG DOCS (dựa trên id nếu là sheet promo) ---
+      const isSheetA = !!a.is_sheet_promo;
+      const isSheetB = !!b.is_sheet_promo;
+      if (isSheetA && isSheetB) {
+        return a.id.localeCompare(b.id);
+      }
+      return 0;
     });
 
     // Lấy danh sách nhóm (Sắp xếp A->Z)
@@ -1631,7 +1722,7 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
     const { data: compatRows } = await supabase.from('promotion_compat_allows').select('promotion_id').in('promotion_id', promoIds);
     const promosWithAllowRules = new Set((compatRows || []).map(r => r.promotion_id));
 
-    const promosWithStackInfo = allPromos.map(p => {
+    const promosWithStackInfoBase = allPromos.map(p => {
       let displayDiscount = null; let displayPrefix = 'Giảm'; let discountValueForSort = 0;
       if (p.coupon_list && p.coupon_list.length > 0) {
         const discounts = p.coupon_list.map(c => parseFloat(String(c.discount).replace(/[^0-9]/g, '')) || 0);
@@ -1646,6 +1737,81 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
       const isStackable = p.compatible_with_other_promos === true || promosWithAllowRules.has(p.id);
       return { ...p, __stackable: isStackable, __display_discount: displayDiscount, __display_prefix: displayPrefix, __sort_value: discountValueForSort };
     });
+
+    // 1.1. Query active sheet promos (promo_sku_master)
+    const { data: sheetPromosRaw } = await supabase
+      .from('promo_sku_master')
+      .select('id, sheet_name, program_name, sku, category, product_name, brand, list_price, promo_price, online_coupon, gift_sku, gift_name, limit_qty, kfi_value, start_date, end_date, detail_link, conditions')
+      .lte('start_date', today)
+      .gte('end_date', today);
+
+    // Group or filter to unique ones in JS and collect SKUs
+    const uniqueSheetPromosMap = {};
+    (sheetPromosRaw || []).forEach(sp => {
+      const key = sp.sheet_name + "_" + sp.program_name;
+      if (!uniqueSheetPromosMap[key]) {
+        uniqueSheetPromosMap[key] = {
+          ...sp,
+          skus: [sp.sku]
+        };
+      } else {
+        uniqueSheetPromosMap[key].skus.push(sp.sku);
+      }
+    });
+
+    const mappedSheetPromos = Object.values(uniqueSheetPromosMap).map(sp => {
+      let displayDiscount = null;
+      let displayPrefix = 'Giảm';
+      let discountValueForSort = 0;
+
+      if (sp.list_price && sp.promo_price) {
+        const amt = sp.list_price - sp.promo_price;
+        if (amt > 0) {
+          displayDiscount = amt;
+          discountValueForSort = amt;
+        }
+      } else if (sp.online_coupon) {
+        const match = sp.online_coupon.match(/(\d+)\s*(k|K)/);
+        if (match) {
+          const parsed = parseInt(match[1], 10) * 1000;
+          displayDiscount = parsed;
+          discountValueForSort = parsed;
+        }
+      }
+
+      const isGift = !!(sp.gift_name || sp.gift_sku);
+      const isKFI = !!sp.kfi_value;
+
+      let desc = sp.conditions || '';
+      if (sp.gift_name) {
+        desc = "🎁 Quà tặng: " + sp.gift_name + (desc ? ' | ' + desc : '');
+      } else if (sp.online_coupon) {
+        desc = "Coupon: " + sp.online_coupon + (desc ? ' | ' + desc : '');
+      }
+
+      return {
+        id: "sheet_" + sp.id,
+        name: sp.program_name || sp.sheet_name,
+        group_name: sp.sheet_name,
+        promo_type: isKFI ? 'KFI' : (isGift ? 'Gift' : 'Discount'),
+        description: desc,
+        start_date: sp.start_date,
+        end_date: sp.end_date,
+        is_sheet_promo: true,
+        detail_link: sp.detail_link,
+        conditions: sp.conditions,
+        promotion_skus: (sp.skus || []).map(s => ({ sku: s })),
+        __stackable: true,
+        __display_discount: displayDiscount,
+        __display_prefix: displayPrefix,
+        __sort_value: discountValueForSort
+      };
+    });
+
+    const promosWithStackInfo = [
+      ...promosWithStackInfoBase,
+      ...mappedSheetPromos
+    ];
 
     // --- LOGIC LỌC GIỐNG HỆT ROUTE TRANG CHỦ ---
     let filteredPromos = promosWithStackInfo;
@@ -1669,11 +1835,30 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
     }
 
     filteredPromos.sort((a, b) => {
+      // --- ƯU TIÊN 1: KFI LUÔN LÊN ĐẦU ---
       const isKfiA = (a.promo_type === 'KFI');
       const isKfiB = (b.promo_type === 'KFI');
       if (isKfiA && !isKfiB) return -1;
       if (!isKfiA && isKfiB) return 1;
-      return b.__sort_value - a.__sort_value;
+
+      // --- ƯU TIÊN 2: SẮP THEO GIÁ TRỊ GIẢM ---
+      const valA = a.__sort_value || 0;
+      const valB = b.__sort_value || 0;
+      if (valA !== valB) return valB - valA;
+
+      // --- ƯU TIÊN 3: CÓ QUÀ TẶNG LÊN TRƯỚC ---
+      const isGiftA = (a.promo_type === 'Gift' || a.promo_type === 'Quà tặng (Gift)');
+      const isGiftB = (b.promo_type === 'Gift' || b.promo_type === 'Quà tặng (Gift)');
+      if (isGiftA && !isGiftB) return -1;
+      if (!isGiftA && isGiftB) return 1;
+
+      // --- ƯU TIÊN 4: THỨ TỰ TRONG DOCS (dựa trên id nếu là sheet promo) ---
+      const isSheetA = !!a.is_sheet_promo;
+      const isSheetB = !!b.is_sheet_promo;
+      if (isSheetA && isSheetB) {
+        return a.id.localeCompare(b.id);
+      }
+      return 0;
     });
 
     const totalItems = filteredPromos.length;
@@ -2608,14 +2793,119 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       console.error("Lỗi khi lấy serials:", e_serial.message);
     }
 
-    // 2) Lấy các CTKM đang active
+    // 2) Lấy các CTKM đang active từ DB cũ
     const today = new Date().toISOString().split('T')[0];
     let { data: promosRaw } = await supabase
       .from('promotions')
       .select('*, promotion_skus(*), promotion_excluded_skus(*), detail_fields, group_name, subgroup_name')
       .lte('start_date', today)
       .gte('end_date', today)
-      .eq('status', 'active')
+      .eq('status', 'active');
+
+    // 2.1) Lấy các CTKM từ Google Sheets (promo_sku_master) đang active
+    // Hỗ trợ cả tra cứu theo SKU cụ thể và tra cứu theo Category/Subcat (nhóm sản phẩm) và CTKM dùng chung (All/ALL)
+    let orConditions = "sku.eq." + product.sku;
+    if (product.subcat) {
+      const parts = product.subcat.split('-');
+      let currentPrefix = '';
+      parts.forEach((part, index) => {
+        currentPrefix = index === 0 ? part : currentPrefix + '-' + part;
+        orConditions += ",sku.eq." + currentPrefix;
+      });
+    } else if (product.category) {
+      orConditions += ",sku.eq." + product.category;
+    }
+    orConditions += ",sku.eq.ALL,sku.eq.All";
+
+    let { data: sheetPromosRaw } = await supabase
+      .from('promo_sku_master')
+      .select('*')
+      .or(orConditions)
+      .lte('start_date', today)
+      .gte('end_date', today);
+
+    // De-duplicate / merge promotions from Google Sheets (grouped by program_name/sheet_name)
+    const groupedPromos = new Map();
+    (sheetPromosRaw || []).forEach(sp => {
+      const key = sp.program_name || sp.sheet_name;
+      if (!groupedPromos.has(key)) {
+        groupedPromos.set(key, { ...sp });
+      } else {
+        const existing = groupedPromos.get(key);
+        if (!existing.online_coupon && sp.online_coupon) {
+          existing.online_coupon = sp.online_coupon;
+        }
+        if (!existing.promo_price && sp.promo_price) {
+          existing.promo_price = sp.promo_price;
+          existing.list_price = sp.list_price;
+        }
+        if (!existing.gift_name && sp.gift_name) {
+          existing.gift_name = sp.gift_name;
+          existing.gift_sku = sp.gift_sku;
+        }
+        if (!existing.kfi_value && sp.kfi_value) {
+          existing.kfi_value = sp.kfi_value;
+        }
+        if (!existing.limit_qty && sp.limit_qty) {
+          existing.limit_qty = sp.limit_qty;
+        }
+      }
+    });
+
+    const mappedSheetPromos = Array.from(groupedPromos.values()).map(sp => {
+      let discount = 0;
+      if (sp.list_price && sp.promo_price) {
+        discount = Math.max(0, sp.list_price - sp.promo_price);
+      }
+      
+      let detail_fields = null;
+      if (sp.gift_name || sp.gift_sku) {
+        detail_fields = {
+          gift_options: [
+            {
+              code: sp.gift_sku || "QUATANG",
+              name: sp.gift_name || "Quà tặng đính kèm",
+              skus: sp.gift_sku ? [sp.gift_sku] : []
+            }
+          ]
+        };
+      }
+
+      let descParts = [];
+      if (sp.promo_price) {
+        descParts.push(`Giá KM: ${new Intl.NumberFormat('vi-VN').format(sp.promo_price)}đ (Giá NY: ${new Intl.NumberFormat('vi-VN').format(sp.list_price || product.list_price)}đ)`);
+      }
+      if (sp.online_coupon) {
+        descParts.push(`Giảm thêm online: ${sp.online_coupon}`);
+      }
+      if (sp.kfi_value) {
+        descParts.push(`KFI thưởng thêm: ${new Intl.NumberFormat('vi-VN').format(sp.kfi_value)}đ`);
+      }
+      if (sp.gift_name) {
+        descParts.push(`Quà tặng: ${sp.gift_name} (Mã: ${sp.gift_sku || 'N/A'})`);
+      }
+      if (sp.limit_qty) {
+        descParts.push(`Số lượng: ${sp.limit_qty}`);
+      }
+
+      return {
+        id: `sheet_${sp.id}`,
+        name: sp.program_name || sp.sheet_name,
+        description: descParts.join(' | '),
+        start_date: sp.start_date,
+        end_date: sp.end_date,
+        channel: sp.apply_channels || 'All',
+        promo_type: (sp.gift_name || sp.gift_sku) ? 'Gift' : 'Discount',
+        group_name: sp.sheet_name,
+        special_conditions: sp.conditions,
+        conditions: sp.conditions,
+        detail_link: sp.detail_link,
+        is_sheet_promo: true,
+        discount_amount_calc: discount,
+        detail_fields: detail_fields,
+        show_multiple_in_group: true,
+      };
+    });
 
     if (promosRaw && promosRaw.length > 0 && skuInput) {
       // 1. Tìm xem trong database KFI có thông tin SKU này không?
@@ -2713,7 +3003,10 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     console.log(`[DEBUG] Bước 3: Sau khi lọc theo SKU/Branch, còn lại ${filteredPromos.length} CTKM.`);
 
     internalContest = filteredPromos.find(p => p.promo_type === 'Thi đua nội bộ') || null;
-    const regularPromos = filteredPromos.filter(p => p.promo_type !== 'Thi đua nội bộ');
+    const regularPromos = [
+      ...filteredPromos.filter(p => p.promo_type !== 'Thi đua nội bộ'),
+      ...mappedSheetPromos
+    ];
 
     // 4) Map tên CTKM tương thích
     if (filteredPromos.length) {
@@ -7299,14 +7592,42 @@ app.post('/api/admin/sync-inventory', requireAuth, requireManager, async (req, r
 
 // ROUTE CRON T? D?NG: Ch?y h?ng ngày (Trigger b?i Vercel)
 // G?p chung SKU Sync và Inventory Sync d? ti?t ki?m Slot Cron (Vercel Hobby ch? cho 2 cái)
+// Thêm endpoint manual sync promotions cho nút bấm Admin
+app.post('/api/admin/sync-promotions', requireAuth, requireManager, async (req, res) => {
+  try {
+    await syncPromotions();
+    res.json({ ok: true, message: 'Đồng bộ CTKM từ Google Sheets thành công!' });
+  } catch (e) {
+    console.error('[SYNC PROMOTIONS] Lỗi:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/cron/sync-promotions', async (req, res) => {
+  const authHeader = req.headers.authorization || req.query.secret;
+  const secret = process.env.CRON_SECRET;
+  if (secret && authHeader !== secret && authHeader !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  console.log('[CRON] Starting promotions-only sync...');
+  try {
+    await syncPromotions();
+    res.json({ ok: true, source: 'cron-sync-promotions', message: 'Promotions synced successfully!' });
+  } catch (e) {
+    console.error('[CRON PROMOTIONS] Lỗi:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 app.get('/api/cron/sync-all', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  console.log('[CRON] Starting combined sync (SKUs + Inventory)...');
-  const results = { skus: null, inventory: null };
+  console.log('[CRON] Starting combined sync (SKUs + Inventory + Promotions)...');
+  const results = { skus: null, inventory: null, promotions: null };
 
   try {
     // 1. Sync SKUs
@@ -7323,6 +7644,11 @@ app.get('/api/cron/sync-all', async (req, res) => {
     await syncClearanceData();
     results.clearance = { ok: true };
     console.log('[CRON] Clearance Sync OK');
+
+    // 4. Sync Promotions from Google Sheets
+    await syncPromotions();
+    results.promotions = { ok: true };
+    console.log('[CRON] Promotions Sync OK');
 
     res.json({ ok: true, source: 'cron-sync-all', ...results });
   } catch (e) {

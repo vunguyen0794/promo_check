@@ -66,14 +66,19 @@ const totalItemValue = Number(totalItems) || (featuredPromos || []).length;
 
                 let linkHref = "/promotion-detail/" + p.id;
                 let linkText = "Chi tiết CTKM";
+                let targetAttr = "";
 
                 if (isKFI) {
                     linkHref = "/kfi-program";
                     linkText = "Xem tồn kho & thưởng";
+                } else if (p.is_sheet_promo) {
+                    linkHref = p.detail_link || "#";
+                    linkText = "Link vận hành ↗";
+                    targetAttr = 'target="_blank"';
                 }
             %>
 
-            <a class="promo-item promo-item--<%= expiry.level %>" href="<%= linkHref %>" data-expiry-level="<%= expiry.level %>">
+            <a class="promo-item promo-item--<%= expiry.level %>" href="<%= linkHref %>" <%= targetAttr %> data-expiry-level="<%= expiry.level %>">
                 <div class="promo-item__head">
                     <div class="promo-chip-stack">
                         <% if (p.group_name) { %>
