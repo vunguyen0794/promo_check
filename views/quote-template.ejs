@@ -473,7 +473,9 @@
                 <strong>Điều kiện thanh toán:</strong> 100% trước khi giao hàng.<br>
                 <strong>Bảo hành:</strong> Theo tiêu chuẩn Nhà sản xuất, Địa điểm bảo hành: tham khảo website phongvu.vn
                 để biết thêm chi tiết.<br>
-                <strong>Hiệu lực báo giá:</strong> Báo giá có hiệu lực <%= validityDays %> ngày.<br>
+                <% if (typeof validityDays !== 'undefined' && validityDays && Number(validityDays) > 0) { %>
+                    <strong>Hiệu lực báo giá:</strong> Báo giá có hiệu lực <%= validityDays %> ngày.<br>
+                <% } %>
                     <% if (typeof notes !=='undefined' && notes && notes.trim()) { %>
                         <strong>Ghi chú:</strong>
                         <%= notes %><br>

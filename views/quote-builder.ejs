@@ -178,12 +178,15 @@
             </div>
         </div>
         
-        <div class="setting-row">
-            <span class="setting-label">Hiệu lực báo giá:</span>
-            <div style="display:flex; align-items:center; gap:5px;">
-                <input type="number" id="quoteValidity" value="3" min="1" style="width:40px; text-align:center; border:1px solid #cbd5e1; border-radius:4px; padding:4px;">
-                <span>ngày</span>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                <span class="setting-label">Hiệu lực báo giá:</span>
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <input type="number" id="quoteValidity" value="" style="width:40px; text-align:center; border:1px solid #cbd5e1; border-radius:4px; padding:4px;">
+                    <span style="font-size:13px;">ngày</span>
+                </div>
             </div>
+            <div style="text-align: right; font-size:11px; color:#64748b;">(Bỏ trống ngày để ẩn)</div>
         </div>
 
         <div style="margin: 10px 0; border-top: 1px dashed #e2e8f0;"></div>
@@ -1135,7 +1138,7 @@ document.addEventListener('DOMContentLoaded', function() {
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
           },
-          validityDays: Number(quoteValidity.value)||3,
+          validityDays: quoteValidity.value,
           templateType: document.querySelector('input[name="printTemplate"]:checked').value
       };
 
@@ -1230,7 +1233,7 @@ document.addEventListener('DOMContentLoaded', function() {
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
           },
-          validityDays: Number(quoteValidity.value)||3,
+          validityDays: quoteValidity.value,
           templateType: document.querySelector('input[name="printTemplate"]:checked').value
       };
 

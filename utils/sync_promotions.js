@@ -357,11 +357,54 @@ async function syncPromotions() {
             kfi_value: colMap.kfi_value !== undefined ? parseMoney(r[colMap.kfi_value]) : null,
           };
 
+          // --- CUSTOM LOGIC FOR "ĐỔI ĐIỂM THI" ---
+          if (title.toUpperCase().includes('ĐỔI ĐIỂM') || title.toUpperCase().includes('ĐIỂM THI')) {
+            if (!record.online_coupon) {
+              record.online_coupon = 'Voucher đến 5 Triệu';
+            }
+            if (!record.conditions.includes('Tặng Voucher lên đến')) {
+              record.conditions += '\n\n* ƯU ĐÃI ĐỔI ĐIỂM THI:\n- Tặng Voucher lên đến 5.000.000đ (cho Laptop) hoặc quà tặng AirPods 4 (cho MacBook) tuỳ theo điểm thi (từ 6 điểm trở lên). Chi tiết tại trang CTKM.';
+            }
+          }
+          // ---------------------------------------
+
           allRecords.push(record);
           countRows++;
         }
       }
     }
+
+    // --- CUSTOM LOGIC FOR "ĐỔI ĐIỂM THI" (Category Level) ---
+    if (title.toUpperCase().includes('ĐỔI ĐIỂM') || title.toUpperCase().includes('ĐIỂM THI')) {
+      const brands = ['Lenovo', 'HP', 'Asus', 'Msi', 'Dell', 'Gigabyte'];
+      brands.forEach(b => {
+        allRecords.push({
+          sheet_name: title,
+          program_name: 'Khuyến mãi Đổi Điểm Thi (Voucher 2tr, 1.5tr, 1.3tr, 1tr)',
+          time_range: 'Thời gian: 01/07 - 31/10 hoặc đến khi hết số lượng',
+          start_date: '2026-07-01',
+          end_date: '2026-10-31',
+          apply_channels: 'All channels',
+          conditions: 'Tặng Voucher tuỳ theo điểm thi:\n- Từ 8đ: Giảm 2tr\n- Từ 7đ: Giảm 1.5tr\n- Từ 6đ: Giảm 1.3tr\n- Dưới 6đ: Giảm 1tr\nÁp dụng cho tất cả Laptop thuộc các thương hiệu Lenovo, HP, Asus, MSI, Dell, Gigabyte (trừ các mã có mã 5tr, 3tr riêng). Chi tiết tại trang CTKM.',
+          detail_link: 'https://docs.google.com/spreadsheets/d/1OHu6fDU-9IdHuvNFQfSoc1KUSFjvkOXjsGJixgSjnME/edit#gid=306880932',
+          sku: 'NH01',
+          category: 'Máy tính xách tay/ Laptop',
+          brand: b,
+          list_price: null,
+          promo_price: null,
+          promo_percent: null,
+          limit_qty: null,
+          online_coupon: 'Voucher Đổi Điểm (1-2Tr)',
+          no_gift_price: null,
+          gift_sku: null,
+          gift_name: null,
+          kfi_value: null,
+        });
+        countRows++;
+      });
+    }
+    // --------------------------------------------------------
+
     console.log(`[Sync CTKM] Đã bóc tách được ${countRows} sản phẩm từ sheet "${title}".`);
   }
 

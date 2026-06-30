@@ -276,14 +276,17 @@
         </div>
     </div>
 
-    <div id="bulkActionBar">
-        <div>
-            <strong id="selectedCount">0</strong> mục đang chọn
-            <button type="button" onclick="deselectAll()" style="background:none; border:none; color:#be123c; text-decoration:underline; cursor:pointer; margin-left:10px;">Bỏ chọn</button>
-        </div>
-        <button class="btn-bulk-delete" onclick="submitBulkDelete()">🗑️ Xóa các mục đã chọn</button>
+    <!-- TAB BUTTONS -->
+    <div style="display:flex; gap:10px; margin-bottom:15px; border-bottom:1px solid #cbd5e1; padding-bottom:8px;">
+        <button id="btnTabDb" onclick="switchTab('db')" class="tab-btn <%= typeof activeTab !== 'undefined' && activeTab === 'db' ? 'active' : '' %>" style="background:none; border:none; border-bottom:3px solid <%= typeof activeTab !== 'undefined' && activeTab === 'db' ? '#2563eb' : 'transparent' %>; color:<%= typeof activeTab !== 'undefined' && activeTab === 'db' ? '#2563eb' : '#64748b' %>; padding:6px 14px; font-weight:<%= typeof activeTab !== 'undefined' && activeTab === 'db' ? '700' : '600' %>; cursor:pointer; font-size:14px; margin-bottom:-9px;">
+            🗄️ CTKM Hệ thống
+        </button>
+        <button id="btnTabSheet" onclick="switchTab('sheet')" class="tab-btn <%= typeof activeTab !== 'undefined' && activeTab === 'sheet' ? 'active' : '' %>" style="background:none; border:none; border-bottom:3px solid <%= typeof activeTab !== 'undefined' && activeTab === 'sheet' ? '#2563eb' : 'transparent' %>; color:<%= typeof activeTab !== 'undefined' && activeTab === 'sheet' ? '#2563eb' : '#64748b' %>; padding:6px 14px; font-weight:<%= typeof activeTab !== 'undefined' && activeTab === 'sheet' ? '700' : '600' %>; cursor:pointer; font-size:14px; margin-bottom:-9px;">
+            📊 CTKM Google Sheets (<%= (sheetPromotions || []).length %>)
+        </button>
     </div>
-  
+
+    <!-- SEARCH AND FILTER (GLOBAL) -->
     <div class="search-and-filter">
         <div style="display:flex; align-items:center; gap:5px; padding-right:10px; border-right:1px solid #ddd;">
             <input type="checkbox" id="checkAll" style="width:18px; height:18px; cursor:pointer;">
@@ -295,6 +298,7 @@
 
         <form method="get" action="/promo-management" id="filterForm" class="filter-popover">
             <input type="hidden" name="q" id="qHidden" value="<%= q %>">
+            <input type="hidden" name="tab" id="tabHidden" value="<%= typeof activeTab !== 'undefined' ? activeTab : 'db' %>">
             
             <div class="popover-row">
                 <label>Trạng thái</label>
@@ -355,8 +359,17 @@
                 <a class="btn btn-secondary" href="/promo-management">Xóa lọc</a>
             </div>
         </form>
-        
     </div>
+
+    <!-- PANEL DB -->
+    <div id="panelDb" style="display: <%= typeof activeTab !== 'undefined' && activeTab === 'sheet' ? 'none' : 'block' %>;">
+        <div id="bulkActionBar">
+            <div>
+                <strong id="selectedCount">0</strong> mục đang chọn
+                <button type="button" onclick="deselectAll()" style="background:none; border:none; color:#be123c; text-decoration:underline; cursor:pointer; margin-left:10px;">Bỏ chọn</button>
+            </div>
+            <button class="btn-bulk-delete" onclick="submitBulkDelete()">🗑️ Xóa các mục đã chọn</button>
+        </div>
     
     <div class="promo-list">
         <% if (promotions && promotions.length> 0) { %>
@@ -426,6 +439,74 @@
             <% } %>
         </div>
     <% } %>
+    </div> <!-- End panelDb -->
+
+    <!-- PANEL GOOGLE SHEETS -->
+    <div id="panelSheet" style="display: <%= typeof activeTab !== 'undefined' && activeTab === 'sheet' ? 'block' : 'none' %>;">
+        <div class="promo-list">
+            <% if (typeof sheetPromotions !== 'undefined' && sheetPromotions && sheetPromotions.length > 0) { %>
+                <% sheetPromotions.forEach(sp => { %>
+                    <div class="promo-card" style="border-left: 5px solid #10b981;">
+                        <div><span class="group-label" style="background:#d1fae5; color:#065f46;"><%= sp.sheet_name %></span></div>
+                        <h3 title="<%= sp.program_name || sp.sheet_name %>"><%= sp.program_name || sp.sheet_name %></h3>
+                        
+                        <div class="card-meta">
+                            <div>
+                                <% 
+                                    const end = new Date(sp.end_date);
+                                    end.setHours(23,59,59,999);
+                                    const isSheetActive = end >= new Date();
+                                %>
+                                <span class="status-dot <%= isSheetActive ? 'st-active' : 'st-expired' %>"></span>
+                                <span style="font-weight:600; color:<%= isSheetActive ? '#059669' : '#dc2626' %>;">
+                                    <%= isSheetActive ? 'Đang chạy' : 'Hết hạn' %>
+                                </span>
+                            </div>
+                            <div>
+                                <span>📅</span> 
+                                <%= new Date(sp.start_date).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'}) %> - 
+                                <%= new Date(sp.end_date).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'2-digit'}) %>
+                            </div>
+                            <div>
+                                <span>📦</span> <%= sp.sku_count %> SKU áp dụng
+                            </div>
+                        </div>
+                        
+                        <div style="font-size:12px; color:#475569; margin:10px 0; background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0; max-height:100px; overflow-y:auto; white-space:pre-line;">
+                            <strong>Điều kiện:</strong>
+                            <%= sp.conditions || 'Không có điều kiện đặc biệt.' %>
+                        </div>
+
+                        <% if (sp.online_coupon) { %>
+                            <div style="font-size:12px; color:#0369a1; margin-bottom:8px;">
+                                🔑 Coupon: <strong><%= sp.online_coupon %></strong>
+                            </div>
+                        <% } %>
+                        <% if (sp.gift_name) { %>
+                            <div style="font-size:12px; color:#b45309; margin-bottom:8px;">
+                                🎁 Quà tặng: <strong><%= sp.gift_name %></strong>
+                            </div>
+                        <% } %>
+
+                        <div class="card-actions" style="margin-top:10px; display:grid; grid-template-columns: repeat(3, 1fr); gap:5px;">
+                            <a href="<%= sp.detail_link %>" target="_blank" class="btn-card" style="grid-column: span 2; text-align:center; text-decoration:none; display:flex; align-items:center; justify-content:center;">
+                                🔗 Xem Google Sheet
+                            </a>
+                            <button onclick="toggleSkuList('skus-<%= sp.id %>')" class="btn-card" style="grid-column: span 1;" title="Xem danh sách SKU">📋 SKUs</button>
+                        </div>
+                        
+                        <!-- Collapsible SKU List -->
+                        <div id="skus-<%= sp.id %>" style="display:none; margin-top:10px; font-size:11px; color:#64748b; background:#f1f5f9; padding:8px; border-radius:6px; max-height:150px; overflow-y:auto; word-break:break-all;">
+                            <strong>Danh sách SKU (<%= sp.skus.length %>):</strong><br>
+                            <%= sp.skus.join(', ') %>
+                        </div>
+                    </div>
+                <% }) %>
+            <% } else { %>
+                <div class="no-data" style="text-align:center; padding:20px; color:#64748b; grid-column: span 3;">📭 Chưa có CTKM Google Sheet nào phù hợp.</div>
+            <% } %>
+        </div>
+    </div>
 </div>
 
 <div id="createPromoModal" class="modal">
@@ -987,14 +1068,15 @@
         let t;
         function debounce(fn, ms) { clearTimeout(t); t = setTimeout(fn, ms); }
 
-        legacy.addEventListener('input', () => {
+        legacy.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                qHidden.value = legacy.value;
+                form.submit();
+            }
+        });
+
+        form.addEventListener('submit', () => {
             qHidden.value = legacy.value;
-            const v = (legacy.value || '').trim().toLowerCase();
-            document.querySelectorAll('.promo-card').forEach(c => {
-                const name = (c.getAttribute('data-name') || '').toLowerCase();
-                c.style.display = name.includes(v) ? '' : 'none';
-            });
-            debounce(() => form.submit(), 350);
         });
 
         toggle.addEventListener('click', () => {
@@ -1561,6 +1643,49 @@
             else { alert('❌ Lỗi: ' + (data.error || '')); }
         } catch(e) { alert('❌ Lỗi kết nối.'); }
         finally { btn.disabled = false; btn.textContent = '💾 Lưu cài đặt'; }
+    }
+
+    function switchTab(tab) {
+        const tabHidden = document.getElementById('tabHidden');
+        if (tabHidden) tabHidden.value = tab;
+
+        const btnDb = document.getElementById('btnTabDb');
+        const btnSheet = document.getElementById('btnTabSheet');
+        const panelDb = document.getElementById('panelDb');
+        const panelSheet = document.getElementById('panelSheet');
+        
+        if (tab === 'db') {
+            btnDb.style.borderBottomColor = '#2563eb';
+            btnDb.style.color = '#2563eb';
+            btnDb.style.fontWeight = '700';
+            
+            btnSheet.style.borderBottomColor = 'transparent';
+            btnSheet.style.color = '#64748b';
+            btnSheet.style.fontWeight = '600';
+            
+            panelDb.style.display = 'block';
+            panelSheet.style.display = 'none';
+        } else {
+            btnSheet.style.borderBottomColor = '#2563eb';
+            btnSheet.style.color = '#2563eb';
+            btnSheet.style.fontWeight = '700';
+            
+            btnDb.style.borderBottomColor = 'transparent';
+            btnDb.style.color = '#64748b';
+            btnDb.style.fontWeight = '600';
+            
+            panelDb.style.display = 'none';
+            panelSheet.style.display = 'block';
+        }
+    }
+
+    function toggleSkuList(id) {
+        const el = document.getElementById(id);
+        if (el.style.display === 'none') {
+            el.style.display = 'block';
+        } else {
+            el.style.display = 'none';
+        }
     }
 </script>
 

@@ -3405,7 +3405,8 @@ app.get('/promo-management', requireAuth, requireManager, async (req, res) => {
     const offset = (page - 1) * limit;
 
     // 2. Lấy tham số Filter từ URL
-    const { q, group, subgroup, sku, status } = req.query;
+    const { q, group, subgroup, sku, status, tab } = req.query;
+    const activeTab = tab || 'db';
 
     // 3. Khởi tạo Query chính
     // count: 'exact' để đếm tổng số dòng phục vụ phân trang
@@ -3417,7 +3418,18 @@ app.get('/promo-management', requireAuth, requireManager, async (req, res) => {
 
     // Tìm kiếm theo tên
     if (q) {
-      query = query.ilike('name', `%${q}%`);
+      const { data: skuMatches } = await supabase
+        .from('promotion_skus')
+        .select('promotion_id')
+        .ilike('sku', '%' + q + '%');
+      
+      const matchedPromoIds = (skuMatches || []).map(m => m.promotion_id).filter(Boolean);
+
+      if (matchedPromoIds.length > 0) {
+        query = query.or('name.ilike.%' + q + '%,id.in.(' + matchedPromoIds.join(',') + ')');
+      } else {
+        query = query.ilike('name', '%' + q + '%');
+      }
     }
 
     // Lọc theo Group
@@ -3483,11 +3495,60 @@ app.get('/promo-management', requireAuth, requireManager, async (req, res) => {
       groupSubgroupMap[k] = Array.from(groupSubgroupMap[k]).sort();
     });
 
+    // --- FETCH GOOGLE SHEET PROMOTIONS ---
+    const { data: sheetPromosRaw } = await supabase
+      .from('promo_sku_master')
+      .select('id, sheet_name, program_name, sku, category, product_name, brand, start_date, end_date, detail_link, conditions, online_coupon, gift_name, gift_sku')
+      .order('created_at', { ascending: false });
+
+    const uniqueSheetPromosMap = {};
+    (sheetPromosRaw || []).forEach(sp => {
+      const key = sp.sheet_name + "_" + (sp.program_name || 'Chung');
+      if (!uniqueSheetPromosMap[key]) {
+        uniqueSheetPromosMap[key] = {
+          ...sp,
+          sku_count: sp.sku ? 1 : 0,
+          skus: [sp.sku].filter(Boolean)
+        };
+      } else {
+        if (sp.sku) {
+          uniqueSheetPromosMap[key].sku_count++;
+          uniqueSheetPromosMap[key].skus.push(sp.sku);
+        }
+      }
+    });
+
+    let sheetPromotions = Object.values(uniqueSheetPromosMap);
+
+    // Apply filters to Google Sheet promotions
+    if (q) {
+      const searchLower = q.toLowerCase();
+      sheetPromotions = sheetPromotions.filter(sp => {
+        const nameMatch = (sp.program_name || '').toLowerCase().includes(searchLower) || (sp.sheet_name || '').toLowerCase().includes(searchLower);
+        const condMatch = (sp.conditions || '').toLowerCase().includes(searchLower);
+        const skuMatch = (sp.skus || []).some(s => s.toLowerCase().includes(searchLower));
+        return nameMatch || condMatch || skuMatch;
+      });
+    }
+
+    if (group) {
+      sheetPromotions = sheetPromotions.filter(sp => sp.sheet_name === group);
+    }
+
+    const todayStrOnly = new Date().toISOString().slice(0, 10);
+    if (status === 'active') {
+      sheetPromotions = sheetPromotions.filter(sp => sp.end_date >= todayStrOnly);
+    } else if (status === 'expired') {
+      sheetPromotions = sheetPromotions.filter(sp => sp.end_date < todayStrOnly);
+    }
+
     // 5. Render View
     res.render('promo-management', {
       title: 'Quản lý CTKM',
       currentPage: 'promo-management',
       promotions: promotions || [],
+      sheetPromotions: sheetPromotions || [],
+      activeTab: activeTab || 'db',
 
       // Dữ liệu lọc
       groups: Array.from(groupSet).sort(),
@@ -6801,9 +6862,10 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
       isGeneralQuote = false,
       templateType = 'consumer',
       globalDiscount = { value: 0, type: 'amount' },
-      validityDays = 3,
+      validityDays,
       notes = ''
     } = req.body;
+    const validityDaysSafe = (validityDays !== undefined && validityDays !== null && validityDays !== '') ? Number(validityDays) : null;
 
     console.log(`[Báo giá] KH: ${customerName} | Mode: ${isGeneralQuote ? 'Báo giá nhanh' : 'Build PC'}`);
 
@@ -6909,7 +6971,7 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
         globalDiscountAmt,
         appliedPromo,       // Truyền promo xuống EJS để hiển thị
         finalTotal,
-        validityDays,
+        validityDays: validityDaysSafe,
         notes,
         taxFreeSubcats: taxFreeSubcats,
 
@@ -6952,8 +7014,9 @@ app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) =
       buildConfig, customerName, contactInfo, customerPhone,
       isGeneralQuote = false, templateType = 'consumer',
       globalDiscount = { value: 0, type: 'amount' },
-      validityDays = 3, notes = ''
+      validityDays, notes = ''
     } = req.body;
+    const validityDaysSafe = (validityDays !== undefined && validityDays !== null && validityDays !== '') ? Number(validityDays) : null;
 
     const buildConfigSafe = buildConfig && typeof buildConfig === 'object' ? buildConfig : {};
     const items = Object.entries(buildConfigSafe)
@@ -7258,8 +7321,10 @@ app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) =
       [`Điều kiện giao hàng: Giao hàng 1 lần tại kho Phong Vũ.`, false],
       [`Điều kiện thanh toán: 100% trước khi giao hàng.`, false],
       [`Bảo hành: Theo tiêu chuẩn Nhà sản xuất. Địa điểm bảo hành: tham khảo website phongvu.vn`, false],
-      [`Hiệu lực báo giá: Báo giá có hiệu lực ${validityDays} ngày kể từ ngày báo giá.`, false],
     ];
+    if (validityDaysSafe && validityDaysSafe > 0) {
+      termsData.push(["Hi\u1ec7u l\u1ef1c b\u00e1o gi\u00e1: B\u00e1o gi\u00e1 c\u00f3 hi\u1ec7u l\u1ef1c " + validityDaysSafe + " ng\u00e0y k\u1ec3 t\u1eeb ng\u00e0y b\u00e1o gi\u00e1.", false]);
+    }
     if (notes && notes.trim()) termsData.push([`Ghi chú: ${notes}`, false]);
 
     termsData.forEach(([text, bold]) => {
