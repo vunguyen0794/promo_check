@@ -14,8 +14,8 @@
         }
 
         .container {
-            width: 95%;
-            margin: 0 auto;
+            width: 100%;
+            margin: 0;
         }
 
         table {
@@ -317,9 +317,7 @@
                                 <% if (hasAnyItemDetailedSpecs) { %>
                                     <td>
                                         <% if (itemSpecs) { %>
-                                            <div class="specs-content">
-                                                <%= itemSpecs %>
-                                            </div>
+                                            <div class="specs-content"><%= itemSpecs %></div>
                                             <% } else { %>
                                                 -
                                                 <% } %>

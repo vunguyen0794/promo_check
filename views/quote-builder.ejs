@@ -136,6 +136,7 @@
   @media (max-width: 640px) {
     .item-image-preview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
+
 </style>
 
 <div class="pc-builder-layout">
@@ -285,11 +286,14 @@
         <textarea id="quoteNotes" style="width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 6px; height: 60px; resize: vertical;" placeholder="Nhập ghi chú riêng cho báo giá..."></textarea>
       </div>
 
-      <div style="display: flex; gap: 10px; margin-top: 15px;">
-        <button type="button" class="btn btn-primary" style="flex: 1; padding: 12px; font-weight: 700;" id="btnDownloadPDF">
+      <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+        <button type="button" class="btn" style="flex: 1; min-width: 120px; padding: 12px; font-weight: 700; background-color: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer;" id="btnPreviewQuote">
+          <i class="fas fa-eye"></i> Xem trước
+        </button>
+        <button type="button" class="btn btn-primary" style="flex: 1; min-width: 120px; padding: 12px; font-weight: 700;" id="btnDownloadPDF">
           <i class="fas fa-file-pdf"></i> Xuất PDF
         </button>
-        <button type="button" class="btn" style="flex: 1; padding: 12px; font-weight: 700; background-color: #107c41; color: white; border: none; border-radius: 6px; cursor: pointer;" id="btnDownloadExcel">
+        <button type="button" class="btn" style="flex: 1; min-width: 120px; padding: 12px; font-weight: 700; background-color: #107c41; color: white; border: none; border-radius: 6px; cursor: pointer;" id="btnDownloadExcel">
           <i class="fas fa-file-excel"></i> Xuất Excel
         </button>
       </div>
@@ -301,6 +305,19 @@
     </form>
   </div>
 </div>
+
+<div id="previewModal" class="modal" style="display:none; z-index: 1050;">
+  <div class="modal-content" style="max-width: 1000px; width: 90%; height: 85vh; display: flex; flex-direction: column; padding: 15px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+      <h3 style="margin: 0; font-size: 16px;">Xem trước Báo giá</h3>
+      <span id="previewClose" class="close" style="font-size: 24px; cursor: pointer; line-height: 1;">&times;</span>
+    </div>
+    <div style="flex: 1; position: relative; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
+      <iframe id="quotePreviewIframe" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+  </div>
+</div>
+
 <%- include('partials/toast') %>
 
 <script>
@@ -308,6 +325,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // BIẾN TOÀN CỤC
   let currentBuildConfig = {}; 
+  let currentBuildOrder = [];
 
   // LẤY ELEMENTS
   const summaryList = document.getElementById('summary-list');
@@ -568,6 +586,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } else {
           // Nếu chưa có -> Thêm mới
           currentBuildConfig[sku] = { ...item, quantity: 1, item_discount: 0 };
+          currentBuildOrder.push(sku);
       }
       ensureItemExtras(sku);
       updateSummaryAndTotal();
@@ -586,7 +605,14 @@ document.addEventListener('DOMContentLoaded', function() {
     let sumItemTotal = 0; 
     let html = '';
     
-    const skus = Object.keys(currentBuildConfig).sort();
+    // Đồng bộ danh sách Order
+    currentBuildOrder = currentBuildOrder.filter(sku => currentBuildConfig[sku]);
+    Object.keys(currentBuildConfig).forEach(sku => {
+        if (!currentBuildOrder.includes(sku)) {
+            currentBuildOrder.push(sku);
+        }
+    });
+    const skus = currentBuildOrder;
     
     if (skus.length === 0) {
         summaryList.style.display = 'none';
@@ -600,7 +626,8 @@ document.addEventListener('DOMContentLoaded', function() {
     summaryList.style.display = 'block';
     emptyCartMsg.style.display = 'none';
 
-    for (const sku of skus) {
+    for (let i = 0; i < skus.length; i++) {
+      const sku = skus[i];
       const item = currentBuildConfig[sku];
       const extras = ensureItemExtras(sku);
       const itemSpecs = extras.detailedSpecs || '';
@@ -635,7 +662,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
       html += `
       <div class="summary-item" data-item-sku="${sku}">
-        <div class="summary-item-top">
+        <div class="summary-item-top" style="align-items: center;">
+            <div class="item-sort-controls" style="display: flex; flex-direction: column; align-items: center; margin-right: 12px; gap: 2px; user-select: none;">
+                <button type="button" class="btn-icon" onclick="moveItem('${sku}', -1)" ${i === 0 ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''} title="Di chuyển lên" style="font-size: 11px; padding: 2px 4px; background: #e2e8f0; border-radius: 3px; border: 1px solid #cbd5e1;">▲</button>
+                <span style="font-size: 12px; font-weight: bold; color: #475569; min-width: 16px; text-align: center;">${i + 1}</span>
+                <button type="button" class="btn-icon" onclick="moveItem('${sku}', 1)" ${i === skus.length - 1 ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''} title="Di chuyển xuống" style="font-size: 11px; padding: 2px 4px; background: #e2e8f0; border-radius: 3px; border: 1px solid #cbd5e1;">▼</button>
+            </div>
             <div style="flex:1; margin-right:10px;">
                 <div class="summary-item-name">${escapeHtml(item.product_name)}</div>
                 <div class="summary-item-sku">SKU: ${item.sku}</div>
@@ -730,6 +762,7 @@ document.addEventListener('DOMContentLoaded', function() {
         delete quoteItemExtras[sku];
         if (activeImageSku === sku) activeImageSku = null;
         delete currentBuildConfig[sku];
+        currentBuildOrder = currentBuildOrder.filter(id => id !== sku);
         updateSummaryAndTotal();
     }
   };
@@ -909,14 +942,23 @@ document.addEventListener('DOMContentLoaded', function() {
       // Xóa giỏ hiện tại
       for (const sku in quoteItemExtras) delete quoteItemExtras[sku];
       currentBuildConfig = {};
+      currentBuildOrder = [];
       activeImageSku = null;
       
       // Load giỏ mới
       const bc = q.build_config || {};
-      for(const sku of Object.keys(bc)) {
-          if (sku.startsWith('_')) continue;
+      const orderFromHistory = bc._item_order || [];
+      const historySkus = Object.keys(bc).filter(k => !k.startsWith('_'));
+      const sortedHistorySkus = [...orderFromHistory];
+      historySkus.forEach(sku => {
+          if (!sortedHistorySkus.includes(sku)) sortedHistorySkus.push(sku);
+      });
+
+      for(const sku of sortedHistorySkus) {
           const item = bc[sku];
+          if (!item) continue;
           currentBuildConfig[sku] = { ...item };
+          currentBuildOrder.push(sku);
           const extras = ensureItemExtras(sku);
           extras.detailedSpecs = item.quote_detailed_specs || '';
           
@@ -990,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   async function buildConfigPayloadForExport() {
       const payloadConfig = {};
-      const skuList = Object.keys(currentBuildConfig).sort();
+      const skuList = [...currentBuildOrder];
 
       for (let index = 0; index < skuList.length; index += 1) {
           const sku = skuList[index];
@@ -1045,6 +1087,7 @@ document.addEventListener('DOMContentLoaded', function() {
   window.onclick = (e) => { 
       if(e.target == priceHistoryModal) priceHistoryModal.style.display = 'none'; 
       if(e.target == quoteModal) quoteModal.style.display = 'none'; 
+      if(e.target == document.getElementById('previewModal')) document.getElementById('previewModal').style.display = 'none';
       if(e.target == document.getElementById('myQuoteHistoryModal')) document.getElementById('myQuoteHistoryModal').style.display = 'none'; 
   };
 
@@ -1133,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', function() {
           contactInfo: contact,
           isGeneralQuote: true, 
           notes: notes,
-          
+          itemOrder: currentBuildOrder,
           globalDiscount: { 
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
@@ -1194,6 +1237,119 @@ document.addEventListener('DOMContentLoaded', function() {
       }
   };
 
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+  });
+
+  async function buildConfigPayloadForPreview() {
+      const payloadConfig = {};
+      const skuList = [...currentBuildOrder];
+
+      for (let index = 0; index < skuList.length; index += 1) {
+          const sku = skuList[index];
+          const item = currentBuildConfig[sku];
+          const extras = ensureItemExtras(sku);
+          const itemImages = Array.isArray(extras.images) ? extras.images : [];
+
+          const quoteImageUrls = [];
+          for (const entry of itemImages) {
+              if (entry.kind === 'file' && entry.file) {
+                  try {
+                      const base64 = await fileToBase64(entry.file);
+                      quoteImageUrls.push(base64);
+                  } catch (e) {
+                      console.error('Lỗi chuyển base64:', e);
+                      quoteImageUrls.push(entry.previewUrl || '');
+                  }
+              } else if (entry.kind === 'url' && entry.url) {
+                  quoteImageUrls.push(entry.url);
+              }
+          }
+
+          payloadConfig[sku] = {
+              ...item,
+              quote_detailed_specs: String(extras.detailedSpecs || '').replace(/\r\n/g, '\n').slice(0, 12000),
+              quote_image_urls: quoteImageUrls.slice(0, MAX_QUOTE_IMAGES)
+          };
+      }
+
+      return payloadConfig;
+  }
+
+  const btnPreview = document.getElementById('btnPreviewQuote');
+  const previewModal = document.getElementById('previewModal');
+  const previewClose = document.getElementById('previewClose');
+  const previewIframe = document.getElementById('quotePreviewIframe');
+
+  if(previewClose) previewClose.onclick = () => previewModal.style.display = 'none';
+
+  btnPreview.onclick = async () => {
+      const name = document.getElementById('quoteCustomerName').value.trim();
+      const phone = document.getElementById('quoteCustomerPhone').value.trim();
+      const contact = document.getElementById('quoteContactInfo').value.trim();
+      const notes = document.getElementById('quoteNotes').value.trim();
+      
+      if(!name || !phone || !contact) {
+          alert('Vui lòng nhập đầy đủ thông tin khách hàng và liên hệ.');
+          return;
+      }
+
+      btnPreview.disabled = true;
+      btnDownload.style.display = 'none'; 
+      document.getElementById('btnDownloadExcel').style.display = 'none';
+      quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu xem trước...';
+      quoteLoading.style.display = 'block';
+      downloadError.style.display = 'none';
+
+      const buildConfigPayload = await buildConfigPayloadForPreview();
+      
+      const payload = {
+          buildConfig: buildConfigPayload,
+          customerName: name, 
+          customerPhone: phone, 
+          contactInfo: contact,
+          isGeneralQuote: true, 
+          notes: notes,
+          itemOrder: currentBuildOrder,
+          globalDiscount: { 
+              value: Number(globalDiscountVal.value)||0, 
+              type: globalDiscountType.value 
+          },
+          validityDays: quoteValidity.value,
+          templateType: document.querySelector('input[name="printTemplate"]:checked').value
+      };
+
+      try {
+          const res = await fetch('/api/pc-builder/preview-quote', {
+              method: 'POST', 
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify(payload)
+          });
+          
+          if(!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Lỗi kết nối server');
+          }
+          
+          const htmlContent = await res.text();
+          previewIframe.srcdoc = htmlContent;
+          previewModal.style.display = 'flex';
+      } catch(e) {
+          console.error(e);
+          downloadError.innerText = 'Lỗi xem trước: ' + e.message;
+          downloadError.style.display = 'block';
+      } finally {
+          btnPreview.disabled = false;
+          btnDownload.style.display = 'block'; 
+          document.getElementById('btnDownloadExcel').style.display = 'block';
+          quoteLoading.style.display = 'none';
+          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file...';
+      }
+  };
+
   document.getElementById('btnDownloadExcel').onclick = async () => {
       const name = document.getElementById('quoteCustomerName').value.trim();
       const phone = document.getElementById('quoteCustomerPhone').value.trim();
@@ -1229,6 +1385,7 @@ document.addEventListener('DOMContentLoaded', function() {
           contactInfo: contact,
           isGeneralQuote: true, 
           notes: notes,
+          itemOrder: currentBuildOrder,
           globalDiscount: { 
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
@@ -1287,6 +1444,21 @@ document.addEventListener('DOMContentLoaded', function() {
           quoteLoading.style.display = 'none';
           quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file...';
       }
+  };
+
+  // --- SORT BY BUTTONS ---
+  window.moveItem = (sku, delta) => {
+      const fromIndex = currentBuildOrder.indexOf(sku);
+      if (fromIndex === -1) return;
+      const toIndex = fromIndex + delta;
+      if (toIndex < 0 || toIndex >= currentBuildOrder.length) return;
+      
+      // Swap elements
+      const temp = currentBuildOrder[fromIndex];
+      currentBuildOrder[fromIndex] = currentBuildOrder[toIndex];
+      currentBuildOrder[toIndex] = temp;
+      
+      updateSummaryAndTotal();
   };
 
   // Khởi tạo

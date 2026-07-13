@@ -6799,7 +6799,7 @@ app.delete('/api/ranking/delete/:id', requireManager, async (req, res) => {
 
 app.post('/api/quote-history', requireAuth, async (req, res) => {
   try {
-    const { customerName, customerPhone, contactInfo, buildConfig, totalAmount, templateType, notes, globalDiscount, validityDays } = req.body;
+    const { customerName, customerPhone, contactInfo, buildConfig, totalAmount, templateType, notes, globalDiscount, validityDays, itemOrder } = req.body;
     const userId = req.session.user?.id || req.session.user?.uid || req.session.user?.email || 'unknown';
     const userName = req.session.user?.full_name || req.session.user?.email || 'Nhân viên';
 
@@ -6807,7 +6807,8 @@ app.post('/api/quote-history', requireAuth, async (req, res) => {
       ...(buildConfig && typeof buildConfig === 'object' ? buildConfig : {}),
       _notes: notes || '',
       _global_discount: globalDiscount || { value: 0, type: 'amount' },
-      _validity_days: validityDays || 3
+      _validity_days: validityDays || 3,
+      _item_order: itemOrder || []
     };
 
     const { data, error } = await supabase
@@ -6863,7 +6864,8 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
       templateType = 'consumer',
       globalDiscount = { value: 0, type: 'amount' },
       validityDays,
-      notes = ''
+      notes = '',
+      itemOrder
     } = req.body;
     const validityDaysSafe = (validityDays !== undefined && validityDays !== null && validityDays !== '') ? Number(validityDays) : null;
 
@@ -6894,6 +6896,17 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
 
         return item;
       });
+
+    if (Array.isArray(itemOrder)) {
+      items.sort((a, b) => {
+        const idxA = itemOrder.indexOf(a.sku);
+        const idxB = itemOrder.indexOf(b.sku);
+        if (idxA === -1 && idxB === -1) return 0;
+        if (idxA === -1) return 1;
+        if (idxB === -1) return -1;
+        return idxA - idxB;
+      });
+    }
 
     if (items.length === 0) {
       return res.status(400).json({ ok: false, error: 'Không có sản phẩm để tạo báo giá.' });
@@ -6990,8 +7003,9 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
 
     browser = await puppeteerToUse.launch(launchOptions);
     const page = await browser.newPage();
+    await page.setViewport({ width: 1200, height: 800 });
     await page.setContent(htmlString, { waitUntil: 'networkidle0' });
-    const pdfBufferRaw = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } });
+    const pdfBufferRaw = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' } });
     await browser.close();
     browser = null;
 
@@ -7008,13 +7022,143 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
 });
 
 
+app.post('/api/pc-builder/preview-quote', requireAuth, async (req, res) => {
+  try {
+    const {
+      buildConfig, customerName, contactInfo, customerPhone,
+      isGeneralQuote = false,
+      templateType = 'consumer',
+      globalDiscount = { value: 0, type: 'amount' },
+      validityDays,
+      notes = '',
+      itemOrder
+    } = req.body;
+    const validityDaysSafe = (validityDays !== undefined && validityDays !== null && validityDays !== '') ? Number(validityDays) : null;
+
+    const buildConfigSafe = buildConfig && typeof buildConfig === 'object' ? buildConfig : {};
+    const items = Object.entries(buildConfigSafe)
+      .filter(([key, val]) => !key.startsWith('_') && val && typeof val === 'object')
+      .map(([key, rawItem]) => {
+        const item = { ...rawItem };
+        item.quantity = Math.max(1, Number(item.quantity) || 1);
+        item.item_discount = Math.max(0, Number(item.item_discount) || 0);
+        item.list_price = Number(item.list_price) || 0;
+        if (item.edited_price !== undefined && item.edited_price !== null && item.edited_price !== '') {
+          item.edited_price = Number(item.edited_price) || 0;
+        }
+
+        item.quote_detailed_specs = String(item.quote_detailed_specs || '')
+          .replace(/\r\n/g, '\n')
+          .slice(0, 12000);
+
+        item.quote_image_urls = (Array.isArray(item.quote_image_urls) ? item.quote_image_urls : [item.quote_image_urls])
+          .flatMap((value) => String(value || '').split(/[\n,;]+/))
+          .map((value) => value.trim())
+          .filter((value) => /^https?:\/\//i.test(value))
+          .slice(0, 6);
+
+        return item;
+      });
+
+    if (Array.isArray(itemOrder)) {
+      items.sort((a, b) => {
+        const idxA = itemOrder.indexOf(a.sku);
+        const idxB = itemOrder.indexOf(b.sku);
+        if (idxA === -1 && idxB === -1) return 0;
+        if (idxA === -1) return 1;
+        if (idxB === -1) return -1;
+        return idxA - idxB;
+      });
+    }
+
+    if (items.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Không có sản phẩm để xem trước.' });
+    }
+
+    let totalItemsPrice = 0;
+    items.forEach(item => {
+      const price = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
+      const itemDiscount = item.item_discount || 0;
+      const lineTotal = (price - itemDiscount) * item.quantity;
+      totalItemsPrice += lineTotal;
+    });
+
+    let globalDiscountAmt = 0;
+    if (globalDiscount.type === 'percent') {
+      globalDiscountAmt = Math.round(totalItemsPrice * (globalDiscount.value / 100));
+    } else {
+      globalDiscountAmt = Number(globalDiscount.value) || 0;
+    }
+    if (globalDiscountAmt > totalItemsPrice) globalDiscountAmt = totalItemsPrice;
+
+    let appliedPromo = null;
+    let promoDiscount = 0;
+
+    if (!isGeneralQuote) {
+      const tiers = [
+        { min: 50000000, discount: 1000000, code: 'PVBUILDPC25114' },
+        { min: 30000000, discount: 600000, code: 'PVBUILDPC25113' },
+        { min: 20000000, discount: 400000, code: 'PVBUILDPC25112' },
+        { min: 10000000, discount: 200000, code: 'PVBUILDPC25111' }
+      ];
+      for (const tier of tiers) {
+        if (totalItemsPrice >= tier.min) {
+          appliedPromo = {
+            name: `Build PC - Giảm ${new Intl.NumberFormat('vi-VN').format(tier.discount)} VNĐ`,
+            discount_amount: tier.discount,
+            coupon: tier.code
+          };
+          promoDiscount = tier.discount;
+          break;
+        }
+      }
+    }
+
+    const finalTotal = totalItemsPrice - globalDiscountAmt - promoDiscount;
+    const taxFreeSubcats = ['NH09-02-01-01', 'NH09-02-01-02', 'NH09-01-01'];
+
+    const userFullName = req.session.user?.full_name || 'Nhân viên Phong Vũ';
+    const userBranchCode = req.session.user?.branch_code || 'DEFAULT';
+    const branchInfo = BRANCH_CONFIG[userBranchCode] || BRANCH_CONFIG['DEFAULT'];
+    const todayStr = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const quoteNum = `PV-${Date.now().toString().slice(-6)}`;
+
+    const htmlString = await ejs.renderFile(
+      path.join(__dirname, 'views/quote-template.ejs'),
+      {
+        branchInfo,
+        salesName: userFullName, salesContact: contactInfo, salesEmail: req.session.user?.email,
+        quoteDate: todayStr, quoteNumber: quoteNum,
+        customerName, customerPhone, customerEmail: '',
+        items,
+        templateType,
+        totalItemsPrice,
+        globalDiscountAmt,
+        appliedPromo,
+        finalTotal,
+        validityDays: validityDaysSafe,
+        notes,
+        taxFreeSubcats: taxFreeSubcats,
+        formatVND: (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0))
+      }
+    );
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(htmlString);
+  } catch (e) {
+    console.error('Lỗi API Preview Báo giá:', e);
+    if (!res.headersSent) res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
 app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) => {
   try {
     const {
       buildConfig, customerName, contactInfo, customerPhone,
       isGeneralQuote = false, templateType = 'consumer',
       globalDiscount = { value: 0, type: 'amount' },
-      validityDays, notes = ''
+      validityDays, notes = '', itemOrder
     } = req.body;
     const validityDaysSafe = (validityDays !== undefined && validityDays !== null && validityDays !== '') ? Number(validityDays) : null;
 
@@ -7032,6 +7176,17 @@ app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) =
         item.quote_detailed_specs = String(item.quote_detailed_specs || '').replace(/\r\n/g, '\n').slice(0, 12000);
         return item;
       });
+
+    if (Array.isArray(itemOrder)) {
+      items.sort((a, b) => {
+        const idxA = itemOrder.indexOf(a.sku);
+        const idxB = itemOrder.indexOf(b.sku);
+        if (idxA === -1 && idxB === -1) return 0;
+        if (idxA === -1) return 1;
+        if (idxB === -1) return -1;
+        return idxA - idxB;
+      });
+    }
 
     if (items.length === 0) return res.status(400).json({ ok: false, error: 'Không có sản phẩm.' });
 
