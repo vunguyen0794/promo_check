@@ -9624,40 +9624,37 @@ app.get('/profile', requireAuth, async (req, res) => {
     const { getLocalSalesRows } = require('./local_sales_query');
     let salesRows = [];
 
-    if (periodValue === 'today' || periodValue === 'week') {
-      const targetEmail = isStaff ? userEmail : null;
-      salesRows = await getLocalSalesRows(periodValue, targetEmail, qBranch);
-    } else if (targetMonthStr.endsWith('-')) {
-      // yearly — targetMonthStr format: "2025-" => ilike "2025-%"
-      const yearPrefix = targetMonthStr.replace(/-$/, ''); // "2025"
-      let q = supabase.from('salesman_performance').select('*').ilike('month', `${yearPrefix}-%`);
-      if (qBranch) {
-        if (qBranch === 'CP75' && yearPrefix === '2026') {
-          q = q.in('branch_code', ['CP62', 'CP75']);
-        } else {
-          q = q.eq('branch_code', qBranch);
+    if (!isStaff) {
+      if (periodValue === 'today' || periodValue === 'week') {
+        salesRows = await getLocalSalesRows(periodValue, null, qBranch);
+      } else if (targetMonthStr.endsWith('-')) {
+        // yearly — targetMonthStr format: "2025-" => ilike "2025-%"
+        const yearPrefix = targetMonthStr.replace(/-$/, ''); // "2025"
+        let q = supabase.from('salesman_performance').select('*').ilike('month', `${yearPrefix}-%`);
+        if (qBranch) {
+          if (qBranch === 'CP75' && yearPrefix === '2026') {
+            q = q.in('branch_code', ['CP62', 'CP75']);
+          } else {
+            q = q.eq('branch_code', qBranch);
+          }
         }
-      } else if (isStaff) {
-        q = q.eq('email', userEmail);
-      }
-      const { data } = await q;
-      salesRows = data || [];
-    } else {
-      // monthly
-      let q = supabase.from('salesman_performance').select('*').eq('month', targetMonthStr);
-      if (qBranch) {
-        if (qBranch === 'CP75' && targetMonthStr === '2026-06') {
-          q = q.in('branch_code', ['CP62', 'CP75']);
-        } else if (qBranch === 'CP75' && /^2026-0[1-5]$/.test(targetMonthStr)) {
-          q = q.eq('branch_code', 'CP62');
-        } else {
-          q = q.eq('branch_code', qBranch);
+        const { data } = await q;
+        salesRows = data || [];
+      } else {
+        // monthly
+        let q = supabase.from('salesman_performance').select('*').eq('month', targetMonthStr);
+        if (qBranch) {
+          if (qBranch === 'CP75' && targetMonthStr === '2026-06') {
+            q = q.in('branch_code', ['CP62', 'CP75']);
+          } else if (qBranch === 'CP75' && /^2026-0[1-5]$/.test(targetMonthStr)) {
+            q = q.eq('branch_code', 'CP62');
+          } else {
+            q = q.eq('branch_code', qBranch);
+          }
         }
-      } else if (isStaff) {
-        q = q.eq('email', userEmail);
+        const { data } = await q;
+        salesRows = data || [];
       }
-      const { data } = await q;
-      salesRows = data || [];
     }
 
     // [FIX] Chỉ giữ nhân viên có role = staff (loại bỏ SR, manager, admin khỏi bảng hiệu suất)
@@ -10025,30 +10022,20 @@ app.get('/profile', requireAuth, async (req, res) => {
       if (latestKp && latestKp.report_date) displayDate = latestKp.report_date;
     }
 
-    let csiParams = { period: targetMonthStr };
-    if (isStaff) {
-      csiParams.email = userEmail;  // [FIX] CSI filter by email (lowercase) for staff
-      // Fallback: staff name for CSI matching if email column not available
-      csiParams._staffName = myProfile.full_name || user.full_name || '';
-      csiParams.branch = myProfile.branch; // [FIX] Gán branch code chuẩn của staff từ DB để lọc CSI
-    } else if (qBranch) csiParams.branch = qBranch;
-
     let csiData = { csi_percent: 0, feedback_count: 0, unavailable: false };
     let feedbackList = [];
-    try {
-      const [csi, fbList] = await Promise.all([getCsiStats(csiParams), getFeedbackList(csiParams)]);
-      csiData = csi; feedbackList = fbList;
-    } catch (csiErr) {
-      csiData = { unavailable: true, quotaExceeded: false };
+    if (!isStaff) {
+      let csiParams = { period: targetMonthStr };
+      if (qBranch) csiParams.branch = qBranch;
+      try {
+        const [csi, fbList] = await Promise.all([getCsiStats(csiParams), getFeedbackList(csiParams)]);
+        csiData = csi; feedbackList = fbList;
+      } catch (csiErr) {
+        csiData = { unavailable: true, quotaExceeded: false };
+      }
     }
 
-    // [FIX] Biểu đồ 12 tháng cho Staff
     let staffChartData = [];
-    if (isStaff) {
-      staffChartData = await getStaffMonthlyChart(userEmail, myProfile.branch);
-    }
-
-    // [FIX] Thêm flag noSalesData: đúng khi staff chưa có đơn trong kỳ chọn
     const noSalesData = isStaff && salesRows.length === 0;
 
     res.render('profile', {

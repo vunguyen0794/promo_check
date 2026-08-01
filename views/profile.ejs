@@ -95,152 +95,166 @@
                 </div>
             </div>
 
-            <div class="right-col">
-                <div class="dashboard-header">
-                    <h3 class="dash-title" style="margin:0; border:none; font-size:18px;">
-                        📊 Hiệu suất <%= filterBranch ? filterBranch : (role.isGlobalAdmin ? 'Toàn Hệ Thống' : 'Chi Nhánh') %>
-                        <% if (locals.dataDate) { %>
-                            <span style="font-size: 12px; font-weight: normal; color: #dc2626; margin-left: 8px; font-style: italic;">
-                                (Dữ liệu đến: <%= dataDate %>)
-                            </span>
-                        <% } %>
-                    </h3>
-                    
-                    <form method="GET" action="/profile" class="filter-container" id="filterForm">
-                        <% if(role.isGlobalAdmin) { %>
-                            <select name="branch" class="filter-select" onchange="this.form.submit()">
-                                <option value="">-- Tất cả Chi Nhánh --</option>
-                                <% branchList.forEach(br => { %>
-                                    <option value="<%= br.id %>" <%= filterBranch === br.id ? 'selected' : '' %>>Chi nhánh <%= br.id %></option>
-                                <% }) %>
-                            </select>
-                        <% } %>
-
-                        <div style="display:flex; gap:5px;">
-                            <input type="month" 
-                                   name="custom_month" 
-                                   value="<%= period.value.includes('-') ? period.value : '' %>"
-                                   class="filter-select"
-                                   style="width: 130px;"
-                                   onchange="document.getElementById('periodSelect').name=''; this.name='period'; this.form.submit();" 
-                                   title="Chọn tháng cụ thể">
-
-                            <select name="period" id="periodSelect" class="filter-select" onchange="this.form.submit()">
-                                <option value="month" <%= period.value === 'month' ? 'selected' : '' %>>Tháng này</option>
-                                <option value="today" <%= period.value === 'today' ? 'selected' : '' %>>Hôm nay</option>
-                                <option value="week" <%= period.value === 'week' ? 'selected' : '' %>>Tuần này</option>
-                                <option value="year" <%= period.value === 'year' ? 'selected' : '' %>>Năm nay</option>
-                                <option value="last_year" <%= period.value === 'last_year' ? 'selected' : '' %>>Năm trước</option>
-                                <% if(period.value.includes('-')) { %>
-                                    <option value="<%= period.value %>" selected style="display:none;">Tháng <%= period.value %></option>
-                                <% } %>
-                            </select>
+            <% if (role.isStaff) { %>
+                <div class="right-col">
+                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 40px 30px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                        <div style="width: 64px; height: 64px; background: #eff6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; color: #2563eb;">
+                            🔒
                         </div>
-                    </form>
+                        <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #0f172a; font-weight: 800;">Tính năng đang tạm đóng</h3>
+                        <p style="margin: 0 auto; max-width: 420px; color: #64748b; font-size: 14px; line-height: 1.6;">
+                            Tính năng hiển thị hiệu suất, doanh thu, điểm thưởng và KFI hiện tại tạm thời đóng đối với tài khoản Staff.
+                        </p>
+                    </div>
                 </div>
-
-                <div class="kpi-grid">
-                    <% if (locals.noSalesData) { %>
-                    <div style="grid-column: 1/-1; background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 12px;">
-                        <span style="font-size: 22px;">📭</span>
-                        <div>
-                            <div style="font-weight: 700; color: #1e40af; font-size: 14px;">Chưa có dữ liệu bán hàng trong kỳ này</div>
-                            <div style="font-size: 12px; color: #3b82f6; margin-top: 3px;">
-                                Dữ liệu được cập nhật mỗi ngày từ hệ thống. Nếu bạn đã có đơn hàng, vui lòng thử lại sau hoặc liên hệ quản lý để đồng bộ dữ liệu.
-                            </div>
-                        </div>
-                    </div>
-                    <% } %>
-                    <div class="kpi-card border-l-blue">
-                        <div class="kpi-title">Tổng đơn hàng</div>
-                        <div class="kpi-value"><%= dashboard.orders %></div>
-                        <div class="kpi-sub">Đã trừ đơn hoàn</div>
-                    </div>
-                    <div class="kpi-card border-l-blue">
-                        <div class="kpi-title">Doanh thu (NO VAT, IPHONE 60%)</div> 
-                        <div class="kpi-value val-blue" title="Thực tế: <%= new Intl.NumberFormat('vi-VN').format(dashboard.raw_revenue) %> ₫">
-                            <%= formatCompact(dashboard.revenue) %> ₫
-                        </div>
-                        <div class="kpi-sub" style="font-size: 11px; color: #64748b;">
-                            iPhone: <%= formatCompact(dashboard.iphone_revenue) %> ₫ | 
-                            Khác: <%= formatCompact(dashboard.raw_revenue - dashboard.iphone_revenue) %> ₫
-                        </div>
-                    </div>
-                    <div class="kpi-card border-l-orange">
-                        <div class="kpi-title">Tổng điểm KFI</div>
-                        <div class="kpi-value val-orange"><%= new Intl.NumberFormat('vi-VN').format(dashboard.kfi) %></div>
-                    </div>
-
-                    <% if (dashboard.target > 0 || role.isManager || role.isGlobalAdmin) { %>
-                        <div class="kpi-card" style="background: #f8fafc;">
-                            <div class="kpi-title">Mục tiêu (Target)</div>
-                            <div class="kpi-value"><%= formatCompact(dashboard.target) %> ₫</div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-title">% Hoàn thành</div>
-                            <div class="kpi-value <%= dashboard.percent_completion >= 100 ? 'val-green' : 'val-red' %>">
-                                <%= dashboard.percent_completion %>%
-                            </div>
-                            <div style="height:4px; background:#e2e8f0; margin-top:10px; border-radius:2px; overflow:hidden;">
-                                <div style="width: <%= Math.min(dashboard.percent_completion, 100) %>%; height:100%; background: <%= dashboard.percent_completion >= 100 ? '#16a34a' : '#dc2626' %>;"></div>
-                            </div>
-                        </div>
-                        <div class="kpi-card border-l-red">
-                            <div class="kpi-title">Còn thiếu</div>
-                            <div class="kpi-value val-red"><%= formatCompact(dashboard.missing) %> ₫</div>
-                        </div>
-
-                        <div class="kpi-card forecast-card">
-                            <div class="kpi-title" style="color:#0891b2;">Doanh thu Dự Kiến</div>
-                            <div class="kpi-value val-cyan"><%= formatCompact(dashboard.revenue_forecast) %> ₫</div>
-                            <div class="kpi-sub" style="color:#0e7490;">Dựa trên tốc độ hiện tại</div>
-                        </div>
-                        <div class="kpi-card forecast-card">
-                            <div class="kpi-title" style="color:#0891b2;">% Đạt Dự Kiến</div>
-                            <div class="kpi-value val-cyan"><%= dashboard.percent_forecast %>%</div>
-                        </div>
-
-                        <% if (role.isStaff) { %>
-                            <div class="kpi-card border-l-green" style="grid-column: span 2; background: #f0fdf4;">
-                                <div class="kpi-title" style="color:#166534;">💰 Tổng thưởng (Dự kiến)</div>
-                                <div class="kpi-value val-green"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_total) %> ₫</div>
-                                <div class="kpi-sub">KFI * % HT (Max 120%)</div>
-                            </div>
-                            <div class="kpi-card border-l-orange" style="background: #fffbeb;">
-                                <div class="kpi-title" style="color:#b45309;">🚀 Thưởng vượt 120%</div>
-                                <div class="kpi-value" style="color:#d97706"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_over) %> ₫</div>
-                            </div>
-                        <% } %>
-                    <% } %>
-                <div class="kpi-card" style="background: #fffbeb; border-left: 4px solid #f59e0b; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.15);">
-                        <div class="kpi-title" style="color:#b45309; font-weight: 800;">
-                            ⭐ % CSI (Chất lượng)
-                        </div>
-                        
-                        <div class="kpi-value" style="color:#d97706;">
-                            <%= csiData.unavailable ? 'N/A' : (csiData.csi_percent + '%') %>
-                        </div>
-                        
-                        <div class="kpi-sub" style="font-size: 11px; color: #92400e; margin-top: 5px; font-weight: 600;">
-                            <% if (csiData.unavailable) { %>
-                                <span style="color:#92400e; background:#fef3c7; padding: 2px 6px; border-radius: 4px;">
-                                    <% if (csiData.quotaExceeded) { %>Vuot quota BigQuery thang nay<% } else { %>CSI chua duoc cau hinh tren BigQuery<% } %>
+            <% } else { %>
+                <div class="right-col">
+                    <div class="dashboard-header">
+                        <h3 class="dash-title" style="margin:0; border:none; font-size:18px;">
+                            📊 Hiệu suất <%= filterBranch ? filterBranch : (role.isGlobalAdmin ? 'Toàn Hệ Thống' : 'Chi Nhánh') %>
+                            <% if (locals.dataDate) { %>
+                                <span style="font-size: 12px; font-weight: normal; color: #dc2626; margin-left: 8px; font-style: italic;">
+                                    (Dữ liệu đến: <%= dataDate %>)
                                 </span>
-                            <% } else if(csiData.feedback_count > 0) { %>
-                                <span style="color:#dc2626; background: #fee2e2; padding: 2px 6px; border-radius: 4px;">
-                                    Góp ý <%= csiData.feedback_count %> 
-                                </span>
-                                <span style="color:#e2e8f0; margin: 0 4px;">|</span>
-                                Target: > 95%
-                            <% } else { %>
-                                <span style="color:#16a34a;">✨ Không có góp ý</span>
-                                <span style="color:#e2e8f0; margin: 0 4px;">|</span>
-                                Target: > 95%
                             <% } %>
+                        </h3>
+                        
+                        <form method="GET" action="/profile" class="filter-container" id="filterForm">
+                            <% if(role.isGlobalAdmin) { %>
+                                <select name="branch" class="filter-select" onchange="this.form.submit()">
+                                    <option value="">-- Tất cả Chi Nhánh --</option>
+                                    <% branchList.forEach(br => { %>
+                                        <option value="<%= br.id %>" <%= filterBranch === br.id ? 'selected' : '' %>>Chi nhánh <%= br.id %></option>
+                                    <% }) %>
+                                </select>
+                            <% } %>
+
+                            <div style="display:flex; gap:5px;">
+                                <input type="month" 
+                                       name="custom_month" 
+                                       value="<%= period.value.includes('-') ? period.value : '' %>"
+                                       class="filter-select"
+                                       style="width: 130px;"
+                                       onchange="document.getElementById('periodSelect').name=''; this.name='period'; this.form.submit();" 
+                                       title="Chọn tháng cụ thể">
+
+                                <select name="period" id="periodSelect" class="filter-select" onchange="this.form.submit()">
+                                    <option value="month" <%= period.value === 'month' ? 'selected' : '' %>>Tháng này</option>
+                                    <option value="today" <%= period.value === 'today' ? 'selected' : '' %>>Hôm nay</option>
+                                    <option value="week" <%= period.value === 'week' ? 'selected' : '' %>>Tuần này</option>
+                                    <option value="year" <%= period.value === 'year' ? 'selected' : '' %>>Năm nay</option>
+                                    <option value="last_year" <%= period.value === 'last_year' ? 'selected' : '' %>>Năm trước</option>
+                                    <% if(period.value.includes('-')) { %>
+                                        <option value="<%= period.value %>" selected style="display:none;">Tháng <%= period.value %></option>
+                                    <% } %>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="kpi-grid">
+                        <% if (locals.noSalesData) { %>
+                        <div style="grid-column: 1/-1; background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 22px;">📭</span>
+                            <div>
+                                <div style="font-weight: 700; color: #1e40af; font-size: 14px;">Chưa có dữ liệu bán hàng trong kỳ này</div>
+                                <div style="font-size: 12px; color: #3b82f6; margin-top: 3px;">
+                                    Dữ liệu được cập nhật mỗi ngày từ hệ thống. Nếu bạn đã có đơn hàng, vui lòng thử lại sau hoặc liên hệ quản lý để đồng bộ dữ liệu.
+                                </div>
+                            </div>
+                        </div>
+                        <% } %>
+                        <div class="kpi-card border-l-blue">
+                            <div class="kpi-title">Tổng đơn hàng</div>
+                            <div class="kpi-value"><%= dashboard.orders %></div>
+                            <div class="kpi-sub">Đã trừ đơn hoàn</div>
+                        </div>
+                        <div class="kpi-card border-l-blue">
+                            <div class="kpi-title">Doanh thu (NO VAT, IPHONE 60%)</div> 
+                            <div class="kpi-value val-blue" title="Thực tế: <%= new Intl.NumberFormat('vi-VN').format(dashboard.raw_revenue) %> ₫">
+                                <%= formatCompact(dashboard.revenue) %> ₫
+                            </div>
+                            <div class="kpi-sub" style="font-size: 11px; color: #64748b;">
+                                iPhone: <%= formatCompact(dashboard.iphone_revenue) %> ₫ | 
+                                Khác: <%= formatCompact(dashboard.raw_revenue - dashboard.iphone_revenue) %> ₫
+                            </div>
+                        </div>
+                        <div class="kpi-card border-l-orange">
+                            <div class="kpi-title">Tổng điểm KFI</div>
+                            <div class="kpi-value val-orange"><%= new Intl.NumberFormat('vi-VN').format(dashboard.kfi) %></div>
+                        </div>
+
+                        <% if (dashboard.target > 0 || role.isManager || role.isGlobalAdmin) { %>
+                            <div class="kpi-card" style="background: #f8fafc;">
+                                <div class="kpi-title">Mục tiêu (Target)</div>
+                                <div class="kpi-value"><%= formatCompact(dashboard.target) %> ₫</div>
+                            </div>
+                            <div class="kpi-card">
+                                <div class="kpi-title">% Hoàn thành</div>
+                                <div class="kpi-value <%= dashboard.percent_completion >= 100 ? 'val-green' : 'val-red' %>">
+                                    <%= dashboard.percent_completion %>%
+                                </div>
+                                <div style="height:4px; background:#e2e8f0; margin-top:10px; border-radius:2px; overflow:hidden;">
+                                    <div style="width: <%= Math.min(dashboard.percent_completion, 100) %>%; height:100%; background: <%= dashboard.percent_completion >= 100 ? '#16a34a' : '#dc2626' %>;"></div>
+                                </div>
+                            </div>
+                            <div class="kpi-card border-l-red">
+                                <div class="kpi-title">Còn thiếu</div>
+                                <div class="kpi-value val-red"><%= formatCompact(dashboard.missing) %> ₫</div>
+                            </div>
+
+                            <div class="kpi-card forecast-card">
+                                <div class="kpi-title" style="color:#0891b2;">Doanh thu Dự Kiến</div>
+                                <div class="kpi-value val-cyan"><%= formatCompact(dashboard.revenue_forecast) %> ₫</div>
+                                <div class="kpi-sub" style="color:#0e7490;">Dựa trên tốc độ hiện tại</div>
+                            </div>
+                            <div class="kpi-card forecast-card">
+                                <div class="kpi-title" style="color:#0891b2;">% Đạt Dự Kiến</div>
+                                <div class="kpi-value val-cyan"><%= dashboard.percent_forecast %>%</div>
+                            </div>
+
+                            <% if (role.isStaff) { %>
+                                <div class="kpi-card border-l-green" style="grid-column: span 2; background: #f0fdf4;">
+                                    <div class="kpi-title" style="color:#166534;">💰 Tổng thưởng (Dự kiến)</div>
+                                    <div class="kpi-value val-green"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_total) %> ₫</div>
+                                    <div class="kpi-sub">KFI * % HT (Max 120%)</div>
+                                </div>
+                                <div class="kpi-card border-l-orange" style="background: #fffbeb;">
+                                    <div class="kpi-title" style="color:#b45309;">🚀 Thưởng vượt 120%</div>
+                                    <div class="kpi-value" style="color:#d97706"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_over) %> ₫</div>
+                                </div>
+                            <% } %>
+                        <% } %>
+                    <div class="kpi-card" style="background: #fffbeb; border-left: 4px solid #f59e0b; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.15);">
+                            <div class="kpi-title" style="color:#b45309; font-weight: 800;">
+                                ⭐ % CSI (Chất lượng)
+                            </div>
+                            
+                            <div class="kpi-value" style="color:#d97706;">
+                                <%= csiData.unavailable ? 'N/A' : (csiData.csi_percent + '%') %>
+                            </div>
+                            
+                            <div class="kpi-sub" style="font-size: 11px; color: #92400e; margin-top: 5px; font-weight: 600;">
+                                <% if (csiData.unavailable) { %>
+                                    <span style="color:#92400e; background:#fef3c7; padding: 2px 6px; border-radius: 4px;">
+                                        <% if (csiData.quotaExceeded) { %>Vuot quota BigQuery thang nay<% } else { %>CSI chua duoc cau hinh tren BigQuery<% } %>
+                                    </span>
+                                <% } else if(csiData.feedback_count > 0) { %>
+                                    <span style="color:#dc2626; background: #fee2e2; padding: 2px 6px; border-radius: 4px;">
+                                        Góp ý <%= csiData.feedback_count %> 
+                                    </span>
+                                    <span style="color:#e2e8f0; margin: 0 4px;">|</span>
+                                    Target: > 95%
+                                <% } else { %>
+                                    <span style="color:#16a34a;">✨ Không có góp ý</span>
+                                    <span style="color:#e2e8f0; margin: 0 4px;">|</span>
+                                    Target: > 95%
+                                <% } %>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            <% } %>
         </div>
 
         <div class="profile-bottom-section">
@@ -409,7 +423,7 @@
 
 
 
-<% if (staffChartData && staffChartData.length > 0) { %>
+<% if (!role.isStaff && staffChartData && staffChartData.length > 0) { %>
     <div class="table-section" style="padding: 20px; margin-top: 20px;">
         <div class="table-header-title" style="border:none; padding-left:0; margin-bottom:15px;">📈 Biểu đồ Tăng trưởng (Năm nay)</div>
         <div style="height: 300px;">
