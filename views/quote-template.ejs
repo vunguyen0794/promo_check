@@ -181,75 +181,33 @@
 
 <body>
     <div class="container">
-        <table class="header-table">
-            <tr>
-                <td style="width: 50%;">
-                    <img src="data:image/svg+xml;base64,PHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMTkuNjMgNDQuNjEiPjxkZWZzPjxzdHlsZT4uY2xzLTF7ZmlsbDojMTQzNWMzO30uY2xzLTJ7ZmlsbDojNWZlN2ZmO308L3N0eWxlPjwvZGVmcz48dGl0bGU+UzJfbG9nb19wdl9ibHVlPC90aXRsZT48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xOTYuMzEsMzMuMXYzLjgzaDguMzR2Mi4zNWMtNC4zMSwwLTguNTIsMC0xMi43MywwLTEuMDksMC0xLjUzLS43NC0xLjUzLTEuNzYsMC0xLjU4LDAtMy4xNywwLTQuNzVzLjcxLTIuMjcsMi4zNS0yLjI1YzQuNC4wNyw4LjgsMCwxMy4yLDBoM1YyNi4zOWMtNi41MywwLTEyLjkxLS4wOS0xOS4yOC4wNWE0LjM2LDQuMzYsMCwwLDAtNCw0LjQzYy0uMSwyLjQ2LS4wOSw0LjkzLDAsNy4zOS4wNiwzLjMzLDEuOSw1LjI1LDUuMjUsNS4zMmwxMiwwaDYuNDhWMzMuMVoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSI5My4yNiAzNC41MiA5OC4xIDM0LjUyIDk4LjEgMjguNDYgMTEwLjk4IDI4LjQ2IDExMC45OCAzNC41NCAxMTUuNjcgMzQuNTQgMTE1LjY3IDE3LjQ2IDExMC44OSAxNy40NiAxMTAuODkgMjMuODggOTggMjMuODggOTggMTcuNDcgOTMuMjYgMTcuNDcgOTMuMjYgMzQuNTIiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0yNDUuNzgsMjYuNDJoLTQuODVsMCwxMi43M2MuMTIsMi42NiwyLjE1LDQuMzUsNSw0LjQyaDEyLjQ4YzIuNjEtLjA3LDQuNzYtMS42OSw0Ljg3LTQsMCwwLC4wNi04Ljc0LjA2LTEzLjE1aC00LjcybDAsMTAuNjVjMCwxLjU2LS42NywyLjI1LTIuMjIsMi4yMy0yLjgyLDAtNS42My0uMDYtOC40NCwwLTEuNjQsMC0yLjMzLS41OS0yLjI5LTIuMjhaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNy4yNiAtOS4wNSkiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0yMTIuNzMsMjYuMzIsMjIzLjM4LDQzLjZoNS4xNmwxMC43LTE3LjIyaC01LjY3UzIyOC4yNywzNS4yOSwyMjYsMzljLS40Ny0uNzMtLjg2LTEuMy0xLjIyLTEuODlsLTYuNDctMTAuNzRzLTMuNzktLjA2LTUuNi0uMDYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTI3NC42MiwyNi4zMiwyODUuMjcsNDMuNmg1LjE2bDEwLjY5LTE3LjIyaC01LjY2cy01LjMsOC45MS03LjU1LDEyLjYzYy0uNDgtLjczLS44Ni0xLjMtMS4yMi0xLjg5bC02LjQ3LTEwLjc0cy0zLjc5LS4wNi01LjYtLjA2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNy4yNiAtOS4wNSkiLz48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xNDcuMSwyNi4zM2E0LjgsNC44LDAsMCwxLDUuMDYsNS4xcS4wNiwzLjQyLDAsNi44NmMwLDMuMTQtMS44MSw1LjE3LTQuOTMsNS4yNi00LjgxLjE0LTkuNjMuMTQtMTQuNDMsMC0zLjE2LS4wOS00LjkxLTIuMDYtNS01LjIyLDAtMi4zNCwwLTQuNjksMC03YTQuNyw0LjcsMCwwLDEsNS01YzIuNDEtLjA3LDExLjkxLS4wNiwxNC4yNiwwbS0xMi41MSw0LjJjLTEuMjMsMC0xLjg4LjUxLTEuODksMS44NSwwLDEuNzYsMCwzLjUyLDAsNS4yOGExLjUzLDEuNTMsMCwwLDAsMS43MiwxLjc0YzMuNjksMCw3LjM4LDAsMTEuMDcsMCwxLjIsMCwxLjg1LS41NiwxLjgyLTEuODMsMC0xLjcsMC0zLjQsMC01LjFhMS41OSwxLjU5LDAsMCwwLTEuODItMS44M1oiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtMSIgcG9pbnRzPSIxNzIuNzkgMzQuNTQgMTY3LjcgMzQuNTQgMTU1LjI1IDIzLjE2IDE1NS4yNSAzNC41NCAxNTAuNDMgMzQuNTQgMTUwLjQzIDE3LjUgMTU1Ljc3IDE3LjUgMTY3Ljk2IDI4Ljg4IDE2Ny45NiAxNy40NyAxNzIuNzkgMTcuNDcgMTcyLjc5IDM0LjU0Ii8+PHBvbHlnb24gY2xhc3M9ImNscy0xIiBwb2ludHM9IjMxOS42MyAzNC41NCAzMTQuNTQgMzQuNTQgMzAyLjA5IDIzLjE2IDMwMi4wOSAzNC41NCAyOTcuMjcgMzQuNTQgMjk3LjI3IDE3LjUgMzAyLjYxIDE3LjUgMzE0LjggMjguODggMzE0LjggMTcuNDcgMzE5LjYzIDE3LjQ3IDMxOS42MyAzNC41NCIvPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTg5LjIyLDI2LjQxYy00LjIyLDAtOS42NSwwLTEzLjg3LDBINzEuMjZWNDMuNkg3NlYzOC4yNmgzLjI4YzMuNCwwLDYuOC4wOCwxMC4yLDAsMy42NC0uMTQsNS42Mi0yLjQxLDUuNTUtNi4wOGE1LjY2LDUuNjYsMCwwLDAtNS44NC01LjczbS0uOTEsNy43Nkg3Ni4xNFYzMC42NUg4OC4zMWExLjc2LDEuNzYsMCwwLDEsMCwzLjUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtNy4yNiAtOS4wNSkiLz48cmVjdCBjbGFzcz0iY2xzLTEiIHg9IjI2MS41NyIgeT0iMjkuODMiIHdpZHRoPSI0Ljc2IiBoZWlnaHQ9IjQuNzYiLz48cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik0zNC4xNiwyMS4wOWE4LjUxLDguNTEsMCwxLDAsOC41MS04LjUxLDguNTEsOC41MSwwLDAsMC04LjUxLDguNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC03LjI2IC05LjA1KSIvPjxwYXRoIGNsYXNzPSJjbHMtMiIgZD0iTTEwLjc5LDQ1LjE1YTguNTEsOC41MSwwLDEsMCw4LjUxLTguNTEsOC41MSw4LjUxLDAsMCwwLTguNTEsOC41MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTcuMjYgLTkuMDUpIi8+PHJlY3QgY2xhc3M9ImNscy0yIiB4PSIxMC43OSIgeT0iMTIuNTgiIHdpZHRoPSIxNy4wMiIgaGVpZ2h0PSIxNy4wMiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE2LjUyIDEwLjc3KSByb3RhdGUoLTQ1KSIvPjxyZWN0IGNsYXNzPSJjbHMtMiIgeD0iMjYuOSIgeT0iMjcuNTkiIHdpZHRoPSIxNy4wMiIgaGVpZ2h0PSIxNy4wMiIvPjwvc3ZnPg=="
-                        alt="Logo" style="max-height: 60px;">
-                    <div class="company-info" style="margin-top: 5px;">
-                        <%= branchInfo.name.toUpperCase() %>
-                    </div>
-                </td>
-                <td style="width: 50%; text-align: right; font-size: 9.5px;">
-                    <strong>Đ/c:</strong>
-                    <%= branchInfo.address %><br>
-                        <strong>MST:</strong>
-                        <%= branchInfo.mst %><br>
-                            <strong>Hotline:</strong>
-                            <%= branchInfo.hotline %>
-                </td>
-            </tr>
-        </table>
-
-        <div class="quote-title">BẢNG BÁO GIÁ</div>
-        <div class="center" style="margin-bottom: 15px; font-style: italic; font-size: 11px; color: #555;">
-            (Ngày báo giá: <%= quoteDate %>)
+        <div style="width: 100%; margin-bottom: 20px; text-align: center;">
+            <img src="<%= typeof headerBannerBase64 !== "undefined" && headerBannerBase64 ? headerBannerBase64 : "" %>" alt="Phong Vũ Header" style="width: 100%; height: auto; display: block; margin: 0 auto;">
         </div>
 
-        <table class="info-table">
-            <tr>
-                <td style="width: 50%;">
-                    <table class="customer-table">
-                        <tr>
-                            <td style="font-weight: bold;">Kính gửi: <%= customerName %>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong>SĐT:</strong>
-                                <%= customerPhone %>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-                <td style="width: 50%;">
-                    <table class="customer-table">
-                        <tr>
-                            <td style="font-weight: bold;">Nhân Viên Kinh Doanh: <%= salesName %>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><strong>SĐT/Zalo:</strong>
-                                <%= salesContact %>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
+        <div class="center" style="margin-bottom: 15px;">
+            <div style="font-size: 20px; font-weight: bold;">BẢNG BÁO GIÁ</div>
+            <div style="font-size: 18px; font-style: italic; font-weight: bold;">QUOTATION</div>
+            <div style="margin-top: 10px; font-size: 11px;">Ngày/ Date: <strong><%= quoteDate %></strong></div>
+        </div>
+
+        <div style="margin-bottom: 15px; font-size: 11px; line-height: 1.6;">
+            <strong>Kính gửi/ <i>Respectfully to:</i> Quý khách hàng <%= customerName %></strong><br>
+            Chúng tôi xin trân trọng gởi đến Quý khách hàng bảng báo giá thiết bị như sau:<br>
+            <i>We would like to send to you the quotation of equipments as follows:</i>
+        </div>
+
+        <div style="font-weight: bold; font-size: 11px; margin: 15px 0 5px 0;">
+            Chi tiết sản phẩm và đơn giá/ <i>Equipments - Details and Price :</i>
+        </div>
 
         <% const hasAnyDiscount=items.some(i=> (i.item_discount || 0) > 0);
             const hasAnyItemDetailedSpecs = items.some(i => String(i.quote_detailed_specs || '').trim().length > 0);
-            const hasAnyItemImages = items.some(i => Array.isArray(i.quote_image_urls) && i.quote_image_urls.length >
-            0);
-
-            // [MỚI] Khởi tạo biến tích lũy để tính tổng chính xác
+            const hasAnyItemImages = items.some(i => Array.isArray(i.quote_image_urls) && i.quote_image_urls.length > 0);
             let grandTotalExVat = 0;
             let grandTotalVat = 0;
-            %>
+        %>
 
-            <div style="font-weight: bold; font-size: 11px; margin: 15px 0 5px 0; color: #0c65ce; border-bottom: 2px solid #0c65ce; padding-bottom: 3px;">
-                Chi tiết sản phẩm và đơn giá
-            </div>
             <table>
                 <thead>
                     <tr>
@@ -289,7 +247,8 @@
                 </thead>
                 <tbody>
                     <% items.forEach((item, index)=> {
-                        const isTaxFree = taxFreeSubcats.includes(item.subcat);
+                        const isSoftware = (item.subcat && (item.subcat.toLowerCase().includes('phần mềm') || item.subcat.toLowerCase().includes('phan mem'))) || (item.product_name && item.product_name.toLowerCase().includes('phần mềm'));
+                        const isTaxFree = taxFreeSubcats.includes(item.subcat) || isSoftware;
                         const taxRate = isTaxFree ? 0 : 0.08;
                         const taxDivisor = isTaxFree ? 1 : 1.08;
                         const unitPriceIncVat = item.edited_price !== undefined ? item.edited_price : (item.list_price || 0);
@@ -410,7 +369,7 @@
                         Hiện tại hiển thị theo cách "Chiết khấu thương mại" sau thuế. %>
 
                     <div class="total-row">
-                        <span>Cộng tiền hàng (Gồm VAT):</span>
+                        <span>TỔNG GIÁ TRỊ HÀNG HÓA TRƯỚC GIẢM GIÁ/<br><i>TOTAL BEFORE DISCOUNT:</i></span>
                         <span class="right">
                             <%= formatVND(totalItemsPrice) %>
                         </span>
@@ -418,7 +377,7 @@
 
                     <% if (globalDiscountAmt> 0) { %>
                         <div class="total-row">
-                            <span>Giảm giá thêm / Chiết khấu:</span>
+                            <span>GIẢM GIÁ/<br><i>DISCOUNT:</i></span>
                             <span class="right" style="color: #e53935;">-<%= formatVND(globalDiscountAmt) %></span>
                         </div>
                         <% } %>
@@ -456,49 +415,57 @@
                                                 <% } %>
 
                                                     <div class="total-row grand-total">
-                                                        <span>TỔNG THANH TOÁN:</span>
+                                                        <span>TỔNG GIÁ TRỊ HÀNG HÓA SAU GIẢM GIÁ/<br><i>TOTAL AFTER DISCOUNT:</i></span>
                                                         <span class="right">
                                                             <%= formatVND(finalTotal) %>
                                                         </span>
                                                     </div>
             </div>
 
-            <div style="clear: both; height: 20px;"></div>
+            <div style="clear: both; margin-top: 15px; margin-bottom: 10px; font-size: 11px; font-weight: bold;">
+                Bằng chữ/ <i>In words:</i> <span style="font-weight: normal; font-style: italic;"><%= typeof numberToWords === 'function' ? numberToWords(Math.round(finalTotal)) : '' %></span>
+            </div>
+            <div style="clear: both; height: 10px;"></div>
 
-            <div class="footer-terms">
-                <strong>Đơn vị tiền tệ được sử dụng trong báo giá là Việt Nam Đồng (VNĐ).</strong><br>
-                <strong>Điều kiện giao hàng:</strong> Giao hàng 1 lần tại kho Phong Vũ.<br>
-                <strong>Điều kiện thanh toán:</strong> 100% trước khi giao hàng.<br>
-                <strong>Bảo hành:</strong> Theo tiêu chuẩn Nhà sản xuất, Địa điểm bảo hành: tham khảo website phongvu.vn
-                để biết thêm chi tiết.<br>
+            <div class="footer-terms" style="line-height: 1.5;">
+                <strong>1. Lưu ý/ <i>Notes:</i></strong><br>
+                - Đơn vị tiền tệ được sử dụng trong báo giá là Việt Nam Đồng (VNĐ)/ <i>Vietnam Dong (VND) is applied for this quotation.</i><br>
+                - Báo giá đã bao gồm thuế GTGT/ <i>The quotation included VAT</i><br>
                 <% if (typeof validityDays !== 'undefined' && validityDays && Number(validityDays) > 0) { %>
-                    <strong>Hiệu lực báo giá:</strong> Báo giá có hiệu lực <%= validityDays %> ngày.<br>
+                    - Báo giá có hiệu lực trong vòng <strong><%= String(validityDays).padStart(2, "0") %> ngày</strong> kể từ ngày báo giá/ <i>The price is valid within <strong><%= String(validityDays).padStart(2, "0") %> days</strong> from the date of quotation.</i><br>
                 <% } %>
-                    <% if (typeof notes !=='undefined' && notes && notes.trim()) { %>
-                        <strong>Ghi chú:</strong>
-                        <%= notes %><br>
-                            <% } %>
-                                <br>
-
-                                <strong>Thanh toán tại cửa hàng hoặc chuyển khoản:</strong><br>
-                                - Ngân hàng: <%= branchInfo.bankName %><br>
-                                    - Số tài khoản: <%= branchInfo.bankAccount %><br>
-                                        - Tên tài khoản: <%= branchInfo.bankHolder %>
+                <br>
+                <strong>2. Phương thức giao hàng/ <i>Delivery terms:</i></strong><br>
+                - Địa chỉ giao hàng/ <i>Delivery place:</i> Giao hàng tại kho Phong Vũ.<br>
+                - Thời gian giao hàng/ <i>Delivery time:</i> Trong vòng <strong><%= String(typeof deliveryDays !== "undefined" && deliveryDays ? deliveryDays : 1).padStart(2, "0") %> ngày</strong> làm việc kể từ ngày xác nhận đặt hàng/ <i>Estimated time <strong><%= String(typeof deliveryDays !== "undefined" && deliveryDays ? deliveryDays : 1).padStart(2, "0") %> working days</strong> from the date of confirming order.</i><br>
+                <br>
+                <strong>3. Điều khoản bảo hành/ <i>Warranty Terms:</i></strong><br>
+                - Bảo hành theo tiêu chuẩn Nhà sản xuất/ <i>Warranty based on Manufacturer standards.</i><br>
+                - Địa điểm bảo hành/ <i>Warranty address:</i> tham khảo website phongvu.vn để biết thêm chi tiết/ <i>kindly refer to phongvu.vn for details.</i><br>
+                <br>
+                <strong>4. Phương thức thanh toán/ <i>Payment terms:</i></strong><br>
+                - Phương thức thanh toán: tiền mặt hoặc chuyển khoản/ <i>Payment method: Cash or Bank transfer.</i><br>
+                Tên tài khoản: <strong><%= branchInfo.bankHolder %></strong><br>
+                <i>Account holder: <%= branchInfo.bankHolder %></i><br>
+                - Số tài khoản/ <i>Account Number:</i> <strong><%= branchInfo.bankAccount %> - <%= branchInfo.bankName %></strong><br>
+                <% if (typeof notes !=='undefined' && notes && notes.trim()) { %>
+                    <br><strong>Ghi chú bổ sung:</strong> <%= notes %><br>
+                <% } %>
+                <br>
+                <strong>Xin cảm ơn Quý khách/ <i>Thank you and best regards!</i></strong>
             </div>
 
             <div class="signature-left">
-                <strong>Xác nhận đặt hàng</strong><br>
-                <i>(Ký, ghi rõ họ tên, đóng dấu)</i>
+                <strong>XÁC NHẬN MUA HÀNG</strong><br>
+                <i>ORDER CONFIRMATION</i>
                 <br><br><br><br><br>
             </div>
 
             <div class="signature-right">
-                <strong>Đại diện Kinh doanh</strong><br>
-                <i>(Ký, ghi rõ họ tên)</i>
+                <strong>ĐẠI DIỆN KINH DOANH</strong><br>
+                <i>BUSINESS REPRESENTATIVE</i>
                 <br><br><br><br>
-                <strong>
-                    <%= salesName %>
-                </strong>
+                <strong><%= salesName %></strong><% if (typeof salesContact !== 'undefined' && salesContact) { %><br><span style="font-weight: normal; font-size: 10px;">SĐT: <%= salesContact %></span><% } %>
             </div>
             <div style="clear: both;"></div>
     </div>

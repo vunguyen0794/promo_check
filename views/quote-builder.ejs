@@ -179,14 +179,23 @@
             </div>
         </div>
         
-        <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px;">
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-                <span class="setting-label">Hiệu lực báo giá:</span>
+                <span class="setting-label" style="font-weight: 600;">Hiệu lực báo giá:</span>
                 <div style="display:flex; align-items:center; gap:5px;">
-                    <input type="number" id="quoteValidity" value="" style="width:40px; text-align:center; border:1px solid #cbd5e1; border-radius:4px; padding:4px;">
-                    <span style="font-size:13px;">ngày</span>
+                    <input type="number" id="quoteValidity" value="3" min="1" style="width:45px; text-align:center; border:1px solid #cbd5e1; border-radius:4px; padding:4px;">
+                    <span style="font-size:12px; color:#475569;">ngày</span>
                 </div>
             </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                <span class="setting-label" style="font-weight: 600;">Số ngày chuẩn bị / GH:</span>
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <input type="number" id="quoteDeliveryDays" value="1" min="1" style="width:45px; text-align:center; border:1px solid #cbd5e1; border-radius:4px; padding:4px;">
+                    <span style="font-size:12px; color:#475569;">ngày</span>
+                </div>
+            </div>
+            <div style="font-size:10.5px; color:#64748b; text-align:right;">(Hiển thị trên bản PDF & Excel)</div>
+        </div>
             <div style="text-align: right; font-size:11px; color:#64748b;">(Bỏ trống ngày để ẩn)</div>
         </div>
 
@@ -287,7 +296,7 @@
       </div>
 
       <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
-        <button type="button" class="btn" style="flex: 1; min-width: 120px; padding: 12px; font-weight: 700; background-color: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer;" id="btnPreviewQuote">
+        <button type="button" class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 12px; font-weight: 700; background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;" id="btnPreviewPDF">
           <i class="fas fa-eye"></i> Xem trước
         </button>
         <button type="button" class="btn btn-primary" style="flex: 1; min-width: 120px; padding: 12px; font-weight: 700;" id="btnDownloadPDF">
@@ -1143,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
   });
 
-  btnDownload.onclick = async () => {
+  async function handleGeneratePDF(actionType) {
       const name = document.getElementById('quoteCustomerName').value.trim();
       const phone = document.getElementById('quoteCustomerPhone').value.trim();
       const contact = document.getElementById('quoteContactInfo').value.trim();
@@ -1154,7 +1163,18 @@ document.addEventListener('DOMContentLoaded', function() {
           return;
       }
 
+      // Bypass popup blocker by opening window synchronously before fetch
+      let winPreview = null;
+      if (actionType === 'preview') {
+          winPreview = window.open('about:blank', '_blank');
+          if (winPreview) {
+              winPreview.document.write('<div style="font-family:sans-serif;padding:40px;text-align:center;color:#1e293b;"><h2>Đang tạo bản xem trước PDF...</h2><p style="color:#64748b;">Vui lòng chờ trong giây lát.</p></div>');
+          }
+      }
+
       btnDownload.style.display = 'none'; 
+      document.getElementById('btnPreviewPDF').style.display = 'none';
+      document.getElementById('btnDownloadExcel').style.display = 'none';
       quoteLoading.style.display = 'block';
       downloadError.style.display = 'none';
 
@@ -1162,8 +1182,11 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
           buildConfigPayload = await buildConfigPayloadForExport();
       } catch (uploadErr) {
+          if (winPreview) winPreview.close();
           quoteLoading.style.display = 'none';
           btnDownload.style.display = 'block';
+          document.getElementById('btnPreviewPDF').style.display = 'block';
+          document.getElementById('btnDownloadExcel').style.display = 'block';
           downloadError.innerText = 'Lỗi upload ảnh: ' + uploadErr.message;
           downloadError.style.display = 'block';
           return;
@@ -1181,14 +1204,14 @@ document.addEventListener('DOMContentLoaded', function() {
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
           },
-          validityDays: quoteValidity.value,
-          templateType: document.querySelector('input[name="printTemplate"]:checked').value
+          validityDays: document.getElementById('quoteValidity') ? document.getElementById('quoteValidity').value : 3,
+          deliveryDays: document.getElementById('quoteDeliveryDays') ? document.getElementById('quoteDeliveryDays').value : 1,
+          templateType: document.querySelector('input[name="printTemplate"]:checked') ? document.querySelector('input[name="printTemplate"]:checked').value : 'consumer'
       };
 
       try {
           quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu & tạo file PDF...';
           
-          // Lưu lịch sử
           const totalAmtElem = document.getElementById('final-total-price');
           const totalAmt = Number((totalAmtElem.textContent||'').replace(/\D/g, '')) || 0;
           fetch('/api/quote-history', {
@@ -1210,32 +1233,46 @@ document.addEventListener('DOMContentLoaded', function() {
           
           const blob = await res.blob();
           const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.style.display = 'none'; 
-          a.href = url; 
           
-          const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g,'_');
-          a.download = `BaoGia_${safeName}.pdf`;
-          
-          document.body.appendChild(a); 
-          a.click();
-          
-          setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+          if (actionType === 'preview') {
+              if (winPreview) {
+                  winPreview.location.href = url;
+              } else {
+                  window.open(url, '_blank');
+              }
+          } else {
+              const a = document.createElement('a');
+              a.style.display = 'none'; 
+              a.href = url; 
+              
+              const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g,'_');
+              a.download = `BaoGia_${safeName}.pdf`;
+              
+              document.body.appendChild(a); 
+              a.click();
+              
+              setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+              if(typeof showToast === 'function') showToast('Đã tải báo giá thành công!', 'success');
+          }
           
           quoteModal.style.display = 'none';
-          if(typeof showToast === 'function') showToast('Đã tải báo giá thành công!', 'success');
 
       } catch(e) {
           console.error(e);
+          if (winPreview) winPreview.close();
           downloadError.innerText = 'Lỗi: ' + e.message;
           downloadError.style.display = 'block';
       } finally {
           btnDownload.style.display = 'block'; 
+          document.getElementById('btnPreviewPDF').style.display = 'block';
           document.getElementById('btnDownloadExcel').style.display = 'block';
           quoteLoading.style.display = 'none';
           quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file...';
       }
-  };
+  }
+  
+  btnDownload.onclick = () => handleGeneratePDF('download');
+  document.getElementById('btnPreviewPDF').onclick = () => handleGeneratePDF('preview');
 
   const fileToBase64 = (file) => new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -1362,6 +1399,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       btnDownload.style.display = 'none'; 
+      document.getElementById('btnPreviewPDF').style.display = 'none';
       document.getElementById('btnDownloadExcel').style.display = 'none';
       quoteLoading.style.display = 'block';
       downloadError.style.display = 'none';
@@ -1372,6 +1410,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } catch (uploadErr) {
           quoteLoading.style.display = 'none';
           btnDownload.style.display = 'block';
+          document.getElementById('btnPreviewPDF').style.display = 'block';
           document.getElementById('btnDownloadExcel').style.display = 'block';
           downloadError.innerText = 'Lỗi upload ảnh: ' + uploadErr.message;
           downloadError.style.display = 'block';
@@ -1390,33 +1429,22 @@ document.addEventListener('DOMContentLoaded', function() {
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
           },
-          validityDays: quoteValidity.value,
-          templateType: document.querySelector('input[name="printTemplate"]:checked').value
+          validityDays: document.getElementById('quoteValidity') ? document.getElementById('quoteValidity').value : 3,
+          deliveryDays: document.getElementById('quoteDeliveryDays') ? document.getElementById('quoteDeliveryDays').value : 1,
+          templateType: document.querySelector('input[name="printTemplate"]:checked') ? document.querySelector('input[name="printTemplate"]:checked').value : 'consumer'
       };
 
       try {
-          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu & tạo file Excel...';
-          
-          // Lưu lịch sử
-          const totalAmtElem = document.getElementById('final-total-price');
-          const totalAmt = Number((totalAmtElem.textContent||'').replace(/\D/g, '')) || 0;
-          fetch('/api/quote-history', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({...payload, totalAmount: totalAmt})
-          }).catch(e => console.error('Lỗi ngầm khi lưu lịch sử quote:', e));
-
+          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file Excel...';
           const res = await fetch('/api/pc-builder/generate-quote-excel', {
               method: 'POST', 
               headers: {'Content-Type':'application/json'},
               body: JSON.stringify(payload)
           });
-          
           if(!res.ok) {
               const err = await res.json();
               throw new Error(err.error || 'Lỗi kết nối server');
           }
-          
           const blob = await res.blob();
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -1440,6 +1468,7 @@ document.addEventListener('DOMContentLoaded', function() {
           downloadError.style.display = 'block';
       } finally {
           btnDownload.style.display = 'block'; 
+          document.getElementById('btnPreviewPDF').style.display = 'block';
           document.getElementById('btnDownloadExcel').style.display = 'block';
           quoteLoading.style.display = 'none';
           quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file...';

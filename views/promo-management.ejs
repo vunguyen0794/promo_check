@@ -443,6 +443,20 @@
 
     <!-- PANEL GOOGLE SHEETS -->
     <div id="panelSheet" style="display: <%= typeof activeTab !== 'undefined' && activeTab === 'sheet' ? 'block' : 'none' %>;">
+        
+        <% if (user && user.role === 'manager') { %>
+            <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div>
+                    <h3 style="margin: 0; font-size: 16px; color: #0f172a;">Đồng bộ dữ liệu từ Google Sheets</h3>
+                    <p style="margin: 5px 0 0; font-size: 13px; color: #64748b;">Lấy dữ liệu CTKM mới nhất từ file vận hành "Thông báo CTKM".</p>
+                </div>
+                <button onclick="syncGoogleSheets(this)" class="btn-primary" style="display: flex; align-items: center; gap: 8px; padding: 10px 20px; font-weight: 600;">
+                    <span id="syncIcon">🔄</span>
+                    <span id="syncText">Đồng bộ ngay</span>
+                </button>
+            </div>
+        <% } %>
+
         <div class="promo-list">
             <% if (typeof sheetPromotions !== 'undefined' && sheetPromotions && sheetPromotions.length > 0) { %>
                 <% sheetPromotions.forEach(sp => { %>
@@ -1687,6 +1701,51 @@
             el.style.display = 'none';
         }
     }
+
+    async function syncGoogleSheets(btn) {
+        if (!confirm('Bạn có chắc chắn muốn đồng bộ dữ liệu CTKM từ Google Sheets? Quá trình này có thể mất 10-20 giây.')) {
+            return;
+        }
+
+        const icon = document.getElementById('syncIcon');
+        const text = document.getElementById('syncText');
+        const originalText = text.innerText;
+
+        btn.disabled = true;
+        icon.style.display = 'inline-block';
+        icon.style.animation = 'spin 1s linear infinite';
+        text.innerText = 'Đang đồng bộ...';
+
+        try {
+            const res = await fetch('/api/admin/sync-promotions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            
+            if (data.ok) {
+                alert(data.message || 'Đồng bộ thành công!');
+                window.location.reload();
+            } else {
+                alert('Lỗi: ' + (data.error || 'Không thể đồng bộ'));
+                btn.disabled = false;
+                icon.style.animation = 'none';
+                text.innerText = originalText;
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Lỗi kết nối khi đồng bộ');
+            btn.disabled = false;
+            icon.style.animation = 'none';
+            text.innerText = originalText;
+        }
+    }
 </script>
+
+<style>
+    @keyframes spin {
+        100% { transform: rotate(360deg); }
+    }
+</style>
 
 <%- include('partials/footer') %>

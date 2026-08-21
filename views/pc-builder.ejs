@@ -413,13 +413,19 @@
 
       <div style="background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
           <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span style="font-size: 13px; font-weight: 600; color: #475569;">Hiệu lực báo giá:</span>
-                  <div style="display:flex; align-items:center; gap:5px;">
-                      <input type="number" id="quoteValidity" value="" style="width: 50px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px;">
-                      <span style="font-size: 13px;">ngày</span>
-                  </div>
-              </div>
+                              <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; font-weight: 600; color: #475569;">Hiệu lực / Giao hàng:</span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:3px;">
+                            <input type="number" id="quoteValidity" value="3" min="1" style="width: 40px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px;" title="Số ngày báo giá có hiệu lực">
+                            <span style="font-size: 11px;">ngày HL</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:3px;">
+                            <input type="number" id="quoteDeliveryDays" value="1" min="1" style="width: 40px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px;" title="Số ngày giao hàng">
+                            <span style="font-size: 11px;">ngày GH</span>
+                        </div>
+                    </div>
+                </div>
               <div style="text-align: right; font-size: 11px; color: #64748b;">(Bỏ trống ngày để ẩn)</div>
           </div>
 
@@ -438,7 +444,10 @@
           </div>
       </div>
       
-      <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px;">
+        <button type="button" id="btnPreviewPDF" class="btn btn-secondary" style="flex: 1; padding: 12px; font-weight: 700; background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;">
+          <i class="fas fa-eye"></i> Xem trước
+        </button>
         <button type="button" id="btnDownloadPDF" class="btn btn-primary" style="flex: 1; padding: 12px; font-weight: 700;">
           <i class="fas fa-file-pdf"></i> Xuất PDF
         </button>
@@ -887,7 +896,8 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
 
   // --- XỬ LÝ NÚT TẢI PDF (FIXED WITH EVENT DELEGATION) ---
   document.addEventListener('click', async (e) => {
-    if (e.target && e.target.id === 'btnDownloadPDF') {
+    if (e.target && (e.target.id === 'btnDownloadPDF' || e.target.id === 'btnPreviewPDF' || e.target.closest('#btnDownloadPDF') || e.target.closest('#btnPreviewPDF'))) {
+          const actionType = (e.target.id === 'btnPreviewPDF' || (e.target.closest('#btnPreviewPDF'))) ? 'preview' : 'download';
         const btnDownload = e.target;
         
         const name = document.getElementById('quoteCustomerName').value.trim();
@@ -900,12 +910,14 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
             return;
         }
 
-        btnDownload.style.display = 'none';
+        
         quoteLoading.style.display = 'block';
         document.getElementById('downloadError').style.display = 'none';
 
         // Lấy tham số mới
         const validityDays = document.getElementById('quoteValidity').value;
+          const deliveryDays = document.getElementById('quoteDeliveryDays') ? document.getElementById('quoteDeliveryDays').value : 1;
+          const deliveryDays = document.getElementById('quoteDeliveryDays') ? document.getElementById('quoteDeliveryDays').value : 1;
         let templateType = 'consumer';
         const checkedRadio = document.querySelector('input[name="printTemplate"]:checked');
         if (checkedRadio) templateType = checkedRadio.value;
@@ -924,7 +936,7 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
               isGeneralQuote: false, // Build PC -> Có KM
               
               // Gửi option mới
-              validityDays: validityDays,
+              validityDays: validityDays, deliveryDays: deliveryDays, deliveryDays: deliveryDays,
               templateType: templateType,
               globalDiscount: { value: 0, type: 'amount' } 
             })
@@ -1041,6 +1053,8 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
         } finally {
           btnDownload.style.display = 'block';
           if (btnPdf) btnPdf.style.display = 'block';
+            const btnPreview = document.getElementById('btnPreviewPDF');
+            if (btnPreview) btnPreview.style.display = 'block';
           quoteLoading.style.display = 'none';
         }
     }
