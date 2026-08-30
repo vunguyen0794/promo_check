@@ -196,8 +196,7 @@
             </div>
             <div style="font-size:10.5px; color:#64748b; text-align:right;">(Hiển thị trên bản PDF & Excel)</div>
         </div>
-            <div style="text-align: right; font-size:11px; color:#64748b;">(Bỏ trống ngày để ẩn)</div>
-        </div>
+        <div style="text-align: right; font-size:11px; color:#64748b; margin-bottom: 10px;">(Bỏ trống ngày để ẩn)</div>
 
         <div style="margin: 10px 0; border-top: 1px dashed #e2e8f0;"></div>
 
@@ -673,9 +672,9 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="summary-item" data-item-sku="${sku}">
         <div class="summary-item-top" style="align-items: center;">
             <div class="item-sort-controls" style="display: flex; flex-direction: column; align-items: center; margin-right: 12px; gap: 2px; user-select: none;">
-                <button type="button" class="btn-icon" onclick="moveItem('${sku}', -1)" ${i === 0 ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''} title="Di chuyển lên" style="font-size: 11px; padding: 2px 4px; background: #e2e8f0; border-radius: 3px; border: 1px solid #cbd5e1;">▲</button>
+                <button type="button" class="btn-icon" onclick="moveItem('${sku}', -1)" ${i === 0 ? 'disabled' : ''} title="Di chuyển lên" style="font-size: 11px; padding: 2px 4px; background: #e2e8f0; border-radius: 3px; border: 1px solid #cbd5e1;${i === 0 ? ' opacity: 0.3; cursor: not-allowed;' : ''}">▲</button>
                 <span style="font-size: 12px; font-weight: bold; color: #475569; min-width: 16px; text-align: center;">${i + 1}</span>
-                <button type="button" class="btn-icon" onclick="moveItem('${sku}', 1)" ${i === skus.length - 1 ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''} title="Di chuyển xuống" style="font-size: 11px; padding: 2px 4px; background: #e2e8f0; border-radius: 3px; border: 1px solid #cbd5e1;">▼</button>
+                <button type="button" class="btn-icon" onclick="moveItem('${sku}', 1)" ${i === skus.length - 1 ? 'disabled' : ''} title="Di chuyển xuống" style="font-size: 11px; padding: 2px 4px; background: #e2e8f0; border-radius: 3px; border: 1px solid #cbd5e1;${i === skus.length - 1 ? ' opacity: 0.3; cursor: not-allowed;' : ''}">▼</button>
             </div>
             <div style="flex:1; margin-right:10px;">
                 <div class="summary-item-name">${escapeHtml(item.product_name)}</div>
@@ -1316,76 +1315,12 @@ document.addEventListener('DOMContentLoaded', function() {
       return payloadConfig;
   }
 
-  const btnPreview = document.getElementById('btnPreviewQuote');
   const previewModal = document.getElementById('previewModal');
   const previewClose = document.getElementById('previewClose');
   const previewIframe = document.getElementById('quotePreviewIframe');
 
   if(previewClose) previewClose.onclick = () => previewModal.style.display = 'none';
 
-  btnPreview.onclick = async () => {
-      const name = document.getElementById('quoteCustomerName').value.trim();
-      const phone = document.getElementById('quoteCustomerPhone').value.trim();
-      const contact = document.getElementById('quoteContactInfo').value.trim();
-      const notes = document.getElementById('quoteNotes').value.trim();
-      
-      if(!name || !phone || !contact) {
-          alert('Vui lòng nhập đầy đủ thông tin khách hàng và liên hệ.');
-          return;
-      }
-
-      btnPreview.disabled = true;
-      btnDownload.style.display = 'none'; 
-      document.getElementById('btnDownloadExcel').style.display = 'none';
-      quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu xem trước...';
-      quoteLoading.style.display = 'block';
-      downloadError.style.display = 'none';
-
-      const buildConfigPayload = await buildConfigPayloadForPreview();
-      
-      const payload = {
-          buildConfig: buildConfigPayload,
-          customerName: name, 
-          customerPhone: phone, 
-          contactInfo: contact,
-          isGeneralQuote: true, 
-          notes: notes,
-          itemOrder: currentBuildOrder,
-          globalDiscount: { 
-              value: Number(globalDiscountVal.value)||0, 
-              type: globalDiscountType.value 
-          },
-          validityDays: quoteValidity.value,
-          templateType: document.querySelector('input[name="printTemplate"]:checked').value
-      };
-
-      try {
-          const res = await fetch('/api/pc-builder/preview-quote', {
-              method: 'POST', 
-              headers: {'Content-Type':'application/json'},
-              body: JSON.stringify(payload)
-          });
-          
-          if(!res.ok) {
-              const err = await res.json();
-              throw new Error(err.error || 'Lỗi kết nối server');
-          }
-          
-          const htmlContent = await res.text();
-          previewIframe.srcdoc = htmlContent;
-          previewModal.style.display = 'flex';
-      } catch(e) {
-          console.error(e);
-          downloadError.innerText = 'Lỗi xem trước: ' + e.message;
-          downloadError.style.display = 'block';
-      } finally {
-          btnPreview.disabled = false;
-          btnDownload.style.display = 'block'; 
-          document.getElementById('btnDownloadExcel').style.display = 'block';
-          quoteLoading.style.display = 'none';
-          quoteLoading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo file...';
-      }
-  };
 
   document.getElementById('btnDownloadExcel').onclick = async () => {
       const name = document.getElementById('quoteCustomerName').value.trim();
