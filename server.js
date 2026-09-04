@@ -1467,6 +1467,194 @@ app.post('/register', async (req, res) => {
 
 app.post('/logout', (req, res) => { req.session = null; return res.redirect('/login'); });
 
+// --- HELPER GÁN ICON VÀ TÍNH NĂNG KẾT HỢP DÙNG CHUNG CHO CTKM ---
+function enrichPromoForDisplay(p) {
+  const name = p.name || p.program_name || p.sheet_name || '';
+  const group = p.group_name || p.sheet_name || '';
+  const type = p.promo_type || '';
+  const desc = p.description || p.conditions || '';
+  // QUAN TRỌNG: Chỉ dùng name, group, type để định danh CTKM
+  // Không dùng mô tả thể lệ/conditions để định danh, vì trong điều kiện thường ghi "Không áp dụng đồng thời với VNPay / Quà tặng" sẽ gây nhận diện sai hoàn toàn!
+  const identityStr = (name + ' ' + group + ' ' + type).toLowerCase();
+
+  let icon = '🏷️';
+  let iconBg = '#ecfdf5';
+  let iconColor = '#047857';
+  let categoryBadge = 'Giảm giá';
+  let compatibleIcons = [];
+
+  if (identityStr.includes('trả góp') || identityStr.includes('góp 0%') || identityStr.includes('homecredit') || identityStr.includes('shinhan') || identityStr.includes('payoo') || (identityStr.includes('góp') && !identityStr.includes('mở thẻ'))) {
+    icon = '🏦';
+    iconBg = '#f3e8ff';
+    iconColor = '#7c3aed';
+    categoryBadge = 'Trả góp';
+    // Thể lệ: Không áp dụng quà tặng mặc định, không áp dụng cổng thanh toán. Chỉ áp dụng cùng Đổi điểm / HSSV (Tân SV).
+    compatibleIcons = [
+      { icon: '🎓', label: 'Đổi điểm / HSSV (chỉ Tân SV)' }
+    ];
+  } else if (identityStr.includes('mở thẻ') || identityStr.includes('tpbank') || identityStr.includes('vib')) {
+    icon = '🏛️';
+    iconBg = '#ede9fe';
+    iconColor = '#6d28d9';
+    categoryBadge = 'Mở thẻ TPBank/VIB';
+    compatibleIcons = [
+      { icon: '🏷️', label: 'Giảm trực tiếp' },
+      { icon: '🎁', label: 'Quà tặng' }
+    ];
+  } else if (identityStr.includes('shopeepay')) {
+    icon = '🛍️';
+    iconBg = '#fff1ee';
+    iconColor = '#ee4d2d';
+    categoryBadge = 'ShopeePay';
+    compatibleIcons = [
+      { icon: '🏷️', label: 'Giảm trực tiếp' },
+      { icon: '🎁', label: 'Quà tặng' },
+      { icon: '🎓', label: 'HSSV / Đổi điểm' }
+    ];
+  } else if (identityStr.includes('vnpay')) {
+    icon = '💳';
+    iconBg = '#e6f4ff';
+    iconColor = '#005baa';
+    categoryBadge = 'VNPAY';
+    compatibleIcons = [
+      { icon: '🏷️', label: 'Giảm trực tiếp' },
+      { icon: '🎁', label: 'Quà tặng' },
+      { icon: '🎓', label: 'HSSV / Đổi điểm' }
+    ];
+  } else if (type === 'KFI' || identityStr.includes('kfi')) {
+    icon = '🔥';
+    iconBg = '#fef3c7';
+    iconColor = '#ea580c';
+    categoryBadge = 'KFI Thưởng';
+    compatibleIcons = [
+      { icon: '🏷️', label: 'Giảm trực tiếp' },
+      { icon: '🛍️', label: 'ShopeePay' },
+      { icon: '💳', label: 'VNPAY' },
+      { icon: '🎁', label: 'Quà tặng' }
+    ];
+  } else if (identityStr.includes('đổi điểm thi') || identityStr.includes('điểm thi')) {
+    icon = '🏅';
+    iconBg = '#eff6ff';
+    iconColor = '#1d4ed8';
+    categoryBadge = 'Đổi điểm thi';
+    compatibleIcons = [
+      { icon: '🎁', label: 'Quà tặng' },
+      { icon: '🏦', label: 'Trả góp (Tân SV)' },
+      { icon: '🛍️', label: 'ShopeePay' },
+      { icon: '💳', label: 'VNPAY' }
+    ];
+  } else if (identityStr.includes('hssv') || identityStr.includes('sinh viên') || identityStr.includes('học sinh')) {
+    icon = '🎓';
+    iconBg = '#d1fae5';
+    iconColor = '#059669';
+    categoryBadge = 'HSSV Quý 3';
+    compatibleIcons = [
+      { icon: '🎁', label: 'Quà tặng' },
+      { icon: '🏦', label: 'Trả góp (Tân SV)' },
+      { icon: '🛍️', label: 'ShopeePay' },
+      { icon: '💳', label: 'VNPAY' }
+    ];
+  } else if (type === 'Gift' || type === 'Quà tặng (Gift)' || identityStr.includes('quà') || identityStr.includes('tặng') || p.gift_name) {
+    icon = '🎁';
+    iconBg = '#fce7f3';
+    iconColor = '#db2777';
+    categoryBadge = 'Quà tặng';
+    compatibleIcons = [
+      { icon: '🏷️', label: 'Giảm trực tiếp' },
+      { icon: '🛍️', label: 'ShopeePay' },
+      { icon: '💳', label: 'VNPAY' },
+      { icon: '🎓', label: 'HSSV / Đổi điểm' }
+    ];
+  } else if (type === 'Combo' || identityStr.includes('combo')) {
+    icon = '🧩';
+    iconBg = '#e0e7ff';
+    iconColor = '#4338ca';
+    categoryBadge = 'Combo';
+    compatibleIcons = [
+      { icon: '🛍️', label: 'ShopeePay' },
+      { icon: '💳', label: 'VNPAY' },
+      { icon: '🎁', label: 'Quà tặng' }
+    ];
+  } else if (identityStr.includes('build pc') || identityStr.includes('pcpv')) {
+    icon = '🖥️';
+    iconBg = '#e0f2fe';
+    iconColor = '#0369a1';
+    categoryBadge = 'Build PC';
+    compatibleIcons = [
+      { icon: '🛍️', label: 'ShopeePay' },
+      { icon: '💳', label: 'VNPAY' },
+      { icon: '🎁', label: 'Quà tặng' }
+    ];
+  } else if (identityStr.includes('app') || identityStr.includes('loyalty')) {
+    icon = '📱';
+    iconBg = '#e0e7ff';
+    iconColor = '#3730a3';
+    categoryBadge = 'App & Loyalty';
+    compatibleIcons = [
+      { icon: '💳', label: 'VNPAY' },
+      { icon: '🎁', label: 'Quà tặng' }
+    ];
+  } else {
+    icon = '🏷️';
+    iconBg = '#ecfdf5';
+    iconColor = '#047857';
+    categoryBadge = 'Giảm giá';
+    compatibleIcons = [
+      { icon: '🛍️', label: 'ShopeePay' },
+      { icon: '💳', label: 'VNPAY' },
+      { icon: '🎁', label: 'Quà tặng' }
+    ];
+  }
+
+  // Parse discount amount / label
+  let discountLabel = '';
+  if (p.__display_discount) {
+    if (String(p.__display_discount).includes('%')) {
+      discountLabel = `-${p.__display_discount}`;
+    } else if (Number(p.__display_discount) > 0) {
+      discountLabel = `-${new Intl.NumberFormat('vi-VN').format(p.__display_discount)}₫`;
+    }
+  } else if (p.promo_price && p.list_price) {
+    const diff = p.list_price - p.promo_price;
+    if (diff > 0) discountLabel = `-${new Intl.NumberFormat('vi-VN').format(diff)}₫`;
+  } else if (p.online_coupon) {
+    const mMoney = p.online_coupon.match(/(\d+([.,]\d+)?)\s*(k|triệu|tr)/i);
+    const mPct = p.online_coupon.match(/(\d+)%/);
+    if (mPct) discountLabel = `-${mPct[1]}%`;
+    else if (mMoney) discountLabel = `Giảm ${mMoney[0]}`;
+    else discountLabel = 'Ưu đãi mã';
+  } else if (categoryBadge === 'Quà tặng') {
+    discountLabel = 'Tặng quà';
+  } else if (categoryBadge === 'Trả góp & Thẻ') {
+    discountLabel = 'Lãi 0%';
+  } else if (categoryBadge === 'KFI Thưởng') {
+    discountLabel = 'Thưởng KFI';
+  } else if (categoryBadge === 'Đổi điểm thi') {
+    discountLabel = 'Đến 5.000.000₫';
+  } else if (categoryBadge === 'HSSV Quý 3') {
+    discountLabel = 'Đến 500.000₫';
+  }
+
+  // Tạo short_desc ngắn gọn
+  let shortDesc = desc.replace(/[\r\n]+/g, ' ').trim();
+  if (shortDesc.length > 120) shortDesc = shortDesc.slice(0, 117) + '...';
+
+  return {
+    ...p,
+    __icon: icon,
+    __icon_bg: iconBg,
+    __icon_color: iconColor,
+    __category_badge: categoryBadge,
+    __compatible_icons: compatibleIcons,
+    __discount_label: discountLabel,
+    __short_desc: shortDesc || 'Xem điều kiện chi tiết trong thể lệ',
+    __promo_type: p.promo_type || categoryBadge,
+    __apply_channels: p.channel || p.apply_channels || 'All channels (Showroom & Online)',
+    __conditions: p.conditions || p.special_conditions || p.description || 'Áp dụng theo thể lệ chi tiết của chương trình.',
+    __detail_link: p.detail_link || (p.id ? `/promotion-detail/${p.id}` : '#')
+  };
+}
+
 // --- ROUTE TRANG CHỦ (RENDER LẦN ĐẦU) ---
 app.get('/', requireAuth, async (req, res) => {
   try {
@@ -1580,7 +1768,7 @@ app.get('/', requireAuth, async (req, res) => {
     const promosWithStackInfo = [
       ...promosWithStackInfoBase,
       ...mappedSheetPromos
-    ];
+    ].map(enrichPromoForDisplay);
 
     const userBranch = req.session.user?.branch_code;
 
@@ -1869,7 +2057,7 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
     const promosWithStackInfo = [
       ...promosWithStackInfoBase,
       ...mappedSheetPromos
-    ];
+    ].map(enrichPromoForDisplay);
 
     // --- LOGIC LỌC GIỐNG HỆT ROUTE TRANG CHỦ ---
     let filteredPromos = promosWithStackInfo;
@@ -2882,9 +3070,56 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       .lte('start_date', today)
       .gte('end_date', today);
 
+    // 2.2) Lọc các CTKM từ Sheet hợp lệ với sản phẩm hiện tại
+    const validSheetPromos = (sheetPromosRaw || []).filter(sp => {
+      // 1. Nếu khớp chính xác SKU: luôn hợp lệ
+      if (sp.sku === product.sku) return true;
+
+      // 2. Kiểm tra Hãng (Brand) nếu CTKM có quy định hãng
+      if (sp.brand && sp.brand !== 'All' && sp.brand !== 'Toàn hệ thống') {
+        const prodBrand = (product.brand || '').trim().toLowerCase();
+        const promoBrand = (sp.brand || '').trim().toLowerCase();
+        if (prodBrand && promoBrand && prodBrand !== promoBrand && !prodBrand.includes(promoBrand) && !promoBrand.includes(prodBrand)) {
+          return false;
+        }
+      }
+
+      // 3. Nếu SKU là mã ngành (NH01, NH02, NH05, NH11...)
+      if (/^NH\d+/i.test(sp.sku)) {
+        const prodCat = (product.category || '').toUpperCase();
+        const prodSubcat = (product.subcat || '').toUpperCase();
+        const spCat = (sp.sku || '').toUpperCase();
+        const isCatMatch = prodCat.startsWith(spCat) || prodSubcat.startsWith(spCat) || 
+          (spCat === 'NH01' && (prodCat === 'NH01' || prodCat === 'NH05')) ||
+          (spCat === 'NH05' && (prodCat === 'NH05' || prodCat === 'NH01'));
+        if (!isCatMatch) return false;
+      }
+
+      // 4. Nếu là ALL: Loại bỏ các chương trình không liên quan đến ngành hàng này
+      if (sp.sku === 'ALL' || sp.sku === 'All') {
+        const prodCat = (product.category || '').toUpperCase();
+        const lowerName = ((sp.program_name || '') + ' ' + (sp.sheet_name || '')).toLowerCase();
+        
+        // CTKM Laptop/MacBook chỉ cho NH01/NH05
+        if ((lowerName.includes('laptop') || lowerName.includes('macbook')) && !lowerName.includes('vệ sinh')) {
+          if (prodCat !== 'NH01' && prodCat !== 'NH05') return false;
+        }
+        // CTKM Máy in / Mực in chỉ cho NH07
+        if (lowerName.includes('máy in') || lowerName.includes('mực in')) {
+          if (!prodCat.startsWith('NH07')) return false;
+        }
+        // CTKM Máy chiếu chỉ cho NH08
+        if (lowerName.includes('máy chiếu') || lowerName.includes('màn chiếu')) {
+          if (!prodCat.startsWith('NH08')) return false;
+        }
+      }
+
+      return true;
+    });
+
     // De-duplicate / merge promotions from Google Sheets (grouped by program_name/sheet_name)
     const groupedPromos = new Map();
-    (sheetPromosRaw || []).forEach(sp => {
+    validSheetPromos.forEach(sp => {
       const key = sp.program_name || sp.sheet_name;
       if (!groupedPromos.has(key)) {
         groupedPromos.set(key, { ...sp });
@@ -2946,14 +3181,36 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
         descParts.push(`Số lượng: ${sp.limit_qty}`);
       }
 
+      // Xác định chính xác loại CTKM (promo_type)
+      let promoType = 'Discount';
+      const upperSheet = (sp.sheet_name || '').toUpperCase();
+      const upperProg = (sp.program_name || '').toUpperCase();
+      const lowerAll = (upperSheet + ' ' + upperProg + ' ' + (sp.conditions || '')).toLowerCase();
+
+      if (upperSheet.includes('HSSV') || upperProg.includes('HSSV')) {
+        promoType = 'Học sinh - Sinh viên';
+      } else if (upperSheet.includes('ĐỔI ĐIỂM') || upperProg.includes('ĐỔI ĐIỂM') || upperProg.includes('ĐIỂM THI')) {
+        promoType = 'Đổi điểm thi';
+      } else if (lowerAll.includes('shopeepay') || lowerAll.includes('vnpay')) {
+        promoType = 'Ưu đãi thanh toán';
+      } else if (lowerAll.includes('mở thẻ') || lowerAll.includes('tpbank') || lowerAll.includes('vib') || lowerAll.includes('trả góp') || lowerAll.includes('homecredit') || lowerAll.includes('shinhan')) {
+        promoType = 'Trả góp & Thẻ';
+      } else if (lowerAll.includes('combo')) {
+        promoType = 'Combo';
+      } else if (sp.gift_name || sp.gift_sku || lowerAll.includes('tặng') || lowerAll.includes('quà')) {
+        promoType = 'Gift';
+      } else if (sp.online_coupon) {
+        promoType = 'Coupon';
+      }
+
       return {
         id: `sheet_${sp.id}`,
         name: sp.program_name || sp.sheet_name,
-        description: descParts.join(' | '),
+        description: descParts.join(' | ') || sp.conditions || 'Xem chi tiết thể lệ chương trình',
         start_date: sp.start_date,
         end_date: sp.end_date,
-        channel: sp.apply_channels || 'All',
-        promo_type: (sp.gift_name || sp.gift_sku) ? 'Gift' : 'Discount',
+        channel: sp.apply_channels || 'All channels',
+        promo_type: promoType,
         group_name: sp.sheet_name,
         special_conditions: sp.conditions,
         conditions: sp.conditions,
@@ -3165,9 +3422,59 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     }
     // 5) Tính toán giá trị giảm cho TẤT CẢ các CTKM hợp lệ ban đầu
     let candidates = (regularPromos || []).map(p => {
-      const ruleDiscount = calcDiscountAmt(p, price);
-      const couponDiscount = getMaxCouponDiscount(p);
-      const bestDiscount = Math.max(ruleDiscount, couponDiscount);
+      let ruleDiscount = calcDiscountAmt(p, price);
+      let couponDiscount = getMaxCouponDiscount(p);
+      let bestDiscount = Math.max(ruleDiscount, couponDiscount);
+
+      // Tính toán giá trị giảm cho các ưu đãi % hoặc coupon toàn sàn nếu chưa có
+      if (bestDiscount === 0 && price > 0) {
+        if (p.promo_percent && Number(p.promo_percent) > 0) {
+          let calc = (price * Number(p.promo_percent)) / 100;
+          if (p.max_discount_amount) calc = Math.min(calc, Number(p.max_discount_amount));
+          if ((p.name || '').toLowerCase().includes('shopee')) calc = Math.min(calc, 500000);
+          bestDiscount = Math.round(calc);
+          if (lowerCoupon.includes('5 triệu') || lowerCoupon.includes('5tr') || lowerCoupon.includes('5.000.000')) {
+            bestDiscount = 5000000;
+          } else if (lowerCoupon.includes('3 triệu') || lowerCoupon.includes('3tr')) {
+            bestDiscount = 3000000;
+          } else if (lowerCoupon.includes('2 triệu') || lowerCoupon.includes('2tr')) {
+            bestDiscount = 2000000;
+          } else if (lowerCoupon.includes('1 triệu') || lowerCoupon.includes('1tr')) {
+            bestDiscount = 1000000;
+          } else if (lowerCoupon.includes('vnpay')) {
+            if (price >= 70000000) bestDiscount = 1000000;
+            else if (price >= 30000000) bestDiscount = 250000;
+            else if (price >= 20000000) bestDiscount = 150000;
+            else if (price >= 10000000) bestDiscount = 100000;
+          } else if (lowerCoupon.includes('800k')) {
+            bestDiscount = 800000;
+          } else if (lowerCoupon.includes('600k')) {
+            bestDiscount = 600000;
+          } else if (lowerCoupon.includes('500k')) {
+            bestDiscount = 500000;
+          } else if (lowerCoupon.includes('200k')) {
+            bestDiscount = 200000;
+          } else if (lowerCoupon.includes('150k')) {
+            bestDiscount = 150000;
+          } else if (lowerCoupon.includes('100k')) {
+            bestDiscount = 100000;
+          } else if (lowerCoupon.includes('50k')) {
+            bestDiscount = 50000;
+          }
+        }
+      }
+
+      // Nhận diện chương trình Đổi điểm thi và HSSV để gán giá trị giảm tối đa
+      const lowerName = (p.name || '').toLowerCase();
+      const lowerSheet = (p.sheet_name || '').toLowerCase();
+      const lowerType = (p.promo_type || '').toLowerCase();
+
+      if (lowerName.includes('đổi điểm thi') || lowerSheet.includes('đổi điểm thi') || lowerType.includes('đổi điểm thi')) {
+        bestDiscount = 5000000;
+      } else if (lowerName.includes('hssv') || lowerSheet.includes('hssv') || lowerType.includes('hssv')) {
+        bestDiscount = 500000;
+      }
+
       return { ...p, discount_amount_calc: bestDiscount };
     });
 
@@ -3176,92 +3483,317 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       candidates = candidates.filter(p => Number(p.min_order_value || 0) <= price);
     }
 
-    // --- BƯỚC QUAN TRỌNG: GỘP NHÓM & TÌM BEST DEAL (LOGIC CŨ CỦA BẠN) ---
+    // --- BƯỚC QUAN TRỌNG: GỘP NHÓM & TÌM BEST DEAL ---
     const bestByGroup = {};
-    const finalDisplayList = []; // Danh sách cuối cùng sẽ được hiển thị
+    const finalDisplayList = [];
 
     for (const p of candidates) {
-      // Nếu user tick "Hiển thị cùng các CTKM khác trong nhóm" -> Lấy luôn
       if (p.show_multiple_in_group) {
         finalDisplayList.push(p);
         continue;
       }
 
-      // Nếu không, thực hiện so sánh trong nhóm
       const groupKey = p.group_name || `__no_group_${p.id}__`;
 
       if (!bestByGroup[groupKey]) {
-        // Chưa có ai trong nhóm này, tạm giữ ông này
         bestByGroup[groupKey] = p;
       } else {
-        // Đã có, so sánh xem ai ngon hơn
         const currentBest = bestByGroup[groupKey];
         if (p.discount_amount_calc > currentBest.discount_amount_calc) {
-          bestByGroup[groupKey] = p; // Ông mới ngon hơn, thay thế
+          bestByGroup[groupKey] = p;
         }
-        // Nếu bằng hoặc thua thì bỏ qua ông mới
       }
     }
 
-    // Đẩy những ông "vô địch" của từng nhóm vào danh sách hiển thị
     Object.values(bestByGroup).forEach(p => finalDisplayList.push(p));
+
+    // Áp dụng gán icon nhận diện cho từng CTKM
+    const enrichedDisplayList = finalDisplayList.map(enrichPromoForDisplay);
+
+    // --- SẮP XẾP GIẢM DẦN THEO GIÁ TRỊ GIẢM ---
+    const sortedPromosList = [...enrichedDisplayList].sort((a, b) => {
+      const diff = (b.discount_amount_calc || 0) - (a.discount_amount_calc || 0);
+      if (diff !== 0) return diff;
+      
+      // Khi bằng tiền: Ưu tiên các CTKM trọng điểm lớn (Đổi điểm thi -> HSSV)
+      const isDiemThiA = (a.name || '').includes('Đổi điểm thi') ? 1 : 0;
+      const isDiemThiB = (b.name || '').includes('Đổi điểm thi') ? 1 : 0;
+      if (isDiemThiB !== isDiemThiA) return isDiemThiB - isDiemThiA;
+
+      const isHssvA = (a.name || '').includes('HSSV') ? 1 : 0;
+      const isHssvB = (b.name || '').includes('HSSV') ? 1 : 0;
+      if (isHssvB !== isHssvA) return isHssvB - isHssvA;
+
+      // Ưu tiên có quà
+      const hasGiftA = a.promo_type === 'Gift' || a.gift_name ? 1 : 0;
+      const hasGiftB = b.promo_type === 'Gift' || b.gift_name ? 1 : 0;
+      return hasGiftB - hasGiftA;
+    });
+
+    // --- BẢNG MA TRẬN KẾT HỢP (COMPATIBILITY MATRIX) ---
+    const matrixPromos = sortedPromosList.map((p, idx) => ({
+      idx,
+      id: p.id,
+      name: p.name,
+      shortName: (p.name || '').length > 30 ? (p.name || '').slice(0, 30) + '...' : p.name,
+      icon: p.__icon || '🏷️',
+      iconBg: p.__icon_bg || '#f1f5f9',
+      iconColor: p.__icon_color || '#334155',
+      categoryBadge: p.__category_badge || 'Khuyến mãi',
+      discountLabel: p.__discount_label || (p.discount_amount_calc > 0 ? `-${new Intl.NumberFormat('vi-VN').format(p.discount_amount_calc)}₫` : 'Ưu đãi'),
+      discount_amount_calc: p.discount_amount_calc || 0,
+      detail_link: p.is_sheet_promo ? (p.detail_link || '#') : `/promotion-detail/${p.id}`,
+      is_sheet_promo: !!p.is_sheet_promo,
+      group: p.group_name || '',
+      type: p.promo_type || ''
+    }));
+
+    const compatMatrix = {
+      promos: matrixPromos,
+      cells: []
+    };
+
+    for (let i = 0; i < matrixPromos.length; i++) {
+      const row = [];
+      const pA = sortedPromosList[i];
+      for (let j = 0; j < matrixPromos.length; j++) {
+        if (i === j) {
+          row.push({ status: 'self', text: '➖', note: 'Chính nó' });
+          continue;
+        }
+        const pB = sortedPromosList[j];
+
+        const typeA = (pA.promo_type || '').toLowerCase();
+        const typeB = (pB.promo_type || '').toLowerCase();
+        const nameA = (pA.name || '').toLowerCase();
+        const nameB = (pB.name || '').toLowerCase();
+        const groupA = (pA.group_name || '').toLowerCase();
+        const groupB = (pB.group_name || '').toLowerCase();
+
+        // CHỈ DÙNG TÊN/NHÓM/TYPE ĐỂ PHÂN LOẠI DANH TÍNH CTKM
+        const idA = (nameA + ' ' + groupA + ' ' + typeA).toLowerCase();
+        const idB = (nameB + ' ' + groupB + ' ' + typeB).toLowerCase();
+
+        const condA = (pA.conditions || pA.special_conditions || pA.description || '').toLowerCase();
+        const condB = (pB.conditions || pB.special_conditions || pB.description || '').toLowerCase();
+
+        // 1. Cổng thanh toán (ShopeePay, VNPAY...)
+        const isPaymentA = idA.includes('thanh toán') || idA.includes('shopee') || idA.includes('vnpay');
+        const isPaymentB = idB.includes('thanh toán') || idB.includes('shopee') || idB.includes('vnpay');
+
+        // 2. Mở thẻ tín dụng (TPBank EVO, VIB...)
+        const isCardA = idA.includes('mở thẻ') || idA.includes('tpbank') || idA.includes('vib');
+        const isCardB = idB.includes('mở thẻ') || idB.includes('tpbank') || idB.includes('vib');
+
+        // 3. Trả góp (Lãi ưu đãi, 0%, Home Credit, Shinhan, Payoo...)
+        const isInstallmentA = idA.includes('trả góp') || idA.includes('góp 0%') || idA.includes('homecredit') || idA.includes('shinhan') || idA.includes('payoo') || (idA.includes('góp') && !idA.includes('mở thẻ'));
+        const isInstallmentB = idB.includes('trả góp') || idB.includes('góp 0%') || idB.includes('homecredit') || idB.includes('shinhan') || idB.includes('payoo') || (idB.includes('góp') && !idB.includes('mở thẻ'));
+
+        // 4. Quà tặng (Gift)
+        const isGiftA = typeA === 'gift' || idA.includes('quà') || idA.includes('tặng') || !!pA.gift_name;
+        const isGiftB = typeB === 'gift' || idB.includes('quà') || idB.includes('tặng') || !!pB.gift_name;
+
+        // 5. Combo
+        const isComboA = typeA.includes('combo') || idA.includes('combo');
+        const isComboB = typeB.includes('combo') || idB.includes('combo');
+
+        // 6. Học sinh - Sinh viên
+        const isHssvA = idA.includes('hssv') || idA.includes('sinh viên') || idA.includes('học sinh');
+        const isHssvB = idB.includes('hssv') || idB.includes('sinh viên') || idB.includes('học sinh');
+
+        // 7. Đổi điểm thi THPT
+        const isDiemThiA = idA.includes('điểm thi') || idA.includes('đổi điểm');
+        const isDiemThiB = idB.includes('điểm thi') || idB.includes('đổi điểm');
+
+        // 8. Coupon / Voucher giảm giá trực tiếp khác
+        const isCouponA = typeA.includes('coupon') || typeA.includes('voucher') || idA.includes('coupon') || idA.includes('voucher');
+        const isCouponB = typeB.includes('coupon') || typeB.includes('voucher') || idB.includes('coupon') || idB.includes('voucher');
+
+        // --- RULE 1: Trả góp vs Trả góp (Chỉ chọn 1 chương trình trả góp trên 1 đơn hàng) ---
+        if (isInstallmentA && isInstallmentB) {
+          row.push({ status: 'deny', text: '❌', note: 'Chỉ áp dụng 1 hình thức trả góp/đơn hàng' });
+          continue;
+        }
+
+        // --- RULE 2: Trả góp vs Quà tặng (Gift) ---
+        // Thể lệ: "Không áp dụng đồng thời với chương trình khuyến mãi, kể cả QUÀ TẶNG MẶC ĐỊNH"
+        if ((isInstallmentA && isGiftB) || (isInstallmentB && isGiftA)) {
+          row.push({ status: 'deny', text: '❌', note: 'Trả góp không áp dụng cùng CTKM quà tặng (kể cả quà mặc định)' });
+          continue;
+        }
+
+        // --- RULE 3: Trả góp vs Cổng thanh toán (ShopeePay, VNPAY, ZaloPay...) ---
+        // Thể lệ: "Không áp dụng đồng thời ưu đãi thanh toán khác như Zalopay hay VNPay"
+        if ((isInstallmentA && isPaymentB) || (isInstallmentB && isPaymentA)) {
+          row.push({ status: 'deny', text: '❌', note: 'Trả góp không áp dụng cùng cổng thanh toán' });
+          continue;
+        }
+
+        // --- RULE 4: Trả góp vs Mở thẻ tín dụng (TPBank EVO, VIB...) ---
+        if ((isInstallmentA && isCardB) || (isInstallmentB && isCardA)) {
+          row.push({ status: 'deny', text: '❌', note: 'Không áp dụng đồng thời Trả góp và Mở thẻ tín dụng' });
+          continue;
+        }
+
+        // --- RULE 5: Trả góp vs Combo ---
+        if ((isInstallmentA && isComboB) || (isInstallmentB && isComboA)) {
+          row.push({ status: 'deny', text: '❌', note: 'Trả góp không áp dụng cùng CTKM Combo' });
+          continue;
+        }
+
+        // --- RULE 6: Trả góp vs Coupon giảm giá khác (ngoại trừ Đổi điểm / HSSV dành cho Tân SV) ---
+        if (((isInstallmentA && isCouponB && !isDiemThiB && !isHssvB) || (isInstallmentB && isCouponA && !isDiemThiA && !isHssvA))) {
+          row.push({ status: 'deny', text: '❌', note: 'Trả góp không áp dụng cùng Coupon giảm giá khác' });
+          continue;
+        }
+
+        // --- RULE 7: Trả góp vs Đổi điểm thi / HSSV ---
+        // Thể lệ: "Lưu ý: Đối với Tân SV, được áp dụng đồng thời với chương trình Đổi điểm / HSSV"
+        if ((isInstallmentA && (isDiemThiB || isHssvB)) || (isInstallmentB && (isDiemThiA || isHssvA))) {
+          row.push({ status: 'allow', text: '✅', note: 'Áp dụng đồng thời cho Tân SV / HSSV' });
+          continue;
+        }
+
+        // --- RULE 8: Cổng thanh toán vs Cổng thanh toán (ShopeePay vs VNPAY) ---
+        if (isPaymentA && isPaymentB) {
+          row.push({ status: 'deny', text: '❌', note: 'Chỉ áp dụng 1 hình thức thanh toán/đơn' });
+          continue;
+        }
+
+        // --- RULE 9: Cổng thanh toán vs Mở thẻ tín dụng ---
+        if ((isPaymentA && isCardB) || (isPaymentB && isCardA)) {
+          row.push({ status: 'deny', text: '❌', note: 'Không áp dụng đồng thời Cổng thanh toán và Mở thẻ' });
+          continue;
+        }
+
+        // --- RULE 10: Mở thẻ vs Mở thẻ ---
+        if (isCardA && isCardB) {
+          row.push({ status: 'deny', text: '❌', note: 'Chỉ áp dụng 1 ưu đãi mở thẻ/đơn' });
+          continue;
+        }
+
+        // --- RULE 11: HSSV vs Đổi điểm thi (Không cộng dồn 2 gói HSSV) ---
+        if ((isHssvA && isDiemThiB) || (isHssvB && isDiemThiA)) {
+          row.push({ status: 'deny', text: '❌', note: 'Không áp dụng đồng thời HSSV và Đổi điểm thi' });
+          continue;
+        }
+
+        // --- RULE 12: HSSV / Đổi điểm thi vs Coupon giảm giá khác ---
+        if (((isHssvA || isDiemThiA) && (isCouponB && !isPaymentB)) || ((isHssvB || isDiemThiB) && (isCouponA && !isPaymentA))) {
+          row.push({ status: 'deny', text: '❌', note: 'Không áp dụng cùng Coupon giảm giá khác' });
+          continue;
+        }
+
+        // --- RULE 13: Thể lệ ghi rõ loại trừ (Dynamic Conditions Text Check) ---
+        if (condA.includes('không áp dụng đồng thời với chương trình khuyến mãi') || condA.includes('kể cả quà tặng')) {
+          if (isGiftB || isComboB || isPaymentB) {
+            row.push({ status: 'deny', text: '❌', note: 'Thể lệ quy định không áp dụng đồng thời' });
+            continue;
+          }
+        }
+        if (condB.includes('không áp dụng đồng thời với chương trình khuyến mãi') || condB.includes('kể cả quà tặng')) {
+          if (isGiftA || isComboA || isPaymentA) {
+            row.push({ status: 'deny', text: '❌', note: 'Thể lệ quy định không áp dụng đồng thời' });
+            continue;
+          }
+        }
+
+        if (pA.compat_exclude_names && pA.compat_exclude_names.includes(pB.group_name)) {
+          row.push({ status: 'deny', text: '❌', note: 'Quy định loại trừ nhau' });
+          continue;
+        }
+        if (pB.compat_exclude_names && pB.compat_exclude_names.includes(pA.group_name)) {
+          row.push({ status: 'deny', text: '❌', note: 'Quy định loại trừ nhau' });
+          continue;
+        }
+
+        row.push({ status: 'allow', text: '✅', note: 'Áp dụng đồng thời' });
+      }
+      compatMatrix.cells.push(row);
+    }
+    compatMatrix.promoList = compatMatrix.promos;
+    compatMatrix.matrix = compatMatrix.cells.map(row => row.map(cell => (typeof cell === 'object' ? cell.status : cell)));
+
+    // Gán danh sách các CTKM CỤ THỂ có thể dùng chung cho từng CTKM trong sortedPromosList
+    for (let i = 0; i < sortedPromosList.length; i++) {
+      const allowedSpecific = [];
+      for (let j = 0; j < sortedPromosList.length; j++) {
+        if (i === j) continue;
+        const cell = compatMatrix.cells[i] && compatMatrix.cells[i][j];
+        if (cell && (cell === 'allow' || cell.status === 'allow')) {
+          const target = sortedPromosList[j];
+          let shortLabel = target.name || '';
+          if (shortLabel.length > 20) {
+            shortLabel = shortLabel.substring(0, 18) + '…';
+          }
+          allowedSpecific.push({
+            id: target.id,
+            name: target.name,
+            shortLabel: shortLabel,
+            icon: target.__icon || '🏷️',
+            badge: target.__category_badge || '',
+            discount_label: target.__discount_label || '',
+            end_date: target.end_date || '',
+            apply_channels: target.__apply_channels || target.channel || target.apply_channels || 'All channels',
+            conditions: target.__conditions || target.conditions || target.special_conditions || target.description || '',
+            detail_link: target.__detail_link || target.detail_link || '',
+            sku: target.sku || '',
+            source_sheet: target.source_sheet || '',
+            compatible_icons: target.__compatible_icons || []
+          });
+        }
+      }
+      sortedPromosList[i].__compatible_specific_promos = allowedSpecific;
+      if (matrixPromos[i]) {
+        matrixPromos[i].__compatible_specific_promos = allowedSpecific;
+      }
+    }
+
 
     // --- BƯỚC PHÂN LOẠI UI (HOT, PAYMENT, FUTURE...) ---
     const promoGroups = {
-      hot: [],        // Ưu đãi HOT (Trừ tiền trực tiếp)
-      future: [],     // Tặng mã giảm đơn sau
-      payment: [],    // Ưu đãi thanh toán
-      installment: [],// Trả góp
-      other: []       // Quà tặng hiện vật, combo...
+      hot: [],
+      future: [],
+      payment: [],
+      installment: [],
+      other: []
     };
 
-    finalDisplayList.forEach(p => {
+    sortedPromosList.forEach(p => {
       const type = p.promo_type || '';
+      const lowerName = (p.name || '').toLowerCase();
 
-      // [FIX] ƯU TIÊN 1: Nếu là Combo hoặc Gift -> Đẩy thẳng vào nhóm Other (để hiển thị tách biệt)
       if (type === 'Combo' || type === 'Gift' || type === 'Quà tặng (Gift)') {
         promoGroups.other.push(p);
-      }
-      // ƯU TIÊN 2: Phân loại Tặng mã đơn sau
-      else if (type === 'Tặng mã giảm đơn hàng sau') {
+      } else if (type === 'Tặng mã giảm đơn hàng sau') {
         promoGroups.future.push(p);
-      }
-      // ƯU TIÊN 3: Phân loại Thanh toán
-      else if (type === 'Ưu đãi thanh toán') {
+      } else if (type === 'Ưu đãi thanh toán' || lowerName.includes('shopee') || lowerName.includes('vnpay')) {
         promoGroups.payment.push(p);
-      }
-      // ƯU TIÊN 4: Phân loại Trả góp
-      else if (type.includes('Trả góp')) {
+      } else if (type.includes('Trả góp') || lowerName.includes('góp') || lowerName.includes('mở thẻ')) {
         promoGroups.installment.push(p);
-      }
-      // ƯU TIÊN 5: Phân loại HOT (Các loại giảm tiền/%, Coupon trực tiếp còn lại)
-      else if (p.discount_value_type === 'amount' || p.discount_value_type === 'percent' || type === 'Coupon' || type === 'Voucher') {
+      } else if (p.discount_value_type === 'amount' || p.discount_value_type === 'percent' || type === 'Coupon' || type === 'Voucher' || p.discount_amount_calc > 0) {
         promoGroups.hot.push(p);
-      }
-      // Còn lại
-      else {
+      } else {
         promoGroups.other.push(p);
       }
     });
 
-    // Sắp xếp lại nhóm HOT: Giảm nhiều nhất lên đầu
+    // Sắp xếp lại nhóm HOT
     promoGroups.hot.sort((a, b) => b.discount_amount_calc - a.discount_amount_calc);
 
-    // --- TÍNH TỔNG TIỀN GIẢM (CHỈ CỘNG NHÓM HOT) ---
-    // Tìm các CTKM trong nhóm HOT có thể cộng dồn với nhau (logic pickStackable cũ)
     const chosenHotPromos = pickStackable(promoGroups.hot);
-
     totalDiscount = chosenHotPromos.reduce((s, p) => s + Number(p.discount_amount_calc || 0), 0);
     finalPrice = Math.max(0, price - totalDiscount);
 
-    // Gộp lại để tương thích ngược nếu file view cũ cần biến 'promotions'
-    promotions = finalDisplayList;
+    promotions = sortedPromosList;
 
     return res.render('promotion', {
       title: 'CTKM theo SKU', currentPage: 'promotion',
       query: skuInput, product,
-      promotions, // List tổng (để backup)
-      promoGroups, // <--- BIẾN MỚI DÙNG ĐỂ RENDER
+      promotions,
+      sortedPromosList,
+      compatMatrix,
+      promoGroups,
       extraSkuInfoMap,
       internalContest, chosenPromos: chosenHotPromos,
       totalDiscount, finalPrice, comparisonCount, error: null,

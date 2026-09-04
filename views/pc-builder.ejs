@@ -390,7 +390,7 @@
 
 <div id="quoteModal" class="modal" style="display:none">
   <div class="modal-content" style="max-width: 500px;">
-    <span id="quoteClose" class="close">&times;</span>
+    <span id="quoteClose" class="close" style="cursor: pointer;">&times;</span>
     <h3>Thông tin báo giá</h3>
     
     <form id="quoteForm">
@@ -870,8 +870,10 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
     renderComponentList(filtered);
   });
 
-  modalClose.onclick = () => { modal.style.display = 'none'; };
+  if (modalClose) modalClose.onclick = () => { modal.style.display = 'none'; };
   if (phClose) phClose.onclick = () => { priceHistoryModal.style.display = 'none'; };
+  if (quoteClose) quoteClose.onclick = () => { quoteModal.style.display = 'none'; };
+
   window.onclick = (e) => {
     if (e.target == modal) modal.style.display = 'none';
     if (priceHistoryModal && e.target == priceHistoryModal) priceHistoryModal.style.display = 'none';
@@ -910,14 +912,17 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
             return;
         }
 
-        
+        let winPreview = null;
+        if (actionType === 'preview') {
+            winPreview = window.open('', '_blank');
+        }
+
         quoteLoading.style.display = 'block';
         document.getElementById('downloadError').style.display = 'none';
 
         // Lấy tham số mới
-        const validityDays = document.getElementById('quoteValidity').value;
-          const deliveryDays = document.getElementById('quoteDeliveryDays') ? document.getElementById('quoteDeliveryDays').value : 1;
-          const deliveryDays = document.getElementById('quoteDeliveryDays') ? document.getElementById('quoteDeliveryDays').value : 1;
+        const validityDays = document.getElementById('quoteValidity') ? document.getElementById('quoteValidity').value : 3;
+        const deliveryDays = document.getElementById('quoteDeliveryDays') ? document.getElementById('quoteDeliveryDays').value : 1;
         let templateType = 'consumer';
         const checkedRadio = document.querySelector('input[name="printTemplate"]:checked');
         if (checkedRadio) templateType = checkedRadio.value;
@@ -936,7 +941,8 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
               isGeneralQuote: false, // Build PC -> Có KM
               
               // Gửi option mới
-              validityDays: validityDays, deliveryDays: deliveryDays, deliveryDays: deliveryDays,
+              validityDays: validityDays,
+              deliveryDays: deliveryDays,
               templateType: templateType,
               globalDiscount: { value: 0, type: 'amount' } 
             })
@@ -944,25 +950,36 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
           
           if (!res.ok) {
               const errJson = await res.json();
+              if (winPreview) winPreview.close();
               throw new Error(errJson.error || 'Lỗi server');
           }
 
           const blob = await res.blob();
           const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.style.display = 'none'; a.href = url;
-          const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g, '_');
-          a.download = `BaoGia_${safeName}.pdf`;
-          
-          document.body.appendChild(a); a.click();
-          
-          window.URL.revokeObjectURL(url);
-          setTimeout(() => document.body.removeChild(a), 100);
-          
-          document.getElementById('quoteModal').style.display = 'none';
-          if(typeof showToast === 'function') showToast('Đã tải báo giá thành công!', 'success');
+
+          if (actionType === 'preview') {
+              if (winPreview) {
+                  winPreview.location.href = url;
+              } else {
+                  window.open(url, '_blank');
+              }
+          } else {
+              const a = document.createElement('a');
+              a.style.display = 'none'; a.href = url;
+              const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u1EF9]/g, '_');
+              a.download = `BaoGia_${safeName}.pdf`;
+              
+              document.body.appendChild(a); a.click();
+              
+              window.URL.revokeObjectURL(url);
+              setTimeout(() => document.body.removeChild(a), 100);
+              
+              document.getElementById('quoteModal').style.display = 'none';
+              if(typeof showToast === 'function') showToast('Đã tải báo giá thành công!', 'success');
+          }
 
         } catch (err) {
+          if (winPreview) winPreview.close();
           console.error("Lỗi tải PDF:", err);
           const errorDiv = document.getElementById('downloadError');
           if (errorDiv) {
@@ -998,7 +1015,8 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
         document.getElementById('downloadError').style.display = 'none';
 
         // Lấy tham số mới
-        const validityDays = document.getElementById('quoteValidity').value;
+        const validityDays = document.getElementById('quoteValidity') ? document.getElementById('quoteValidity').value : 3;
+        const deliveryDays = document.getElementById('quoteDeliveryDays') ? document.getElementById('quoteDeliveryDays').value : 1;
         let templateType = 'consumer';
         const checkedRadio = document.querySelector('input[name="printTemplate"]:checked');
         if (checkedRadio) templateType = checkedRadio.value;
@@ -1016,6 +1034,7 @@ function buildStockHtml(stockByBranch, userRole, userBranch) {
               sendEmail: false, 
               isGeneralQuote: false, 
               validityDays: validityDays,
+              deliveryDays: deliveryDays,
               templateType: templateType,
               globalDiscount: { value: 0, type: 'amount' } 
             })
