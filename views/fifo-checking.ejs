@@ -1,8 +1,11 @@
 <%- include('partials/header', { title, currentPage }) %>
 
-<div class="container">
-    <div class="dash-card" style="max-width: 1100px; margin: 0 auto 20px;">
-        <div class="dash-title">FIFO Checking (Branch: <%= userBranch %>)</div>
+<div class="container fifo-workspace">
+    <div class="dash-card fifo-commandbar" style="max-width: 1100px; margin: 0 auto 20px;">
+        <div class="fifo-commandbar__heading">
+            <p class="fifo-commandbar__eyebrow">Điều phối tồn kho</p>
+            <div class="dash-title">FIFO Checking <span>Chi nhánh <%= userBranch %></span></div>
+        </div>
 
         <div style="font-size:14px; color:#64748b; margin-bottom:12px;">
     Dữ liệu tồn kho T-1 được cập nhật vào ngày: <strong><%= todayDate %></strong>.
@@ -120,9 +123,31 @@ Vui lòng tick vào "Đã xuất" để ghi nhận Serial đã bán trong ngày.
     /* CSS cho Modal Quét */
     #scanModal { display: none; align-items: center; justify-content: center; }
     #qr-reader { width: 90%; max-width: 400px; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+    .fifo-workspace { max-width: 1240px; margin: 0 auto; padding: 18px 16px 32px; }
+    .fifo-commandbar { border: 1px solid #d8e5f2; box-shadow: var(--ops-shadow, 0 12px 32px rgba(26, 63, 104, 0.09)); }
+    .fifo-commandbar__heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .fifo-commandbar__eyebrow { margin: 0; color: #1677e8; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .fifo-commandbar .dash-title { margin: 2px 0 0; color: #10233d; font-size: clamp(22px, 2.4vw, 30px); }
+    .fifo-commandbar .dash-title span { color: #59708d; font-size: 13px; font-weight: 600; }
+    .fifo-primary-controls { padding: 14px 0; margin: 14px 0 12px; border-top: 1px solid #e4edf6; border-bottom: 1px solid #e4edf6; }
+    .fifo-primary-controls .master-input { min-height: 44px; }
+    .fifo-primary-controls .btn { min-height: 44px; border-radius: 10px; }
+    .fifo-primary-controls .gift-filter-label { padding: 8px 10px; border: 1px solid #dce8f4; border-radius: 999px; background: #f8fbff; }
+    .fifo-secondary-filters { padding: 4px 0 16px; }
+    .fifo-secondary-filters .info-select { min-height: 42px; border-radius: 10px; }
+    .fifo-work-surface { margin-top: 16px; min-height: 120px; }
+    .fifo-workspace .table-scroll-wrapper { border-color: #d9e5f2; box-shadow: 0 8px 20px -16px rgba(15, 50, 90, .28); }
+    .fifo-workspace .dash-table thead th { background: #f4f8fc; color: #27435f; }
+    @media (max-width: 900px) {
+        .fifo-workspace { padding: 12px 10px 24px; }
+        .fifo-commandbar__heading { align-items: start; flex-direction: column; }
+        .fifo-primary-controls .btn { flex: 1 1 120px; }
+        .fifo-primary-controls .gift-filter-label { flex: 1 1 180px; }
+    }
 </style>
 
-<div class="fifo-filters" style="border-bottom:1px solid #e5e7eb; padding-bottom:15px; margin-bottom:15px;">
+<div class="fifo-filters fifo-primary-controls">
     
     <input type="text" id="masterInput" name="master_query" placeholder="Nhập SKU, Serial, Tên SP, Brand, BIN (Location)"
            class="search-input master-input">
@@ -156,7 +181,7 @@ Vui lòng tick vào "Đã xuất" để ghi nhận Serial đã bán trong ngày.
     </label>
 </div>
 
-<div class="fifo-filters filter-group">
+<div class="fifo-filters filter-group fifo-secondary-filters">
     <input type="text" id="filterSerial" class="search-input" placeholder="Lọc theo Serial">
     <select id="filterSubcategory" class="info-select"><option value="">-- SubCategory --</option></select>
     <select id="filterBrand" class="info-select"><option value="">-- Brand --</option></select>
@@ -170,7 +195,7 @@ display: none;">
     {/* Nội dung rank sẽ được JS cập nhật vào đây */}
 </div>
 
-<div id="resultsContainer">
+<div id="resultsContainer" class="fifo-work-surface">
     </div>
 
 <div id="paginationContainer" style="margin-top: 15px; text-align: center;">
