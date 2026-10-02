@@ -1,0 +1,2521 @@
+<%- include('partials/header', {title: 'Xuất Kho Nhanh - Smart Picking', currentPage: 'quick-export'}) %>
+
+<!-- Load fonts: Be Vietnam Pro & Inter chuẩn hóa giao diện -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+    /* ================================================================
+       THEME: Enterprise Clean Light - Font Chuẩn Hóa Toàn Trang
+       ================================================================ */
+    :root {
+        --qe-blue-primary: #1d4ed8;
+        --qe-blue-hover: #1e40af;
+        --qe-blue-light: #eff6ff;
+        --qe-blue-border: #bfdbfe;
+
+        --qe-green-primary: #15803d;
+        --qe-green-light: #f0fdf4;
+        --qe-green-border: #bbf7d0;
+
+        --qe-amber-primary: #b45309;
+        --qe-amber-light: #fffbeb;
+        --qe-amber-border: #fde68a;
+
+        --qe-red-primary: #b91c1c;
+        --qe-red-light: #fef2f2;
+        --qe-red-border: #fecaca;
+
+        --qe-bg: #f8fafc;
+        --qe-card: #ffffff;
+        --qe-border: #e2e8f0;
+        --qe-border-subtle: #f1f5f9;
+
+        --qe-text-main: #0f172a;
+        --qe-text-secondary: #334155;
+        --qe-text-muted: #64748b;
+
+        --qe-font: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --qe-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
+    body, button, input, select, textarea, table, th, td, p, h1, h2, h3, h4, span, label, div {
+        font-family: var(--qe-font);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+        background-color: var(--qe-bg) !important;
+        color: var(--qe-text-main);
+        font-family: var(--qe-font);
+        margin: 0;
+        padding-bottom: 50px;
+    }
+
+    .qe-layout {
+        max-width: 1240px;
+        margin: 20px auto;
+        padding: 0 16px;
+    }
+
+    /* TOP HEADER BAR */
+    .qe-header-card {
+        background: var(--qe-card);
+        border: 1px solid var(--qe-border);
+        border-top: 4px solid var(--qe-blue-primary);
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+    }
+
+    .qe-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .qe-header-icon {
+        width: 38px;
+        height: 38px;
+        background: var(--qe-blue-light);
+        color: var(--qe-blue-primary);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .qe-header-title {
+        font-size: 19px;
+        font-weight: 800;
+        color: var(--qe-text-main);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .qe-tag-smart {
+        background: var(--qe-blue-light);
+        color: var(--qe-blue-primary);
+        border: 1px solid var(--qe-blue-border);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 4px;
+        text-transform: uppercase;
+    }
+
+    .qe-header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .qe-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: #f8fafc;
+        border: 1px solid var(--qe-border);
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--qe-text-secondary);
+    }
+
+    .qe-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--qe-red-primary);
+    }
+
+    .qe-dot.active {
+        background-color: var(--qe-green-primary);
+        box-shadow: 0 0 6px rgba(21, 128, 61, 0.6);
+    }
+
+    .btn-header-action {
+        background: #ffffff;
+        border: 1px solid var(--qe-border);
+        color: var(--qe-text-secondary);
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+    }
+
+    .btn-header-action:hover {
+        background: var(--qe-blue-light);
+        color: var(--qe-blue-primary);
+        border-color: var(--qe-blue-border);
+    }
+
+    /* CARDS */
+    .qe-card {
+        background: var(--qe-card);
+        border: 1px solid var(--qe-border);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .qe-card-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--qe-text-main);
+        margin: 0 0 14px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .qe-card-title-num {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        background: var(--qe-blue-primary);
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* INPUTS & BUTTONS */
+    .qe-input-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    .qe-input {
+        flex: 1;
+        height: 46px;
+        padding: 0 14px;
+        border: 1.5px solid var(--qe-border);
+        border-radius: 8px;
+        font-size: 15px;
+        font-family: var(--qe-font);
+        color: var(--qe-text-main);
+        background: #ffffff;
+        outline: none;
+        transition: border-color 0.15s ease;
+    }
+
+    .qe-input:focus {
+        border-color: var(--qe-blue-primary);
+        box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+    }
+
+    .qe-input-mono {
+        font-family: var(--qe-font);
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+
+    .qe-btn-primary {
+        height: 46px;
+        padding: 0 20px;
+        background: var(--qe-blue-primary);
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background-color 0.15s ease;
+        white-space: nowrap;
+    }
+
+    .qe-btn-primary:hover:not(:disabled) {
+        background: var(--qe-blue-hover);
+    }
+
+    .qe-btn-primary:disabled {
+        background: #cbd5e1;
+        cursor: not-allowed;
+    }
+
+    .qe-btn-success {
+        background: var(--qe-green-primary);
+    }
+
+    .qe-btn-success:hover:not(:disabled) {
+        background: #166534;
+    }
+
+    .btn-fifo-quick-pick {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #eff6ff;
+        color: var(--qe-blue-primary);
+        border: 1px dashed #93c5fd;
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        margin-top: 2px;
+    }
+
+    .btn-fifo-quick-pick:hover {
+        background: #dbeafe;
+        border-color: var(--qe-blue-primary);
+        color: #1d4ed8;
+    }
+
+    @keyframes qeSpin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* ORDER INFORMATION BLOCK (Yêu cầu 3 & 4: 4 cột theo thứ tự Mã đơn/Trạng thái -> Chi nhánh/Sale -> Khách/Địa chỉ -> Thanh toán/Tiền còn lại) */
+    .order-overview-box {
+        background: #ffffff;
+        border: 1px solid var(--qe-border);
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-top: 16px;
+    }
+
+    /* ORDER INFO GRID - flat 4-col, 3-row, perfect alignment */
+    .order-info-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: auto auto auto;
+        gap: 12px 22px;
+        align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+        .order-info-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .order-info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .order-field .field-label {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--qe-text-muted);
+        letter-spacing: 0.04em;
+        margin-bottom: 3px;
+    }
+
+    .order-field .field-val {
+        font-size: 13px;
+        color: var(--qe-text-main);
+        word-break: break-word;
+        line-height: 1.4;
+    }
+
+    .order-field .field-mono {
+        font-family: var(--qe-font);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.01em;
+    }
+
+    /* EXPORTED BANNER (Fix ảnh 2) */
+    .exported-banner {
+        background: var(--qe-green-light);
+        border: 1px solid var(--qe-green-border);
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .exported-banner-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #dcfce7;
+        color: var(--qe-green-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        flex-shrink: 0;
+    }
+
+    .exported-banner-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--qe-green-primary);
+        margin: 0;
+    }
+
+    .exported-banner-desc {
+        font-size: 12px;
+        color: #166534;
+        margin: 2px 0 0 0;
+    }
+
+    /* SKU TABLE */
+    .sku-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 14px;
+        border: 1px solid var(--qe-border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .sku-table th {
+        background: #f8fafc;
+        padding: 10px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--qe-text-muted);
+        border-bottom: 1px solid var(--qe-border);
+        text-align: left;
+    }
+
+    .sku-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--qe-border-subtle);
+        vertical-align: middle;
+        background: #ffffff;
+    }
+
+    .sku-table tr.row-completed td {
+        background: #f0fdf4;
+    }
+
+    .sku-code-badge {
+        font-family: var(--qe-font);
+        font-variant-numeric: tabular-nums;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--qe-blue-primary);
+        background: var(--qe-blue-light);
+        padding: 3px 9px;
+        border-radius: 6px;
+        border: 1px solid var(--qe-blue-border);
+        display: inline-block;
+        transition: all 0.15s ease;
+        text-decoration: none;
+    }
+
+    .sku-code-badge:hover {
+        background: #dbeafe;
+        border-color: var(--qe-blue-primary);
+    }
+
+    /* Tên sản phẩm & Thông tin phụ gọn gàng */
+    .sku-name-text {
+        font-weight: 700;
+        color: var(--qe-text-main);
+        font-size: 14px;
+        line-height: 1.35;
+    }
+
+    .sku-sub-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--qe-text-muted);
+        margin-top: 3px;
+    }
+
+    .sku-meta-dot {
+        color: #cbd5e1;
+        font-size: 10px;
+    }
+
+    .tag-track-serial {
+        color: #2563eb;
+        background: #eff6ff;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .tag-track-none {
+        color: #475569;
+        background: #f1f5f9;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .badge-qty {
+        font-family: var(--qe-font);
+        font-variant-numeric: tabular-nums;
+        font-size: 13px;
+        font-weight: 800;
+        padding: 4px 10px;
+        border-radius: 6px;
+        display: inline-block;
+        line-height: 1.2;
+    }
+
+    .badge-qty.pending {
+        background: var(--qe-amber-light);
+        color: var(--qe-amber-primary);
+        border: 1px solid var(--qe-amber-border);
+    }
+
+    .badge-qty.done {
+        background: var(--qe-green-light);
+        color: var(--qe-green-primary);
+        border: 1px solid var(--qe-green-border);
+    }
+
+    /* STEPPER PILL (Cho hàng không serial - Gọn gàng trên 1 dòng duy nhất) */
+    .qe-stepper {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 28px;
+        border-radius: 6px;
+        padding: 0 2px;
+        font-size: 13px;
+        font-weight: 800;
+        transition: all 0.15s ease;
+        user-select: none;
+    }
+
+    .qe-stepper.pending {
+        background: var(--qe-amber-light);
+        color: var(--qe-amber-primary);
+        border: 1px solid var(--qe-amber-border);
+    }
+
+    .qe-stepper.done {
+        background: var(--qe-green-light);
+        color: var(--qe-green-primary);
+        border: 1px solid var(--qe-green-border);
+    }
+
+    .qe-stepper .btn-step {
+        width: 22px;
+        height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        color: inherit;
+        font-size: 15px;
+        font-weight: 800;
+        cursor: pointer;
+        padding: 0;
+        transition: background 0.1s ease;
+    }
+
+    .qe-stepper .btn-step:hover:not(:disabled) {
+        background: rgba(0, 0, 0, 0.08);
+    }
+
+    .qe-stepper .btn-step:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .qe-stepper .step-label {
+        padding: 0 6px;
+        font-variant-numeric: tabular-nums;
+        cursor: pointer;
+    }
+
+    .qe-stepper .step-label:hover {
+        text-decoration: underline;
+    }
+
+    /* NON-SERIAL ACTION CELL */
+    .non-serial-cell {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .badge-no-serial {
+        background: #f8fafc;
+        color: #475569;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 9px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-bin-lookup {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px dashed #93c5fd;
+        border-radius: 6px;
+        padding: 4px 11px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-decoration: none;
+    }
+
+    .btn-bin-lookup:hover {
+        background: #dbeafe;
+        border-color: #1d4ed8;
+    }
+
+    /* SERIAL & FIFO TAGS */
+    .serial-tag-box {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .serial-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #f8fafc;
+        border: 1px solid var(--qe-border);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-family: var(--qe-mono);
+        font-size: 12px;
+        color: var(--qe-text-main);
+    }
+
+    .serial-item.fifo-pass {
+        background: var(--qe-green-light);
+        border-color: var(--qe-green-border);
+    }
+
+    .serial-item.fifo-warn {
+        background: var(--qe-amber-light);
+        border-color: var(--qe-amber-border);
+    }
+
+    .serial-fifo-badge {
+        font-size: 10px;
+        font-weight: 800;
+        padding: 1px 5px;
+        border-radius: 3px;
+    }
+
+    .serial-fifo-badge.pass {
+        background: #dcfce7;
+        color: var(--qe-green-primary);
+    }
+
+    .serial-fifo-badge.warn {
+        background: #fef3c7;
+        color: var(--qe-amber-primary);
+    }
+
+    .btn-del-sn {
+        cursor: pointer;
+        color: #94a3b8;
+        font-size: 14px;
+        line-height: 1;
+        padding-left: 2px;
+    }
+
+    .btn-del-sn:hover {
+        color: var(--qe-red-primary);
+    }
+
+    /* ACTIVITY LOG */
+    .activity-log {
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-family: var(--qe-mono);
+        font-size: 12px;
+        max-height: 130px;
+        overflow-y: auto;
+        margin-top: 16px;
+    }
+
+    .activity-log p {
+        margin: 3px 0;
+        line-height: 1.4;
+    }
+
+    /* MODAL WINDOWS */
+    .qe-modal-backdrop {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .qe-modal {
+        background: #ffffff;
+        border-radius: 12px;
+        max-width: 520px;
+        width: 92%;
+        padding: 24px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .qe-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--qe-border);
+    }
+
+    .qe-modal-title {
+        font-size: 17px;
+        font-weight: 800;
+        color: var(--qe-text-main);
+        margin: 0;
+    }
+
+    .btn-close-modal {
+        background: none;
+        border: none;
+        font-size: 22px;
+        color: var(--qe-text-muted);
+        cursor: pointer;
+    }
+</style>
+
+<div class="qe-layout">
+    <!-- TOP HEADER -->
+    <div class="qe-header-card">
+        <div class="qe-header-left">
+            <div class="qe-header-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+            </div>
+            <div>
+                <h1 class="qe-header-title">
+                    Xuất Kho Nhanh
+                </h1>
+            </div>
+        </div>
+
+        <div class="qe-header-right">
+            <!-- Status BIN -->
+            <div class="qe-pill">
+                <span class="qe-dot" id="dotBin"></span>
+                <span>BIN Soạn: <strong id="lblPickingBin">Chưa gán</strong></span>
+            </div>
+
+            <!-- Status ERP -->
+            <div class="qe-pill">
+                <span class="qe-dot" id="dotToken"></span>
+                <span id="lblTokenStatus">Đang kiểm tra kết nối ERP...</span>
+            </div>
+
+            <!-- Nút Cài đặt / Đổi Token -->
+            <button class="btn-header-action" onclick="openTokenModal()">
+                Kết nối ERP
+            </button>
+            <button class="btn-header-action" onclick="openConfigModal()">
+                Cài đặt BIN
+            </button>
+        </div>
+    </div>
+
+    <!-- BƯỚC 1: NHẬP / QUÉT MÃ ĐƠN -->
+    <div class="qe-card">
+        <div class="qe-card-title">
+            <span class="qe-card-title-num">1</span>
+            <span>Mã đơn hàng / Phiếu xuất kho</span>
+        </div>
+
+        <div class="qe-input-group">
+            <input type="text" 
+                   id="txtDocumentId" 
+                   class="qe-input qe-input-mono" 
+                   placeholder="Nhập hoặc quét mã đơn (VD: ST-1032926, 2403...)" 
+                   autofocus 
+                   autocomplete="off">
+            <button class="qe-btn-primary" id="btnSearchOrder" onclick="handleSearchOrder()">
+                🔍 Tìm đơn
+            </button>
+        </div>
+
+        <!-- BLOCK THÔNG TIN ĐƠN - flat grid 4 cột × 3 hàng, thẳng hàng tuyệt đối -->
+        <div id="orderOverview" class="order-overview-box" style="display: none;">
+            <div class="order-info-grid">
+
+                <!-- Hàng 1: Mã đơn | Chi nhánh bán | Khách hàng | Thanh toán -->
+                <div class="order-field">
+                    <div class="field-label">MÃ ĐƠN HÀNG</div>
+                    <div class="field-val field-mono" id="dispDocId" style="color: var(--qe-blue-primary); font-size: 14px; font-weight: 800;">-</div>
+                </div>
+                <div class="order-field">
+                    <div class="field-label">CHI NHÁNH BÁN</div>
+                    <div class="field-val" id="dispBranchCode" style="font-weight: 700;">-</div>
+                </div>
+                <div class="order-field">
+                    <div class="field-label">KHÁCH HÀNG / NGƯỜI NHẬN</div>
+                    <div class="field-val" id="dispReceiver" style="font-weight: 700;">-</div>
+                </div>
+                <div class="order-field">
+                    <div class="field-label">THANH TOÁN</div>
+                    <div class="field-val" id="dispPaymentStatus" style="margin-bottom: 2px;">-</div>
+                    <div id="dispPaymentMethod" style="font-size: 11px; color: var(--qe-text-muted); margin-top: 2px;">-</div>
+                </div>
+
+                <!-- Hàng 2: Trạng thái | Kho xuất | Địa chỉ giao | Số tiền còn lại -->
+                <div class="order-field">
+                    <div class="field-label">TRẠNG THÁI ĐƠN</div>
+                    <div class="field-val" id="dispStatus">-</div>
+                </div>
+                <div class="order-field">
+                    <div class="field-label">KHO XUẤT</div>
+                    <div class="field-val" id="dispExportWarehouse" style="font-weight: 600;">-</div>
+                </div>
+                <div class="order-field">
+                    <div class="field-label">ĐỊA CHỈ GIAO</div>
+                    <div class="field-val" id="dispDeliveryAddress" style="font-size: 12px; line-height: 1.4; color: var(--qe-text-secondary);">-</div>
+                </div>
+                <div class="order-field">
+                    <div class="field-label">SỐ TIỀN CÒN LẠI</div>
+                    <div class="field-val" id="dispRemainPayment" style="font-size: 14px; font-weight: 800;">-</div>
+                </div>
+
+                <!-- Hàng 3: Thời gian tạo | Sale bán | (trống) | (trống) -->
+                <div class="order-field">
+                    <div class="field-label">THỜI GIAN TẠO ĐƠN</div>
+                    <div class="field-val" id="dispCreatedDate" style="font-size: 12px; font-weight: 600;">-</div>
+                </div>
+                <div class="order-field">
+                    <div class="field-label">SALE BÁN</div>
+                    <div class="field-val" id="dispSaleName" style="font-weight: 600;">-</div>
+                </div>
+                <div class="order-field"></div>
+                <div class="order-field"></div>
+
+            </div>
+
+            <!-- GHI CHÚ ĐƠN HÀNG (Không tô vàng, phong cách trang nhã, viền nhẹ) -->
+            <div id="dispOrderNoteBox" style="margin-top: 14px; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: none;">
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 3px; display: flex; align-items: center; gap: 5px;">
+                    <span>📝</span> GHI CHÚ ĐƠN HÀNG
+                </div>
+                <div id="dispOrderNote" style="font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.5;">-</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BƯỚC 2: QUÉT SERIAL & DANH SÁCH SKU -->
+    <div class="qe-card" id="cardScanning" style="display: none;">
+        <!-- Banner thông báo khi đơn đã xuất hoàn tất (Fix Ảnh 2) -->
+        <div id="exportedBanner" class="exported-banner" style="display: none;">
+            <div class="exported-banner-icon">✓</div>
+            <div>
+                <h3 class="exported-banner-title">ĐƠN HÀNG ĐÃ HOÀN TẤT XUẤT KHO TRÊN ERP</h3>
+                <p class="exported-banner-desc" id="lblExportedDetail">Phiếu này đã hoàn thành xuất kho. Dưới đây là danh sách serial đã xuất.</p>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <div class="qe-card-title" style="margin: 0;">
+                <span class="qe-card-title-num">2</span>
+                <span>Quét Serial sản phẩm</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="btn-header-action" onclick="openFifoModal()" style="background: var(--qe-blue-light); color: var(--qe-blue-primary); border-color: var(--qe-blue-border); font-weight: 700;">
+                    📋 Check FIFO đơn hàng
+                </button>
+                <span id="scanProgressBadge" class="badge-qty pending">0/0 Đã quét</span>
+            </div>
+        </div>
+
+        <!-- Ô QUÉT SERIAL NHANH -->
+        <div class="qe-input-group" id="scannerInputGroup" style="margin-bottom: 16px;">
+            <input type="text" 
+                   id="txtSerialScan" 
+                   class="qe-input qe-input-mono" 
+                   placeholder="Quét mã Serial vào đây và nhấn Enter..." 
+                   autocomplete="off"
+                   style="border-color: var(--qe-blue-primary);">
+            <button class="qe-btn-primary" id="btnScanSerial" onclick="handleScanSerialSubmit()">
+                ⚡ Nhận Serial
+            </button>
+        </div>
+
+        <!-- BẢNG SKU & SERIALS -->
+        <table class="sku-table">
+            <thead>
+                <tr>
+                    <th style="width: 140px;">SKU</th>
+                    <th>Tên sản phẩm</th>
+                    <th style="width: 90px; text-align: center;">SL cần</th>
+                    <th style="width: 110px; text-align: center;">Tiến độ</th>
+                    <th style="width: 460px;">Serials / BIN lấy hàng</th>
+                </tr>
+            </thead>
+            <tbody id="skuTableBody">
+                <!-- JS render -->
+            </tbody>
+        </table>
+
+        <!-- LOG HOẠT ĐỘNG GỌN GÀNG -->
+        <div class="activity-log" id="logStream">
+            <p><span style="color: #94a3b8;">[Hệ thống]</span> Sẵn sàng xử lý mã đơn và serial.</p>
+        </div>
+
+        <!-- NÚT HOÀN TẤT XUẤT KHO / SOẠN HÀNG -->
+        <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;" id="actionFooterArea">
+            <button class="qe-btn-primary" 
+                    id="btnConfirmPacking" 
+                    onclick="handleConfirmExport(false)" 
+                    disabled 
+                    style="height: 48px; padding: 0 24px; font-size: 15px; background: #2563eb; color: #ffffff;">
+                📦 Xác nhận soạn hàng
+            </button>
+            <button class="qe-btn-primary qe-btn-success" 
+                    id="btnFinishExport" 
+                    onclick="handleConfirmExport(true)" 
+                    disabled 
+                    style="height: 48px; padding: 0 24px; font-size: 15px;">
+                ✅ Xác nhận & Hoàn tất xuất kho
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL KẾT NỐI ERP (Zero Extension - 1-Click Bookmarklet & Kế thừa)
+     ================================================================ -->
+<div class="qe-modal-backdrop" id="tokenModal" style="display: none;">
+    <div class="qe-modal">
+        <div class="qe-modal-header">
+            <h3 class="qe-modal-title">🔑 Kết nối Teko ERP (Không cần cài Extension)</h3>
+            <button class="btn-close-modal" onclick="closeTokenModal()">&times;</button>
+        </div>
+
+        <div style="background: var(--qe-blue-light); border: 1px solid var(--qe-blue-border); border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 13px; line-height: 1.5;">
+            <strong>💡 Dùng chung Token toàn chi nhánh:</strong><br>
+            Hệ thống tự động đồng bộ và dùng chung token cho cả chi nhánh. Khi 1 người cập nhật, tất cả nhân viên khác sử dụng được ngay mà <strong>không cần cài bất kỳ Extension nào</strong>.
+        </div>
+
+        <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">
+                Cách 1: Bookmarklet 1-Click (Nhanh nhất - Không cần cài đặt)
+            </label>
+            <p style="font-size: 12px; color: var(--qe-text-muted); margin: 0 0 10px 0; line-height: 1.4;">
+                Kéo nút dưới đây thả lên thanh Dấu trang của trình duyệt. Khi đang ở tab <code>erp.phongvu.vn</code>, chỉ cần bấm nút Bookmark là xong:
+            </p>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <a id="btnErpBookmarklet" 
+                   class="qe-btn-primary" 
+                   style="height: 38px; text-decoration: none; cursor: grab; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;"
+                   href="#"
+                   title="Kéo nút này thả lên thanh Bookmark trên trình duyệt">
+                    ⭐ Kéo vào Bookmark: Đồng bộ Token ERP
+                </a>
+                <button type="button" class="btn-header-action" onclick="copyBookmarkletCode()" style="height: 38px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                    📋 Copy mã Bookmarklet
+                </button>
+                <a href="https://erp.phongvu.vn" target="_blank" class="btn-header-action" style="height: 38px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                    🔗 Mở tab ERP
+                </a>
+            </div>
+            <div id="lblBookmarkCopied" style="font-size: 11px; color: var(--qe-green-primary); margin-top: 5px; display: none; font-weight: 600;">
+                ✓ Đã copy mã Bookmarklet vào bộ nhớ tạm! Bạn có thể tạo Bookmark và dán mã này vào URL.
+            </div>
+        </div>
+
+        <div style="border-top: 1px dashed var(--qe-border); padding-top: 14px;">
+            <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">
+                Cách 2: Dán Token trực tiếp
+            </label>
+            <textarea id="txtManualToken" 
+                      class="qe-input qe-input-mono" 
+                      style="height: 70px; width: 100%; box-sizing: border-box; font-size: 11px; padding: 8px;" 
+                      placeholder="Dán mã Bearer Token (eyJ...) vào đây nếu có"></textarea>
+            <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <button class="qe-btn-primary" style="height: 36px; font-size: 13px;" onclick="saveManualToken()">
+                    Lưu Token
+                </button>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+            <button class="btn-header-action" onclick="closeTokenModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL CÀI ĐẶT BIN CÁ NHÂN
+     ================================================================ -->
+<div class="qe-modal-backdrop" id="configModal" style="display: none;">
+    <div class="qe-modal">
+        <div class="qe-modal-header">
+            <h3 class="qe-modal-title">⚙️ Cài đặt BIN Soạn hàng</h3>
+            <button class="btn-close-modal" onclick="closeConfigModal()">&times;</button>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">
+                Kho / Chi nhánh làm việc (Site ERP)
+            </label>
+            <select id="cfgSiteId" class="qe-input" style="height: 42px; width: 100%;">
+                <option value="">-- Đang tải danh sách kho... --</option>
+            </select>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">
+                Tên BIN Soạn hàng cá nhân
+            </label>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="cfgBinName" class="qe-input qe-input-mono" style="height: 42px;" placeholder="Ví dụ: SH-A-01-a">
+                <button type="button" class="btn-header-action" style="height: 42px;" onclick="verifyPickingBin()">
+                    Kiểm tra
+                </button>
+            </div>
+            <div id="cfgBinStatus" style="font-size: 12px; margin-top: 4px; font-weight: 700;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px;">
+            <button class="btn-header-action" onclick="closeConfigModal()">Đóng</button>
+            <button class="qe-btn-primary" style="height: 40px;" onclick="saveConfig()">
+                Lưu cài đặt
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL GỢI Ý SERIAL CHUẨN FIFO (DỰA THEO BẢNG FIFO CHECKING)
+     ================================================================ -->
+<div class="qe-modal-backdrop" id="fifoModal" style="display: none;">
+    <div class="qe-modal" style="max-width: 960px; width: 95%; max-height: 85vh; display: flex; flex-direction: column;">
+        <div class="qe-modal-header" style="flex-shrink: 0;">
+            <div>
+                <h3 class="qe-modal-title" style="display: flex; align-items: center; gap: 8px;">
+                    <span>📋 Gợi ý Serial Tồn Kho Chuẩn FIFO</span>
+                    <span id="lblFifoBranchBadge" style="font-size: 11px; background: var(--qe-blue-light); color: var(--qe-blue-primary); border: 1px solid var(--qe-blue-border); padding: 2px 8px; border-radius: 4px;"></span>
+                </h3>
+                <p style="font-size: 12px; color: var(--qe-text-muted); margin: 3px 0 0 0;">
+                    Danh sách serial có sẵn tại chi nhánh, sắp xếp từ <strong>lô tồn cũ nhất (ưu tiên xuất)</strong> đến mới nhất.
+                </p>
+            </div>
+            <button class="btn-close-modal" onclick="closeFifoModal()">&times;</button>
+        </div>
+
+        <!-- SKU Tabs Filter -->
+        <div id="fifoTabsContainer" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid var(--qe-border);">
+            <!-- Render SKU filter tabs via JS -->
+        </div>
+
+        <!-- Body content with table -->
+        <div id="fifoModalBody" style="overflow-y: auto; flex: 1; padding-right: 4px;">
+            <div style="text-align: center; padding: 30px; color: var(--qe-text-muted);">Đang tải dữ liệu tồn kho...</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--qe-border); flex-shrink: 0;">
+            <div style="font-size: 12px; color: var(--qe-text-muted);">
+                💡 Bấm <strong>"Chọn serial này"</strong> để tự động nhận serial vào đơn hàng.
+            </div>
+            <button class="btn-header-action" onclick="closeFifoModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL THEO DÕI TỒN KHO VẬT LÝ THEO BIN (CHO HÀNG KHÔNG SERIAL HOẶC TRA CỨU)
+     ================================================================ -->
+<div class="qe-modal-backdrop" id="stockByBinModal" style="display: none;">
+    <div class="qe-modal" style="max-width: 860px; width: 95%; max-height: 85vh; display: flex; flex-direction: column;">
+        <div class="qe-modal-header" style="flex-shrink: 0;">
+            <div>
+                <h3 class="qe-modal-title" style="display: flex; align-items: center; gap: 8px;">
+                    <span>📦 Tồn Kho Vật Lý Theo BIN</span>
+                    <span id="lblStockByBinBadge" style="font-size: 11px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px;"></span>
+                </h3>
+                <p id="lblStockByBinSub" style="font-size: 12px; color: var(--qe-text-muted); margin: 3px 0 0 0;">
+                    Tra cứu số lượng tồn thực tế của sản phẩm tại các vị trí BIN trong kho.
+                </p>
+            </div>
+            <button class="btn-close-modal" onclick="closeStockByBinModal()">&times;</button>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 10px 14px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--qe-border); flex-shrink: 0;">
+            <div style="font-size: 13px; color: var(--qe-text-main);">
+                Sản phẩm: <strong id="lblStockSkuName">-</strong>
+            </div>
+            <a href="https://erp.phongvu.vn/warehousing/stock-count/stock-product-by-bin" target="_blank" rel="noopener noreferrer" class="btn-header-action" style="font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; color: #2563eb; border-color: #bfdbfe; background: #eff6ff; font-weight: 600;">
+                <span>↗ Mở trang trên ERP</span>
+            </a>
+        </div>
+
+        <!-- Body content with table -->
+        <div id="stockByBinModalBody" style="overflow-y: auto; flex: 1; padding-right: 4px;">
+            <div style="text-align: center; padding: 30px; color: var(--qe-text-muted);">Đang tải dữ liệu tồn kho theo BIN...</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--qe-border); flex-shrink: 0;">
+            <div id="lblStockTotalSummary" style="font-size: 13px; font-weight: 700; color: var(--qe-text-main);">
+                Tổng tồn kho: -
+            </div>
+            <button class="btn-header-action" onclick="closeStockByBinModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- STATE ---
+    let currentOrder = null;
+    let pickingBin = {
+        name: localStorage.getItem('qe_picking_bin_name') || '',
+        id: localStorage.getItem('qe_picking_bin_id') || ''
+    };
+    let tekoToken = localStorage.getItem('qe_teko_token') || '';
+    let scannedSerials = {}; // { [sku]: ['SN1'] }
+    let nonSerialQuantities = {}; // { [sku]: number } cho hàng quản lý none
+    let nonSerialBins = {};      // { [sku]: { binId, binName, quantity } } BIN đã chọn để lấy hàng
+    let serialBinMap = {};   // { [serial]: binId }
+    let serialBinNames = {}; // { [serial]: binName }
+    let serialFifoMap = {};  // { [serial]: { pass, rank, diffDays, message } }
+
+    // Audio Feedback
+    function playBeep(type = 'success') {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            if (type === 'success') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.22);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.22);
+            } else if (type === 'fifo-warn') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, ctx.currentTime);
+                osc.frequency.setValueAtTime(349.23, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.25, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } else if (type === 'error') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, ctx.currentTime);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.28);
+            }
+        } catch (e) {}
+    }
+
+    function addLog(msg, type = 'info') {
+        const stream = document.getElementById('logStream');
+        if (!stream) return;
+        const p = document.createElement('p');
+        const time = new Date().toLocaleTimeString('vi-VN');
+        let color = '#38bdf8';
+        if (type === 'success') color = '#4ade80';
+        if (type === 'warn') color = '#fbbf24';
+        if (type === 'error') color = '#f87171';
+
+        p.innerHTML = `<span style="color: #64748b;">[${time}]</span> <span style="color: ${color};">${msg}</span>`;
+        stream.appendChild(p);
+        stream.scrollTop = stream.scrollHeight;
+    }
+
+    // --- STATUS BADGES ---
+    function updateConfigBadges() {
+        const dotBin = document.getElementById('dotBin');
+        const lblBin = document.getElementById('lblPickingBin');
+        const dotToken = document.getElementById('dotToken');
+        const lblToken = document.getElementById('lblTokenStatus');
+
+        if (pickingBin.name && pickingBin.id) {
+            dotBin.classList.add('active');
+            lblBin.textContent = pickingBin.name;
+        } else if (pickingBin.name) {
+            dotBin.classList.add('active');
+            lblBin.textContent = pickingBin.name;
+        } else {
+            dotBin.classList.remove('active');
+            lblBin.textContent = 'Chưa gán';
+        }
+
+        if (tekoToken) {
+            dotToken.classList.add('active');
+            lblToken.textContent = 'ERP đã kết nối';
+            lblToken.style.color = 'var(--qe-green-primary)';
+            lblToken.style.fontWeight = '700';
+        } else {
+            dotToken.classList.remove('active');
+            lblToken.textContent = 'Chưa kết nối ERP';
+            lblToken.style.color = 'var(--qe-red-primary)';
+            lblToken.style.fontWeight = '600';
+        }
+    }
+
+    // --- TOKEN MODAL & BOOKMARKLET ---
+    function getBookmarkletCode() {
+        const host = window.location.origin;
+        return `javascript:(function(){function f(){try{if(window.TekoID&&window.TekoID.user&&typeof window.TekoID.user.getAccessToken==='function'){var t=window.TekoID.user.getAccessToken();if(t&&t.length>30)return Promise.resolve(t);}}catch(e){}try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);var v=localStorage.getItem(k)||'';if(v.startsWith('eyJ')&&v.length>40)return Promise.resolve(v);try{var p=JSON.parse(v);if(p){var tok=p.access_token||p.accessToken||p.id_token||(p.currentUser&&(p.currentUser.access_token||p.currentUser.accessToken));if(tok&&tok.length>30)return Promise.resolve(tok);}}catch(e){}}}catch(e){}try{for(var j=0;j<sessionStorage.length;j++){var sk=sessionStorage.key(j);var sv=sessionStorage.getItem(sk)||'';if(sv.startsWith('eyJ')&&sv.length>40)return Promise.resolve(sv);try{var sp=JSON.parse(sv);if(sp){var stok=sp.access_token||sp.accessToken||sp.id_token;if(stok&&stok.length>30)return Promise.resolve(stok);}}catch(e){}}}catch(e){}return new Promise(function(res){try{var req=indexedDB.open('ERPAdminLocalDB');req.onsuccess=function(e){try{var db=e.target.result;if(!db||!db.objectStoreNames||!db.objectStoreNames.contains('currentUser')){return res(null);}var tx=db.transaction('currentUser','readonly');var st=tx.objectStore('currentUser');var getReq=st.getAll();getReq.onsuccess=function(ev){var r=ev.target.result;var u=r&&r[0];var tok=u&&(u.accessToken||u.access_token||u.token);res(tok||null);};getReq.onerror=function(){res(null);};}catch(err){res(null);}};req.onerror=function(){res(null);};}catch(err){res(null);}});}f().then(function(tok){if(!tok){alert('❌ Không tìm thấy Token ERP trên trang này!\\n\\n👉 Hãy đăng nhập tại https://erp.phongvu.vn rồi bấm lại bookmark này nhé.');return;}var cl=tok.startsWith('Bearer ')?tok.slice(7).trim():tok.trim();var h='${host}';var cp=false;try{var ta=document.createElement('textarea');ta.value=cl;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();cp=document.execCommand('copy');document.body.removeChild(ta);}catch(e){}if(!cp&&navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(cl).then(function(){cp=true;}).catch(function(){});}try{fetch(h+'/api/quick-export/sync-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:cl}),mode:'no-cors'}).catch(function(){});new Image().src=h+'/api/quick-export/sync-token?token='+encodeURIComponent(cl);}catch(e){}var old=document.getElementById('pv-token-banner');if(old)old.remove();var b=document.createElement('div');b.id='pv-token-banner';b.style.cssText='position:fixed;top:24px;right:24px;z-index:99999999;background:#ffffff;border:2px solid #2563eb;border-radius:12px;padding:16px 20px;box-shadow:0 12px 35px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:380px;color:#0f172a;';b.innerHTML='<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;\"><span style=\"font-weight:800;font-size:14px;color:#1e40af;\">⚡ ĐỒNG BỘ TOKEN ERP</span><button id=\"pv-close-bn\" style=\"border:none;background:none;font-size:18px;cursor:pointer;color:#64748b;\">&times;</button></div><div style=\"background:#dcfce7;border:1px solid #bbf7d0;color:#166534;font-size:12px;padding:8px 10px;border-radius:6px;font-weight:600;margin-bottom:12px;\">'+(cp?'✅ Đã tự động copy Token vào bộ nhớ tạm!':'✅ Đã lấy được mã Token ERP!')+'</div><div style=\"display:flex;gap:8px;\"><button id=\"pv-copy-btn\" style=\"flex:1;background:#2563eb;color:#fff;border:none;padding:9px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;\">📋 Copy Token</button><a href=\"'+h+'/quick-export?token='+encodeURIComponent(cl)+'\" target=\"_blank\" style=\"flex:1.2;background:#10b981;color:#fff;text-decoration:none;padding:9px;border-radius:6px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;\">🚀 Mở Xuất Kho</a></div>';document.body.appendChild(b);document.getElementById('pv-close-bn').onclick=function(){b.remove();};document.getElementById('pv-copy-btn').onclick=function(){if(navigator.clipboard){navigator.clipboard.writeText(cl).then(function(){alert('✅ Đã copy Token ERP vào Clipboard!');});}else{var t2=document.createElement('textarea');t2.value=cl;document.body.appendChild(t2);t2.select();document.execCommand('copy');document.body.removeChild(t2);alert('✅ Đã copy Token ERP vào Clipboard!');}};});})();`.replace(/\s+/g, ' ').trim();
+    }
+
+    function initBookmarklet() {
+        const btn = document.getElementById('btnErpBookmarklet');
+        if (btn) {
+            btn.href = getBookmarkletCode();
+        }
+    }
+
+    function copyBookmarkletCode() {
+        const code = getBookmarkletCode();
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(code).then(() => {
+                const lbl = document.getElementById('lblBookmarkCopied');
+                if (lbl) {
+                    lbl.style.display = 'block';
+                    setTimeout(() => { lbl.style.display = 'none'; }, 4000);
+                }
+            }).catch(() => {
+                prompt('Mã Bookmarklet (nhấn Ctrl+C để copy):', code);
+            });
+        } else {
+            prompt('Mã Bookmarklet (nhấn Ctrl+C để copy):', code);
+        }
+    }
+
+    function openTokenModal() {
+        initBookmarklet();
+        document.getElementById('tokenModal').style.display = 'flex';
+    }
+
+    function closeTokenModal() {
+        document.getElementById('tokenModal').style.display = 'none';
+    }
+
+    function saveManualToken() {
+        const t = document.getElementById('txtManualToken').value.trim();
+        if (!t) return alert('Vui lòng nhập chuỗi token!');
+        tekoToken = t;
+        localStorage.setItem('qe_teko_token', tekoToken);
+        fetch('/api/quick-export/sync-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: t })
+        });
+        updateConfigBadges();
+        closeTokenModal();
+        addLog('Đã lưu Token và kích hoạt dùng chung thành công!', 'success');
+    }
+
+    // --- CONFIG MODAL ---
+    async function loadSitesDropdown(selectedSiteId) {
+        const select = document.getElementById('cfgSiteId');
+        if (!select) return;
+        try {
+            const res = await fetch('/api/quick-export/sites');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.sites) && data.sites.length > 0) {
+                select.innerHTML = '<option value="">-- Chọn kho / chi nhánh làm việc --</option>';
+                data.sites.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = `[ID: ${s.id}] ${s.name}`;
+                    select.appendChild(opt);
+                });
+                if (data.sites.length === 1) {
+                    select.value = data.sites[0].id;
+                    localStorage.setItem('qe_site_id', data.sites[0].id);
+                } else {
+                    const target = selectedSiteId || currentOrder?.siteId || localStorage.getItem('qe_site_id');
+                    if (target) select.value = target;
+                }
+            }
+        } catch (e) {}
+    }
+
+    function openConfigModal() {
+        document.getElementById('cfgBinName').value = pickingBin.name;
+        document.getElementById('cfgBinStatus').textContent = '';
+        document.getElementById('configModal').style.display = 'flex';
+        loadSitesDropdown(currentOrder?.siteId || localStorage.getItem('qe_site_id'));
+    }
+
+    function closeConfigModal() {
+        document.getElementById('configModal').style.display = 'none';
+    }
+
+    async function verifyPickingBin() {
+        const binName = document.getElementById('cfgBinName').value.trim();
+        const siteId = document.getElementById('cfgSiteId')?.value || currentOrder?.siteId || '';
+        const statusEl = document.getElementById('cfgBinStatus');
+        if (!binName) {
+            statusEl.style.color = 'var(--qe-red-primary)';
+            statusEl.textContent = 'Vui lòng nhập tên BIN!';
+            return;
+        }
+
+        statusEl.style.color = 'var(--qe-blue-primary)';
+        statusEl.textContent = 'Đang kiểm tra trên ERP...';
+
+        try {
+            const res = await fetch('/api/quick-export/verify-bin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ binName, siteId, token: tekoToken })
+            });
+            const data = await res.json();
+            if (data.success && data.bin) {
+                statusEl.style.color = 'var(--qe-green-primary)';
+                statusEl.textContent = `✅ BIN hợp lệ! (ID hệ thống: ${data.bin.binId})`;
+                pickingBin.id = data.bin.binId;
+                pickingBin.name = data.bin.binName || binName;
+            } else {
+                statusEl.style.color = 'var(--qe-red-primary)';
+                statusEl.textContent = `❌ ${data.message || 'Không tìm thấy BIN trên ERP'}`;
+            }
+        } catch (err) {
+            statusEl.style.color = 'var(--qe-red-primary)';
+            statusEl.textContent = `❌ Lỗi: ${err.message}`;
+        }
+    }
+
+    async function saveConfig() {
+        pickingBin.name = document.getElementById('cfgBinName').value.trim();
+        const siteVal = document.getElementById('cfgSiteId')?.value || '';
+
+        localStorage.setItem('qe_picking_bin_name', pickingBin.name);
+        if (pickingBin.id) localStorage.setItem('qe_picking_bin_id', pickingBin.id);
+        if (siteVal) localStorage.setItem('qe_site_id', siteVal);
+
+        try {
+            await fetch('/api/quick-export/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pickingBinName: pickingBin.name,
+                    pickingBinId: pickingBin.id,
+                    tekoToken
+                })
+            });
+        } catch (e) {}
+
+        updateConfigBadges();
+        closeConfigModal();
+        addLog('Đã lưu cấu hình BIN soạn hàng.', 'success');
+    }
+
+    // --- TÌM ĐƠN HÀNG (Yêu cầu 3: Hiển thị Sale, CPxx, Nơi giao & Fix ảnh 2) ---
+    async function handleSearchOrder(customCode = null) {
+        const codeInput = document.getElementById('txtDocumentId');
+        const code = (typeof customCode === 'string' && customCode.trim()) ? customCode.trim() : codeInput.value.trim();
+        if (!code) {
+            alert('Vui lòng nhập hoặc quét mã đơn!');
+            codeInput.focus();
+            return;
+        }
+        codeInput.value = code;
+
+        if (!tekoToken) {
+            alert('Chưa có Token ERP! Vui lòng bấm "Kết nối ERP" ở góc trên.');
+            openTokenModal();
+            return;
+        }
+
+        const btn = document.getElementById('btnSearchOrder');
+        btn.disabled = true;
+        btn.textContent = '⏳ Đang tải...';
+        addLog(`Đang tìm thông tin đơn hàng "${code}"...`);
+
+        try {
+            const res = await fetch(`/api/quick-export/order?code=${encodeURIComponent(code)}&binId=${encodeURIComponent(pickingBin.id || '')}`, {
+                headers: { 'x-teko-token': tekoToken }
+            });
+            const data = await res.json();
+
+            if (!data.success || !data.data) {
+                throw new Error(data.message || 'Không tìm thấy đơn hàng trên ERP');
+            }
+
+            currentOrder = data.data;
+            scannedSerials = {};
+            nonSerialQuantities = {};
+            nonSerialBins = {};
+            serialBinMap = {};
+            serialBinNames = {};
+            serialFifoMap = {};
+
+            const orderSiteId = currentOrder.siteId;
+            if (orderSiteId) localStorage.setItem('qe_site_id', orderSiteId);
+
+            // Tự động kiểm tra BIN theo site của đơn nếu chưa có ID
+            if (pickingBin.name && orderSiteId && !pickingBin.id) {
+                try {
+                    const bRes = await fetch('/api/quick-export/verify-bin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ binName: pickingBin.name, siteId: orderSiteId, token: tekoToken })
+                    });
+                    const bData = await bRes.json();
+                    if (bData.success && bData.bin?.binId) {
+                        pickingBin.id = bData.bin.binId;
+                        localStorage.setItem('qe_picking_bin_id', pickingBin.id);
+                        updateConfigBadges();
+                    }
+                } catch (e) {}
+            }
+
+            // NẾU ĐƠN ĐÃ EXPORTED HOẶC PACKED -> TỰ ĐỘNG PREFILL SERIALS ĐÃ SOẠN/XUẤT
+            const statusUpper = String(currentOrder.status || '').trim().toUpperCase();
+            const isAlreadyHandled = Boolean(currentOrder.isExported || currentOrder.isPacked || statusUpper === 'EXPORTED' || statusUpper === 'PACKED' || statusUpper === 'COMPLETED');
+            if (isAlreadyHandled) {
+                const defaultLabel = (currentOrder.isPacked || statusUpper === 'PACKED') ? 'Đã đóng gói' : 'Đã xuất kho';
+                currentOrder.items.forEach(it => {
+                    const skuKey = String(it.sku);
+                    const isNone = String(it.tracking || '').trim().toLowerCase() === 'none';
+                    if (isNone) {
+                        nonSerialQuantities[skuKey] = Number(it.requestQuantity) || 1;
+                    } else {
+                        const snList = Array.isArray(it.serials) ? it.serials : [];
+                        scannedSerials[skuKey] = [...snList];
+                        snList.forEach(sn => {
+                            serialBinNames[sn] = it.binName || defaultLabel;
+                            serialFifoMap[sn] = { pass: true, status: defaultLabel, message: `Serial ${defaultLabel.toLowerCase()}` };
+                        });
+                    }
+                });
+            }
+
+            renderOrderDetails();
+            playBeep('success');
+            addLog(`Tải thành công đơn #${currentOrder.documentId} (Trạng thái: ${currentOrder.status}).`, 'success');
+
+            if (!isAlreadyHandled) {
+                setTimeout(() => {
+                    const sInput = document.getElementById('txtSerialScan');
+                    if (sInput) sInput.focus();
+                }, 100);
+            }
+
+        } catch (err) {
+            playBeep('error');
+            addLog(`Lỗi tải đơn hàng: ${err.message}`, 'error');
+            alert(`Lỗi: ${err.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔍 Tìm đơn';
+        }
+    }
+
+    function renderOrderDetails() {
+        document.getElementById('dispDocId').textContent = currentOrder.documentId;
+        
+        // Chi nhánh bán: chỉ hiển thị branchCode ngắn (VD: CP01)
+        const sellBranch = currentOrder.branchCode || '';
+        document.getElementById('dispBranchCode').textContent = sellBranch || '-';
+
+        // Kho xuất: siteName đầy đủ (VD: "264A Nguyễn Thị Minh Khai") hoặc exportBranch
+        const expEl = document.getElementById('dispExportWarehouse');
+        if (expEl) {
+            const exportSiteName = currentOrder.siteName || '';
+            const exportBranch  = currentOrder.exportBranch || '';
+            // Ưu tiên siteName đầy đủ, nếu không có thì dùng exportBranch
+            expEl.textContent = exportSiteName || exportBranch || '-';
+        }
+
+        // Sale bán
+        document.getElementById('dispSaleName').textContent = currentOrder.saleName || 'Điều chuyển / Hệ thống';
+
+        // Người nhận
+        const phone = currentOrder.receiverPhone ? ` (${currentOrder.receiverPhone})` : '';
+        document.getElementById('dispReceiver').textContent = `${currentOrder.receiverName || '-'}${phone}`;
+
+        // Yêu cầu 3: Hiển thị Địa chỉ giao
+        document.getElementById('dispDeliveryAddress').textContent = currentOrder.deliveryAddress || currentOrder.receiverName || 'Nhận tại quầy / Kho xuất';
+
+        // Trạng thái đơn (Nằm ngay dưới Mã đơn hàng theo Yêu cầu 2)
+        const statusUpper = String(currentOrder.status || '').trim().toUpperCase();
+        const isExported = Boolean(currentOrder.isExported || statusUpper === 'EXPORTED' || statusUpper === 'COMPLETED');
+        const isPacked = Boolean(currentOrder.isPacked || statusUpper === 'PACKED');
+        const dispStatus = document.getElementById('dispStatus');
+        if (isExported) {
+            dispStatus.innerHTML = `<span style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">✓ ĐÃ XUẤT KHO</span>`;
+        } else if (isPacked) {
+            dispStatus.innerHTML = `<span style="background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">📦 ĐÃ ĐÓNG GÓI</span>`;
+        } else {
+            dispStatus.innerHTML = `<span style="background: #eff6ff; color: var(--qe-blue-primary); border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">${currentOrder.status || 'READY'}</span>`;
+        }
+
+        // Thời gian tạo đơn (Ngày và Giờ)
+        const dispCreated = document.getElementById('dispCreatedDate');
+        if (dispCreated) {
+            const rawDate = currentOrder.createdDate;
+            if (rawDate) {
+                let d = null;
+                if (typeof rawDate === 'number' || /^\d+$/.test(String(rawDate).trim())) {
+                    const num = Number(rawDate);
+                    d = new Date(num > 1e11 ? num : num * 1000);
+                } else {
+                    d = new Date(rawDate);
+                }
+                if (!isNaN(d.getTime())) {
+                    const pad = n => String(n).padStart(2, '0');
+                    const hours = pad(d.getHours());
+                    const mins = pad(d.getMinutes());
+                    const secs = pad(d.getSeconds());
+                    const day = pad(d.getDate());
+                    const month = pad(d.getMonth() + 1);
+                    const year = d.getFullYear();
+                    dispCreated.innerHTML = `<span style="font-weight: 700; color: #1e293b; font-variant-numeric: tabular-nums;">${hours}:${mins}:${secs}</span> <span style="color: #64748b; font-size: 12px; margin-left: 4px;">${day}/${month}/${year}</span>`;
+                } else {
+                    dispCreated.textContent = String(rawDate);
+                }
+            } else {
+                dispCreated.textContent = '-';
+            }
+        }
+
+        // Yêu cầu 4: Thông tin thanh toán (COD là Chưa thanh toán)
+        const pStatus = currentOrder.paymentStatus || 'Chưa thanh toán';
+        const dispPStatus = document.getElementById('dispPaymentStatus');
+        if (pStatus === 'Đã thanh toán') {
+            dispPStatus.innerHTML = `<span style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">✓ Đã thanh toán</span>`;
+        } else if (pStatus === 'Thanh toán 1 phần') {
+            dispPStatus.innerHTML = `<span style="background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">⏳ Thanh toán 1 phần</span>`;
+        } else {
+            dispPStatus.innerHTML = `<span style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">⚠️ Chưa thanh toán</span>`;
+        }
+
+        // Yêu cầu 4: Phương thức thanh toán
+        document.getElementById('dispPaymentMethod').textContent = currentOrder.paymentMethod || 'Tiền mặt';
+
+        // Yêu cầu 4: Số tiền còn lại (Hiển thị đúng số tiền nợ/cần thu)
+        const remain = Number(currentOrder.remainPayment ?? 0);
+        const dispRemain = document.getElementById('dispRemainPayment');
+        if (remain <= 0 && pStatus === 'Đã thanh toán') {
+            dispRemain.innerHTML = `<span style="color: var(--qe-green-primary); font-weight: 700; font-variant-numeric: tabular-nums;">0 đ</span>`;
+        } else {
+            dispRemain.innerHTML = `<span style="color: #dc2626; font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums;">${new Intl.NumberFormat('vi-VN').format(remain)} đ</span>`;
+        }
+
+        // Yêu cầu 4: Ghi chú đơn hàng (Không tô vàng, phong cách trang nhã)
+        const noteBox = document.getElementById('dispOrderNoteBox');
+        const noteText = document.getElementById('dispOrderNote');
+        const note = currentOrder.orderNote || currentOrder.requestNote || '';
+        if (note && note.trim()) {
+            noteText.textContent = note.trim();
+            noteBox.style.display = 'block';
+        } else {
+            noteBox.style.display = 'none';
+        }
+
+        document.getElementById('orderOverview').style.display = 'block';
+        document.getElementById('cardScanning').style.display = 'block';
+
+        // Xử lý giao diện khi đơn đã xuất hoàn tất hoặc đã đóng gói
+        const banner = document.getElementById('exportedBanner');
+        const bannerTitle = banner.querySelector('.exported-banner-title');
+        const bannerIcon = banner.querySelector('.exported-banner-icon');
+        const bannerDesc = document.getElementById('lblExportedDetail');
+        const scannerGroup = document.getElementById('scannerInputGroup');
+        const actionFooter = document.getElementById('actionFooterArea');
+
+        if (isExported) {
+            banner.style.display = 'flex';
+            banner.style.background = '#f0fdf4';
+            banner.style.borderColor = '#bbf7d0';
+            bannerIcon.textContent = '✓';
+            bannerIcon.style.background = '#22c55e';
+            bannerTitle.textContent = 'ĐƠN HÀNG ĐÃ HOÀN TẤT XUẤT KHO TRÊN ERP';
+            bannerTitle.style.color = '#15803d';
+
+            const userStr = currentOrder.exportedBy ? `bởi ${currentOrder.exportedBy}` : '';
+            const timeStr = currentOrder.exportedDate ? `lúc ${new Date(currentOrder.exportedDate * 1000).toLocaleString('vi-VN')}` : '';
+            bannerDesc.textContent = `Đơn này đã hoàn thành xuất kho ${userStr} ${timeStr}. Dưới đây là danh sách serial đã xuất.`.trim();
+            bannerDesc.style.color = '#166534';
+
+            scannerGroup.style.display = 'none';
+            actionFooter.innerHTML = `
+                <button class="qe-btn-primary" style="background: #64748b;" onclick="resetForNewOrder()">
+                    🔄 Quét đơn khác
+                </button>
+            `;
+        } else if (isPacked) {
+            banner.style.display = 'flex';
+            banner.style.background = '#eff6ff';
+            banner.style.borderColor = '#bfdbfe';
+            bannerIcon.textContent = '📦';
+            bannerIcon.style.background = '#2563eb';
+            bannerTitle.textContent = 'ĐƠN HÀNG ĐÃ ĐÓNG GÓI (CHỜ BÀN GIAO XUẤT KHO)';
+            bannerTitle.style.color = '#1e40af';
+
+            const userStr = currentOrder.packedBy ? `bởi ${currentOrder.packedBy}` : '';
+            const timeStr = currentOrder.packedDate ? `lúc ${new Date(currentOrder.packedDate * 1000).toLocaleString('vi-VN')}` : '';
+            bannerDesc.textContent = `Đơn này đã được đóng gói xong ${userStr} ${timeStr}. Dưới đây là các serial đã soạn vào đơn.`.trim();
+            bannerDesc.style.color = '#1e40af';
+
+            scannerGroup.style.display = 'none';
+            actionFooter.innerHTML = `
+                <button class="qe-btn-primary" style="background: #64748b; height: 48px; padding: 0 20px; font-size: 15px;" onclick="resetForNewOrder()">
+                    🔄 Quét đơn khác
+                </button>
+                <button class="qe-btn-primary qe-btn-success" 
+                        id="btnFinishExport" 
+                        onclick="handleConfirmExport(true)" 
+                        style="height: 48px; padding: 0 24px; font-size: 15px;">
+                    ✅ Bàn giao & Hoàn tất xuất kho
+                </button>
+            `;
+        } else {
+            banner.style.display = 'none';
+            scannerGroup.style.display = 'flex';
+            actionFooter.innerHTML = `
+                <button class="qe-btn-primary" 
+                        id="btnConfirmPacking" 
+                        onclick="handleConfirmExport(false)" 
+                        disabled 
+                        style="height: 48px; padding: 0 24px; font-size: 15px; background: #2563eb; color: #ffffff;">
+                    📦 Xác nhận soạn hàng
+                </button>
+                <button class="qe-btn-primary qe-btn-success" 
+                        id="btnFinishExport" 
+                        onclick="handleConfirmExport(true)" 
+                        disabled 
+                        style="height: 48px; padding: 0 24px; font-size: 15px;">
+                    ✅ Xác nhận & Hoàn tất xuất kho
+                </button>
+            `;
+        }
+
+        renderSkuTable();
+    }
+
+    function renderSkuTable() {
+        const tbody = document.getElementById('skuTableBody');
+        tbody.innerHTML = '';
+
+        let totalReq = 0;
+        let totalScanned = 0;
+        const statusUpper = String(currentOrder?.status || '').trim().toUpperCase();
+        const isExported = Boolean(currentOrder?.isExported || statusUpper === 'EXPORTED' || statusUpper === 'COMPLETED');
+        const isPacked = Boolean(currentOrder?.isPacked || statusUpper === 'PACKED');
+        const isHandled = isExported || isPacked;
+
+        currentOrder.items.forEach(item => {
+            const sku = String(item.sku);
+            const req = Number(item.requestQuantity) || 1;
+            const isNoneTracking = String(item.tracking || '').trim().toLowerCase() === 'none';
+
+            let count = 0;
+            let isDone = false;
+            let scannedList = [];
+
+            if (isNoneTracking) {
+                count = isHandled ? req : (Number(nonSerialQuantities[sku]) || 0);
+                isDone = count >= req;
+            } else {
+                scannedList = scannedSerials[sku] || [];
+                // Tự động đồng bộ serials nếu đơn đã xử lý nhưng scannedSerials rỗng
+                if (scannedList.length === 0 && Array.isArray(item.serials) && item.serials.length > 0 && isHandled) {
+                    scannedSerials[sku] = [...item.serials];
+                    scannedList = scannedSerials[sku];
+                    const defaultLabel = isPacked ? 'Đã đóng gói' : 'Đã xuất kho';
+                    item.serials.forEach(sn => {
+                        if (!serialBinNames[sn]) serialBinNames[sn] = defaultLabel;
+                        if (!serialFifoMap[sn]) serialFifoMap[sn] = { pass: true, status: defaultLabel, message: `Serial ${defaultLabel.toLowerCase()}` };
+                    });
+                }
+                count = scannedList.length;
+                isDone = count >= req;
+            }
+
+            totalReq += req;
+            totalScanned += count;
+
+            const tr = document.createElement('tr');
+            if (isDone) tr.className = 'row-completed';
+
+            // Cột 1: Mã SKU (Bấm để xem gợi ý FIFO hoặc tồn kho theo BIN)
+            const skuBadgeHtml = isNoneTracking
+                ? `<span class="sku-code-badge" style="cursor: pointer;" onclick="openStockByBinModal('${sku}', '${escapeHtml(item.skuName)}')" title="Bấm để xem tồn kho vật lý theo BIN">${sku}</span>`
+                : `<span class="sku-code-badge" style="cursor: pointer;" onclick="openFifoModal('${sku}')" title="Bấm để xem gợi ý serial FIFO của SKU này">${sku}</span>`;
+
+            // Cột 4: Tiến độ (Hàng không serial: Stepper pill 1 dòng tinh gọn)
+            let progressColHtml = '';
+            if (isNoneTracking) {
+                if (isHandled) {
+                    progressColHtml = `<span class="badge-qty done">${count}/${req}</span>`;
+                } else {
+                    progressColHtml = `
+                        <div class="qe-stepper ${isDone ? 'done' : 'pending'}">
+                            <button type="button" class="btn-step" onclick="stepNonSerialQty('${sku}', -1, ${req})" title="Giảm số lượng" ${count <= 0 ? 'disabled' : ''}>−</button>
+                            <span class="step-label" onclick="setNonSerialQty('${sku}', ${count >= req ? 0 : req}, ${req})" title="Bấm để ${count >= req ? 'đặt về 0' : 'soạn đủ'}">${count}/${req}</span>
+                            <button type="button" class="btn-step" onclick="stepNonSerialQty('${sku}', 1, ${req})" title="Tăng số lượng" ${count >= req ? 'disabled' : ''}>+</button>
+                        </div>
+                    `;
+                }
+            } else {
+                progressColHtml = `<span class="badge-qty ${isDone ? 'done' : 'pending'}">${count}/${req}</span>`;
+            }
+
+            // Cột 5: Serials hoặc Tồn kho vật lý theo BIN
+            let actionColHtml = '';
+            if (isNoneTracking) {
+                const selBin = nonSerialBins[sku];
+                const binInfoHtml = selBin
+                    ? `<span style="display:inline-flex;align-items:center;gap:5px;background:#f0fdf4;border:1px solid #86efac;color:#15803d;font-size:12px;font-weight:700;padding:3px 9px;border-radius:6px;">
+                           📍 ${selBin.binName}
+                           <span style="background:#dcfce7;color:#15803d;font-size:10px;padding:1px 5px;border-radius:3px;">${selBin.quantity} tồn</span>
+                           <span onclick="clearNonSerialBin('${sku}')" title="Bỏ chọn BIN này" style="cursor:pointer;color:#94a3b8;font-size:13px;line-height:1;padding-left:2px;">&times;</span>
+                       </span>`
+                    : `<span style="display:inline-flex;align-items:center;gap:4px;background:#fff7ed;border:1px dashed #fb923c;color:#ea580c;font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;">
+                           ⚠️ Chưa chọn BIN lấy hàng
+                       </span>`;
+                actionColHtml = `
+                    <div class="non-serial-cell">
+                        <button type="button" 
+                                class="btn-bin-lookup" 
+                                onclick="openStockByBinModal('${sku}', '${escapeHtml(item.skuName)}')" 
+                                title="Xem tồn kho và chọn BIN lấy hàng">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right: 4px; vertical-align: -1.5px;">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                            </svg>
+                            Chọn BIN lấy hàng
+                        </button>
+                        ${binInfoHtml}
+                    </div>
+                `;
+            } else {
+                actionColHtml = `
+                    <div class="serial-tag-box" id="serialList_${sku}">
+                        ${scannedList.map((sn, idx) => {
+                            const fifo = serialFifoMap[sn];
+                            const isPass = fifo ? fifo.pass : true;
+                            const diffDays = fifo?.diffDays || 0;
+                            const fifoText = isPass 
+                                ? (fifo?.rank === 1 ? '✓ FIFO' : `✓ FIFO (+${diffDays}d)`) 
+                                : `⚠️ Lệch ${diffDays}d`;
+
+                            return `
+                                <div class="serial-item ${isPass ? 'fifo-pass' : 'fifo-warn'}" title="${fifo?.message || ''}">
+                                    <strong>${sn}</strong>
+                                    <span style="color: #64748b; font-size: 11px;">[${serialBinNames[sn] || pickingBin.name || 'Kho'}]</span>
+                                    <span class="serial-fifo-badge ${isPass ? 'pass' : 'warn'}">${fifoText}</span>
+                                    ${!isHandled ? `<span class="btn-del-sn" onclick="removeSerial('${sku}', ${idx})" title="Xoá">&times;</span>` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                        ${!isDone && !isHandled ? `
+                            <button type="button" class="btn-fifo-quick-pick" onclick="openFifoModal('${sku}')" title="Mở danh sách gợi ý serial FIFO của SKU này">
+                                <span>📋</span>
+                                <span>Gợi ý Serial FIFO (${req - count} cần lấy)</span>
+                            </button>
+                        ` : ''}
+                        ${scannedList.length === 0 && (isDone || isHandled) ? '<span style="color: #94a3b8; font-size: 12px; font-style: italic;">Chưa có serial nào</span>' : ''}
+                    </div>
+                `;
+            }
+
+            tr.innerHTML = `
+                <td>${skuBadgeHtml}</td>
+                <td>
+                    <div class="sku-name-text">${item.skuName}</div>
+                    <div class="sku-sub-meta">
+                        <span>ĐVT: ${item.uom || 'Cái'}</span>
+                        <span class="sku-meta-dot">•</span>
+                        ${isNoneTracking ? '<span class="tag-track-none">Không serial</span>' : '<span class="tag-track-serial">Quản lý serial</span>'}
+                    </div>
+                </td>
+                <td style="text-align: center; font-weight: 700; font-size: 14px;">${req}</td>
+                <td style="text-align: center;">${progressColHtml}</td>
+                <td>${actionColHtml}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Cập nhật tiến độ trên badge
+        const progBadge = document.getElementById('scanProgressBadge');
+        if (progBadge) {
+            if (isExported) {
+                progBadge.textContent = `Đã xuất ${totalScanned}/${totalReq} (Hoàn tất)`;
+                progBadge.className = 'badge-qty done';
+            } else if (isPacked) {
+                progBadge.textContent = `Đã đóng gói ${totalScanned}/${totalReq}`;
+                progBadge.className = 'badge-qty done';
+            } else {
+                progBadge.textContent = `${totalScanned}/${totalReq} Đã soạn`;
+                progBadge.className = (totalScanned >= totalReq && totalReq > 0) ? 'badge-qty done' : 'badge-qty pending';
+            }
+        }
+
+        const isReady = (totalScanned >= totalReq && totalReq > 0);
+        const packingBtn = document.getElementById('btnConfirmPacking');
+        if (packingBtn) {
+            packingBtn.disabled = !isReady;
+        }
+
+        const finishBtn = document.getElementById('btnFinishExport');
+        if (finishBtn) {
+            finishBtn.disabled = !isReady;
+        }
+    }
+
+    // --- QUÉT SERIAL & CHECK FIFO SUPABASE ---
+    async function executeScanSerial(serial) {
+        if (!serial) throw new Error('Mã serial không được để trống.');
+        if (!currentOrder) throw new Error('Vui lòng tìm mã đơn trước!');
+        if (currentOrder.isExported || currentOrder.status === 'EXPORTED') {
+            throw new Error('Đơn này đã xuất kho hoàn tất!');
+        }
+
+        for (const [sku, list] of Object.entries(scannedSerials)) {
+            if (list.includes(serial)) {
+                throw new Error(`Serial "${serial}" đã được quét trước đó trong SKU ${sku}!`);
+            }
+        }
+
+        addLog(`Đang kiểm tra Serial [${serial}] và đối soát rule FIFO...`);
+
+        const res = await fetch('/api/quick-export/process-serial', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-teko-token': tekoToken
+            },
+            body: JSON.stringify({
+                serial,
+                pickingBinId: pickingBin.id,
+                pickingBinName: pickingBin.name,
+                orderItems: currentOrder.items,
+                scannedSerials,
+                siteId: currentOrder.siteId
+            })
+        });
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Không thể xử lý serial');
+
+        const { sku, moved, binId, binName, fromBinName, toBinName, fifo } = data;
+
+        if (!scannedSerials[sku]) scannedSerials[sku] = [];
+        scannedSerials[sku].push(serial);
+
+        serialBinMap[serial] = binId || pickingBin.id;
+        serialBinNames[serial] = binName || toBinName || fromBinName || pickingBin.name;
+        serialFifoMap[serial] = fifo || { pass: true, status: 'Đạt FIFO' };
+
+        if (fifo && !fifo.pass) {
+            playBeep('fifo-warn');
+            addLog(`⚠️ [FIFO CẢNH BÁO] Serial [${serial}]: ${fifo.message}`, 'warn');
+        } else {
+            playBeep('success');
+            addLog(`🟢 Serial [${serial}] tại BIN [${fromBinName || binName}]: Đạt FIFO!`, 'success');
+        }
+
+        renderSkuTable();
+        return data;
+    }
+
+    async function handleScanSerialSubmit() {
+        const sInput = document.getElementById('txtSerialScan');
+        const sBtn = document.getElementById('btnScanSerial');
+        const serial = sInput.value.trim();
+        if (!serial) return;
+
+        sInput.disabled = true;
+        if (sBtn) {
+            sBtn.disabled = true;
+            sBtn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:qeSpin 0.6s linear infinite;vertical-align:middle;margin-right:4px;"></span> Đang nhận...';
+        }
+
+        try {
+            await executeScanSerial(serial);
+            sInput.value = '';
+        } catch (err) {
+            playBeep('error');
+            addLog(`Lỗi xử lý serial "${serial}": ${err.message}`, 'error');
+            alert(`Lỗi serial: ${err.message}`);
+        } finally {
+            sInput.disabled = false;
+            if (sBtn) {
+                sBtn.disabled = false;
+                sBtn.innerHTML = '⚡ Nhận Serial';
+            }
+            sInput.focus();
+        }
+    }
+
+    function removeSerial(sku, index) {
+        if (scannedSerials[sku] && scannedSerials[sku][index] !== undefined) {
+            const removed = scannedSerials[sku].splice(index, 1);
+            if (removed[0]) {
+                delete serialBinMap[removed[0]];
+                delete serialBinNames[removed[0]];
+                delete serialFifoMap[removed[0]];
+                addLog(`Đã huỷ serial ${removed[0]} khỏi SKU ${sku}.`, 'warn');
+            }
+            renderSkuTable();
+        }
+    }
+
+    function resetForNewOrder() {
+        currentOrder = null;
+        scannedSerials = {};
+        serialBinMap = {};
+        serialBinNames = {};
+        serialFifoMap = {};
+        document.getElementById('cardScanning').style.display = 'none';
+        document.getElementById('orderOverview').style.display = 'none';
+        const docInput = document.getElementById('txtDocumentId');
+        docInput.value = '';
+        docInput.focus();
+    }
+
+    // --- XÁC NHẬN SOẠN HÀNG HOẶC HOÀN TẤT XUẤT KHO ---
+    async function handleConfirmExport(isAutoHandover = true) {
+        if (!currentOrder) return;
+
+        const confirmMsg = isAutoHandover 
+            ? `Xác nhận và hoàn tất xuất kho (soạn hàng + bàn giao) cho đơn hàng #${currentOrder.documentId}?`
+            : `Xác nhận soạn hàng (chuyển trạng thái sang ĐÃ ĐÓNG GÓI) cho đơn hàng #${currentOrder.documentId}?`;
+
+        if (!confirm(confirmMsg)) return;
+
+        const packingBtn = document.getElementById('btnConfirmPacking');
+        const finishBtn = document.getElementById('btnFinishExport');
+        if (packingBtn) packingBtn.disabled = true;
+        if (finishBtn) finishBtn.disabled = true;
+
+        if (isAutoHandover) {
+            if (finishBtn) finishBtn.textContent = '⏳ Đang hoàn tất xuất kho...';
+        } else {
+            if (packingBtn) packingBtn.textContent = '⏳ Đang xác nhận soạn hàng...';
+        }
+
+        addLog(isAutoHandover 
+            ? `Đang gửi yêu cầu xuất kho hoàn tất (bàn giao) lên ERP và tick "Đã xuất" trong bảng FIFO...`
+            : `Đang gửi yêu cầu xác nhận soạn hàng (đóng gói) lên ERP và tick "Đã xuất" trong bảng FIFO...`
+        );
+
+        try {
+            // Kiểm tra hàng không serial: phải chọn BIN trước khi xác nhận
+            const missingBinSkus = currentOrder.items
+                .filter(it => String(it.tracking || '').trim().toLowerCase() === 'none')
+                .filter(it => !nonSerialBins[String(it.sku)])
+                .map(it => `${it.sku} - ${it.skuName}`);
+
+            if (missingBinSkus.length > 0) {
+                alert(`⚠️ Chưa chọn BIN lấy hàng cho:\n${missingBinSkus.join('\n')}\n\nVui lòng bấm "Chọn BIN lấy hàng" → chọn BIN cần lấy trước khi xác nhận!`);
+                if (packingBtn) { packingBtn.disabled = false; packingBtn.innerHTML = '📦 Xác nhận soạn hàng'; }
+                if (finishBtn) { finishBtn.disabled = false; finishBtn.innerHTML = '✅ Xác nhận & Hoàn tất xuất kho'; }
+                return;
+            }
+
+            const payloadItems = currentOrder.items.map(it => {
+                const skuKey = String(it.sku);
+                const isNoneTracking = String(it.tracking || '').trim().toLowerCase() === 'none';
+                const snList = (!isNoneTracking && scannedSerials[skuKey] && scannedSerials[skuKey].length > 0)
+                    ? scannedSerials[skuKey]
+                    : (Array.isArray(it.serials) ? it.serials : []);
+                const selectedBin = nonSerialBins[skuKey];
+                return {
+                    sku: skuKey,
+                    serials: isNoneTracking ? [] : snList,
+                    lots: [],
+                    ...(isNoneTracking && selectedBin ? { fromBinId: selectedBin.binId, fromBinName: selectedBin.binName } : {})
+                };
+            });
+
+            const res = await fetch('/api/quick-export/confirm-export', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-teko-token': tekoToken
+                },
+                body: JSON.stringify({
+                    requestId: currentOrder.requestId || currentOrder.documentId,
+                    documentId: currentOrder.documentId,
+                    pickingBinId: pickingBin.id,
+                    items: payloadItems,
+                    receiverName: currentOrder.receiverName,
+                    siteId: currentOrder.siteId,
+                    serialBinMap,
+                    isAutoHandover: Boolean(isAutoHandover)
+                })
+            });
+
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Lỗi xử lý trên ERP');
+
+            playBeep('success');
+            const savedDoc = currentOrder.documentId;
+
+            if (isAutoHandover) {
+                addLog(`🎉 XUẤT KHO HOÀN TẤT THÀNH CÔNG ĐƠN HÀNG #${savedDoc}!`, 'success');
+                alert(`🎉 Chúc mừng!\nĐơn hàng #${savedDoc} đã hoàn tất xuất kho (soạn hàng + bàn giao) thành công trên ERP và tick "Đã xuất" vào bảng FIFO!`);
+            } else {
+                addLog(`📦 ĐÃ SOẠN HÀNG (ĐÃ ĐÓNG GÓI) THÀNH CÔNG ĐƠN HÀNG #${savedDoc}!`, 'success');
+                alert(`📦 Chúc mừng!\nĐơn hàng #${savedDoc} đã chuyển sang trạng thái ĐÃ ĐÓNG GÓI thành công trên ERP và tick "Đã xuất" vào bảng FIFO!`);
+            }
+
+            // Tự động tải lại thông tin đơn hàng vừa soạn để cập nhật trạng thái mới và hiển thị serials đã soạn
+            await handleSearchOrder(savedDoc);
+
+        } catch (err) {
+            playBeep('error');
+            addLog(`Lỗi xử lý: ${err.message}`, 'error');
+            alert(`Lỗi: ${err.message}`);
+        } finally {
+            if (packingBtn) {
+                packingBtn.disabled = false;
+                packingBtn.textContent = '📦 Xác nhận soạn hàng';
+            }
+            if (finishBtn) {
+                finishBtn.disabled = false;
+                finishBtn.textContent = '✅ Xác nhận & Hoàn tất xuất kho';
+            }
+        }
+    }
+
+    // --- MODAL GỢI Ý SERIAL CHUẨN FIFO ---
+    let globalFifoData = null;
+
+    async function openFifoModal(targetSku = null) {
+        if (!currentOrder || !currentOrder.items || currentOrder.items.length === 0) {
+            alert('Vui lòng tìm mã đơn hàng trước khi xem gợi ý FIFO!');
+            return;
+        }
+
+        if (targetSku) {
+            const it = currentOrder.items.find(i => String(i.sku) === String(targetSku));
+            if (it && String(it.tracking || '').trim().toLowerCase() === 'none') {
+                openStockByBinModal(targetSku, it.skuName);
+                return;
+            }
+        }
+
+        const serialItems = currentOrder.items.filter(it => String(it.tracking || '').trim().toLowerCase() !== 'none');
+        if (serialItems.length === 0) {
+            alert('Đơn hàng này không có sản phẩm nào quản lý bằng Serial để check FIFO!');
+            return;
+        }
+
+        const modal = document.getElementById('fifoModal');
+        const modalBody = document.getElementById('fifoModalBody');
+        const branchBadge = document.getElementById('lblFifoBranchBadge');
+        const tabsBox = document.getElementById('fifoTabsContainer');
+        modal.style.display = 'flex';
+
+        const branchCode = '<%= user.branch_code || "" %>' || currentOrder.exportBranch || currentOrder.branchCode || 'CP01';
+        branchBadge.textContent = `Chi nhánh ${branchCode}`;
+        modalBody.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--qe-text-muted);">⏳ Đang tải dữ liệu serial tồn kho theo chuẩn FIFO...</div>';
+
+        const skus = serialItems.map(it => it.sku);
+
+        try {
+            const res = await fetch('/api/quick-export/fifo-recommendation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ skus, branchCode })
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Lỗi tải dữ liệu FIFO');
+
+            globalFifoData = data.skusData || {};
+
+            // Render SKU Tabs
+            tabsBox.innerHTML = `
+                <button type="button" class="btn-header-action" style="border-radius: 20px; font-size: 12px; padding: 4px 12px; background: ${!targetSku ? 'var(--qe-blue-primary)' : '#f8fafc'}; color: ${!targetSku ? '#fff' : 'var(--qe-text-secondary)'};" onclick="renderFifoModalContent(null)">
+                    Tất cả SKU (${serialItems.length})
+                </button>
+            `;
+
+            serialItems.forEach(it => {
+                const sCount = (globalFifoData[it.sku] || []).length;
+                const isActive = (targetSku && String(targetSku) === String(it.sku));
+                tabsBox.innerHTML += `
+                    <button type="button" class="btn-header-action" style="border-radius: 20px; font-size: 12px; padding: 4px 12px; background: ${isActive ? 'var(--qe-blue-primary)' : '#f8fafc'}; color: ${isActive ? '#fff' : 'var(--qe-text-secondary)'};" onclick="renderFifoModalContent('${it.sku}')">
+                        ${it.sku} (${sCount} tồn)
+                    </button>
+                `;
+            });
+
+            renderFifoModalContent(targetSku);
+
+        } catch (err) {
+            modalBody.innerHTML = `<div style="text-align: center; padding: 30px; color: var(--qe-red-primary);">❌ Lỗi tải dữ liệu FIFO: ${err.message}</div>`;
+        }
+    }
+
+    let currentFifoTabSku = null;
+
+    function renderFifoModalContent(selectedSku = null) {
+        currentFifoTabSku = selectedSku;
+        // Cập nhật giao diện tab đang chọn
+        document.querySelectorAll('#fifoTabsContainer button').forEach((btn, idx) => {
+            if (!selectedSku && idx === 0) {
+                btn.style.background = 'var(--qe-blue-primary)';
+                btn.style.color = '#fff';
+            } else if (selectedSku && btn.textContent.includes(selectedSku)) {
+                btn.style.background = 'var(--qe-blue-primary)';
+                btn.style.color = '#fff';
+            } else {
+                btn.style.background = '#f8fafc';
+                btn.style.color = 'var(--qe-text-secondary)';
+            }
+        });
+
+        const modalBody = document.getElementById('fifoModalBody');
+        const itemsToRender = selectedSku 
+            ? currentOrder.items.filter(it => String(it.sku) === String(selectedSku))
+            : currentOrder.items;
+
+        if (itemsToRender.length === 0) {
+            modalBody.innerHTML = '<div style="text-align: center; padding: 30px;">Không có sản phẩm nào.</div>';
+            return;
+        }
+
+        let html = '';
+        itemsToRender.forEach(it => {
+            const sku = it.sku;
+            const serials = globalFifoData ? (globalFifoData[sku] || []) : [];
+            const reqQty = it.requestQuantity || 1;
+            const scannedCount = (scannedSerials[sku] || []).length;
+
+            html += `
+                <div style="background: #ffffff; border: 1px solid var(--qe-border); border-radius: 8px; margin-bottom: 16px; overflow: hidden;">
+                    <div style="background: #f8fafc; padding: 10px 14px; border-bottom: 1px solid var(--qe-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <span class="sku-code-badge">${sku}</span>
+                            <strong style="margin-left: 8px; color: var(--qe-text-main); font-size: 14px;">${it.skuName}</strong>
+                        </div>
+                        <div style="font-size: 12px; display: flex; gap: 10px; align-items: center;">
+                            <span>Cần xuất: <strong style="color: var(--qe-blue-primary); font-size: 13px;">${reqQty}</strong></span>
+                            <span>Đã quét: <strong>${scannedCount}/${reqQty}</strong></span>
+                            <span style="background: ${serials.length > 0 ? '#dcfce7' : '#fee2e2'}; color: ${serials.length > 0 ? '#15803d' : '#b91c1c'}; padding: 2px 8px; border-radius: 4px; font-weight: 700;">
+                                Tồn khả dụng: ${serials.length} serial
+                            </span>
+                        </div>
+                    </div>
+
+                    ${serials.length === 0 ? `
+                        <div style="padding: 18px; text-align: center; color: var(--qe-text-muted); font-size: 13px;">
+                            ⚠️ Chi nhánh hiện không có serial khả dụng nào cho SKU này trong dữ liệu tồn kho.
+                        </div>
+                    ` : `
+                        <div style="overflow-x: auto;">
+                            <table class="sku-table" style="margin: 0; border: none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px; text-align: center;">STT</th>
+                                        <th style="width: 130px;">Ưu tiên FIFO</th>
+                                        <th style="width: 180px;">Số Serial</th>
+                                        <th style="min-width: 140px; white-space: nowrap; text-align: center;">Vị trí (Location)</th>
+                                        <th style="width: 110px;">Ngày nhập kho</th>
+                                        <th style="width: 90px; text-align: center;">Tuổi tồn</th>
+                                        <th style="width: 140px;">Khu vực (Bin Zone)</th>
+                                        <th style="width: 130px; text-align: center;">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${serials.map((s, idx) => {
+                                        const isAlreadyScanned = (scannedSerials[sku] || []).includes(s.serial);
+                                        const rank = s.rank || (idx + 1);
+                                        const isOldest = (rank === 1);
+                                        const days = s.daysOld || 0;
+                                        let agingBadge = 'background: #dcfce7; color: #15803d;'; // <=30d
+                                        if (days > 90) agingBadge = 'background: #fee2e2; color: #b91c1c; font-weight: 800;';
+                                        else if (days > 60) agingBadge = 'background: #ffedd5; color: #c2410c; font-weight: 800;';
+                                        else if (days > 30) agingBadge = 'background: #fef3c7; color: #b45309; font-weight: 700;';
+
+                                        return `
+                                            <tr style="${isAlreadyScanned ? 'background: #f1f5f9; opacity: 0.6;' : (isOldest ? 'background: #f0fdf4;' : '')}">
+                                                <td style="text-align: center; font-weight: 700; color: #64748b;">${idx + 1}</td>
+                                                <td>
+                                                    ${isOldest ? `
+                                                        <span style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">
+                                                            ⭐ ƯU TIÊN #1
+                                                        </span>
+                                                    ` : `
+                                                        <span style="background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px;">
+                                                            Thứ ${rank}
+                                                        </span>
+                                                    `}
+                                                </td>
+                                                <td>
+                                                    <strong class="qe-input-mono" style="font-size: 13px; color: var(--qe-text-main);">${s.serial}</strong>
+                                                </td>
+                                                <td style="white-space: nowrap; text-align: center;">
+                                                    <span style="background: rgba(255, 255, 255, 0.95); color: #1e293b; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                                                        📍 ${s.location || 'Kho'}
+                                                    </span>
+                                                </td>
+                                                <td style="font-size: 12px; color: var(--qe-text-secondary);">${s.dateFormatted}</td>
+                                                <td style="text-align: center;">
+                                                    <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; ${agingBadge}">
+                                                        ${days} ngày
+                                                    </span>
+                                                </td>
+                                                <td style="font-size: 12px; color: var(--qe-text-muted);">${s.binZone || '-'}</td>
+                                                <td style="text-align: center; white-space: nowrap;">
+                                                    ${isAlreadyScanned ? `
+                                                        <span style="font-size: 12px; color: var(--qe-green-primary); font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">✓ Đã quét</span>
+                                                    ` : `
+                                                        <button type="button" 
+                                                                class="qe-btn-primary btn-fifo-select" 
+                                                                style="height: 32px; padding: 0 12px; font-size: 12px; border-radius: 6px; font-weight: 700; ${isOldest ? 'background: var(--qe-green-primary);' : ''}" 
+                                                                onclick="selectFifoSerial(this, '${sku}', '${s.serial}')">
+                                                            Chọn serial này
+                                                        </button>
+                                                    `}
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `}
+                </div>
+            `;
+        });
+
+        modalBody.innerHTML = html;
+    }
+
+    function closeFifoModal() {
+        document.getElementById('fifoModal').style.display = 'none';
+    }
+
+    // --- HÀNG KHÔNG QUẢN LÝ SERIAL & TRA CỨU TỒN KHO THEO BIN ---
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function stepNonSerialQty(sku, delta, max) {
+        const curr = Number(nonSerialQuantities[sku] || 0);
+        const next = Math.max(0, Math.min(Number(max), curr + delta));
+        setNonSerialQty(sku, next, max);
+    }
+
+    function setNonSerialQty(sku, val, max) {
+        let num = parseInt(val, 10);
+        if (isNaN(num) || num < 0) num = 0;
+        if (num > Number(max)) num = Number(max);
+        nonSerialQuantities[sku] = num;
+        renderSkuTable();
+        if (num >= Number(max)) {
+            playBeep('success');
+            addLog(`Đã xác nhận đủ số lượng ${num}/${max} cho SKU ${sku} (Hàng không quản lý serial).`, 'success');
+        }
+    }
+
+    let currentStockSku = null;
+
+    async function openStockByBinModal(sku, skuName) {
+        currentStockSku = sku;
+        const modal = document.getElementById('stockByBinModal');
+        const modalBody = document.getElementById('stockByBinModalBody');
+        const badge = document.getElementById('lblStockByBinBadge');
+        const nameLabel = document.getElementById('lblStockSkuName');
+        const totalLabel = document.getElementById('lblStockTotalSummary');
+
+        nameLabel.textContent = `[${sku}] ${skuName || ''}`;
+        const branchCode = '<%= user.branch_code || "" %>' || currentOrder?.exportBranch || currentOrder?.branchCode || 'CP01';
+        badge.textContent = `Chi nhánh ${branchCode}`;
+        modal.style.display = 'flex';
+        modalBody.innerHTML = '<div style="text-align: center; padding: 35px; color: var(--qe-text-muted);">⏳ Đang tra cứu tồn kho thực tế tại các BIN từ ERP...</div>';
+        totalLabel.textContent = 'Tổng tồn kho: ...';
+
+        try {
+            const siteId = currentOrder?.siteId || '';
+            const res = await fetch(`/api/quick-export/stock-by-bin?sku=${encodeURIComponent(sku)}&siteId=${encodeURIComponent(siteId)}`, {
+                headers: { 'x-teko-token': tekoToken }
+            });
+            const data = await res.json();
+            if (!data.success || !data.data) {
+                throw new Error(data.message || 'Không thể lấy dữ liệu tồn kho từ ERP');
+            }
+
+            const stocks = data.data.stocks || [];
+            if (stocks.length === 0) {
+                modalBody.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <div style="font-size: 32px; margin-bottom: 8px;">📭</div>
+                        <div style="font-weight: 600; font-size: 14px;">Không tìm thấy vị trí tồn kho nào còn hàng cho sản phẩm này!</div>
+                        <div style="font-size: 12px; margin-top: 4px;">Vui lòng kiểm tra lại trên hệ thống ERP hoặc liên hệ thủ kho.</div>
+                    </div>
+                `;
+                totalLabel.textContent = 'Tổng tồn kho: 0';
+                return;
+            }
+
+            // Kiểm tra SKU này có phải hàng không serial không (để hiện nút "Chọn BIN")
+            const currentItem = currentOrder?.items?.find(it => String(it.sku) === String(currentStockSku));
+            const isNoneTrackingSku = currentItem && String(currentItem.tracking || '').trim().toLowerCase() === 'none';
+
+            let totalQty = 0;
+            let html = `
+                <table class="sku-table" style="margin-top: 0; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 22%;">Vị trí BIN</th>
+                            <th style="width: 22%;">Khu vực kho</th>
+                            <th style="width: 26%;">Phân loại hàng</th>
+                            <th style="width: 14%; text-align: center;">Tồn kho</th>
+                            ${isNoneTrackingSku ? '<th style="width: 16%; text-align: center;">Thao tác</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            stocks.forEach(s => {
+                totalQty += s.quantity;
+                const isSoanHang = (s.zoneName || '').includes('Soạn') || (s.binName || '').startsWith('SH-');
+                const isSelected = nonSerialBins[currentStockSku]?.binName === s.binName;
+                const rowStyle = isSelected ? 'background: #f0fdf4; outline: 2px solid #86efac; outline-offset: -2px;' : (isSoanHang ? 'background: #eff6ff;' : '');
+                const canSelect = s.quantity > 0;
+                html += `
+                    <tr style="${rowStyle}">
+                        <td>
+                            <strong style="color: var(--qe-blue-primary); font-size: 13px; font-variant-numeric: tabular-nums;">${s.binName}</strong>
+                            ${isSelected ? '<span style="font-size: 10px; background: #dcfce7; color: #15803d; padding: 1px 5px; border-radius: 3px; margin-left: 4px; font-weight: 700;">✓ Đang chọn</span>' : (isSoanHang ? '<span style="font-size: 10px; background: #dbeafe; color: #1e40af; padding: 1px 5px; border-radius: 3px; margin-left: 4px; font-weight: 700;">Soạn hàng</span>' : '')}
+                        </td>
+                        <td>
+                            <span style="font-weight: 600; color: var(--qe-text-main); font-size: 13px;">${s.zoneName}</span>
+                        </td>
+                        <td>
+                            <span style="font-size: 12px; color: #64748b;">${s.productStatusTypeName}</span>
+                        </td>
+                        <td style="text-align: center;">
+                            <span style="font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; color: ${s.quantity > 0 ? 'var(--qe-green-primary)' : '#94a3b8'};">
+                                ${new Intl.NumberFormat('vi-VN').format(s.quantity)}
+                            </span>
+                            <span style="font-size: 11px; color: #64748b; margin-left: 2px;">${s.uom}</span>
+                        </td>
+                        ${isNoneTrackingSku ? `
+                        <td style="text-align: center;">
+                            ${isSelected
+                                ? `<span style="color:#15803d;font-size:12px;font-weight:700;">✓ Đã chọn</span>`
+                                : (canSelect
+                                    ? `<button type="button" onclick="selectBinForNonSerial('${currentStockSku}', '${s.binName}', '', ${s.quantity})" 
+                                               style="background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:5px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.15s;"
+                                               onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                                           Chọn BIN này
+                                       </button>`
+                                    : `<span style="color:#94a3b8;font-size:12px;">Hết hàng</span>`)
+                            }
+                        </td>
+                        ` : ''}
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            modalBody.innerHTML = html;
+            totalLabel.innerHTML = `Tổng tồn kho tại chi nhánh: <span style="color: var(--qe-green-primary); font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums;">${new Intl.NumberFormat('vi-VN').format(totalQty)}</span> Cái`;
+
+        } catch (err) {
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 30px; color: #dc2626;">
+                    ⚠️ Lỗi tải dữ liệu tồn kho: ${err.message}
+                </div>
+            `;
+            totalLabel.textContent = 'Lỗi tra cứu';
+        }
+    }
+
+    function closeStockByBinModal() {
+        const modal = document.getElementById('stockByBinModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function selectBinForNonSerial(sku, binName, binId, quantity) {
+        nonSerialBins[sku] = { binName, binId, quantity };
+        addLog(`Đã chọn BIN <strong>${binName}</strong> (tồn: ${quantity}) để lấy hàng cho SKU ${sku}.`, 'success');
+        closeStockByBinModal();
+        renderSkuTable();
+    }
+
+    function clearNonSerialBin(sku) {
+        delete nonSerialBins[sku];
+        renderSkuTable();
+    }
+
+    let isProcessingFifoSelect = false;
+
+    async function selectFifoSerial(btn, sku, serial) {
+        if (!btn || isProcessingFifoSelect) return;
+        isProcessingFifoSelect = true;
+
+        const originalText = btn.innerHTML;
+        const originalBg = btn.style.background;
+
+        btn.disabled = true;
+        btn.style.opacity = '0.85';
+        btn.style.cursor = 'wait';
+        btn.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:qeSpin 0.6s linear infinite;vertical-align:middle;margin-right:4px;"></span> Đang nhận...`;
+
+        // Vô hiệu hoá tạm thời tất cả các nút chọn khác trong modal để chống bấm đúp
+        const otherBtns = document.querySelectorAll('.btn-fifo-select');
+        otherBtns.forEach(b => { if (b !== btn) b.disabled = true; });
+
+        try {
+            await executeScanSerial(serial);
+
+            // Đổi trạng thái nút thành công
+            btn.innerHTML = '✓ Đã nhận';
+            btn.style.background = '#10b981';
+            btn.style.borderColor = '#059669';
+            btn.style.cursor = 'default';
+            btn.classList.add('btn-fifo-done');
+
+            // Cập nhật lại nội dung modal sau một chút để user thấy phản hồi trực quan
+            setTimeout(() => {
+                renderFifoModalContent(currentFifoTabSku);
+            }, 500);
+
+        } catch (err) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.innerHTML = originalText;
+            btn.style.background = originalBg;
+            playBeep('error');
+            addLog(`Lỗi chọn serial "${serial}": ${err.message}`, 'error');
+            alert(`Lỗi nhận serial: ${err.message}`);
+        } finally {
+            isProcessingFifoSelect = false;
+            const remainingBtns = document.querySelectorAll('.btn-fifo-select');
+            remainingBtns.forEach(b => {
+                if (!b.classList.contains('btn-fifo-done')) b.disabled = false;
+            });
+        }
+    }
+
+    // --- KHỞI TẠO & LẮNG NGHE ENTER ---
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Khởi tạo link bookmarklet với origin hiện tại
+        initBookmarklet();
+
+        // Tự động nhận token nếu được truyền qua URL (?token=...)
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const paramToken = urlParams.get('token');
+            if (paramToken && paramToken.trim().length > 30) {
+                tekoToken = paramToken.trim().replace(/^Bearer\s+/i, '');
+                localStorage.setItem('qe_teko_token', tekoToken);
+                fetch('/api/quick-export/sync-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: tekoToken })
+                }).catch(() => {});
+                window.history.replaceState({}, document.title, window.location.pathname);
+                addLog('🎉 Đã tự động kết nối Token ERP thành công từ liên kết!', 'success');
+            }
+        } catch (e) {}
+
+        updateConfigBadges();
+
+        // Tự động kế thừa Token ERP từ server (chia sẻ toàn chi nhánh)
+        try {
+            const res = await fetch('/api/quick-export/settings');
+            const data = await res.json();
+            if (data && data.success && data.settings) {
+                if (data.settings.tekoToken && !tekoToken) {
+                    tekoToken = data.settings.tekoToken;
+                    localStorage.setItem('qe_teko_token', tekoToken);
+                }
+                if (data.settings.pickingBinName && !pickingBin.name) {
+                    pickingBin.name = data.settings.pickingBinName;
+                    pickingBin.id = data.settings.pickingBinId;
+                    localStorage.setItem('qe_picking_bin_name', pickingBin.name);
+                    if (pickingBin.id) localStorage.setItem('qe_picking_bin_id', pickingBin.id);
+                }
+                updateConfigBadges();
+            }
+        } catch (e) {}
+
+        document.getElementById('txtDocumentId').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSearchOrder();
+            }
+        });
+
+        document.getElementById('txtSerialScan').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleScanSerialSubmit();
+            }
+        });
+    });
+</script>
+
+<%- include('partials/footer') %>

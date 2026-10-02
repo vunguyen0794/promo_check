@@ -1,4 +1,13 @@
-const { google } = require('googleapis');
+let _googleInstance = null;
+const google = new Proxy({}, {
+  get(target, prop) {
+    if (!_googleInstance) {
+      _googleInstance = require('googleapis').google;
+    }
+    return _googleInstance[prop];
+  }
+});
+require('dotenv').config();
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -6,10 +15,24 @@ const { createClient } = require('@supabase/supabase-js');
 const keyFile = path.resolve(__dirname, '../bigquery-key.json');
 const PROMO_SPREADSHEET_ID = '1OHu6fDU-9IdHuvNFQfSoc1KUSFjvkOXjsGJixgSjnME';
 
-// Initialize Supabase Client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Initialize Supabase Client lazily
+let _supabaseClient = null;
+function getSupabase() {
+  if (!_supabaseClient) {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Missing Supabase credentials in process.env");
+    }
+    _supabaseClient = createClient(supabaseUrl, supabaseKey);
+  }
+  return _supabaseClient;
+}
+const supabase = new Proxy({}, {
+  get(target, prop) {
+    return getSupabase()[prop];
+  }
+});
 
 /**
  * Robust parser to extract date range from a string

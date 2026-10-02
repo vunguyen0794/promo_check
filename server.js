@@ -17,19 +17,64 @@ const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
-const { google } = require('googleapis');
+let _googleInstance = null;
+const google = new Proxy({}, {
+  get(target, prop) {
+    if (!_googleInstance) {
+      _googleInstance = require('googleapis').google;
+    }
+    return _googleInstance[prop];
+  }
+});
 
 const fs = require('fs');
 const { BigQuery } = require('@google-cloud/bigquery');
-const { sendNewPostEmail } = require('./utils/mailer');
+let _mailerModule = null;
+function sendNewPostEmail(...args) {
+  if (!_mailerModule) _mailerModule = require('./utils/mailer');
+  return _mailerModule.sendNewPostEmail(...args);
+}
 const ejs = require('ejs');
-const chromium = require('@sparticuz/chromium');
-const puppeteerCore = require('puppeteer-core'); // Đổi tên thành puppeteerCore
-const puppeteer = require('puppeteer'); // Đây là bản đầy đủ cho local
+let _chromiumInstance = null;
+const chromium = new Proxy({}, {
+  get(target, prop) {
+    if (!_chromiumInstance) {
+      _chromiumInstance = require('@sparticuz/chromium');
+    }
+    return _chromiumInstance[prop];
+  }
+});
+let _puppeteerCoreInstance = null;
+const puppeteerCore = new Proxy({}, {
+  get(target, prop) {
+    if (!_puppeteerCoreInstance) {
+      _puppeteerCoreInstance = require('puppeteer-core');
+    }
+    return _puppeteerCoreInstance[prop];
+  }
+});
+
+let _puppeteerInstance = null;
+const puppeteer = new Proxy({}, {
+  get(target, prop) {
+    if (!_puppeteerInstance) {
+      _puppeteerInstance = require('puppeteer');
+    }
+    return _puppeteerInstance[prop];
+  }
+});
 const { Readable, PassThrough } = require('stream');
 const cron = require('node-cron');
 
-const nodemailer = require('nodemailer');
+let _nodemailerInstance = null;
+const nodemailer = new Proxy({}, {
+  get(target, prop) {
+    if (!_nodemailerInstance) {
+      _nodemailerInstance = require('nodemailer');
+    }
+    return _nodemailerInstance[prop];
+  }
+});
 const crypto = require('crypto'); // Có sẵn trong Node.js
 const { syncInventory } = require('./sync_inventory'); // IMPORT SCRIPT SYNC
 const { syncPromotions } = require('./utils/sync_promotions'); // IMPORT GOOGLE SHEET SYNC
@@ -54,28 +99,31 @@ const parseSkus = v => {
 };
 
 // ------------------------- BigQuery Client -------------------------
-let bigquery;
-try {
-  const keyFile = process.env.BIGQUERY_KEY_FILE;
-
-  // 1. Dùng file key local (ví dụ: bigquery-key.json)
-  if (keyFile && fs.existsSync(keyFile)) {
-    console.log(`[INIT] Khởi tạo BigQuery bằng file key: ${keyFile}`);
-    bigquery = new BigQuery({ keyFilename: keyFile });
+let _bigqueryInstance = null;
+function getBigQueryInstance() {
+  if (!_bigqueryInstance) {
+    try {
+      const { BigQuery } = require('@google-cloud/bigquery');
+      const keyFile = process.env.BIGQUERY_KEY_FILE;
+      if (keyFile && fs.existsSync(keyFile)) {
+        _bigqueryInstance = new BigQuery({ keyFilename: keyFile });
+      } else if (process.env.BIGQUERY_KEY_JSON) {
+        let jsonStr = String(process.env.BIGQUERY_KEY_JSON).replace(/\\n/g, '\n');
+        _bigqueryInstance = new BigQuery({ credentials: JSON.parse(jsonStr) });
+      }
+    } catch (e) {
+      console.error("LỖI KHỞI TẠO BIGQUERY:", e.message);
+    }
   }
-  // 2. Dùng JSON dán trực tiếp (cho Vercel)
-  else if (process.env.BIGQUERY_KEY_JSON) {
-    console.log("[INIT] Khởi tạo BigQuery bằng biến môi trường JSON.");
-    const credentials = JSON.parse(process.env.BIGQUERY_KEY_JSON);
-    bigquery = new BigQuery({ credentials });
-  }
-  // 3. Không có key
-  else {
-    console.warn("⚠️ CẢNH BÁO: Không tìm thấy BigQuery key. Sẽ sử dụng hàm giả lập.");
-  }
-} catch (e) {
-  console.error("LỖI KHỞI TẠO BIGQUERY:", e.message);
+  return _bigqueryInstance;
 }
+const bigquery = new Proxy({}, {
+  get(target, prop) {
+    const instance = getBigQueryInstance();
+    if (!instance) return undefined;
+    return typeof instance[prop] === 'function' ? instance[prop].bind(instance) : instance[prop];
+  }
+});
 
 // === CÀI ĐẶT LỊCH SYNC TỰ ĐỘNG (7:30 AM Giờ Việt Nam) ===
 // '30 7 * * *' chạy vào 7:30 mỗi ngày. 
@@ -10294,54 +10342,43 @@ app.get('/profile', requireAuth, async (req, res) => {
     const { getLocalSalesRows } = require('./local_sales_query');
     let salesRows = [];
 
-    if (!isStaff) {
-      if (periodValue === 'today' || periodValue === 'week') {
-        salesRows = await getLocalSalesRows(periodValue, null, qBranch);
-      } else if (targetMonthStr.endsWith('-')) {
-        // yearly — targetMonthStr format: "2025-" => ilike "2025-%"
-        const yearPrefix = targetMonthStr.replace(/-$/, ''); // "2025"
-        let q = supabase.from('salesman_performance').select('*').ilike('month', `${yearPrefix}-%`);
-        if (qBranch) {
-          if (qBranch === 'CP75' && yearPrefix === '2026') {
-            q = q.in('branch_code', ['CP62', 'CP75']);
-          } else {
-            q = q.eq('branch_code', qBranch);
-          }
+    if (periodValue === 'today' || periodValue === 'week') {
+      const targetEmail = isStaff ? userEmail : null;
+      salesRows = await getLocalSalesRows(periodValue, targetEmail, qBranch);
+    } else if (targetMonthStr.endsWith('-')) {
+      // yearly — targetMonthStr format: "2025-" => ilike "2025-%"
+      const yearPrefix = targetMonthStr.replace(/-$/, ''); // "2025"
+      let q = supabase.from('salesman_performance').select('*').ilike('month', `${yearPrefix}-%`);
+      if (qBranch) {
+        if (qBranch === 'CP75' && yearPrefix === '2026') {
+          q = q.in('branch_code', ['CP62', 'CP75']);
+        } else {
+          q = q.eq('branch_code', qBranch);
         }
-        const { data } = await q;
-        salesRows = data || [];
-      } else {
-        // monthly
-        let q = supabase.from('salesman_performance').select('*').eq('month', targetMonthStr);
-        if (qBranch) {
-          if (qBranch === 'CP75' && targetMonthStr === '2026-06') {
-            q = q.in('branch_code', ['CP62', 'CP75']);
-          } else if (qBranch === 'CP75' && /^2026-0[1-5]$/.test(targetMonthStr)) {
-            q = q.eq('branch_code', 'CP62');
-          } else {
-            q = q.eq('branch_code', qBranch);
-          }
-        }
-        const { data } = await q;
-        salesRows = data || [];
+      } else if (isStaff) {
+        q = q.eq('email', userEmail);
       }
+      const { data } = await q;
+      salesRows = data || [];
+    } else {
+      // monthly
+      let q = supabase.from('salesman_performance').select('*').eq('month', targetMonthStr);
+      if (qBranch) {
+        if (qBranch === 'CP75' && targetMonthStr === '2026-06') {
+          q = q.in('branch_code', ['CP62', 'CP75']);
+        } else if (qBranch === 'CP75' && /^2026-0[1-5]$/.test(targetMonthStr)) {
+          q = q.eq('branch_code', 'CP62');
+        } else {
+          q = q.eq('branch_code', qBranch);
+        }
+      } else if (isStaff) {
+        q = q.eq('email', userEmail);
+      }
+      const { data } = await q;
+      salesRows = data || [];
     }
 
-    // [FIX] Chỉ giữ nhân viên có role = staff (loại bỏ SR, manager, admin khỏi bảng hiệu suất)
-    if (!isStaff && salesRows.length > 0) {
-      const allEmails = [...new Set(salesRows.map(r => r.email).filter(Boolean))];
-      const { data: staffUsers } = await supabase
-        .from('users')
-        .select('email, role')
-        .in('email', allEmails);
-      const staffEmailSet = new Set(
-        (staffUsers || []).filter(u => u.role === 'staff').map(u => (u.email || '').toLowerCase())
-      );
-      // Nếu có data từ users table, chỉ giữ staff
-      if (staffEmailSet.size > 0) {
-        salesRows = salesRows.filter(r => staffEmailSet.has((r.email || '').toLowerCase()));
-      }
-    }
+
 
     const { data: fullUser } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
     let myProfile = {
@@ -10568,7 +10605,24 @@ app.get('/profile', requireAuth, async (req, res) => {
         groupedSales[email].kfi += (r.kfi || 0);
       });
 
-      tableSales = Object.values(groupedSales).map(r => {
+      // Fetch users table to exclude manager/admin and showroom accounts from salesman leaderboard tableSales
+      const allGroupedEmails = Object.keys(groupedSales);
+      let nonStaffEmailSet = new Set();
+      if (allGroupedEmails.length > 0) {
+        const { data: nonStaffUsers } = await supabase
+          .from('users')
+          .select('email, role')
+          .in('email', allGroupedEmails)
+          .in('role', ['manager', 'admin']);
+        nonStaffEmailSet = new Set((nonStaffUsers || []).map(u => (u.email || '').toLowerCase().trim()));
+      }
+
+      tableSales = Object.values(groupedSales)
+        .filter(r => {
+          const em = (r.email || '').toLowerCase().trim();
+          return !em.startsWith('sr.') && !em.startsWith('showroom') && !nonStaffEmailSet.has(em);
+        })
+        .map(r => {
         const salesmanBranch = r.branch_code;
         const branchTarget = targetMap[salesmanBranch] || 0;
         let indTarget = 0;
@@ -10692,20 +10746,28 @@ app.get('/profile', requireAuth, async (req, res) => {
       if (latestKp && latestKp.report_date) displayDate = latestKp.report_date;
     }
 
+    let csiParams = { period: targetMonthStr };
+    if (isStaff) {
+      csiParams.email = userEmail;  // [FIX] CSI filter by email (lowercase) for staff
+      // Fallback: staff name for CSI matching if email column not available
+      csiParams._staffName = myProfile.full_name || user.full_name || '';
+      csiParams.branch = myProfile.branch; // [FIX] Gán branch code chuẩn của staff từ DB để lọc CSI
+    } else if (qBranch) csiParams.branch = qBranch;
+
     let csiData = { csi_percent: 0, feedback_count: 0, unavailable: false };
     let feedbackList = [];
-    if (!isStaff) {
-      let csiParams = { period: targetMonthStr };
-      if (qBranch) csiParams.branch = qBranch;
-      try {
-        const [csi, fbList] = await Promise.all([getCsiStats(csiParams), getFeedbackList(csiParams)]);
-        csiData = csi; feedbackList = fbList;
-      } catch (csiErr) {
-        csiData = { unavailable: true, quotaExceeded: false };
-      }
+    try {
+      const [csi, fbList] = await Promise.all([getCsiStats(csiParams), getFeedbackList(csiParams)]);
+      csiData = csi; feedbackList = fbList;
+    } catch (csiErr) {
+      csiData = { unavailable: true, quotaExceeded: false };
     }
 
+    // [FIX] Biểu đồ 12 tháng cho Staff
     let staffChartData = [];
+    if (isStaff) {
+      staffChartData = await getStaffMonthlyChart(userEmail, myProfile.branch);
+    }
     const noSalesData = isStaff && salesRows.length === 0;
 
     res.render('profile', {
@@ -13980,12 +14042,775 @@ app.get('/api/executive/salesman-data', requireAuth, async (req, res) => {
 
 // ------------------------- END EXECUTIVE DASHBOARD -------------------------
 
+// =========================================================================
+// --- [TÍNH NĂNG] XUẤT KHO NHANH (QUICK EXPORT / SMART PICKING) ---
+// =========================================================================
+const quickExportService = require('./utils/quick_export_service');
+
+const SITE_ID_TO_BRANCH = {
+  7: 'CP01',
+  8: 'CP02',
+  9: 'CP07',
+  46: 'CP05',
+  54: 'CP08',
+  85: 'CP40',
+  628: 'CP46',
+  763: 'CP58',
+  779: 'CP62',
+  1600: 'CP64',
+  3480: 'CP67',
+  29499: 'CP69',
+  53019: 'CP74',
+};
+
+const BRANCH_TO_SITE_ID = {
+  'CP01': 7,
+  'CP02': 8,
+  'CP07': 9,
+  'CP05': 46,
+  'CP08': 54,
+  'CP40': 85,
+  'CP46': 628,
+  'CP58': 763,
+  'CP62': 779,
+  'CP64': 1600,
+  'CP67': 3480,
+  'CP69': 29499,
+  'CP74': 53019,
+};
+
+function extractBranchCode(text) {
+  if (!text) return '';
+  const m = String(text).match(/\b(CP\d+)\b/i);
+  return m ? m[1].toUpperCase() : '';
+}
+
+// 1. Giao diện trang Xuất kho nhanh
+app.use(['/quick-export', '/api/quick-export'], (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
+app.get('/quick-export', requireAuth, async (req, res) => {
+  try {
+    const user = req.session.user;
+    res.render('quick-export', {
+      title: '⚡ Xuất kho nhanh',
+      currentPage: 'quick-export',
+      user,
+    });
+  } catch (err) {
+    console.error('Error rendering quick-export:', err);
+    res.status(500).send('Lỗi máy chủ khi tải trang Xuất kho nhanh');
+  }
+});
+
+// Helper lấy token cho user (từ header, session, cá nhân, hoặc chia sẻ theo chi nhánh)
+async function resolveUserExportToken(req) {
+  let token = req.headers['x-teko-token'] || req.headers['authorization'];
+  if (token) return token;
+
+  if (req.session?.quickExportSettings?.tekoToken) {
+    return req.session.quickExportSettings.tekoToken;
+  }
+
+  // 1. Kiểm tra cấu hình cá nhân
+  if (req.session?.user?.id) {
+    const settingKey = `quick_export_${req.session.user.id}`;
+    const { data } = await supabase.from('site_settings').select('value').eq('id', settingKey).maybeSingle();
+    if (data && data.value) {
+      try {
+        const parsed = JSON.parse(data.value);
+        if (parsed.tekoToken) return parsed.tekoToken;
+      } catch (e) {}
+    }
+  }
+
+  // 2. Tự động dùng chung token của Chi nhánh (nếu có ai trong chi nhánh đã kết nối)
+  if (req.session?.user?.branch_code) {
+    const branchKey = `quick_export_branch_${req.session.user.branch_code}`;
+    const { data: bData } = await supabase.from('site_settings').select('value').eq('id', branchKey).maybeSingle();
+    if (bData && bData.value) {
+      try {
+        const parsed = JSON.parse(bData.value);
+        if (parsed.tekoToken) return parsed.tekoToken;
+      } catch (e) {}
+    }
+  }
+
+  // 3. Tự động dùng token hệ thống chung
+  const { data: gData } = await supabase.from('site_settings').select('value').eq('id', 'quick_export_global_token').maybeSingle();
+  if (gData && gData.value) {
+    try {
+      const parsed = JSON.parse(gData.value);
+      if (parsed.tekoToken) return parsed.tekoToken;
+    } catch (e) {}
+  }
+
+  return '';
+}
+
+// 2. Lấy cài đặt cá nhân (tự kế thừa token chi nhánh nếu cá nhân chưa có)
+app.get('/api/quick-export/settings', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const branchCode = req.session.user.branch_code;
+    const settingKey = `quick_export_${userId}`;
+    const { data } = await supabase.from('site_settings').select('value').eq('id', settingKey).maybeSingle();
+    let settings = {};
+    if (data && data.value) {
+      try { settings = JSON.parse(data.value); } catch (e) {}
+    }
+
+    // Nếu cá nhân chưa có token, kiểm tra xem chi nhánh hoặc hệ thống đã có chưa
+    let effectiveToken = settings.tekoToken || '';
+    if (!effectiveToken && branchCode) {
+      const { data: bData } = await supabase.from('site_settings').select('value').eq('id', `quick_export_branch_${branchCode}`).maybeSingle();
+      if (bData && bData.value) {
+        try { effectiveToken = JSON.parse(bData.value).tekoToken || ''; } catch (e) {}
+      }
+    }
+    if (!effectiveToken) {
+      const { data: gData } = await supabase.from('site_settings').select('value').eq('id', 'quick_export_global_token').maybeSingle();
+      if (gData && gData.value) {
+        try { effectiveToken = JSON.parse(gData.value).tekoToken || ''; } catch (e) {}
+      }
+    }
+
+    res.json({
+      success: true,
+      settings: {
+        pickingBinName: settings.pickingBinName || '',
+        pickingBinId: settings.pickingBinId || '',
+        hasToken: Boolean(effectiveToken),
+        tekoToken: effectiveToken,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Lưu cài đặt cá nhân và tự động cập nhật cho Chi nhánh
+app.post('/api/quick-export/settings', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const branchCode = req.session.user.branch_code;
+    const { pickingBinName, pickingBinId, tekoToken } = req.body;
+    const settingKey = `quick_export_${userId}`;
+
+    const valueObj = {
+      pickingBinName: pickingBinName || '',
+      pickingBinId: pickingBinId || '',
+      tekoToken: tekoToken || '',
+      updatedAt: new Date().toISOString(),
+    };
+
+    req.session.quickExportSettings = valueObj;
+
+    // Lưu cài đặt cá nhân
+    await supabase.from('site_settings').upsert({
+      id: settingKey,
+      value: JSON.stringify(valueObj),
+      updated_at: new Date().toISOString(),
+    });
+
+    // Nếu có token, chia sẻ cho cả Chi nhánh và hệ thống để các nhân viên khác không cần cấu hình lại
+    if (tekoToken) {
+      if (branchCode) {
+        await supabase.from('site_settings').upsert({
+          id: `quick_export_branch_${branchCode}`,
+          value: JSON.stringify({ tekoToken, branchCode, updatedAt: new Date().toISOString() }),
+          updated_at: new Date().toISOString(),
+        });
+      }
+      await supabase.from('site_settings').upsert({
+        id: 'quick_export_global_token',
+        value: JSON.stringify({ tekoToken, updatedAt: new Date().toISOString() }),
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    res.json({ success: true, message: 'Đã lưu cấu hình và đồng bộ cho chi nhánh thành công!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3b. Endpoint đồng bộ token từ tab ERP (hỗ trợ CORS cho bookmarklet / Extension 1-click)
+app.options('/api/quick-export/sync-token', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.sendStatus(200);
+});
+
+app.post('/api/quick-export/sync-token', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  try {
+    const { token, branchCode, userId } = req.body;
+    if (!token) return res.status(400).json({ success: false, message: 'Thiếu token' });
+
+    const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
+    const tokenObj = { tekoToken: cleanToken, updatedAt: new Date().toISOString() };
+
+    await supabase.from('site_settings').upsert({
+      id: 'quick_export_global_token',
+      value: JSON.stringify(tokenObj),
+      updated_at: new Date().toISOString()
+    });
+
+    if (branchCode) {
+      await supabase.from('site_settings').upsert({
+        id: `quick_export_branch_${branchCode}`,
+        value: JSON.stringify(tokenObj),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    if (userId) {
+      await supabase.from('site_settings').upsert({
+        id: `quick_export_${userId}`,
+        value: JSON.stringify(tokenObj),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    res.json({ success: true, message: 'Đã tự động đồng bộ token ERP thành công!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/quick-export/sync-token', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  try {
+    const token = req.query.token;
+    const branchCode = req.query.branchCode;
+    const userId = req.query.userId;
+    if (!token) return res.status(400).json({ success: false, message: 'Thiếu token' });
+
+    const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
+    const tokenObj = { tekoToken: cleanToken, updatedAt: new Date().toISOString() };
+
+    await supabase.from('site_settings').upsert({
+      id: 'quick_export_global_token',
+      value: JSON.stringify(tokenObj),
+      updated_at: new Date().toISOString()
+    });
+
+    if (branchCode) {
+      await supabase.from('site_settings').upsert({
+        id: `quick_export_branch_${branchCode}`,
+        value: JSON.stringify(tokenObj),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    if (userId) {
+      await supabase.from('site_settings').upsert({
+        id: `quick_export_${userId}`,
+        value: JSON.stringify(tokenObj),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    res.json({ success: true, message: 'Đã tự động đồng bộ token ERP thành công!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3b. Lấy danh sách kho / sites của user từ Teko ERP (Chỉ trả về chi nhánh được gán nếu là staff)
+app.get('/api/quick-export/sites', requireAuth, async (req, res) => {
+  try {
+    const token = await resolveUserExportToken(req);
+    let sites = await quickExportService.getUserSites(token);
+    const userBranch = (req.session.user?.branch_code || '').toUpperCase().trim();
+    const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
+
+    if (!isGlobalAdmin && userBranch) {
+      const filtered = sites.filter(s => {
+        const sName = (s.name || '').toUpperCase();
+        return sName.includes(userBranch) || (BRANCH_TO_SITE_ID[userBranch] && Number(s.id) === BRANCH_TO_SITE_ID[userBranch]);
+      });
+      if (filtered.length > 0) {
+        sites = filtered;
+      }
+    }
+
+    res.json({ success: true, sites });
+  } catch (err) {
+    res.json({ success: true, sites: [] });
+  }
+});
+
+// 4. Kiểm tra BIN hợp lệ trên ERP
+app.post('/api/quick-export/verify-bin', requireAuth, async (req, res) => {
+  try {
+    const { binName, siteId: reqSiteId } = req.body;
+    const token = req.body.token || await resolveUserExportToken(req);
+    const userBranch = (req.session.user?.branch_code || '').toUpperCase().trim();
+    const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
+
+    let siteId = reqSiteId;
+    if (!isGlobalAdmin && userBranch) {
+      siteId = BRANCH_TO_SITE_ID[userBranch] || reqSiteId || userBranch;
+    } else if (!siteId) {
+      siteId = BRANCH_TO_SITE_ID[userBranch] || userBranch;
+    }
+
+    const bin = await quickExportService.getBinByBinName(binName, token, siteId);
+    res.json({ success: true, bin });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// 5. Tải thông tin đơn hàng / yêu cầu xuất kho (Kiểm tra đối chiếu Kho bán và Kho xuất)
+app.get('/api/quick-export/order', requireAuth, async (req, res) => {
+  try {
+    const code = req.query.code;
+    const binId = req.query.binId;
+    const token = await resolveUserExportToken(req);
+    const userBranch = (req.session.user?.branch_code || '').toUpperCase().trim();
+    const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
+
+    let siteId = req.query.siteId;
+    if (!siteId) {
+      siteId = BRANCH_TO_SITE_ID[userBranch] || userBranch;
+    }
+
+    const orderData = await quickExportService.loadExportRequest(code, binId, token, siteId);
+
+    // Kiểm tra phân quyền: Sale được gán ở CPxx nào thì chỉ thấy data của CPxx đó (đối chiếu theo kho bán và kho xuất)
+    if (!isGlobalAdmin && userBranch) {
+      const sellBranch = extractBranchCode(orderData.branchCode) || (orderData.branchCode || '').toUpperCase().trim();
+      const exportBranch = extractBranchCode(orderData.exportBranch || orderData.siteName) 
+        || SITE_ID_TO_BRANCH[Number(orderData.siteId)] 
+        || '';
+
+      const isSellMatch = (sellBranch === userBranch);
+      const isExportMatch = (exportBranch === userBranch) 
+        || (BRANCH_TO_SITE_ID[userBranch] && Number(orderData.siteId) === BRANCH_TO_SITE_ID[userBranch])
+        || ((orderData.siteName || '').toUpperCase().includes(userBranch));
+
+      if (!isSellMatch && !isExportMatch) {
+        return res.status(403).json({
+          success: false,
+          message: `Bạn được gán tại chi nhánh [${userBranch}], không có quyền xem thông tin đơn hàng của chi nhánh khác! (Đơn thuộc Kho bán: ${sellBranch || 'N/A'}, Kho xuất: ${exportBranch || orderData.siteName || 'N/A'})`
+        });
+      }
+    }
+
+    res.json({ success: true, data: orderData });
+  } catch (err) {
+    const statusCode = err.status === 403 ? 403 : 400;
+    res.status(statusCode).json({ success: false, message: err.message });
+  }
+});
+
+// 6. Xử lý quét Serial: tự nhận diện SKU, tự tra cứu BIN hiện tại, tự luân chuyển về BIN soạn hàng
+app.post('/api/quick-export/process-serial', requireAuth, async (req, res) => {
+  try {
+    const { serial, pickingBinId, pickingBinName, orderItems, scannedSerials = {}, siteId: reqSiteId } = req.body;
+    if (!serial) throw new Error('Thiếu số Serial');
+    if (!pickingBinId) throw new Error('Thiếu mã BIN soạn hàng');
+    if (!Array.isArray(orderItems) || orderItems.length === 0) throw new Error('Không có thông tin sản phẩm đơn hàng');
+
+    const token = await resolveUserExportToken(req);
+    const siteId = reqSiteId || req.session.user?.branch_code;
+
+    // B1: Tra cứu vị trí Serial thời gian thực từ Teko
+    const track = await quickExportService.getSerialTracking(serial, token, siteId);
+
+    // B2: Xác định SKU mà serial này thuộc về
+    let targetSku = track.sku ? String(track.sku) : '';
+    let matchedItem = orderItems.find(it => String(it.sku) === targetSku);
+
+    // Nếu không khớp từ API Teko, đối soát với các SKU trong đơn hàng còn thiếu serial
+    if (!matchedItem) {
+      const candidates = orderItems.filter(it => {
+        const reqQty = Number(it.requestQuantity) || 1;
+        const scanned = (scannedSerials[it.sku] || []).length;
+        return scanned < reqQty;
+      });
+
+      if (candidates.length === 1) {
+        // Chỉ có 1 SKU còn thiếu, gán trực tiếp
+        matchedItem = candidates[0];
+        targetSku = String(matchedItem.sku);
+      } else if (candidates.length > 1) {
+        // Tra cứu thêm từ BigQuery bảng inv_seri_1 nếu có
+        try {
+          const { BigQuery } = require('@google-cloud/bigquery');
+          const bq = new BigQuery();
+          const [rows] = await bq.query({
+            query: 'SELECT CAST(SKU AS STRING) AS sku, Location AS location, BIN_zone AS bin_zone FROM `nimble-volt-459313-b8.Inventory.inv_seri_1` WHERE Serial = @serial LIMIT 1',
+            params: { serial: serial.trim() }
+          });
+          if (rows && rows[0] && rows[0].sku) {
+            const bqSku = String(rows[0].sku);
+            matchedItem = orderItems.find(it => String(it.sku) === bqSku);
+            if (matchedItem) targetSku = bqSku;
+            if (!track.binName && rows[0].bin_zone) track.binName = rows[0].bin_zone;
+          }
+        } catch (bqErr) {
+          // BQ lookup silent fail, proceed with candidates
+        }
+
+        if (!matchedItem) {
+          // Fallback vào SKU đầu tiên còn thiếu
+          matchedItem = candidates[0];
+          targetSku = String(matchedItem.sku);
+        }
+      }
+    }
+
+    if (!matchedItem) {
+      throw new Error(`Serial "${serial}" không thuộc bất kỳ sản phẩm nào còn thiếu trong đơn hàng.`);
+    }
+
+    // B3: Kiểm tra vị trí BIN và tự động luân chuyển nếu khác BIN soạn hàng
+    let moved = false;
+    let actualBinId = track.binId || pickingBinId;
+    let fromBinName = track.binName || 'Kho';
+
+    if (track.binId && pickingBinId && Number(track.binId) !== Number(pickingBinId)) {
+      try {
+        // Thử gọi API luân chuyển BIN của Teko
+        await quickExportService.moveBin({
+          fromBinId: track.binId,
+          toBinId: pickingBinId,
+          sku: targetSku,
+          quantity: 1,
+          siteId,
+        }, token, siteId);
+        moved = true;
+        actualBinId = pickingBinId;
+      } catch (moveErr) {
+        // Nếu Teko chặn chuyển lẻ do BIN có nhiều hơn 1 sp (lỗi 400003),
+        // tự động giữ nguyên BIN thực tế để xuất thẳng từ BIN này trên ERP mà không báo lỗi
+        console.warn(`[QuickExport] Không thể chuyển lẻ serial ${serial} (BIN ${track.binId}): ${moveErr.message}. Sẽ xuất thẳng từ BIN này.`);
+        moved = false;
+        actualBinId = track.binId;
+      }
+    }
+
+    // B4: Kiểm tra FIFO thời gian thực dựa trên Supabase inventory_serials & serial_check_log
+    let fifoInfo = {
+      status: 'Đạt FIFO',
+      pass: true,
+      rank: 1,
+      totalLots: 1,
+      totalAvailable: 1,
+      diffDays: 0,
+      targetDate: '',
+      oldestDate: '',
+      message: 'Serial hợp lệ'
+    };
+
+    try {
+      const { data: invRow } = await supabase
+        .from('inventory_serials')
+        .select('*')
+        .eq('Serial', serial.trim())
+        .maybeSingle();
+
+      const targetDate = invRow ? (invRow['Date import company '] || invRow['Date import site']) : null;
+      const effectiveBranch = (invRow && invRow['Branch ID']) ? invRow['Branch ID'] : (req.session.user?.branch_code || 'CP01');
+
+      if (targetDate) {
+        const { data: skuItems } = await supabase
+          .from('inventory_serials')
+          .select('"Serial", "Date import company ", "Date import site"')
+          .eq('SKU', String(targetSku))
+          .eq('"Branch ID"', effectiveBranch);
+
+        const allSerials = (skuItems || []).map(s => s.Serial);
+        let checkedSet = new Set();
+        if (allSerials.length > 0) {
+          const { data: checkedLogs } = await supabase
+            .from('serial_check_log')
+            .select('serial')
+            .eq('checked_out', true)
+            .in('serial', allSerials);
+          checkedSet = new Set((checkedLogs || []).map(l => l.serial));
+        }
+
+        const activeSiblings = (skuItems || []).filter(s => !checkedSet.has(s.Serial));
+        const uniqueDates = [...new Set(activeSiblings.map(s => s['Date import company '] || s['Date import site']))]
+          .filter(Boolean)
+          .sort();
+
+        const oldestDate = uniqueDates[0] || targetDate;
+        const rank = uniqueDates.indexOf(targetDate) + 1;
+
+        let diffDays = 0;
+        if (targetDate && oldestDate) {
+          const d1 = new Date(targetDate);
+          const d2 = new Date(oldestDate);
+          diffDays = Math.max(0, Math.ceil(Math.abs(d1 - d2) / (1000 * 60 * 60 * 24)));
+        }
+
+        const isFifoPass = (diffDays <= 30) || (rank <= 1);
+        fifoInfo = {
+          status: isFifoPass ? 'Đạt FIFO' : 'Cảnh báo FIFO',
+          pass: isFifoPass,
+          rank: rank > 0 ? rank : 1,
+          totalLots: uniqueDates.length || 1,
+          totalAvailable: activeSiblings.length || 1,
+          targetDate: targetDate || '',
+          oldestDate: oldestDate || '',
+          diffDays,
+          location: invRow?.Location || fromBinName,
+          message: isFifoPass
+            ? (rank === 1 ? 'Serial thuộc lô cũ nhất (Chuẩn FIFO)' : `Serial chênh lệch ${diffDays} ngày (Trong hạn cho phép)`)
+            : `Cảnh báo: Có serial lô cũ hơn (${oldestDate}) chưa xuất (Lệch ${diffDays} ngày)!`
+        };
+      }
+    } catch (fifoErr) {
+      console.warn('[QuickExport] Lỗi kiểm tra FIFO Supabase:', fifoErr.message);
+    }
+
+    res.json({
+      success: true,
+      sku: targetSku,
+      skuName: matchedItem.skuName,
+      serial: serial.trim(),
+      moved,
+      binId: actualBinId,
+      binName: moved ? (pickingBinName || `BIN #${pickingBinId}`) : fromBinName,
+      fromBinName,
+      toBinName: moved ? (pickingBinName || `BIN #${pickingBinId}`) : fromBinName,
+      fifo: fifoInfo
+    });
+
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// 6b. Lấy danh sách gợi ý Serial tồn lâu nhất (Chuẩn FIFO) cho các SKU trong đơn hàng
+app.post('/api/quick-export/fifo-recommendation', requireAuth, async (req, res) => {
+  try {
+    const { skus = [], branchCode: reqBranch } = req.body;
+    if (!Array.isArray(skus) || skus.length === 0) {
+      return res.json({ success: true, skusData: {} });
+    }
+
+    const userBranch = (req.session.user?.branch_code || '').toUpperCase().trim();
+    const isGlobalAdmin = (req.session.user?.role === 'admin' || userBranch === 'HCM.BD');
+
+    // Sale được gán ở CPxx nào thì chỉ thấy data của CPxx đó (bao gồm FIFO)
+    let branch = userBranch || 'CP01';
+    if (isGlobalAdmin && reqBranch) {
+      branch = reqBranch.toUpperCase().trim();
+    }
+    const cleanSkus = skus.map(s => String(s).trim());
+
+    // 1. Lấy tất cả serial tồn của các SKU tại chi nhánh từ inventory_serials
+    const { data: rows, error } = await supabase
+      .from('inventory_serials')
+      .select('*')
+      .in('SKU', cleanSkus)
+      .eq('Branch ID', branch);
+
+    if (error) throw error;
+
+    // 2. Lấy danh sách serial đã xuất trong serial_check_log để loại trừ
+    const allSerials = (rows || []).map(r => r.Serial).filter(Boolean);
+    let checkedSet = new Set();
+    if (allSerials.length > 0) {
+      const { data: checkedLogs } = await supabase
+        .from('serial_check_log')
+        .select('serial')
+        .eq('checked_out', true)
+        .in('serial', allSerials);
+      checkedSet = new Set((checkedLogs || []).map(l => l.serial));
+    }
+
+    // 3. Gom nhóm theo SKU và sắp xếp tồn lâu nhất (nhập sớm nhất) lên đầu
+    const skusData = {};
+    cleanSkus.forEach(sku => { skusData[sku] = []; });
+
+    (rows || []).forEach(row => {
+      const sn = row.Serial;
+      if (!sn || checkedSet.has(sn)) return; // Bỏ qua nếu đã xuất
+
+      const sku = String(row.SKU);
+      if (!skusData[sku]) skusData[sku] = [];
+
+      const rawDate = row['Date import company '] || row['Date import site'] || '';
+      let dateFormatted = '-';
+      if (rawDate) {
+        const parts = rawDate.split('-');
+        if (parts.length === 3) dateFormatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        else dateFormatted = rawDate;
+      }
+
+      const daysOld = Number(row['Aging company'] || row['Aging site'] || 0);
+
+      skusData[sku].push({
+        serial: sn,
+        sku,
+        skuName: row['SKU name'] || '',
+        rawDate,
+        dateFormatted,
+        daysOld,
+        location: row.Location || 'Kho',
+        binZone: row['BIN zone'] || '',
+        binType: row['BIN type'] || '',
+      });
+    });
+
+    // Sắp xếp ngày nhập ASC (cũ nhất lên đầu) và gán rank
+    for (const [sku, list] of Object.entries(skusData)) {
+      list.sort((a, b) => {
+        if (!a.rawDate) return 1;
+        if (!b.rawDate) return -1;
+        return a.rawDate.localeCompare(b.rawDate);
+      });
+
+      list.forEach((item, idx) => {
+        item.rank = idx + 1;
+        item.isOldest = (idx === 0);
+      });
+    }
+
+    res.json({
+      success: true,
+      branch,
+      skusData
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 7. Xác nhận hoàn tất xuất kho (Confirm Packing) & Cập nhật FIFO "Đã xuất"
+app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
+  try {
+    const { requestId, documentId, pickingBinId, items, receiverName, siteId: reqSiteId, serialBinMap = {}, isAutoHandover = false } = req.body;
+    const token = await resolveUserExportToken(req);
+    const siteId = reqSiteId || req.session.user?.branch_code;
+    const autoHandover = Boolean(isAutoHandover);
+    const effectiveRequestId = String(requestId || documentId || '').trim();
+
+    // Gom nhóm items và serials theo từng binId thực tế
+    const binGroups = {};
+    for (const item of (items || [])) {
+      const serials = Array.isArray(item.serials) ? item.serials : [];
+      if (serials.length > 0) {
+        for (const sn of serials) {
+          const bId = String(serialBinMap[sn] || pickingBinId);
+          if (!binGroups[bId]) binGroups[bId] = {};
+          if (!binGroups[bId][item.sku]) binGroups[bId][item.sku] = [];
+          binGroups[bId][item.sku].push(sn);
+        }
+      } else {
+        // Sản phẩm không quản lý serial
+        const bId = String(pickingBinId);
+        if (!binGroups[bId]) binGroups[bId] = {};
+        if (!binGroups[bId][item.sku]) binGroups[bId][item.sku] = [];
+      }
+    }
+
+    // Nếu không gom được bin nào, fallback về pickingBinId
+    if (Object.keys(binGroups).length === 0 && pickingBinId) {
+      binGroups[String(pickingBinId)] = {};
+      for (const item of (items || [])) {
+        binGroups[String(pickingBinId)][item.sku] = item.serials || [];
+      }
+    }
+
+    let lastResult = null;
+    for (const [bId, skuMap] of Object.entries(binGroups)) {
+      const binItems = Object.entries(skuMap).map(([sku, serials]) => ({
+        sku,
+        serials,
+        lots: []
+      }));
+
+      lastResult = await quickExportService.confirmPacking({
+        requestId: effectiveRequestId,
+        binId: Number(bId),
+        items: binItems,
+        isAutoHandover: autoHandover,
+        receiverName,
+        siteId,
+      }, token, siteId);
+    }
+
+    // ĐỒNG THỜI ĐÁNH DẤU "ĐÃ XUẤT" VÀO BẢNG serial_check_log TRÊN SUPABASE (FIFO)
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const nowIso = new Date().toISOString();
+    const branchCode = req.session.user?.branch_code || 'CP01';
+    const userId = req.session.user?.id;
+
+    let updatedFifoCount = 0;
+    for (const item of (items || [])) {
+      const sku = item.sku;
+      for (const sn of (item.serials || [])) {
+        try {
+          await supabase.from('serial_check_log').upsert({
+            serial: sn,
+            sku,
+            branch_code: branchCode,
+            check_date: todayDate,
+            checked_out: true,
+            checked_by: userId,
+            checked_at: nowIso,
+          }, { onConflict: 'serial,check_date' });
+          updatedFifoCount++;
+        } catch (fifoLogErr) {
+          console.warn('[QuickExport] Lỗi cập nhật FIFO log cho serial', sn, fifoLogErr.message);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: lastResult,
+      updatedFifoCount,
+      isAutoHandover: autoHandover,
+      message: autoHandover
+        ? `Hoàn tất xuất kho thành công trên ERP! Đã tick "Đã xuất" cho ${updatedFifoCount} serial vào bảng FIFO.`
+        : `Xác nhận soạn hàng (Đã đóng gói) thành công trên ERP! Đã tick "Đã xuất" cho ${updatedFifoCount} serial vào bảng FIFO.`
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// 8. Tra cứu tồn kho vật lý theo BIN (cho sản phẩm không quản lý serial hoặc tra cứu nhanh)
+app.get('/api/quick-export/stock-by-bin', requireAuth, async (req, res) => {
+  try {
+    const sku = req.query.sku;
+    let siteId = req.query.siteId;
+    const userBranch = (req.session.user?.branch_code || '').toUpperCase().trim();
+    if (!siteId) {
+      siteId = BRANCH_TO_SITE_ID[userBranch] || userBranch;
+    }
+    const token = await resolveUserExportToken(req);
+    const data = await quickExportService.getStockQuantityByBin(sku, siteId, token);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
 if (process.env.VERCEL) {
   module.exports = app;
 } else {
-  app.listen(PORT, () => console.log(`Local: http://localhost:${PORT}`));
+  app.listen(PORT, () => {
+    process.stdout.write(`Local: http://localhost:${PORT}\n`);
+    console.log(`Local: http://localhost:${PORT}`);
+  });
 }
 
  

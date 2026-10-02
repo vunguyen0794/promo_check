@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Phong Vũ ERP Auto Sync",
+  "version": "1.0",
+  "description": "Tự động đồng bộ kết nối ERP sang hệ thống Xuất kho nhanh mà không cần thao tác thủ công",
+  "icons": {
+    "128": "icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://erp.phongvu.vn/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -359,8 +359,7 @@
                         <a href="/" class="logo">Web Miền</a>
 
                         <nav class="nav">
-                            <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">📦
-                                FIFO</a>
+                            <a href="/fifo-checking" class="<%= currentPage === 'fifo-checking' ? 'active' : '' %>">📦 FIFO</a>
                             <% if (user && (user.role==='manager' || user.role==='admin' ) &&
                                 user.branch_code==='HCM.BD' ) { %>
                                 <a href="/promo-management"
@@ -368,7 +367,7 @@
                                 <% } %>
                         </nav>
 
-                        <% const utilityPages=['policy', 'pc-builder' , 'quote-builder' , 'bom-check' , 'bom-dashboard'
+                        <% const utilityPages=['quick-export', 'policy', 'pc-builder' , 'quote-builder' , 'bom-check' , 'bom-dashboard'
                             , 'clearance-check' , 'event-operations' , 'event-orders' , 'event-settings'
                             , 'customer-care' , 'queue-admin' , 'queue-tv' ]; %>
                             <div class="dropdown">
@@ -378,6 +377,9 @@
                                     Tiện ích <span style="font-size: 10px;">▼</span>
                                 </a>
                                 <div class="dropdown-menu" id="utilitiesDropdownMenu">
+                                    <a href="/quick-export" class="<%= currentPage === 'quick-export' ? 'active' : '' %>">
+                                        <span class="menu-icon">⚡</span> Xuất kho nhanh
+                                    </a>
                                     <% if (user && ['vu.nt1@phongvu-mna.vn', 'thu.hm@phongvu-mna.vn'
                                         ].includes(user.email)) { %>
                                         <a href="/refunds"

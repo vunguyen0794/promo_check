@@ -1,8 +1,11 @@
-// utils/mailer.js
-const { Resend } = require('resend');
-
-// Khởi tạo Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend = null;
+function getResend() {
+  if (!_resend) {
+    const { Resend } = require('resend');
+    _resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return _resend;
+}
 const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3300';
 const fromEmail = 'baogia@phongvu-mna.vn'; // Thay bằng email đã xác thực của bạn
 
@@ -74,7 +77,7 @@ async function sendNewPostEmail(post, recipientEmails, attachment = null, replyT
       reply_to: replyTo || undefined // <-- ĐÃ THÊM
     };
 
-    const { data, error } = await resend.emails.send(payload);
+    const { data, error } = await getResend().emails.send(payload);
 
     if (error) {
       console.error('[Mailer] Lỗi khi gửi:', error);

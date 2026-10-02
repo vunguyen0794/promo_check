@@ -93,25 +93,28 @@
                     <div class="info-item"><span class="info-label">Ngày vào làm</span><span class="info-val"><%= profile.join_date %></span></div>
                     <div class="info-item"><span class="info-label">Online gần nhất</span><span class="info-val" style="color:#2563eb"><%= onlineTime %></span></div>
                 </div>
-            </div>
 
-            <% if (role.isStaff) { %>
-                <div class="right-col">
-                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 40px 30px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
-                        <div style="width: 64px; height: 64px; background: #eff6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; color: #2563eb;">
-                            🔒
+                <!-- CÀI ĐẶT XUẤT KHO NHANH -->
+                <div class="info-list" style="margin-top: 15px; padding: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: 800; font-size: 14px; color: #0f172a;">⚡ Xuất kho nhanh</span>
+                        <a href="/quick-export" style="font-size: 12px; color: #10b981; font-weight: 700; text-decoration: none;">Mở màn hình &rarr;</a>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <span class="info-label" style="font-size: 12px;">BIN Soạn hàng cá nhân:</span>
+                        <div style="display: flex; gap: 6px;">
+                            <input type="text" id="profPickingBin" class="filter-select" style="flex: 1; padding: 6px 10px; font-size: 13px;" placeholder="VD: BIN Soạn hàng">
+                            <button type="button" class="filter-select" style="background: #10b981; color: white; border: none; font-weight: 700; cursor: pointer;" onclick="saveProfileBin()">Lưu</button>
                         </div>
-                        <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #0f172a; font-weight: 800;">Tính năng đang tạm đóng</h3>
-                        <p style="margin: 0 auto; max-width: 420px; color: #64748b; font-size: 14px; line-height: 1.6;">
-                            Tính năng hiển thị hiệu suất, doanh thu, điểm thưởng và KFI hiện tại tạm thời đóng đối với tài khoản Staff.
-                        </p>
+                        <div id="profBinMsg" style="font-size: 11px;"></div>
                     </div>
                 </div>
-            <% } else { %>
-                <div class="right-col">
+            </div>
+
+            <div class="right-col">
                     <div class="dashboard-header">
                         <h3 class="dash-title" style="margin:0; border:none; font-size:18px;">
-                            📊 Hiệu suất <%= filterBranch ? filterBranch : (role.isGlobalAdmin ? 'Toàn Hệ Thống' : 'Chi Nhánh') %>
+                            📊 Hiệu suất <%= filterBranch ? filterBranch : (role.isGlobalAdmin ? 'Toàn Hệ Thống' : (role.isStaff ? 'Cá Nhân' : 'Chi Nhánh')) %>
                             <% if (locals.dataDate) { %>
                                 <span style="font-size: 12px; font-weight: normal; color: #dc2626; margin-left: 8px; font-style: italic;">
                                     (Dữ liệu đến: <%= dataDate %>)
@@ -170,12 +173,13 @@
                             <div class="kpi-sub">Đã trừ đơn hoàn</div>
                         </div>
                         <div class="kpi-card border-l-blue">
-                            <div class="kpi-title">Doanh thu (NO VAT, IPHONE 60%)</div> 
-                            <div class="kpi-value val-blue" title="Thực tế: <%= new Intl.NumberFormat('vi-VN').format(dashboard.raw_revenue) %> ₫">
-                                <%= formatCompact(dashboard.revenue) %> ₫
+                            <div class="kpi-title">Doanh thu thuần (No VAT)</div> 
+                            <div class="kpi-value val-blue" title="Doanh thu thực tế: <%= new Intl.NumberFormat('vi-VN').format(dashboard.raw_revenue) %> ₫ (Quy đổi iPhone 60%: <%= new Intl.NumberFormat('vi-VN').format(dashboard.revenue) %> ₫)">
+                                <%= formatCompact(dashboard.raw_revenue) %> ₫
                             </div>
                             <div class="kpi-sub" style="font-size: 11px; color: #64748b;">
-                                iPhone: <%= formatCompact(dashboard.iphone_revenue) %> ₫ | 
+                                Quy đổi (IP 60%): <strong style="color: #2563eb;"><%= formatCompact(dashboard.revenue) %> ₫</strong> | 
+                                IP: <%= formatCompact(dashboard.iphone_revenue) %> ₫ | 
                                 Khác: <%= formatCompact(dashboard.raw_revenue - dashboard.iphone_revenue) %> ₫
                             </div>
                         </div>
@@ -203,26 +207,28 @@
                                 <div class="kpi-value val-red"><%= formatCompact(dashboard.missing) %> ₫</div>
                             </div>
 
-                            <div class="kpi-card forecast-card">
-                                <div class="kpi-title" style="color:#0891b2;">Doanh thu Dự Kiến</div>
-                                <div class="kpi-value val-cyan"><%= formatCompact(dashboard.revenue_forecast) %> ₫</div>
-                                <div class="kpi-sub" style="color:#0e7490;">Dựa trên tốc độ hiện tại</div>
-                            </div>
-                            <div class="kpi-card forecast-card">
-                                <div class="kpi-title" style="color:#0891b2;">% Đạt Dự Kiến</div>
-                                <div class="kpi-value val-cyan"><%= dashboard.percent_forecast %>%</div>
-                            </div>
+                            <% if (!role.isStaff) { %>
+                                <div class="kpi-card forecast-card">
+                                    <div class="kpi-title" style="color:#0891b2;">Doanh thu Dự Kiến</div>
+                                    <div class="kpi-value val-cyan"><%= formatCompact(dashboard.revenue_forecast) %> ₫</div>
+                                    <div class="kpi-sub" style="color:#0e7490;">Dựa trên tốc độ hiện tại</div>
+                                </div>
+                                <div class="kpi-card forecast-card">
+                                    <div class="kpi-title" style="color:#0891b2;">% Đạt Dự Kiến</div>
+                                    <div class="kpi-value val-cyan"><%= dashboard.percent_forecast %>%</div>
+                                </div>
 
-                            <% if (role.isStaff) { %>
-                                <div class="kpi-card border-l-green" style="grid-column: span 2; background: #f0fdf4;">
-                                    <div class="kpi-title" style="color:#166534;">💰 Tổng thưởng (Dự kiến)</div>
-                                    <div class="kpi-value val-green"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_total) %> ₫</div>
-                                    <div class="kpi-sub">KFI * % HT (Max 120%)</div>
-                                </div>
-                                <div class="kpi-card border-l-orange" style="background: #fffbeb;">
-                                    <div class="kpi-title" style="color:#b45309;">🚀 Thưởng vượt 120%</div>
-                                    <div class="kpi-value" style="color:#d97706"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_over) %> ₫</div>
-                                </div>
+                                <% if (dashboard.bonus_total > 0) { %>
+                                    <div class="kpi-card border-l-green" style="grid-column: span 2; background: #f0fdf4;">
+                                        <div class="kpi-title" style="color:#166534;">💰 Tổng thưởng (Dự kiến)</div>
+                                        <div class="kpi-value val-green"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_total) %> ₫</div>
+                                        <div class="kpi-sub">KFI * % HT (Max 120%)</div>
+                                    </div>
+                                    <div class="kpi-card border-l-orange" style="background: #fffbeb;">
+                                        <div class="kpi-title" style="color:#b45309;">🚀 Thưởng vượt 120%</div>
+                                        <div class="kpi-value" style="color:#d97706"><%= new Intl.NumberFormat('vi-VN').format(dashboard.bonus_over) %> ₫</div>
+                                    </div>
+                                <% } %>
                             <% } %>
                         <% } %>
                     <div class="kpi-card" style="background: #fffbeb; border-left: 4px solid #f59e0b; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.15);">
@@ -254,7 +260,6 @@
                         </div>
                     </div>
                 </div>
-            <% } %>
         </div>
 
         <div class="profile-bottom-section">
@@ -423,7 +428,7 @@
 
 
 
-<% if (!role.isStaff && staffChartData && staffChartData.length > 0) { %>
+<% if (staffChartData && staffChartData.length > 0) { %>
     <div class="table-section" style="padding: 20px; margin-top: 20px;">
         <div class="table-header-title" style="border:none; padding-left:0; margin-bottom:15px;">📈 Biểu đồ Tăng trưởng (Năm nay)</div>
         <div style="height: 300px;">
@@ -549,4 +554,66 @@
         });
     </script>
 <% } %>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const binInput = document.getElementById('profPickingBin');
+        if (!binInput) return;
+
+        // Ưu tiên đọc từ localStorage
+        const localBin = localStorage.getItem('qe_picking_bin_name');
+        if (localBin) {
+            binInput.value = localBin;
+        }
+
+        try {
+            const res = await fetch('/api/quick-export/settings');
+            const data = await res.json();
+            if (data.success && data.settings && data.settings.pickingBinName) {
+                binInput.value = data.settings.pickingBinName;
+                localStorage.setItem('qe_picking_bin_name', data.settings.pickingBinName);
+                if (data.settings.pickingBinId) {
+                    localStorage.setItem('qe_picking_bin_id', data.settings.pickingBinId);
+                }
+            }
+        } catch (e) {}
+    });
+
+    async function saveProfileBin() {
+        const binInput = document.getElementById('profPickingBin');
+        const msgEl = document.getElementById('profBinMsg');
+        const binName = binInput.value.trim();
+        if (!binName) {
+            msgEl.style.color = '#dc2626';
+            msgEl.textContent = 'Vui lòng nhập tên BIN!';
+            return;
+        }
+
+        msgEl.style.color = '#2563eb';
+        msgEl.textContent = 'Đang lưu...';
+
+        try {
+            localStorage.setItem('qe_picking_bin_name', binName);
+            const token = localStorage.getItem('qe_teko_token') || '';
+
+            const res = await fetch('/api/quick-export/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pickingBinName: binName, tekoToken: token })
+            });
+            const data = await res.json();
+            if (data.success) {
+                msgEl.style.color = '#16a34a';
+                msgEl.textContent = '✅ Đã lưu BIN thành công!';
+            } else {
+                msgEl.style.color = '#dc2626';
+                msgEl.textContent = data.message || 'Lỗi khi lưu';
+            }
+        } catch (err) {
+            msgEl.style.color = '#dc2626';
+            msgEl.textContent = 'Lỗi kết nối';
+        }
+    }
+</script>
+
 <%- include('partials/footer') %>
