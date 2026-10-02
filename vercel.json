@@ -3,9 +3,15 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/server.js"
+      "destination": "/api/index.js"
     }
   ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "views/**",
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/sync-all",

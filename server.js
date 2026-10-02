@@ -178,6 +178,14 @@ async function resolveCsiSourceTable() {
 // ------------------------- App & core middlewares -------------------------
 const app = express();
 
+// Safeguard: chuyển hướng nếu request trỏ nhầm file server
+app.use((req, res, next) => {
+  if (req.url === '/server.js' || req.path === '/server.js' || req.url === '/api/index.js' || req.path === '/api/index.js') {
+    return res.redirect('/');
+  }
+  next();
+});
+
 function numberToWords(n) {
     if (n === 0) return 'không đồng';
     const numStr = n.toString();
@@ -14804,7 +14812,7 @@ app.get('/api/quick-export/stock-by-bin', requireAuth, async (req, res) => {
 
 // ------------------------- Start server / export -------------------------
 const PORT = Number(process.env.PORT) || 3000;
-if (process.env.VERCEL) {
+if (process.env.VERCEL || require.main !== module) {
   module.exports = app;
 } else {
   app.listen(PORT, () => {
