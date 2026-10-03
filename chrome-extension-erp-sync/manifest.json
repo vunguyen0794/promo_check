@@ -6,10 +6,16 @@
   "icons": {
     "128": "icon.png"
   },
+  "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["https://erp.phongvu.vn/*"],
       "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://localhost:3300/*", "http://localhost:*/*", "https://*.vercel.app/*"],
+      "js": ["app_bridge.js"],
       "run_at": "document_idle"
     }
   ]

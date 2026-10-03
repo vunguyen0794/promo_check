@@ -65,6 +65,7 @@ const puppeteer = new Proxy({}, {
 });
 const { Readable, PassThrough } = require('stream');
 const cron = require('node-cron');
+const { getOrSyncProductData } = require('./utils/teko_product_service');
 
 let _nodemailerInstance = null;
 const nodemailer = new Proxy({}, {
@@ -2351,6 +2352,64 @@ app.get('/api/sku/:sku/price-history', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+// POST /api/sku/:sku/refresh-spec: Đồng bộ thông số kỹ thuật, bảo hành, VAT và giá KM từ Teko vào Supabase (theo yêu cầu)
+app.post('/api/sku/:sku/refresh-spec', requireAuth, async (req, res) => {
+  try {
+    const sku = (req.params.sku || req.body?.sku || '').trim();
+    if (!sku) return res.status(400).json({ ok: false, error: 'Thiếu mã SKU.' });
+    const userBranch = req.session?.user?.branch_code || 'CP01';
+    const updated = await getOrSyncProductData(sku, userBranch, supabase, true);
+    if (!updated) return res.status(404).json({ ok: false, error: 'Không tìm thấy thông tin sản phẩm.' });
+    return res.json({
+      ok: true,
+      product: {
+        sku: updated.sku,
+        product_name: updated.product_name,
+        brand: updated.brand,
+        list_price: updated.list_price,
+        promo_price: updated.promo_price,
+        discount_amount: updated.discount_amount,
+        vat_rate: updated.vat_rate,
+        warranty: updated.warranty,
+        specifications: updated.specifications,
+        spec_updated_at: updated.spec_updated_at
+      }
+    });
+  } catch (err) {
+    console.error('[API REFRESH-SPEC] Lỗi:', err.message);
+    return res.status(500).json({ ok: false, error: err.message || 'Lỗi hệ thống khi làm mới thông số.' });
+  }
+});
+
+// GET /api/sku/:sku/details: Lấy thông số kỹ thuật, bảo hành, VAT và giá của SKU để xem hoặc so sánh
+app.get('/api/sku/:sku/details', async (req, res) => {
+  try {
+    const sku = (req.params.sku || '').trim();
+    if (!sku) return res.status(400).json({ ok: false, error: 'Thiếu mã SKU.' });
+    const userBranch = req.session?.user?.branch_code || 'CP01';
+    const product = await getOrSyncProductData(sku, userBranch, supabase, false);
+    if (!product) return res.status(404).json({ ok: false, error: `Không tìm thấy sản phẩm với SKU: ${sku}` });
+    return res.json({
+      ok: true,
+      product: {
+        sku: product.sku,
+        product_name: product.product_name,
+        brand: product.brand,
+        list_price: product.list_price,
+        promo_price: product.promo_price,
+        discount_amount: product.discount_amount,
+        vat_rate: product.vat_rate,
+        warranty: product.warranty,
+        specifications: product.specifications,
+        spec_updated_at: product.spec_updated_at
+      }
+    });
+  } catch (err) {
+    console.error('[API SKU-DETAILS] Lỗi:', err.message);
+    return res.status(500).json({ ok: false, error: err.message || 'Lỗi hệ thống khi tải thông tin SKU.' });
+  }
+});
+
 
 // ------------------------- API SKUs -------------------------
 // --- [SERVER.JS] --- Fix logic tìm kiếm thông minh (AND Logic) ---
@@ -2366,7 +2425,7 @@ app.get('/api/skus', async (req, res) => {
 
     let dbQuery = supabase
       .from('skus')
-      .select('sku, product_name, brand, category, subcat, list_price');
+      .select('sku, product_name, brand, category, subcat, list_price, promo_price, warranty, vat_rate, specifications');
 
     // 2. [QUAN TRỌNG] Xây dựng bộ lọc "AND"
     // Với mỗi từ khóa, bắt buộc SKU hoặc Tên phải chứa từ đó.
@@ -3031,6 +3090,17 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     if (!product) {
       throw new Error('Không tìm thấy thông tin cho SKU: ' + skuInput);
     }
+
+    // Tự động kiểm tra: nếu chưa có specifications thì đồng bộ từ Teko và lưu Supabase (chỉ 1 lần duy nhất)
+    try {
+      const enrichedProduct = await getOrSyncProductData(product.sku, userBranch, supabase, false);
+      if (enrichedProduct) {
+        product = { ...product, ...enrichedProduct };
+      }
+    } catch (eSync) {
+      console.warn('Lỗi lazy sync thông số SKU:', eSync.message);
+    }
+
     try {
       const { count } = await supabase
         .from('price_comparisons')
@@ -3041,8 +3111,8 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     } catch (errCount) {
       console.error("Lỗi đếm chiến giá:", errCount);
     }
-    const price = Number(product.list_price || 0);
-    console.log(`[DEBUG] Bước 1: Đã tìm thấy sản phẩm - Tên: ${product.product_name}, Giá niêm yết: ${price}đ`);
+    const price = Number(product.list_price || product.promo_price || 0);
+    console.log(`[DEBUG] Bước 1: Đã tìm thấy sản phẩm - Tên: ${product.product_name}, Giá gốc: ${product.list_price || 0}đ, Giá KM: ${product.promo_price || 0}đ`);
 
     try {
       const { data: kfiData } = await supabase
@@ -7511,8 +7581,14 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
       globalDiscount = { value: 0, type: 'amount' },
       validityDays,
       notes = '',
-      itemOrder
+      itemOrder,
+      show_warranty = true,
+      show_specs = true,
+      show_images = true
     } = req.body;
+    const showWarranty = show_warranty === true || show_warranty === 'true' || show_warranty === undefined;
+    const showSpecs = show_specs === true || show_specs === 'true' || show_specs === undefined;
+    const showImages = show_images === true || show_images === 'true' || show_images === undefined;
     const validityDaysSafe = (validityDays !== undefined && validityDays !== null && validityDays !== '') ? Number(validityDays) : null;
     const deliveryDaysSafe = (deliveryDays !== undefined && deliveryDays !== null && deliveryDays !== '') ? Number(deliveryDays) : 1;
 
@@ -7557,6 +7633,28 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
 
     if (items.length === 0) {
       return res.status(400).json({ ok: false, error: 'Không có sản phẩm để tạo báo giá.' });
+    }
+
+    const missingDetailsSkus = items.filter(it => !it.warranty || it.vat_rate === undefined).map(it => it.sku);
+    if (missingDetailsSkus.length > 0) {
+      try {
+        const { data: dbDetails } = await supabase
+          .from('skus')
+          .select('sku, warranty, vat_rate')
+          .in('sku', missingDetailsSkus);
+        if (dbDetails && dbDetails.length > 0) {
+          const dMap = {};
+          dbDetails.forEach(d => { dMap[d.sku] = d; });
+          items.forEach(it => {
+            if (dMap[it.sku]) {
+              if (!it.warranty && dMap[it.sku].warranty) it.warranty = dMap[it.sku].warranty;
+              if (it.vat_rate === undefined && dMap[it.sku].vat_rate !== undefined) it.vat_rate = dMap[it.sku].vat_rate;
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[Báo giá] Lỗi query warranty/vat_rate:', err.message);
+      }
     }
 
     let totalItemsPrice = 0;
@@ -7636,8 +7734,12 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
         appliedPromo,       // Truyền promo xuống EJS để hiển thị
         finalTotal,
         validityDays: validityDaysSafe,
+        deliveryDays: deliveryDaysSafe,
         notes,
         taxFreeSubcats: taxFreeSubcats,
+        show_warranty: showWarranty,
+        show_specs: showSpecs,
+        show_images: showImages,
 
         formatVND: (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0))
       }
@@ -7676,15 +7778,22 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
 app.post('/api/pc-builder/preview-quote', requireAuth, async (req, res) => {
   try {
     const {
-      buildConfig, customerName, contactInfo, customerPhone,
+      buildConfig, customerName, contactInfo, customerPhone, deliveryDays,
       isGeneralQuote = false,
       templateType = 'consumer',
       globalDiscount = { value: 0, type: 'amount' },
       validityDays,
       notes = '',
-      itemOrder
+      itemOrder,
+      show_warranty = true,
+      show_specs = true,
+      show_images = true
     } = req.body;
+    const showWarranty = show_warranty === true || show_warranty === 'true' || show_warranty === undefined;
+    const showSpecs = show_specs === true || show_specs === 'true' || show_specs === undefined;
+    const showImages = show_images === true || show_images === 'true' || show_images === undefined;
     const validityDaysSafe = (validityDays !== undefined && validityDays !== null && validityDays !== '') ? Number(validityDays) : null;
+    const deliveryDaysSafe = (deliveryDays !== undefined && deliveryDays !== null && deliveryDays !== '') ? Number(deliveryDays) : 1;
 
     const buildConfigSafe = buildConfig && typeof buildConfig === 'object' ? buildConfig : {};
     const items = Object.entries(buildConfigSafe)
@@ -7724,6 +7833,28 @@ app.post('/api/pc-builder/preview-quote', requireAuth, async (req, res) => {
 
     if (items.length === 0) {
       return res.status(400).json({ ok: false, error: 'Không có sản phẩm để xem trước.' });
+    }
+
+    const missingDetailsSkus = items.filter(it => !it.warranty || it.vat_rate === undefined).map(it => it.sku);
+    if (missingDetailsSkus.length > 0) {
+      try {
+        const { data: dbDetails } = await supabase
+          .from('skus')
+          .select('sku, warranty, vat_rate')
+          .in('sku', missingDetailsSkus);
+        if (dbDetails && dbDetails.length > 0) {
+          const dMap = {};
+          dbDetails.forEach(d => { dMap[d.sku] = d; });
+          items.forEach(it => {
+            if (dMap[it.sku]) {
+              if (!it.warranty && dMap[it.sku].warranty) it.warranty = dMap[it.sku].warranty;
+              if (it.vat_rate === undefined && dMap[it.sku].vat_rate !== undefined) it.vat_rate = dMap[it.sku].vat_rate;
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[Preview Báo giá] Lỗi query warranty/vat_rate:', err.message);
+      }
     }
 
     let totalItemsPrice = 0;
@@ -7788,8 +7919,12 @@ app.post('/api/pc-builder/preview-quote', requireAuth, async (req, res) => {
         appliedPromo,
         finalTotal,
         validityDays: validityDaysSafe,
+        deliveryDays: deliveryDaysSafe,
         notes,
         taxFreeSubcats: taxFreeSubcats,
+        show_warranty: showWarranty,
+        show_specs: showSpecs,
+        show_images: showImages,
         formatVND: (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0))
       }
     );
@@ -7813,9 +7948,15 @@ app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) =
       validityDays,
       deliveryDays,
       notes = '',
-      itemOrder
+      itemOrder,
+      show_warranty = true,
+      show_specs = true,
+      show_images = true
     } = req.body;
 
+    const showWarranty = show_warranty === true || show_warranty === 'true' || show_warranty === undefined;
+    const showSpecs = show_specs === true || show_specs === 'true' || show_specs === undefined;
+    const showImages = show_images === true || show_images === 'true' || show_images === undefined;
     const validityDaysSafe = (validityDays !== undefined && validityDays !== null && validityDays !== '') ? Number(validityDays) : null;
     const deliveryDaysSafe = (deliveryDays !== undefined && deliveryDays !== null && deliveryDays !== '') ? Number(deliveryDays) : 1;
 
@@ -7847,6 +7988,28 @@ app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) =
 
     if (items.length === 0) {
       return res.status(400).json({ ok: false, error: 'Không có sản phẩm để tạo báo giá.' });
+    }
+
+    const missingDetailsSkus = items.filter(it => !it.warranty || it.vat_rate === undefined).map(it => it.sku);
+    if (missingDetailsSkus.length > 0) {
+      try {
+        const { data: dbDetails } = await supabase
+          .from('skus')
+          .select('sku, warranty, vat_rate')
+          .in('sku', missingDetailsSkus);
+        if (dbDetails && dbDetails.length > 0) {
+          const dMap = {};
+          dbDetails.forEach(d => { dMap[d.sku] = d; });
+          items.forEach(it => {
+            if (dMap[it.sku]) {
+              if (!it.warranty && dMap[it.sku].warranty) it.warranty = dMap[it.sku].warranty;
+              if (it.vat_rate === undefined && dMap[it.sku].vat_rate !== undefined) it.vat_rate = dMap[it.sku].vat_rate;
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[Excel Báo giá] Lỗi query warranty/vat_rate:', err.message);
+      }
     }
 
     let totalItemsPrice = 0;
@@ -7907,7 +8070,7 @@ app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) =
     });
 
     const hasDiscount = items.some(i => (i.item_discount || 0) > 0);
-    const hasSpecs    = items.some(i => String(i.quote_detailed_specs || '').trim().length > 0);
+    const hasSpecs    = showSpecs && items.some(i => String(i.quote_detailed_specs || '').trim().length > 0);
 
     let cols = [];
     if (templateType === 'b2b') {
@@ -8098,10 +8261,16 @@ app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) =
       grandExVat += lineTotalEx;
       grandVat   += vatAmt;
 
+      let pName = item.product_name || item.name || '';
+      if (showWarranty && item.warranty) {
+        const cleanW = String(item.warranty).replace(/\s*chính\s*hãng/gi, '').trim();
+        if (cleanW) pName += `\n(Bảo hành: ${cleanW})`;
+      }
+
       const rd = {
         stt:  idx + 1,
         sku:  item.sku,
-        name: item.product_name || item.name || '',
+        name: pName,
         dvt: 'Cái',
         sl:   item.quantity
       };
@@ -14115,7 +14284,7 @@ app.get('/quick-export', requireAuth, async (req, res) => {
   }
 });
 
-// Helper lấy token cho user (từ header, session, cá nhân, hoặc chia sẻ theo chi nhánh)
+// Helper lấy token cho user (chỉ dùng token cá nhân để bảo mật, chống mạo danh và kiểm soát thu hồi)
 async function resolveUserExportToken(req) {
   let token = req.headers['x-teko-token'] || req.headers['authorization'];
   if (token) return token;
@@ -14124,7 +14293,7 @@ async function resolveUserExportToken(req) {
     return req.session.quickExportSettings.tekoToken;
   }
 
-  // 1. Kiểm tra cấu hình cá nhân
+  // Kiểm tra cấu hình cá nhân của user
   if (req.session?.user?.id) {
     const settingKey = `quick_export_${req.session.user.id}`;
     const { data } = await supabase.from('site_settings').select('value').eq('id', settingKey).maybeSingle();
@@ -14136,31 +14305,10 @@ async function resolveUserExportToken(req) {
     }
   }
 
-  // 2. Tự động dùng chung token của Chi nhánh (nếu có ai trong chi nhánh đã kết nối)
-  if (req.session?.user?.branch_code) {
-    const branchKey = `quick_export_branch_${req.session.user.branch_code}`;
-    const { data: bData } = await supabase.from('site_settings').select('value').eq('id', branchKey).maybeSingle();
-    if (bData && bData.value) {
-      try {
-        const parsed = JSON.parse(bData.value);
-        if (parsed.tekoToken) return parsed.tekoToken;
-      } catch (e) {}
-    }
-  }
-
-  // 3. Tự động dùng token hệ thống chung
-  const { data: gData } = await supabase.from('site_settings').select('value').eq('id', 'quick_export_global_token').maybeSingle();
-  if (gData && gData.value) {
-    try {
-      const parsed = JSON.parse(gData.value);
-      if (parsed.tekoToken) return parsed.tekoToken;
-    } catch (e) {}
-  }
-
   return '';
 }
 
-// 2. Lấy cài đặt cá nhân (tự kế thừa token chi nhánh nếu cá nhân chưa có)
+// 2. Lấy cài đặt cá nhân (chỉ dùng token riêng của user, không dùng chung)
 app.get('/api/quick-export/settings', requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
@@ -14172,23 +14320,12 @@ app.get('/api/quick-export/settings', requireAuth, async (req, res) => {
       try { settings = JSON.parse(data.value); } catch (e) {}
     }
 
-    // Nếu cá nhân chưa có token, kiểm tra xem chi nhánh hoặc hệ thống đã có chưa
-    let effectiveToken = settings.tekoToken || '';
-    if (!effectiveToken && branchCode) {
-      const { data: bData } = await supabase.from('site_settings').select('value').eq('id', `quick_export_branch_${branchCode}`).maybeSingle();
-      if (bData && bData.value) {
-        try { effectiveToken = JSON.parse(bData.value).tekoToken || ''; } catch (e) {}
-      }
-    }
-    if (!effectiveToken) {
-      const { data: gData } = await supabase.from('site_settings').select('value').eq('id', 'quick_export_global_token').maybeSingle();
-      if (gData && gData.value) {
-        try { effectiveToken = JSON.parse(gData.value).tekoToken || ''; } catch (e) {}
-      }
-    }
+    const effectiveToken = settings.tekoToken || '';
 
     res.json({
       success: true,
+      _userId: userId,
+      _branchCode: branchCode,
       settings: {
         pickingBinName: settings.pickingBinName || '',
         pickingBinId: settings.pickingBinId || '',
@@ -14201,7 +14338,7 @@ app.get('/api/quick-export/settings', requireAuth, async (req, res) => {
   }
 });
 
-// 3. Lưu cài đặt cá nhân và tự động cập nhật cho Chi nhánh
+// 3. Lưu cài đặt cá nhân
 app.post('/api/quick-export/settings', requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
@@ -14213,6 +14350,7 @@ app.post('/api/quick-export/settings', requireAuth, async (req, res) => {
       pickingBinName: pickingBinName || '',
       pickingBinId: pickingBinId || '',
       tekoToken: tekoToken || '',
+      branchCode: branchCode || '',
       updatedAt: new Date().toISOString(),
     };
 
@@ -14225,23 +14363,7 @@ app.post('/api/quick-export/settings', requireAuth, async (req, res) => {
       updated_at: new Date().toISOString(),
     });
 
-    // Nếu có token, chia sẻ cho cả Chi nhánh và hệ thống để các nhân viên khác không cần cấu hình lại
-    if (tekoToken) {
-      if (branchCode) {
-        await supabase.from('site_settings').upsert({
-          id: `quick_export_branch_${branchCode}`,
-          value: JSON.stringify({ tekoToken, branchCode, updatedAt: new Date().toISOString() }),
-          updated_at: new Date().toISOString(),
-        });
-      }
-      await supabase.from('site_settings').upsert({
-        id: 'quick_export_global_token',
-        value: JSON.stringify({ tekoToken, updatedAt: new Date().toISOString() }),
-        updated_at: new Date().toISOString(),
-      });
-    }
-
-    res.json({ success: true, message: 'Đã lưu cấu hình và đồng bộ cho chi nhánh thành công!' });
+    res.json({ success: true, message: 'Đã lưu cấu hình tài khoản thành công!' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -14262,25 +14384,19 @@ app.post('/api/quick-export/sync-token', async (req, res) => {
     if (!token) return res.status(400).json({ success: false, message: 'Thiếu token' });
 
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
-    const tokenObj = { tekoToken: cleanToken, updatedAt: new Date().toISOString() };
+    const tokenObj = { tekoToken: cleanToken, branchCode: branchCode || '', updatedAt: new Date().toISOString() };
 
-    await supabase.from('site_settings').upsert({
-      id: 'quick_export_global_token',
-      value: JSON.stringify(tokenObj),
-      updated_at: new Date().toISOString()
-    });
-
-    if (branchCode) {
-      await supabase.from('site_settings').upsert({
-        id: `quick_export_branch_${branchCode}`,
-        value: JSON.stringify(tokenObj),
-        updated_at: new Date().toISOString()
-      });
-    }
-
+    // Ưu tiên lưu trực tiếp theo userId
     if (userId) {
       await supabase.from('site_settings').upsert({
         id: `quick_export_${userId}`,
+        value: JSON.stringify(tokenObj),
+        updated_at: new Date().toISOString()
+      });
+    } else {
+      // Fallback nếu không có userId (ví dụ bookmarklet chung)
+      await supabase.from('site_settings').upsert({
+        id: 'quick_export_global_token',
         value: JSON.stringify(tokenObj),
         updated_at: new Date().toISOString()
       });
@@ -14301,21 +14417,7 @@ app.get('/api/quick-export/sync-token', async (req, res) => {
     if (!token) return res.status(400).json({ success: false, message: 'Thiếu token' });
 
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
-    const tokenObj = { tekoToken: cleanToken, updatedAt: new Date().toISOString() };
-
-    await supabase.from('site_settings').upsert({
-      id: 'quick_export_global_token',
-      value: JSON.stringify(tokenObj),
-      updated_at: new Date().toISOString()
-    });
-
-    if (branchCode) {
-      await supabase.from('site_settings').upsert({
-        id: `quick_export_branch_${branchCode}`,
-        value: JSON.stringify(tokenObj),
-        updated_at: new Date().toISOString()
-      });
-    }
+    const tokenObj = { tekoToken: cleanToken, branchCode: branchCode || '', updatedAt: new Date().toISOString() };
 
     if (userId) {
       await supabase.from('site_settings').upsert({
@@ -14323,9 +14425,151 @@ app.get('/api/quick-export/sync-token', async (req, res) => {
         value: JSON.stringify(tokenObj),
         updated_at: new Date().toISOString()
       });
+    } else {
+      await supabase.from('site_settings').upsert({
+        id: 'quick_export_global_token',
+        value: JSON.stringify(tokenObj),
+        updated_at: new Date().toISOString()
+      });
     }
 
     res.json({ success: true, message: 'Đã tự động đồng bộ token ERP thành công!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// =========================================================================
+// --- ADMIN TOKEN MANAGEMENT (Dành riêng cho vu.nt1@phongvu-mna.vn & Admin) ---
+// =========================================================================
+function decodeJwtPayload(token) {
+  try {
+    if (!token) return null;
+    const clean = String(token).replace(/^Bearer\s+/i, '').trim();
+    const parts = clean.split('.');
+    if (parts.length < 2) return null;
+    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  } catch (e) {
+    return null;
+  }
+}
+
+function checkIsTokenAdmin(req) {
+  const u = req.session?.user;
+  if (!u) return false;
+  return u.email === 'vu.nt1@phongvu-mna.vn' || u.role === 'admin';
+}
+
+// Lấy danh sách tất cả token đang có trong hệ thống
+app.get('/api/quick-export/admin/tokens', requireAuth, async (req, res) => {
+  if (!checkIsTokenAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập trang quản lý token!' });
+  }
+
+  try {
+    const { data: rows, error } = await supabase
+      .from('site_settings')
+      .select('id, value, updated_at')
+      .like('id', 'quick_export_%');
+
+    if (error) throw error;
+
+    const { data: allUsers } = await supabase
+      .from('users')
+      .select('id, email, full_name, branch_code, role');
+    const userMap = {};
+    (allUsers || []).forEach(u => { userMap[u.id] = u; });
+
+    const tokenList = [];
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    for (const r of (rows || [])) {
+      let val = {};
+      try { val = JSON.parse(r.value); } catch (e) { val = { tekoToken: r.value }; }
+
+      const rawToken = val.tekoToken || '';
+      if (!rawToken) continue;
+
+      const jwt = decodeJwtPayload(rawToken);
+      const expSec = jwt?.exp ? Number(jwt.exp) : null;
+      const isExpired = expSec ? (expSec < nowSec) : false;
+
+      let type = 'user';
+      let title = r.id;
+      let userObj = null;
+
+      if (r.id === 'quick_export_global_token') {
+        type = 'global';
+        title = 'Token dùng chung toàn hệ thống';
+      } else if (r.id.startsWith('quick_export_branch_')) {
+        type = 'branch';
+        const bCode = r.id.replace('quick_export_branch_', '');
+        title = `Token dùng chung chi nhánh [${bCode}]`;
+      } else {
+        const uId = r.id.replace('quick_export_', '');
+        userObj = userMap[uId] || null;
+        title = userObj ? `${userObj.full_name || userObj.email} (${userObj.branch_code || 'Chưa gán'})` : `User #${uId}`;
+      }
+
+      tokenList.push({
+        key: r.id,
+        type,
+        title,
+        userId: userObj?.id || null,
+        userEmail: userObj?.email || null,
+        userName: userObj?.full_name || null,
+        branchCode: userObj?.branch_code || val.branchCode || null,
+        tokenMasked: rawToken.length > 25 ? `${rawToken.slice(0, 12)}...${rawToken.slice(-8)}` : '***',
+        jwtSubject: jwt?.sub || jwt?.name || jwt?.email || null,
+        expiresAt: expSec ? new Date(expSec * 1000).toISOString() : null,
+        isExpired,
+        updatedAt: r.updated_at || val.updatedAt || null,
+      });
+    }
+
+    tokenList.sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'user' ? -1 : 1;
+      return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+    });
+
+    res.json({ success: true, tokens: tokenList });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Xóa 1 token cụ thể của user hoặc chi nhánh
+app.delete('/api/quick-export/admin/tokens/:key', requireAuth, async (req, res) => {
+  if (!checkIsTokenAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Bạn không có quyền xoá token!' });
+  }
+
+  try {
+    const key = req.params.key;
+    if (!key || !key.startsWith('quick_export_')) {
+      return res.status(400).json({ success: false, message: 'Mã token không hợp lệ' });
+    }
+
+    const { error } = await supabase.from('site_settings').delete().eq('id', key);
+    if (error) throw error;
+
+    res.json({ success: true, message: `Đã xoá token [${key}] thành công. User sẽ phải xác thực ERP lại!` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Xóa sạch toàn bộ token ERP trên hệ thống (buộc tất cả nhân viên re-auth)
+app.post('/api/quick-export/admin/tokens/purge-all', requireAuth, async (req, res) => {
+  if (!checkIsTokenAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Bạn không có quyền xoá token!' });
+  }
+
+  try {
+    const { error } = await supabase.from('site_settings').delete().like('id', 'quick_export_%');
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Đã xoá sạch toàn bộ token ERP trên hệ thống! Mọi nhân viên sẽ phải xác thực lại.' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -14434,51 +14678,49 @@ app.post('/api/quick-export/process-serial', requireAuth, async (req, res) => {
     // B1: Tra cứu vị trí Serial thời gian thực từ Teko
     const track = await quickExportService.getSerialTracking(serial, token, siteId);
 
-    // B2: Xác định SKU mà serial này thuộc về
-    let targetSku = track.sku ? String(track.sku) : '';
-    let matchedItem = orderItems.find(it => String(it.sku) === targetSku);
+    // B2: Xác thực Serial nghiêm ngặt - KHÔNG BAO GIỜ GÁN BỪA KHI SERIAL SAI KÝ TỰ HOẶC KHÔNG TỒN TẠI
+    let targetSku = track.sku ? String(track.sku).trim() : '';
+    let matchedItem = null;
 
-    // Nếu không khớp từ API Teko, đối soát với các SKU trong đơn hàng còn thiếu serial
-    if (!matchedItem) {
-      const candidates = orderItems.filter(it => {
-        const reqQty = Number(it.requestQuantity) || 1;
-        const scanned = (scannedSerials[it.sku] || []).length;
-        return scanned < reqQty;
-      });
+    if (targetSku) {
+      // Trường hợp 1: Teko WMS nhận diện đúng Serial
+      matchedItem = orderItems.find(it => String(it.sku) === targetSku);
+      if (!matchedItem) {
+        throw new Error(`Serial "${serial}" thuộc sản phẩm [${track.productName || targetSku}], không nằm trong danh sách đơn hàng này!`);
+      }
+    } else {
+      // Trường hợp 2: Teko WMS chưa nhận diện, kiểm tra chéo trong cơ sở dữ liệu Supabase inventory_serials
+      const { data: invRow } = await supabase
+        .from('inventory_serials')
+        .select('SKU, "SKU name", Location, "BIN zone"')
+        .eq('Serial', serial.trim())
+        .maybeSingle();
 
-      if (candidates.length === 1) {
-        // Chỉ có 1 SKU còn thiếu, gán trực tiếp
-        matchedItem = candidates[0];
-        targetSku = String(matchedItem.sku);
-      } else if (candidates.length > 1) {
-        // Tra cứu thêm từ BigQuery bảng inv_seri_1 nếu có
-        try {
-          const { BigQuery } = require('@google-cloud/bigquery');
-          const bq = new BigQuery();
-          const [rows] = await bq.query({
-            query: 'SELECT CAST(SKU AS STRING) AS sku, Location AS location, BIN_zone AS bin_zone FROM `nimble-volt-459313-b8.Inventory.inv_seri_1` WHERE Serial = @serial LIMIT 1',
-            params: { serial: serial.trim() }
-          });
-          if (rows && rows[0] && rows[0].sku) {
-            const bqSku = String(rows[0].sku);
-            matchedItem = orderItems.find(it => String(it.sku) === bqSku);
-            if (matchedItem) targetSku = bqSku;
-            if (!track.binName && rows[0].bin_zone) track.binName = rows[0].bin_zone;
-          }
-        } catch (bqErr) {
-          // BQ lookup silent fail, proceed with candidates
-        }
-
+      if (invRow && invRow.SKU) {
+        targetSku = String(invRow.SKU).trim();
+        matchedItem = orderItems.find(it => String(it.sku) === targetSku);
         if (!matchedItem) {
-          // Fallback vào SKU đầu tiên còn thiếu
-          matchedItem = candidates[0];
-          targetSku = String(matchedItem.sku);
+          throw new Error(`Serial "${serial}" thuộc sản phẩm [${invRow['SKU name'] || targetSku}], không nằm trong danh sách đơn hàng này!`);
         }
+        if (!track.binName && invRow['BIN zone']) track.binName = invRow['BIN zone'];
+      } else {
+        // CẢ TEKO VÀ SUPABASE ĐỀU KHÔNG TÌM THẤY -> SERIAL SAI KÝ TỰ HOẶC HOÀN TOÀN KHÔNG TỒN TẠI
+        throw new Error(`Mã Serial "${serial}" không tồn tại trên hệ thống hoặc bị quét sai ký tự! Vui lòng kiểm tra lại tem sản phẩm.`);
       }
     }
 
-    if (!matchedItem) {
-      throw new Error(`Serial "${serial}" không thuộc bất kỳ sản phẩm nào còn thiếu trong đơn hàng.`);
+    // B2.1: Kiểm tra xem SKU này đã quét đủ số lượng yêu cầu trong đơn chưa
+    const reqQty = Number(matchedItem.requestQuantity) || 1;
+    const currentScanned = (scannedSerials[matchedItem.sku] || []).length;
+    if (currentScanned >= reqQty) {
+      throw new Error(`Sản phẩm [${matchedItem.skuName || matchedItem.sku}] đã quét đủ số lượng yêu cầu (${currentScanned}/${reqQty})!`);
+    }
+
+    // B2.2: Kiểm tra serial trùng lặp trong phiên quét hiện tại
+    for (const [skuKey, list] of Object.entries(scannedSerials)) {
+      if (Array.isArray(list) && list.includes(serial.trim())) {
+        throw new Error(`Serial "${serial.trim()}" đã được quét trước đó trong đơn hàng!`);
+      }
     }
 
     // B3: Kiểm tra vị trí BIN và tự động luân chuyển nếu khác BIN soạn hàng
@@ -14700,9 +14942,10 @@ app.post('/api/quick-export/fifo-recommendation', requireAuth, async (req, res) 
 
 // 7. Xác nhận hoàn tất xuất kho (Confirm Packing) & Cập nhật FIFO "Đã xuất"
 app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
+  let token = null;
   try {
     const { requestId, documentId, pickingBinId, items, receiverName, siteId: reqSiteId, serialBinMap = {}, isAutoHandover = false } = req.body;
-    const token = await resolveUserExportToken(req);
+    token = await resolveUserExportToken(req);
     const siteId = reqSiteId || req.session.user?.branch_code;
     const autoHandover = Boolean(isAutoHandover);
     const effectiveRequestId = String(requestId || documentId || '').trim();
@@ -14734,20 +14977,27 @@ app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
       }
     }
 
+    const binEntries = Object.entries(binGroups);
     let lastResult = null;
-    for (const [bId, skuMap] of Object.entries(binGroups)) {
+    for (let i = 0; i < binEntries.length; i++) {
+      const [bId, skuMap] = binEntries[i];
+      const isLast = (i === binEntries.length - 1);
       const binItems = Object.entries(skuMap).map(([sku, serials]) => ({
         sku,
         serials,
         lots: []
       }));
 
+      // QUAN TRỌNG: Chỉ bàn giao (isAutoHandover) ở lần gọi cuối cùng!
+      // Nếu bàn giao ở lần đầu, Teko WMS sẽ đổi đơn sang EXPORTED ngay, khiến lần gọi tiếp theo bị lỗi "State of request is not valid".
+      const handoverThisStep = isLast ? autoHandover : false;
+
       lastResult = await quickExportService.confirmPacking({
         requestId: effectiveRequestId,
         binId: Number(bId),
         items: binItems,
-        isAutoHandover: autoHandover,
-        receiverName,
+        isAutoHandover: handoverThisStep,
+        receiverName: handoverThisStep ? receiverName : undefined,
         siteId,
       }, token, siteId);
     }
@@ -14789,6 +15039,49 @@ app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
         : `Xác nhận soạn hàng (Đã đóng gói) thành công trên ERP! Đã tick "Đã xuất" cho ${updatedFifoCount} serial vào bảng FIFO.`
     });
   } catch (err) {
+    // Nếu gặp lỗi "State of request is not valid", kiểm tra xem đơn hàng thực tế đã được xuất kho / đóng gói thành công trước đó chưa
+    if (err.message && err.message.toLowerCase().includes('state of request is not valid')) {
+      try {
+        const { documentId, requestId, siteId: reqSiteId, items } = req.body;
+        const siteId = reqSiteId || req.session.user?.branch_code;
+        if (!token) token = await resolveUserExportToken(req);
+        const checkStatus = await quickExportService.loadExportRequest(documentId || requestId, null, token, siteId);
+        const st = String(checkStatus?.status || '').toUpperCase();
+        if (st === 'EXPORTED' || st === 'COMPLETED' || st === 'PACKED') {
+          const todayDate = new Date().toISOString().slice(0, 10);
+          const nowIso = new Date().toISOString();
+          const branchCode = req.session.user?.branch_code || 'CP01';
+          const userId = req.session.user?.id;
+          let updatedFifoCount = 0;
+          for (const item of (items || [])) {
+            const sku = item.sku;
+            for (const sn of (item.serials || [])) {
+              try {
+                await supabase.from('serial_check_log').upsert({
+                  serial: sn,
+                  sku,
+                  branch_code: branchCode,
+                  check_date: todayDate,
+                  checked_out: true,
+                  checked_by: userId,
+                  checked_at: nowIso,
+                }, { onConflict: 'serial,check_date' });
+                updatedFifoCount++;
+              } catch (e) {}
+            }
+          }
+          return res.json({
+            success: true,
+            isAlreadyDone: true,
+            status: st,
+            updatedFifoCount,
+            message: `Đơn hàng #${documentId || requestId} thực tế ĐÃ HOÀN TẤT XUẤT KHO (${st === 'PACKED' ? 'ĐÃ ĐÓNG GÓI' : 'ĐÃ BÀN GIAO'}) trên ERP trước đó! Hệ thống đã tự động đồng bộ và tick "Đã xuất" cho ${updatedFifoCount} serial vào bảng FIFO.`
+          });
+        }
+      } catch (checkErr) {
+        console.warn('[QuickExport] Lỗi kiểm tra lại trạng thái đơn khi gặp State of request is not valid:', checkErr.message);
+      }
+    }
     res.status(400).json({ success: false, message: err.message });
   }
 });

@@ -763,11 +763,16 @@
 
             <!-- Nút Cài đặt / Đổi Token -->
             <button class="btn-header-action" onclick="openTokenModal()">
-                Kết nối ERP
+                🔑 Kết nối ERP
             </button>
             <button class="btn-header-action" onclick="openConfigModal()">
-                Cài đặt BIN
+                ⚙️ Cài đặt BIN
             </button>
+            <% if (user && (user.email === 'vu.nt1@phongvu-mna.vn' || user.role === 'admin')) { %>
+            <button class="btn-header-action" onclick="openAdminTokensModal()" style="background: #fef2f2; color: #b91c1c; border-color: #fecaca; font-weight: 700;">
+                🛡️ Quản lý Token Users
+            </button>
+            <% } %>
         </div>
     </div>
 
@@ -934,64 +939,217 @@
 </div>
 
 <!-- ================================================================
-     MODAL KẾT NỐI ERP (Zero Extension - 1-Click Bookmarklet & Kế thừa)
+     MODAL KẾT NỐI TEKO ERP (TỰ ĐỘNG 1-CLICK & DỰ PHÒNG)
      ================================================================ -->
 <div class="qe-modal-backdrop" id="tokenModal" style="display: none;">
-    <div class="qe-modal">
+    <div class="qe-modal" style="max-width: 540px; width: 95%;">
         <div class="qe-modal-header">
-            <h3 class="qe-modal-title">🔑 Kết nối Teko ERP (Không cần cài Extension)</h3>
+            <h3 class="qe-modal-title" style="display: flex; align-items: center; gap: 8px;">
+                <span>🔑</span> Kết nối Token Teko ERP
+            </h3>
             <button class="btn-close-modal" onclick="closeTokenModal()">&times;</button>
         </div>
 
-        <div style="background: var(--qe-blue-light); border: 1px solid var(--qe-blue-border); border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 13px; line-height: 1.5;">
-            <strong>💡 Dùng chung Token toàn chi nhánh:</strong><br>
-            Hệ thống tự động đồng bộ và dùng chung token cho cả chi nhánh. Khi 1 người cập nhật, tất cả nhân viên khác sử dụng được ngay mà <strong>không cần cài bất kỳ Extension nào</strong>.
+        <!-- BANNER PHÁT HIỆN EXTENSION -->
+        <div id="extDetectionBanner" style="padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; line-height: 1.4;">
+            <!-- JS dynamic content -->
         </div>
 
-        <div style="margin-bottom: 16px;">
-            <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">
-                Cách 1: Bookmarklet 1-Click (Nhanh nhất - Không cần cài đặt)
-            </label>
-            <p style="font-size: 12px; color: var(--qe-text-muted); margin: 0 0 10px 0; line-height: 1.4;">
-                Kéo nút dưới đây thả lên thanh Dấu trang của trình duyệt. Khi đang ở tab <code>erp.phongvu.vn</code>, chỉ cần bấm nút Bookmark là xong:
+        <!-- PHƯƠNG THỨC 1: TỰ ĐỘNG QUA ERP -->
+        <div style="background: linear-gradient(135deg, #eff6ff, #f0fdf4); border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 18px 20px; margin-bottom: 18px;">
+            <div style="font-size: 14px; font-weight: 800; color: #1e3a8a; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                <span>⚡</span> Cách 1: Mở ERP &amp; Tự động kết nối (Khuyên dùng)
+            </div>
+            <p style="font-size: 13px; color: #334155; margin: 0 0 14px 0; line-height: 1.5;">
+                Bấm nút bên dưới để mở tab ERP Phong Vũ. Nếu bạn đã đăng nhập ERP, hệ thống sẽ tự động bắt Token và kích hoạt tài khoản ngay tức thì!
             </p>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                <a id="btnErpBookmarklet" 
-                   class="qe-btn-primary" 
-                   style="height: 38px; text-decoration: none; cursor: grab; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;"
-                   href="#"
-                   title="Kéo nút này thả lên thanh Bookmark trên trình duyệt">
-                    ⭐ Kéo vào Bookmark: Đồng bộ Token ERP
-                </a>
-                <button type="button" class="btn-header-action" onclick="copyBookmarkletCode()" style="height: 38px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
-                    📋 Copy mã Bookmarklet
-                </button>
-                <a href="https://erp.phongvu.vn" target="_blank" class="btn-header-action" style="height: 38px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                    🔗 Mở tab ERP
-                </a>
+
+            <button type="button" 
+                    id="btnModalAutoLogin"
+                    class="qe-btn-primary" 
+                    onclick="openErpTabAuto()" 
+                    style="width: 100%; height: 44px; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; transition: all 0.2s;">
+                🚀 Mở ERP &amp; Tự động kết nối Token
+            </button>
+
+            <div id="modalSyncStatus" style="display: none; margin-top: 10px;"></div>
+
+            <!-- Checklist tiến trình realtime -->
+            <div id="tokenStepChecklist" style="display:none; margin-top: 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px; color:#334155;">
+                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;"><span id="step1Icon" style="font-size:15px;">&#9744;</span> Bước 1: Mở tab ERP Phong Vũ</div>
+                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;"><span id="step2Icon" style="font-size:15px;">&#9744;</span> Bước 2: Extension phát hiện &amp; gửi Token</div>
+                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;"><span id="step3Icon" style="font-size:15px;">&#9744;</span> <span id="step3Txt">Bước 3: Server nhận Token - đang chờ...</span></div>
             </div>
-            <div id="lblBookmarkCopied" style="font-size: 11px; color: var(--qe-green-primary); margin-top: 5px; display: none; font-weight: 600;">
-                ✓ Đã copy mã Bookmarklet vào bộ nhớ tạm! Bạn có thể tạo Bookmark và dán mã này vào URL.
+
+            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #475569; display: flex; justify-content: space-between; align-items: center;">
+                <span>Chưa cài Extension tự đồng bộ?</span>
+                <a href="javascript:void(0)" onclick="showExtensionGuide()" style="color: #2563eb; font-weight: 700; text-decoration: underline; cursor: pointer;">
+                    📦 Hướng dẫn cài Extension (1 lần duy nhất)
+                </a>
             </div>
         </div>
 
-        <div style="border-top: 1px dashed var(--qe-border); padding-top: 14px;">
-            <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">
-                Cách 2: Dán Token trực tiếp
-            </label>
-            <textarea id="txtManualToken" 
-                      class="qe-input qe-input-mono" 
-                      style="height: 70px; width: 100%; box-sizing: border-box; font-size: 11px; padding: 8px;" 
-                      placeholder="Dán mã Bearer Token (eyJ...) vào đây nếu có"></textarea>
-            <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                <button class="qe-btn-primary" style="height: 36px; font-size: 13px;" onclick="saveManualToken()">
-                    Lưu Token
-                </button>
-            </div>
-        </div>
+        <!-- PHƯƠNG THỨC 2: THỦ CÔNG (COLLAPSIBLE) -->
+        <details style="border: 1px solid var(--qe-border); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;">
+            <summary style="font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; user-select: none;">
+                🔧 Cách 2: Đồng bộ qua Bookmarklet (Không cần cài Extension)
+            </summary>
+            
+            <div style="margin-top: 12px; border-top: 1px dashed var(--qe-border); padding-top: 10px;">
+                <p style="font-size: 12px; color: #64748b; margin: 0 0 10px 0; line-height: 1.4;">
+                    Kéo nút bên dưới thả vào thanh Dấu trang (Bookmarks) của trình duyệt. Khi đang ở tab <code>erp.phongvu.vn</code>, chỉ cần bấm nút này là xong:
+                </p>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                    <a id="btnErpBookmarklet" 
+                       class="qe-btn-primary" 
+                       style="height: 36px; font-size: 12px; text-decoration: none; cursor: grab; display: inline-flex; align-items: center; gap: 4px;"
+                       href="#"
+                       title="Kéo nút này thả lên thanh Bookmark trên trình duyệt">
+                        ⭐ Kéo vào Bookmark: Đồng bộ Token ERP
+                    </a>
+                    <button type="button" class="btn-header-action" onclick="copyBookmarkletCode()" style="height: 36px; font-size: 12px;">
+                        📋 Copy mã
+                    </button>
+                </div>
 
-        <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155;">
+                    Hoặc dán Bearer Token trực tiếp:
+                </div>
+                <textarea id="txtManualToken" 
+                          class="qe-input qe-input-mono" 
+                          style="height: 60px; width: 100%; box-sizing: border-box; font-size: 11px; padding: 8px;" 
+                          placeholder="Dán mã Bearer Token (eyJ...) vào đây nếu có"></textarea>
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                    <button class="qe-btn-primary" style="height: 32px; font-size: 12px;" onclick="saveManualToken()">
+                        Lưu Token
+                    </button>
+                </div>
+            </div>
+        </details>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
             <button class="btn-header-action" onclick="closeTokenModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL HƯỚNG DẪN CÀI EXTENSION (15 GIÂY)
+     ================================================================ -->
+<div class="qe-modal-backdrop" id="extensionGuideModal" style="display: none;">
+    <div class="qe-modal" style="max-width: 600px; width: 95%;">
+        <div class="qe-modal-header">
+            <h3 class="qe-modal-title" style="display: flex; align-items: center; gap: 8px;">
+                <span>📦</span> Hướng dẫn cài Extension Phong Vũ ERP Sync
+            </h3>
+            <button class="btn-close-modal" onclick="closeExtensionGuideModal()">&times;</button>
+        </div>
+
+        <div style="font-size: 13px; color: #334155; line-height: 1.6; margin-bottom: 16px;">
+            Chỉ cần cài đặt <strong>1 lần duy nhất</strong> trên trình duyệt Chrome/Cốc Cốc/Edge. Mỗi khi bạn mở trang ERP Phong Vũ, Extension sẽ tự động đồng bộ kết nối sang Xuất kho nhanh mà không cần copy/paste token:
+        </div>
+
+        <!-- Nút tải Extension trực tiếp -->
+        <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1.5px dashed #3b82f6; border-radius: 12px; padding: 14px 18px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div>
+                <div style="font-size: 14px; font-weight: 800; color: #1e40af;">📥 Bộ cài đặt Extension (.zip)</div>
+                <div style="font-size: 12px; color: #3b82f6;">Dành cho tất cả máy nhân viên không có source code dự án</div>
+            </div>
+            <a href="/phongvu-erp-sync.zip" download="phongvu-erp-sync.zip" class="btn-qe-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; font-size: 13px; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 12px rgba(37,99,235,0.25);">
+                <span>⬇️</span> Tải file Extension (.zip)
+            </a>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+                <div style="font-weight: 800; color: #1e40af; margin-bottom: 4px;">Bước 1: Tải về và Giải nén</div>
+                <div style="font-size: 12px; color: #475569; line-height: 1.5;">
+                    Bấm nút <strong>"Tải file Extension (.zip)"</strong> ở trên. Sau đó chuột phải vào file vừa tải về chọn <strong>Extract All... (Giải nén)</strong> ra một thư mục trên máy tính.<br>
+                    <span style="font-size: 11px; color: #64748b;">(Lưu ý: Nếu bạn là lập trình viên chạy local từ git, thư mục extension chính là <code style="background:#e2e8f0;padding:1px 5px;border-radius:4px;color:#0f172a;">chrome-extension-erp-sync/</code> trong dự án).</span>
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+                <div style="font-weight: 800; color: #1e40af; margin-bottom: 4px;">Bước 2: Mở trang Quản lý tiện ích Chrome</div>
+                <div style="font-size: 12px; color: #475569; line-height: 1.5;">
+                    Mở tab mới trên trình duyệt, dán địa chỉ <code style="background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#0f172a;font-weight:700;">chrome://extensions</code> và nhấn <strong>Enter</strong>.<br>
+                    Tiếp theo, gạt nút công tắc <strong>"Developer mode" (Chế độ cho nhà phát triển)</strong> ở góc trên cùng bên phải sang trạng thái <strong>Bật (ON)</strong>.
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+                <div style="font-weight: 800; color: #1e40af; margin-bottom: 4px;">Bước 3: Chọn "Load unpacked" (Tải tiện ích đã giải nén)</div>
+                <div style="font-size: 12px; color: #475569; line-height: 1.5;">
+                    Bấm nút <strong>"Load unpacked"</strong> ở góc trên bên trái trình duyệt, sau đó chọn thư mục đã giải nén ở Bước 1. Trình duyệt sẽ hiển thị tiện ích <strong>"Phong Vũ ERP Auto Sync"</strong>.
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #065f46; font-weight: 600; margin-bottom: 16px;">
+            ✓ Hoàn tất! Bây giờ quay lại trang này và bấm nút "Mở ERP", Token sẽ tự động kết nối và mở khóa ngay lập tức!
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn-header-action" onclick="closeExtensionGuideModal()">Đã hiểu &amp; Đóng</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL QUẢN LÝ TOKEN USERS (DÀNH CHO VU.NT1 & ADMIN)
+     ================================================================ -->
+<div class="qe-modal-backdrop" id="adminTokensModal" style="display: none;">
+    <div class="qe-modal" style="max-width: 960px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="qe-modal-header" style="flex-shrink: 0;">
+            <div>
+                <h3 class="qe-modal-title" style="display: flex; align-items: center; gap: 8px;">
+                    <span>🛡️</span> Quản lý Token ERP Nhân viên (Supabase)
+                </h3>
+                <p style="font-size: 12px; color: var(--qe-text-muted); margin: 3px 0 0 0;">
+                    Dành riêng cho <strong style="color: #dc2626;"><%= user ? user.email : 'Admin' %></strong>. Xoá token sẽ lập tức chặn xuất kho của user đó, ép buộc xác thực lại đúng tài khoản.
+                </p>
+            </div>
+            <button class="btn-close-modal" onclick="closeAdminTokensModal()">&times;</button>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
+            <div style="font-size: 13px; color: #475569;">
+                Tổng số Token đang lưu: <strong id="lblAdminTokensCount" style="color: #2563eb;">0</strong>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-header-action" onclick="loadAdminTokensList()" style="font-size: 12px; height: 34px;">
+                    🔄 Làm mới
+                </button>
+                <button type="button" class="btn-header-action" onclick="purgeAllAdminTokens()" style="font-size: 12px; height: 34px; background: #fee2e2; color: #dc2626; border-color: #fca5a5; font-weight: 700;">
+                    🧹 Xoá sạch toàn bộ
+                </button>
+            </div>
+        </div>
+
+        <div style="max-height: 480px; overflow-y: auto; border: 1px solid var(--qe-border); border-radius: 8px; flex: 1;">
+            <table class="sku-table" style="margin: 0;">
+                <thead>
+                    <tr>
+                        <th style="width: 220px;">Nhân viên / Đối tượng</th>
+                        <th style="width: 100px; text-align: center;">Chi nhánh</th>
+                        <th style="width: 170px;">Token (Rút gọn)</th>
+                        <th style="width: 160px; text-align: center;">Hạn sử dụng</th>
+                        <th style="width: 140px; text-align: center;">Cập nhật lúc</th>
+                        <th style="width: 90px; text-align: center;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="tblAdminTokensBody">
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">
+                            Đang tải danh sách token...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 14px; flex-shrink: 0;">
+            <button class="btn-header-action" onclick="closeAdminTokensModal()">Đóng</button>
         </div>
     </div>
 </div>
@@ -1115,14 +1273,67 @@
     </div>
 </div>
 
+<!-- ERP LOGIN GATE SCREEN -->
+<div id="erpGateScreen" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.92); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center; flex-direction:column; font-family:'Be Vietnam Pro','Inter',sans-serif;">
+    <div style="background:#fff; border-radius:20px; padding:40px 36px; max-width:460px; width:90%; text-align:center; box-shadow:0 25px 60px rgba(0,0,0,0.35); border:1px solid #e2e8f0;">
+        <div style="width:64px;height:64px;background:#eff6ff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;">🔐</div>
+        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px;">Chưa kết nối ERP</h2>
+        <p style="font-size:14px;color:#475569;margin:0 0 24px;line-height:1.6;">Để sử dụng <strong>Xuất kho nhanh</strong>, bạn cần đăng nhập vào hệ thống ERP Phong Vũ trước. Chrome Extension sẽ tự động đồng bộ token về.</p>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin-bottom:20px;text-align:left;font-size:13px;color:#166534;line-height:1.8;">
+            <div style="font-weight:700;margin-bottom:6px;color:#15803d;">⚡ Hướng dẫn 2 bước:</div>
+            <div>1️⃣ Bấm "<strong>Mở ERP & Đăng nhập</strong>" bên dưới</div>
+            <div>2️⃣ Đăng nhập ERP → Extension tự đồng bộ → Trang tự động mở khóa 🔓</div>
+        </div>
+        <div id="gatePollingStatus" style="margin-bottom:16px;font-size:13px;color:#64748b;min-height:20px;"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <a id="btnOpenErpLogin" href="https://erp.phongvu.vn" target="_blank" onclick="startGatePolling()" style="display:block;padding:14px 20px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                🔑 Mở ERP &amp; Đăng nhập
+            </a>
+            <button onclick="openTokenModal()" style="padding:11px 20px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:600;color:#334155;cursor:pointer;">
+                ✍️ Nhập Token thủ công
+            </button>
+            <a href="javascript:void(0)" onclick="showExtensionGuide()" style="font-size:12px;color:#2563eb;text-decoration:underline;margin-top:6px;font-weight:600;">
+                📦 Hướng dẫn cài / Tải Extension tự đồng bộ (.zip)
+            </a>
+        </div>
+    </div>
+</div>
+
 <script>
+    // --- Inject session info từ server ---
+    window.pvUserId = '<%= user && user.id ? user.id : "" %>';
+    window.pvBranchCode = '<%= user && user.branch_code ? user.branch_code : "" %>';
+    window.pvUserEmail = '<%= user && user.email ? user.email : "" %>';
+
     // --- STATE ---
     let currentOrder = null;
     let pickingBin = {
         name: localStorage.getItem('qe_picking_bin_name') || '',
         id: localStorage.getItem('qe_picking_bin_id') || ''
     };
+    // Validate token từ localStorage ngay khi init - không trust nếu JWT hết hạn
+    (function() {
+        const cached = localStorage.getItem('qe_teko_token') || '';
+        if (cached) {
+            try {
+                const parts = cached.split('.');
+                if (parts.length >= 2) {
+                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                    const exp = payload.exp ? Number(payload.exp) : null;
+                    if (exp && exp * 1000 < Date.now()) {
+                        // JWT đã hết hạn -> clear luôn
+                        localStorage.removeItem('qe_teko_token');
+                    }
+                }
+            } catch(e) {
+                // Token dị dạng -> clear
+                localStorage.removeItem('qe_teko_token');
+            }
+        }
+    })();
     let tekoToken = localStorage.getItem('qe_teko_token') || '';
+    let _gatePollingTimer = null;
+    let _gatePollingCount = 0;
     let scannedSerials = {}; // { [sku]: ['SN1'] }
     let nonSerialQuantities = {}; // { [sku]: number } cho hàng quản lý none
     let nonSerialBins = {};      // { [sku]: { binId, binName, quantity } } BIN đã chọn để lấy hàng
@@ -1130,7 +1341,155 @@
     let serialBinNames = {}; // { [serial]: binName }
     let serialFifoMap = {};  // { [serial]: { pass, rank, diffDays, message } }
 
-    // Audio Feedback
+    // ==========================================
+    // ERP GATE SCREEN FUNCTIONS
+    // ==========================================
+    function showGate(reason) {
+        const gate = document.getElementById('erpGateScreen');
+        if (!gate) return;
+        gate.style.display = 'flex';
+        const statusEl = document.getElementById('gatePollingStatus');
+        if (statusEl) statusEl.textContent = reason || '';
+    }
+
+    function hideGate() {
+        const gate = document.getElementById('erpGateScreen');
+        if (!gate) return;
+        gate.style.display = 'none';
+        if (_gatePollingTimer) { clearInterval(_gatePollingTimer); _gatePollingTimer = null; }
+        _gatePollingCount = 0;
+    }
+
+    function getJwtInfo(token) {
+        if (!token) return null;
+        try {
+            const clean = String(token).replace(/^Bearer\s+/i, '').trim();
+            const parts = clean.split('.');
+            if (parts.length < 2) return null;
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            const expSec = payload.exp ? Number(payload.exp) : null;
+            const isExpired = expSec ? (expSec * 1000 < Date.now()) : false;
+            return {
+                expSec,
+                isExpired,
+                expiresDate: expSec ? new Date(expSec * 1000) : null,
+                email: payload.email || payload.sub || payload.name || '',
+                name: payload.name || ''
+            };
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function startGatePolling() {
+        if (_gatePollingTimer) return;
+        _gatePollingCount = 0;
+        const statusEl = document.getElementById('gatePollingStatus');
+        const btnAuto = document.getElementById('btnModalAutoLogin');
+        const modalStatusEl = document.getElementById('modalSyncStatus');
+
+        if (statusEl) statusEl.textContent = 'Dang cho dong bo token tu ERP...';
+
+        _gatePollingTimer = setInterval(async () => {
+            _gatePollingCount++;
+            if (_gatePollingCount > 150) {
+                clearInterval(_gatePollingTimer); _gatePollingTimer = null;
+                if (statusEl) statusEl.textContent = 'Het gio cho. Thu lai hoac dung Bookmarklet.';
+                const s2t = document.getElementById('step2Icon');
+                const s3t = document.getElementById('step3Icon');
+                const s3TxtT = document.getElementById('step3Txt');
+                if (s2t) s2t.innerHTML = '&#10060;';
+                if (s3t) s3t.innerHTML = '&#10060;';
+                if (s3TxtT) s3TxtT.textContent = 'Het thoi gian!';
+                if (btnAuto) {
+                    btnAuto.disabled = false;
+                    btnAuto.innerHTML = '&#128640; Mo ERP &amp; Ket noi Token';
+                    btnAuto.style.background = '';
+                    btnAuto.style.borderColor = '';
+                    btnAuto.style.opacity = '1';
+                }
+                return;
+            }
+            try {
+                const res = await fetch('/api/quick-export/settings');
+                const data = await res.json();
+                if (data && data.success && data.settings && data.settings.tekoToken) {
+                    const jwt = getJwtInfo(data.settings.tekoToken);
+                    if (jwt && !jwt.isExpired) {
+                        clearInterval(_gatePollingTimer);
+                        _gatePollingTimer = null;
+                        tekoToken = data.settings.tekoToken;
+                        localStorage.setItem('qe_teko_token', tekoToken);
+                        playBeep('success');
+                        const s2ok = document.getElementById('step2Icon');
+                        const s3ok = document.getElementById('step3Icon');
+                        const s3TxtEl = document.getElementById('step3Txt');
+                        if (s2ok) s2ok.innerHTML = '&#9745;';
+                        if (s3ok) s3ok.innerHTML = '&#9745;';
+                        if (s3TxtEl) s3TxtEl.textContent = 'Token da ve server!';
+                        if (statusEl) statusEl.textContent = 'Ket noi ERP thanh cong!';
+                        if (btnAuto) {
+                            btnAuto.innerHTML = 'KET NOI THANH CONG!';
+                            btnAuto.style.background = '#16a34a';
+                        }
+                        if (modalStatusEl) {
+                            modalStatusEl.style.display = 'block';
+                            modalStatusEl.innerHTML = '<div style="background:#dcfce7;color:#166534;font-weight:700;padding:10px 14px;border-radius:8px;text-align:center;">Da nhan Token ERP! Dang vao...</div>';
+                        }
+                        setTimeout(() => {
+                            const cl = document.getElementById('tokenStepChecklist');
+                            if (cl) cl.style.display = 'none';
+                            if (modalStatusEl) modalStatusEl.style.display = 'none';
+                            closeTokenModal();
+                            hideGate();
+                            updateConfigBadges();
+                            addLog('Token ERP da dong bo thanh cong!', 'success');
+                            if (btnAuto) {
+                                btnAuto.disabled = false;
+                                btnAuto.innerHTML = '&#128640; Mo ERP &amp; Tu dong ket noi Token';
+                                btnAuto.style.background = '';
+                                btnAuto.style.opacity = '1';
+                            }
+                        }, 1200);
+                        return;
+                    }
+                }
+                if (_gatePollingCount === 4) {
+                    const s2s = document.getElementById('step2Icon');
+                    if (s2s && s2s.innerHTML.includes('9744')) s2s.innerHTML = '&#9203;';
+                }
+                if (_gatePollingCount % 4 === 0) {
+                    const d = '.'.repeat((_gatePollingCount/4)%4+1);
+                    if (statusEl) statusEl.textContent = 'Dang cho' + d + '...';
+                }
+            } catch (e) {}
+        }, 1500);
+    }
+
+
+    // Gọi khi Teko API trả 401/403 → invalidate token và show gate
+    function handleErpAuthError(msg) {
+        console.warn('[QE] ERP Auth Error:', msg);
+        tekoToken = '';
+        localStorage.removeItem('qe_teko_token');
+        // Xóa token trên server
+        fetch('/api/quick-export/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tekoToken: '', pickingBinName: pickingBin.name, pickingBinId: pickingBin.id })
+        }).catch(() => {});
+        updateConfigBadges();
+        showGate('⚠️ Token ERP đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.');
+    }
+
+    // Wrap fetch calls - detect 401 từ Teko và trigger gate
+    function isErpAuthError(data) {
+        if (!data) return false;
+        const msg = (data.message || data.error || '').toLowerCase();
+        return msg.includes('401') || msg.includes('403') || msg.includes('unauthorized') || msg.includes('unauthenticated') || msg.includes('token') && (msg.includes('invalid') || msg.includes('expired') || msg.includes('hết hạn'));
+    }
+
+    // ==========================================
     function playBeep(type = 'success') {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1199,23 +1558,44 @@
             lblBin.textContent = 'Chưa gán';
         }
 
-        if (tekoToken) {
+        const jwt = getJwtInfo(tekoToken);
+        if (tekoToken && jwt && !jwt.isExpired) {
             dotToken.classList.add('active');
-            lblToken.textContent = 'ERP đã kết nối';
+            dotToken.style.background = '#22c55e';
+            const expTime = jwt.expiresDate ? jwt.expiresDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+            lblToken.innerHTML = `ERP đã kết nối <span style="font-size:11px;font-weight:400;color:#16a34a;">(Hạn: ${expTime})</span>`;
             lblToken.style.color = 'var(--qe-green-primary)';
             lblToken.style.fontWeight = '700';
+        } else if (tekoToken && jwt && jwt.isExpired) {
+            dotToken.classList.remove('active');
+            dotToken.style.background = '#ef4444';
+            lblToken.textContent = '⚠️ Token ERP hết hạn';
+            lblToken.style.color = '#dc2626';
+            lblToken.style.fontWeight = '700';
+            tekoToken = '';
+            localStorage.removeItem('qe_teko_token');
         } else {
             dotToken.classList.remove('active');
+            dotToken.style.background = '#94a3b8';
             lblToken.textContent = 'Chưa kết nối ERP';
             lblToken.style.color = 'var(--qe-red-primary)';
             lblToken.style.fontWeight = '600';
         }
     }
 
+    // --- EXTENSION GUIDE MODAL ---
+    function showExtensionGuide() {
+        document.getElementById('extensionGuideModal').style.display = 'flex';
+    }
+
+    function closeExtensionGuideModal() {
+        document.getElementById('extensionGuideModal').style.display = 'none';
+    }
+
     // --- TOKEN MODAL & BOOKMARKLET ---
     function getBookmarkletCode() {
         const host = window.location.origin;
-        return `javascript:(function(){function f(){try{if(window.TekoID&&window.TekoID.user&&typeof window.TekoID.user.getAccessToken==='function'){var t=window.TekoID.user.getAccessToken();if(t&&t.length>30)return Promise.resolve(t);}}catch(e){}try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);var v=localStorage.getItem(k)||'';if(v.startsWith('eyJ')&&v.length>40)return Promise.resolve(v);try{var p=JSON.parse(v);if(p){var tok=p.access_token||p.accessToken||p.id_token||(p.currentUser&&(p.currentUser.access_token||p.currentUser.accessToken));if(tok&&tok.length>30)return Promise.resolve(tok);}}catch(e){}}}catch(e){}try{for(var j=0;j<sessionStorage.length;j++){var sk=sessionStorage.key(j);var sv=sessionStorage.getItem(sk)||'';if(sv.startsWith('eyJ')&&sv.length>40)return Promise.resolve(sv);try{var sp=JSON.parse(sv);if(sp){var stok=sp.access_token||sp.accessToken||sp.id_token;if(stok&&stok.length>30)return Promise.resolve(stok);}}catch(e){}}}catch(e){}return new Promise(function(res){try{var req=indexedDB.open('ERPAdminLocalDB');req.onsuccess=function(e){try{var db=e.target.result;if(!db||!db.objectStoreNames||!db.objectStoreNames.contains('currentUser')){return res(null);}var tx=db.transaction('currentUser','readonly');var st=tx.objectStore('currentUser');var getReq=st.getAll();getReq.onsuccess=function(ev){var r=ev.target.result;var u=r&&r[0];var tok=u&&(u.accessToken||u.access_token||u.token);res(tok||null);};getReq.onerror=function(){res(null);};}catch(err){res(null);}};req.onerror=function(){res(null);};}catch(err){res(null);}});}f().then(function(tok){if(!tok){alert('❌ Không tìm thấy Token ERP trên trang này!\\n\\n👉 Hãy đăng nhập tại https://erp.phongvu.vn rồi bấm lại bookmark này nhé.');return;}var cl=tok.startsWith('Bearer ')?tok.slice(7).trim():tok.trim();var h='${host}';var cp=false;try{var ta=document.createElement('textarea');ta.value=cl;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();cp=document.execCommand('copy');document.body.removeChild(ta);}catch(e){}if(!cp&&navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(cl).then(function(){cp=true;}).catch(function(){});}try{fetch(h+'/api/quick-export/sync-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:cl}),mode:'no-cors'}).catch(function(){});new Image().src=h+'/api/quick-export/sync-token?token='+encodeURIComponent(cl);}catch(e){}var old=document.getElementById('pv-token-banner');if(old)old.remove();var b=document.createElement('div');b.id='pv-token-banner';b.style.cssText='position:fixed;top:24px;right:24px;z-index:99999999;background:#ffffff;border:2px solid #2563eb;border-radius:12px;padding:16px 20px;box-shadow:0 12px 35px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:380px;color:#0f172a;';b.innerHTML='<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;\"><span style=\"font-weight:800;font-size:14px;color:#1e40af;\">⚡ ĐỒNG BỘ TOKEN ERP</span><button id=\"pv-close-bn\" style=\"border:none;background:none;font-size:18px;cursor:pointer;color:#64748b;\">&times;</button></div><div style=\"background:#dcfce7;border:1px solid #bbf7d0;color:#166534;font-size:12px;padding:8px 10px;border-radius:6px;font-weight:600;margin-bottom:12px;\">'+(cp?'✅ Đã tự động copy Token vào bộ nhớ tạm!':'✅ Đã lấy được mã Token ERP!')+'</div><div style=\"display:flex;gap:8px;\"><button id=\"pv-copy-btn\" style=\"flex:1;background:#2563eb;color:#fff;border:none;padding:9px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;\">📋 Copy Token</button><a href=\"'+h+'/quick-export?token='+encodeURIComponent(cl)+'\" target=\"_blank\" style=\"flex:1.2;background:#10b981;color:#fff;text-decoration:none;padding:9px;border-radius:6px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;\">🚀 Mở Xuất Kho</a></div>';document.body.appendChild(b);document.getElementById('pv-close-bn').onclick=function(){b.remove();};document.getElementById('pv-copy-btn').onclick=function(){if(navigator.clipboard){navigator.clipboard.writeText(cl).then(function(){alert('✅ Đã copy Token ERP vào Clipboard!');});}else{var t2=document.createElement('textarea');t2.value=cl;document.body.appendChild(t2);t2.select();document.execCommand('copy');document.body.removeChild(t2);alert('✅ Đã copy Token ERP vào Clipboard!');}};});})();`.replace(/\s+/g, ' ').trim();
+        return `javascript:(function(){function f(){try{if(window.TekoID&&window.TekoID.user&&typeof window.TekoID.user.getAccessToken==='function'){var t=window.TekoID.user.getAccessToken();if(t&&t.length>30)return Promise.resolve(t);}}catch(e){}try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);var v=localStorage.getItem(k)||'';if(v.startsWith('eyJ')&&v.length>40)return Promise.resolve(v);try{var p=JSON.parse(v);if(p){var tok=p.access_token||p.accessToken||p.id_token||(p.currentUser&&(p.currentUser.access_token||p.currentUser.accessToken));if(tok&&tok.length>30)return Promise.resolve(tok);}}catch(e){}}}catch(e){}try{for(var j=0;j<sessionStorage.length;j++){var sk=sessionStorage.key(j);var sv=sessionStorage.getItem(sk)||'';if(sv.startsWith('eyJ')&&sv.length>40)return Promise.resolve(sv);try{var sp=JSON.parse(sv);if(sp){var stok=sp.access_token||sp.accessToken||sp.id_token;if(stok&&stok.length>30)return Promise.resolve(stok);}}catch(e){}}}catch(e){}return new Promise(function(res){try{var req=indexedDB.open('ERPAdminLocalDB');req.onsuccess=function(e){try{var db=e.target.result;if(!db||!db.objectStoreNames||!db.objectStoreNames.contains('currentUser')){return res(null);}var tx=db.transaction('currentUser','readonly');var st=tx.objectStore('currentUser');var getReq=st.getAll();getReq.onsuccess=function(ev){var r=ev.target.result;var u=r&&r[0];var tok=u&&(u.accessToken||u.access_token||u.token);res(tok||null);};getReq.onerror=function(){res(null);};}catch(err){res(null);}};req.onerror=function(){res(null);};}catch(err){res(null);}});}f().then(function(tok){if(!tok){alert('❌ Không tìm thấy Token ERP trên trang này!\\n\\n👉 Hãy đăng nhập tại https://erp.phongvu.vn rồi bấm lại bookmark này nhé.');return;}var cl=tok.startsWith('Bearer ')?tok.slice(7).trim():tok.trim();var h='${host}';var cp=false;try{var ta=document.createElement('textarea');ta.value=cl;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();cp=document.execCommand('copy');document.body.removeChild(ta);}catch(e){}if(!cp&&navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(cl).then(function(){cp=true;}).catch(function(){});}try{fetch(h+'/api/quick-export/sync-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:cl,userId:'${window.pvUserId||""}',branchCode:'${window.pvBranchCode||""}'}),mode:'no-cors'}).catch(function(){});new Image().src=h+'/api/quick-export/sync-token?token='+encodeURIComponent(cl)+'&userId='+encodeURIComponent('${window.pvUserId||""}')+'&branchCode='+encodeURIComponent('${window.pvBranchCode||""}');}catch(e){}var old=document.getElementById('pv-token-banner');if(old)old.remove();var b=document.createElement('div');b.id='pv-token-banner';b.style.cssText='position:fixed;top:24px;right:24px;z-index:99999999;background:#ffffff;border:2px solid #2563eb;border-radius:12px;padding:16px 20px;box-shadow:0 12px 35px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:380px;color:#0f172a;';b.innerHTML='<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;\"><span style=\"font-weight:800;font-size:14px;color:#1e40af;\">⚡ ĐỒNG BỘ TOKEN ERP</span><button id=\"pv-close-bn\" style=\"border:none;background:none;font-size:18px;cursor:pointer;color:#64748b;\">&times;</button></div><div style=\"background:#dcfce7;border:1px solid #bbf7d0;color:#166534;font-size:12px;padding:8px 10px;border-radius:6px;font-weight:600;margin-bottom:12px;\">'+(cp?'✅ Đã tự động copy Token vào bộ nhớ tạm!':'✅ Đã lấy được mã Token ERP!')+'</div><div style=\"display:flex;gap:8px;\"><button id=\"pv-copy-btn\" style=\"flex:1;background:#2563eb;color:#fff;border:none;padding:9px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;\">📋 Copy Token</button><a href=\"'+h+'/quick-export?token='+encodeURIComponent(cl)+'\" target=\"_blank\" style=\"flex:1.2;background:#10b981;color:#fff;text-decoration:none;padding:9px;border-radius:6px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;\">🚀 Mở Xuất Kho</a></div>';document.body.appendChild(b);document.getElementById('pv-close-bn').onclick=function(){b.remove();};document.getElementById('pv-copy-btn').onclick=function(){if(navigator.clipboard){navigator.clipboard.writeText(cl).then(function(){alert('✅ Đã copy Token ERP vào Clipboard!');});}else{var t2=document.createElement('textarea');t2.value=cl;document.body.appendChild(t2);t2.select();document.execCommand('copy');document.body.removeChild(t2);alert('✅ Đã copy Token ERP vào Clipboard!');}};});})();`.replace(/\s+/g, ' ').trim();
     }
 
     function initBookmarklet() {
@@ -1229,11 +1609,7 @@
         const code = getBookmarkletCode();
         if (navigator.clipboard) {
             navigator.clipboard.writeText(code).then(() => {
-                const lbl = document.getElementById('lblBookmarkCopied');
-                if (lbl) {
-                    lbl.style.display = 'block';
-                    setTimeout(() => { lbl.style.display = 'none'; }, 4000);
-                }
+                alert('✓ Đã copy mã Bookmarklet! Bạn có thể tạo Dấu trang mới trên trình duyệt và dán mã này vào.');
             }).catch(() => {
                 prompt('Mã Bookmarklet (nhấn Ctrl+C để copy):', code);
             });
@@ -1245,10 +1621,36 @@
     function openTokenModal() {
         initBookmarklet();
         document.getElementById('tokenModal').style.display = 'flex';
+
+        // Kiểm tra Extension đã cài hay chưa
+        const hasExt = document.documentElement.dataset.pvExtensionInstalled === 'true' || window.__PV_EXTENSION_INSTALLED__ === true;
+        const banner = document.getElementById('extDetectionBanner');
+        if (banner) {
+            if (hasExt) {
+                banner.style.display = 'flex';
+                banner.style.background = '#dcfce7';
+                banner.style.color = '#15803d';
+                banner.style.border = '1px solid #bbf7d0';
+                banner.innerHTML = '<span>✅</span> Đã phát hiện Extension Phong Vũ Auto Sync! Chỉ cần bấm nút Mở ERP bên dưới là xong.';
+            } else {
+                banner.style.display = 'flex';
+                banner.style.background = '#fffbeb';
+                banner.style.color = '#b45309';
+                banner.style.border = '1px solid #fde68a';
+                banner.innerHTML = '<span>💡</span> <strong>Gợi ý:</strong> Bạn có thể dùng <strong>Bookmarklet (Cách 2)</strong> hoặc <a href="javascript:void(0)" onclick="showExtensionGuide()" style="color:#2563eb;text-decoration:underline;">Cài Extension (1 lần duy nhất)</a> để tự động hoá!';
+            }
+        }
     }
 
     function closeTokenModal() {
         document.getElementById('tokenModal').style.display = 'none';
+        const btn = document.getElementById('btnModalAutoLogin');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '🚀 Mở ERP &amp; Tự động kết nối Token';
+            btn.style.background = '';
+            btn.style.borderColor = '';
+        }
     }
 
     function saveManualToken() {
@@ -1259,11 +1661,183 @@
         fetch('/api/quick-export/sync-token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: t })
+            body: JSON.stringify({ token: t, userId: window.pvUserId || '', branchCode: window.pvBranchCode || '' })
         });
         updateConfigBadges();
         closeTokenModal();
-        addLog('Đã lưu Token và kích hoạt dùng chung thành công!', 'success');
+        hideGate(); // Mở khóa gate screen nếu đang hiển thị
+        addLog('Đã lưu Token cá nhân thành công!', 'success');
+    }
+
+    function openErpTabAuto() {
+        const btn = document.getElementById('btnModalAutoLogin');
+        const checklist = document.getElementById('tokenStepChecklist');
+        const modalStatusEl = document.getElementById('modalSyncStatus');
+
+        // Hiện nút đang xử lý
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle;margin-right:6px;"></span> Đang lắng nghe Token từ ERP...';
+            btn.style.opacity = '0.9';
+        }
+
+        // Hiện checklist
+        if (checklist) {
+            checklist.style.display = 'block';
+        }
+
+        // Step 1: Mở tab ERP
+        const s1 = document.getElementById('step1Icon');
+        const s2 = document.getElementById('step2Icon');
+        const s3 = document.getElementById('step3Icon');
+        const s3Txt = document.getElementById('step3Txt');
+        if (s1) s1.innerHTML = '⏳';
+        if (s2) s2.innerHTML = '&#9744;';
+        if (s3) s3.innerHTML = '&#9744;';
+
+        window.open('https://erp.phongvu.vn', '_blank');
+
+        setTimeout(() => {
+            if (s1) s1.innerHTML = '&#9745;'; // ☑
+            if (s2) s2.innerHTML = '⏳';
+        }, 1000);
+
+        // Sau 3s mark step 2 = "đang chờ extension"
+        setTimeout(() => {
+            if (s3Txt) s3Txt.textContent = 'Bước 3: Server nhận Token - đang chờ...';
+        }, 3000);
+
+        startGatePolling();
+    }
+
+
+    // ==========================================
+    // ADMIN TOKEN MANAGEMENT FUNCTIONS
+    // ==========================================
+    function openAdminTokensModal() {
+        document.getElementById('adminTokensModal').style.display = 'flex';
+        loadAdminTokensList();
+    }
+
+    function closeAdminTokensModal() {
+        document.getElementById('adminTokensModal').style.display = 'none';
+    }
+
+    async function loadAdminTokensList() {
+        const tbody = document.getElementById('tblAdminTokensBody');
+        const countLbl = document.getElementById('lblAdminTokensCount');
+        if (!tbody) return;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">Đang tải danh sách token...</td></tr>`;
+
+        try {
+            const res = await fetch('/api/quick-export/admin/tokens');
+            const data = await res.json();
+            if (!data.success) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #dc2626;">Lỗi: ${data.message}</td></tr>`;
+                return;
+            }
+
+            const tokens = data.tokens || [];
+            if (countLbl) countLbl.textContent = tokens.length;
+
+            if (tokens.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">Chưa có token nào được lưu trong hệ thống.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = tokens.map(t => {
+                const isExpired = t.isExpired;
+                const expDateStr = t.expiresAt ? new Date(t.expiresAt).toLocaleString('vi-VN') : 'Không xác định';
+                const updDateStr = t.updatedAt ? new Date(t.updatedAt).toLocaleString('vi-VN') : '-';
+
+                let typeBadge = '';
+                if (t.type === 'global') {
+                    typeBadge = `<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">HỆ THỐNG</span>`;
+                } else if (t.type === 'branch') {
+                    typeBadge = `<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">CHI NHÁNH</span>`;
+                } else {
+                    typeBadge = `<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">CÁ NHÂN</span>`;
+                }
+
+                const statusBadge = isExpired
+                    ? `<span style="background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">⚠️ ĐÃ HẾT HẠN</span>`
+                    : `<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">✓ CÒN HẠN</span>`;
+
+                return `
+                    <tr>
+                        <td>
+                            <div style="font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                                ${typeBadge}
+                                <span>${t.userName || t.title}</span>
+                            </div>
+                            ${t.userEmail ? `<div style="font-size: 12px; color: #64748b; margin-top: 2px;">${t.userEmail}</div>` : ''}
+                            ${t.jwtSubject ? `<div style="font-size: 11px; color: #94a3b8; font-family: monospace;">ERP Subject: ${t.jwtSubject}</div>` : ''}
+                        </td>
+                        <td style="text-align: center; font-weight: 700; color: #2563eb;">
+                            ${t.branchCode || '-'}
+                        </td>
+                        <td>
+                            <code style="font-size: 11px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #0f172a;">${t.tokenMasked}</code>
+                        </td>
+                        <td style="text-align: center; font-size: 12px;">
+                            ${statusBadge}
+                            <div style="font-size: 11px; color: #64748b; margin-top: 3px;">${expDateStr}</div>
+                        </td>
+                        <td style="text-align: center; font-size: 12px; color: #64748b;">
+                            ${updDateStr}
+                        </td>
+                        <td style="text-align: center;">
+                            <button type="button" 
+                                    class="btn-header-action" 
+                                    style="height: 28px; padding: 0 10px; font-size: 11px; background: #fee2e2; color: #dc2626; border-color: #fca5a5; font-weight: 700;"
+                                    onclick="deleteAdminToken('${t.key}', '${t.userName || t.userEmail || t.title}')">
+                                🗑️ Xoá
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #dc2626;">Lỗi tải dữ liệu: ${err.message}</td></tr>`;
+        }
+    }
+
+    async function deleteAdminToken(key, name) {
+        if (!confirm(`Bạn có chắc chắn muốn xoá Token của [${name}]?\n\nSau khi xoá, người này sẽ bị khóa xuất kho và phải đăng nhập ERP để cấp lại token.`)) return;
+
+        try {
+            const res = await fetch(`/api/quick-export/admin/tokens/${encodeURIComponent(key)}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                loadAdminTokensList();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
+    }
+
+    async function purgeAllAdminTokens() {
+        if (!confirm('CẢNH BÁO NGUY HIỂM:\n\nBạn có chắc chắn muốn XOÁ SẠCH TOÀN BỘ Token ERP trong hệ thống?\n\nTất cả nhân viên ở tất cả các chi nhánh sẽ bị yêu cầu đăng nhập lại ERP từ đầu.')) return;
+
+        try {
+            const res = await fetch('/api/quick-export/admin/tokens/purge-all', {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                loadAdminTokensList();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
     }
 
     // --- CONFIG MODAL ---
@@ -1375,8 +1949,7 @@
         codeInput.value = code;
 
         if (!tekoToken) {
-            alert('Chưa có Token ERP! Vui lòng bấm "Kết nối ERP" ở góc trên.');
-            openTokenModal();
+            showGate('Bạn cần đăng nhập ERP trước khi tra cứu đơn hàng.');
             return;
         }
 
@@ -1392,6 +1965,10 @@
             const data = await res.json();
 
             if (!data.success || !data.data) {
+                if (isErpAuthError(data)) {
+                    handleErpAuthError(data.message || data.error);
+                    return;
+                }
                 throw new Error(data.message || 'Không tìm thấy đơn hàng trên ERP');
             }
 
@@ -1932,8 +2509,13 @@
     }
 
     // --- XÁC NHẬN SOẠN HÀNG HOẶC HOÀN TẤT XUẤT KHO ---
+    let isSubmittingExport = false;
     async function handleConfirmExport(isAutoHandover = true) {
         if (!currentOrder) return;
+        if (isSubmittingExport) {
+            console.warn('[QuickExport] Đang gửi yêu cầu xuất kho, bỏ qua click lặp lại.');
+            return;
+        }
 
         const confirmMsg = isAutoHandover 
             ? `Xác nhận và hoàn tất xuất kho (soạn hàng + bàn giao) cho đơn hàng #${currentOrder.documentId}?`
@@ -1941,6 +2523,7 @@
 
         if (!confirm(confirmMsg)) return;
 
+        isSubmittingExport = true;
         const packingBtn = document.getElementById('btnConfirmPacking');
         const finishBtn = document.getElementById('btnFinishExport');
         if (packingBtn) packingBtn.disabled = true;
@@ -2010,7 +2593,10 @@
             playBeep('success');
             const savedDoc = currentOrder.documentId;
 
-            if (isAutoHandover) {
+            if (data.isAlreadyDone) {
+                addLog(`ℹ️ ${data.message}`, 'info');
+                alert(`ℹ️ Thông báo:\n${data.message}`);
+            } else if (isAutoHandover) {
                 addLog(`🎉 XUẤT KHO HOÀN TẤT THÀNH CÔNG ĐƠN HÀNG #${savedDoc}!`, 'success');
                 alert(`🎉 Chúc mừng!\nĐơn hàng #${savedDoc} đã hoàn tất xuất kho (soạn hàng + bàn giao) thành công trên ERP và tick "Đã xuất" vào bảng FIFO!`);
             } else {
@@ -2026,6 +2612,7 @@
             addLog(`Lỗi xử lý: ${err.message}`, 'error');
             alert(`Lỗi: ${err.message}`);
         } finally {
+            isSubmittingExport = false;
             if (packingBtn) {
                 packingBtn.disabled = false;
                 packingBtn.textContent = '📦 Xác nhận soạn hàng';
@@ -2483,14 +3070,26 @@
 
         updateConfigBadges();
 
-        // Tự động kế thừa Token ERP từ server (chia sẻ toàn chi nhánh)
+        // Tải cài đặt từ server - server là source of truth
         try {
             const res = await fetch('/api/quick-export/settings');
             const data = await res.json();
             if (data && data.success && data.settings) {
-                if (data.settings.tekoToken && !tekoToken) {
-                    tekoToken = data.settings.tekoToken;
-                    localStorage.setItem('qe_teko_token', tekoToken);
+                // Server không có token -> clear localStorage stale
+                if (!data.settings.hasToken || !data.settings.tekoToken) {
+                    tekoToken = '';
+                    localStorage.removeItem('qe_teko_token');
+                } else {
+                    // Server có token -> validate JWT expiry
+                    const jwt = getJwtInfo(data.settings.tekoToken);
+                    if (jwt && !jwt.isExpired) {
+                        tekoToken = data.settings.tekoToken;
+                        localStorage.setItem('qe_teko_token', tekoToken);
+                    } else {
+                        // Token trên server cũng hết hạn -> clear hết
+                        tekoToken = '';
+                        localStorage.removeItem('qe_teko_token');
+                    }
                 }
                 if (data.settings.pickingBinName && !pickingBin.name) {
                     pickingBin.name = data.settings.pickingBinName;
@@ -2501,6 +3100,11 @@
                 updateConfigBadges();
             }
         } catch (e) {}
+
+        // === GATE CHECK: Nếu không có token sau khi load settings → hiện Gate Screen ===
+        if (!tekoToken) {
+            showGate('');
+        }
 
         document.getElementById('txtDocumentId').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {

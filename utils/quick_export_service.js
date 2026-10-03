@@ -34,9 +34,18 @@ async function callTekoBff(endpoint, options = {}) {
 
   const headers = {
     'Authorization': authHeader,
-    'Accept-Language': 'vi',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'vi,en-US;q=0.9,en;q=0.8',
     'Content-Type': 'application/json',
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Origin': 'https://erp.phongvu.vn',
+    'Referer': 'https://erp.phongvu.vn/',
+    'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"macOS"',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'cross-site',
   };
 
   if (siteId) {
