@@ -3134,19 +3134,45 @@
             showGate('');
         }
 
-        document.getElementById('txtDocumentId').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleSearchOrder();
-            }
-        });
+        const docInputEl = document.getElementById('txtDocumentId');
+        if (docInputEl) {
+            docInputEl.addEventListener('paste', function(e) {
+                const text = (e.clipboardData || window.clipboardData)?.getData('text');
+                if (text) {
+                    const clean = text.trim();
+                    this.value = clean;
+                    setTimeout(() => {
+                        handleSearchOrder(clean);
+                    }, 50);
+                }
+            });
+            docInputEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSearchOrder();
+                }
+            });
+        }
 
-        document.getElementById('txtSerialScan').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleScanSerialSubmit();
-            }
-        });
+        const serialInputEl = document.getElementById('txtSerialScan');
+        if (serialInputEl) {
+            serialInputEl.addEventListener('paste', function(e) {
+                const text = (e.clipboardData || window.clipboardData)?.getData('text');
+                if (text) {
+                    const clean = text.trim();
+                    this.value = clean;
+                    setTimeout(() => {
+                        handleScanSerialSubmit();
+                    }, 50);
+                }
+            });
+            serialInputEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleScanSerialSubmit();
+                }
+            });
+        }
     });
 </script>
 

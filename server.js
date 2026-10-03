@@ -14844,6 +14844,7 @@ app.post('/api/quick-export/process-serial', requireAuth, async (req, res) => {
           .eq('SKU', String(targetSku))
           .eq('"Branch ID"', effectiveBranch);
 
+        const todayDate = new Date().toISOString().slice(0, 10);
         const allSerials = (skuItems || []).map(s => s.Serial);
         let checkedSet = new Set();
         if (allSerials.length > 0) {
@@ -14851,6 +14852,8 @@ app.post('/api/quick-export/process-serial', requireAuth, async (req, res) => {
             .from('serial_check_log')
             .select('serial')
             .eq('checked_out', true)
+            .eq('branch_code', effectiveBranch)
+            .eq('check_date', todayDate)
             .in('serial', allSerials);
           checkedSet = new Set((checkedLogs || []).map(l => l.serial));
         }
@@ -14935,7 +14938,8 @@ app.post('/api/quick-export/fifo-recommendation', requireAuth, async (req, res) 
 
     if (error) throw error;
 
-    // 2. Lấy danh sách serial đã xuất trong serial_check_log để loại trừ
+    // 2. Lấy danh sách serial đã xuất trong ngày hôm nay tại chi nhánh này để loại trừ
+    const todayDate = new Date().toISOString().slice(0, 10);
     const allSerials = (rows || []).map(r => r.Serial).filter(Boolean);
     let checkedSet = new Set();
     if (allSerials.length > 0) {
@@ -14943,6 +14947,8 @@ app.post('/api/quick-export/fifo-recommendation', requireAuth, async (req, res) 
         .from('serial_check_log')
         .select('serial')
         .eq('checked_out', true)
+        .eq('branch_code', branch)
+        .eq('check_date', todayDate)
         .in('serial', allSerials);
       checkedSet = new Set((checkedLogs || []).map(l => l.serial));
     }
