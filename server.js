@@ -9135,6 +9135,265 @@ app.post('/api/admin/event-settings/update', requireAuth, requireManager, async 
 
 
 // ============================================================
+// CSKH SUPABASE FALLBACK HANDLERS
+// ============================================================
+async function fallbackWorklistSupabase(req, res, user, queryParams) {
+  try {
+    const page = Math.max(1, parseInt(queryParams.page) || 1);
+    const pageSize = 20;
+    const offset = (page - 1) * pageSize;
+    const { sort, tax, status, month, branch, q, type, emp, excludeGrab, showAssigned } = queryParams;
+
+    const shouldHideGrab = excludeGrab !== 'false';
+    const isFilterAssignedOnly = showAssigned === 'true';
+
+    const isGlobalAdmin = user.branch_code === 'HCM.BD';
+    const isManager = user.role === 'manager' || user.role === 'admin' || isGlobalAdmin;
+    const allowedBranches = typeof getAllowedBranches === 'function' ? getAllowedBranches(user) : null;
+
+    let assignedOrderCodes = [];
+    let assignQuery = supabase.from('customer_assignments').select('order_code');
+    if (emp) assignQuery = assignQuery.eq('assigned_to', emp);
+    else if (!isManager) assignQuery = assignQuery.eq('assigned_to', user.id);
+    const { data: assignData } = await assignQuery;
+    assignedOrderCodes = (assignData || []).map(r => r.order_code);
+
+    if (isFilterAssignedOnly && assignedOrderCodes.length === 0) {
+      return res.json({ ok: true, data: [], page, month: month || 'all', source: 'supabase' });
+    }
+
+    let query = supabase.from('customer_summaries').select('*');
+
+    if (isGlobalAdmin) {
+      if (branch && branch !== 'all') query = query.eq('branch_code', branch);
+    } else if (isManager) {
+      if (branch && branch !== 'all' && allowedBranches && allowedBranches.includes(branch)) {
+        query = query.eq('branch_code', branch);
+      } else if (allowedBranches && allowedBranches.length > 0) {
+        query = query.in('branch_code', allowedBranches);
+      } else if (user.branch_code) {
+        query = query.eq('branch_code', user.branch_code);
+      }
+      if (emp && emp.trim() !== '') {
+        const { data: uData } = await supabase.from('users').select('email').eq('id', emp).single();
+        if (uData?.email) query = query.ilike('sales_email', uData.email);
+      }
+    } else {
+      if (user.email) query = query.ilike('sales_email', user.email);
+    }
+
+    if (isFilterAssignedOnly && assignedOrderCodes.length > 0) {
+      query = query.in('last_order_code', assignedOrderCodes);
+    }
+
+    if (q && q.trim()) {
+      const kw = q.trim();
+      if (type === 'order_code') query = query.ilike('last_order_code', `%${kw}%`);
+      else if (type === 'tax_code') query = query.ilike('tax_code', `%${kw}%`);
+      else query = query.ilike('customer_name', `%${kw}%`);
+    }
+
+    if (shouldHideGrab) query = query.neq('tax_code', '0316032128');
+    if (tax === 'has_tax') query = query.not('tax_code', 'is', null);
+
+    if (sort === 'price_asc') query = query.order('total_revenue', { ascending: true });
+    else if (sort === 'date_desc') query = query.order('last_purchase_date', { ascending: false });
+    else if (sort === 'date_asc') query = query.order('last_purchase_date', { ascending: true });
+    else query = query.order('total_revenue', { ascending: false });
+
+    query = query.range(offset, offset + pageSize - 1);
+
+    let { data: rows, error: qErr } = await query;
+    if (qErr) throw qErr;
+
+    // Fallback if 0 rows returned
+    if ((!rows || rows.length === 0) && !q) {
+      let fallbackQ = supabase.from('customer_summaries').select('*');
+      if (shouldHideGrab) fallbackQ = fallbackQ.neq('tax_code', '0316032128');
+      fallbackQ = fallbackQ.order('total_revenue', { ascending: false }).range(offset, offset + pageSize - 1);
+      const { data: fbRows } = await fallbackQ;
+      if (fbRows && fbRows.length > 0) rows = fbRows;
+    }
+
+    rows = rows || [];
+
+    const allOrderCodes = rows.map(r => r.last_order_code).filter(Boolean);
+    const { data: logs } = allOrderCodes.length > 0
+      ? await supabase.from('customer_care_logs').select('order_code, result, created_at, users!inner(full_name, email)').in('order_code', allOrderCodes).order('created_at', { ascending: true })
+      : { data: [] };
+
+    const { data: assignments } = allOrderCodes.length > 0
+      ? await supabase.from('customer_assignments').select('order_code').in('order_code', allOrderCodes)
+      : { data: [] };
+
+    const assignedSet = new Set((assignments || []).map(a => a.order_code));
+    const logMap = new Map();
+    (logs || []).forEach(l => {
+      if (!logMap.has(l.order_code)) {
+        logMap.set(l.order_code, { ...l, carer_name: l.users?.full_name || l.users?.email || 'N/A' });
+      }
+    });
+
+    const mapped = rows.map(c => {
+      const orderCode = c.last_order_code || ('ORD-' + (c.tax_code || 'KH'));
+      const log = logMap.get(orderCode);
+      const isAssigned = assignedSet.has(orderCode);
+
+      let careStatus = 'uncared';
+      if (log) {
+        if ((log.result || '').toLowerCase().includes('chốt')) careStatus = 'done';
+        else careStatus = 'partial';
+      }
+
+      return {
+        Customer_Name: c.customer_name || 'Khách lẻ',
+        Tax_Code: c.tax_code || '',
+        Order_Count: c.order_count || 1,
+        Total_Revenue: Number(c.total_revenue) || 0,
+        Max_Date: c.last_purchase_date || '',
+        Orders: [
+          {
+            Order_code: orderCode,
+            Report_date: c.last_purchase_date || '',
+            Branch_code: c.branch_code || user.branch_code || '',
+            Sales_Email: c.sales_email || user.email || '',
+            Revenue: Number(c.total_revenue) || 0,
+            Full_Product_Info: '',
+            Quantity: 1,
+            status: log ? 'Đã chăm sóc' : 'Chưa chăm sóc',
+            result: log?.result || '',
+            carer_name: log?.carer_name || '',
+            is_assigned: isAssigned
+          }
+        ],
+        Care_Status: careStatus,
+        is_assigned_group: isAssigned
+      };
+    });
+
+    let filtered = mapped;
+    if (status && status !== 'all') {
+      if (status === 'done') filtered = mapped.filter(c => c.Care_Status === 'done');
+      else if (status === 'caring') filtered = mapped.filter(c => c.Care_Status === 'partial');
+      else if (status === 'uncared') filtered = mapped.filter(c => c.Care_Status === 'uncared');
+    }
+
+    return res.json({ ok: true, data: filtered, page, month: month || 'all', source: 'supabase' });
+
+  } catch (err) {
+    console.error('[Supabase Worklist Fallback Error]', err);
+    return res.json({ ok: true, data: [], page: 1, error: err.message, source: 'supabase_error' });
+  }
+}
+
+async function fallbackCustomerOrdersSupabase(req, res, user, queryParams) {
+  try {
+    const { taxCode, customerName } = queryParams;
+    let query = supabase.from('customer_summaries').select('*');
+    if (taxCode) query = query.eq('tax_code', taxCode);
+    else if (customerName) query = query.eq('customer_name', customerName);
+    const { data: custs } = await query.limit(1);
+
+    const c = custs?.[0] || {};
+    const orderCode = c.last_order_code || ('ORD-' + (taxCode || 'DETAIL'));
+
+    const { data: careLogs } = await supabase
+      .from('customer_care_logs')
+      .select('*, users!inner(full_name, email)')
+      .eq('order_code', orderCode);
+
+    const orders = [
+      {
+        Order_code: orderCode,
+        Report_date: c.last_purchase_date || new Date().toISOString().split('T')[0],
+        Branch_code: c.branch_code || user.branch_code || '',
+        Sales_Email: c.sales_email || user.email || '',
+        Revenue: Number(c.total_revenue) || 0,
+        Full_Product_Info: (careLogs && careLogs.length > 0) ? `Đã có ${careLogs.length} lượt chăm sóc trước đây` : '',
+        Quantity: 1
+      }
+    ];
+
+    return res.json({ ok: true, data: orders, source: 'supabase' });
+  } catch (err) {
+    console.error('[Supabase Customer Orders Fallback Error]', err);
+    return res.json({ ok: true, data: [], source: 'supabase_error' });
+  }
+}
+
+async function fallbackSearchSupabase(req, res, user, queryParams) {
+  try {
+    const { q, type, filterEmail, page } = queryParams;
+    const currentPage = Math.max(1, parseInt(page) || 1);
+    const pageSize = 10;
+    const offset = (currentPage - 1) * pageSize;
+
+    let query = supabase.from('customer_summaries').select('*');
+
+    if (q && q.trim()) {
+      const kw = q.trim();
+      if (type === 'order_code') query = query.ilike('last_order_code', `%${kw}%`);
+      else if (type === 'tax_code') query = query.ilike('tax_code', `%${kw}%`);
+      else query = query.ilike('customer_name', `%${kw}%`);
+    }
+
+    if (filterEmail && filterEmail.trim()) {
+      query = query.ilike('sales_email', filterEmail.trim());
+    }
+
+    query = query.order('total_revenue', { ascending: false }).range(offset, offset + pageSize - 1);
+    const { data: rows, error: qErr } = await query;
+    if (qErr) throw qErr;
+
+    const allOrderCodes = (rows || []).map(r => r.last_order_code).filter(Boolean);
+    const { data: logs } = allOrderCodes.length > 0
+      ? await supabase.from('customer_care_logs').select('order_code, result').in('order_code', allOrderCodes)
+      : { data: [] };
+
+    const logMap = new Map();
+    (logs || []).forEach(l => { if (!logMap.has(l.order_code)) logMap.set(l.order_code, l); });
+
+    const mapped = (rows || []).map(c => {
+      const orderCode = c.last_order_code || ('ORD-' + (c.tax_code || 'KH'));
+      const log = logMap.get(orderCode);
+      let careStatus = 'uncared';
+      if (log) {
+        if ((log.result || '').toLowerCase().includes('chốt')) careStatus = 'done';
+        else careStatus = 'partial';
+      }
+
+      return {
+        Customer_Name: c.customer_name || 'Khách lẻ',
+        Tax_Code: c.tax_code || '',
+        Order_Count: c.order_count || 1,
+        Total_Revenue: Number(c.total_revenue) || 0,
+        Max_Date: c.last_purchase_date || '',
+        Orders: [
+          {
+            Order_code: orderCode,
+            Report_date: c.last_purchase_date || '',
+            Branch_code: c.branch_code || '',
+            Sales_Email: c.sales_email || '',
+            Revenue: Number(c.total_revenue) || 0,
+            SKU: '',
+            Full_Product_Info: '',
+            Quantity: 1,
+            status: log ? 'Đã chăm sóc' : 'Chưa chăm sóc',
+            result: log?.result || ''
+          }
+        ],
+        Care_Status: careStatus
+      };
+    });
+
+    return res.json({ ok: true, data: mapped, page: currentPage, source: 'supabase' });
+  } catch (err) {
+    console.error('[Supabase Search Fallback Error]', err);
+    return res.json({ ok: true, data: [], page: 1, error: err.message, source: 'supabase_error' });
+  }
+}
+
+// ============================================================
 // 1. API WORKLIST (ĐÃ FIX LỖI "GROUP BY AGGREGATION")
 // ============================================================
 
@@ -9151,7 +9410,7 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
     const shouldHideGrab = excludeGrab !== 'false';
     const isFilterAssignedOnly = showAssigned === 'true';
 
-    if (!bigquery) return res.json({ ok: false, error: 'No BigQuery' });
+    if (!bigquery) return await fallbackWorklistSupabase(req, res, user, req.query);
 
     // 1. PHÂN QUYỀN
     const isGlobalAdmin = user.branch_code === 'HCM.BD';
@@ -9414,8 +9673,8 @@ app.get('/api/cskh/worklist', requireAuth, async (req, res) => {
     res.json({ ok: true, data: [], page: page, month: filterMonth });
 
   } catch (e) {
-    console.error('[Worklist Error]', e);
-    res.status(500).json({ ok: false, error: e.message });
+    console.warn('[Worklist Error] Falling back to Supabase:', e.message);
+    return await fallbackWorklistSupabase(req, res, req.session?.user || user, req.query);
   }
 });
 
@@ -9424,7 +9683,7 @@ app.get('/api/cskh/customer-orders', requireAuth, async (req, res) => {
   try {
     const user = req.session.user;
     const { taxCode, customerName, month, branch } = req.query;
-    if (!bigquery) return res.json({ ok: false, error: 'No BigQuery' });
+    if (!bigquery) return await fallbackCustomerOrdersSupabase(req, res, user, req.query);
 
     let whereClause = 'WHERE 1=1';
     const params = {};
@@ -9546,8 +9805,8 @@ app.get('/api/cskh/customer-orders', requireAuth, async (req, res) => {
 
     res.json({ ok: true, data: rows });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: e.message });
+    console.warn('[Customer Orders Error] Falling back to Supabase:', e.message);
+    return await fallbackCustomerOrdersSupabase(req, res, req.session?.user || user, req.query);
   }
 });
 
@@ -9810,7 +10069,7 @@ app.get('/api/cskh/search', requireAuth, async (req, res) => {
     const pageSize = 10;
     const offset = (currentPage - 1) * pageSize;
 
-    if (!bigquery) return res.json({ ok: false, error: 'Chưa kết nối BigQuery' });
+    if (!bigquery) return await fallbackSearchSupabase(req, res, user, req.query);
 
     const isManager = user.role === 'manager' || user.role === 'admin' || user.branch_code === 'HCM.BD';
     const isGlobalAdmin = user.branch_code === 'HCM.BD';
@@ -9930,8 +10189,8 @@ app.get('/api/cskh/search', requireAuth, async (req, res) => {
     res.json({ ok: true, data: rows, page: currentPage });
 
   } catch (e) {
-    console.error('Search Error:', e);
-    res.status(500).json({ ok: false, error: e.message });
+    console.warn('Search Error, falling back to Supabase:', e.message);
+    return await fallbackSearchSupabase(req, res, req.session?.user || user, req.query);
   }
 });
 

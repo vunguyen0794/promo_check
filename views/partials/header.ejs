@@ -347,10 +347,179 @@
             .btn-action-modal:hover {
                 background: #1d4ed8;
             }
+
+            /* GLOBAL TOP PROGRESS BAR */
+            .global-top-progress {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 0%;
+                height: 3px;
+                background: linear-gradient(90deg, #2563eb, #06b6d4, #8b5cf6, #3b82f6);
+                background-size: 200% 100%;
+                z-index: 99999999;
+                box-shadow: 0 0 10px rgba(37, 99, 235, 0.8), 0 0 6px rgba(6, 182, 212, 0.6);
+                transition: width 0.35s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.3s ease;
+                pointer-events: none;
+                opacity: 0;
+            }
+            .global-top-progress.active {
+                opacity: 1;
+                animation: topProgressShimmer 2s linear infinite;
+            }
+            @keyframes topProgressShimmer {
+                0% { background-position: 200% 0; }
+                100% { background-position: -200% 0; }
+            }
+
+            /* GLOBAL PAGE LOADER OVERLAY */
+            .global-page-loader {
+                position: fixed;
+                inset: 0;
+                z-index: 9999999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.25s ease, visibility 0.25s ease;
+                pointer-events: none;
+            }
+            .global-page-loader.active {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+            .loader-backdrop {
+                position: absolute;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.5);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            }
+            .loader-card {
+                position: relative;
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border: 1px solid rgba(255, 255, 255, 0.9);
+                border-radius: 20px;
+                padding: 26px 36px;
+                box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 14px;
+                min-width: 280px;
+                max-width: 90vw;
+                animation: loaderPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            @keyframes loaderPopIn {
+                from { transform: scale(0.92); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+            }
+            .loader-spinner-wrapper {
+                position: relative;
+                width: 60px;
+                height: 60px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .loader-spinner-ring {
+                position: absolute;
+                inset: 0;
+                border-radius: 50%;
+                border: 3px solid transparent;
+            }
+            .loader-spinner-ring.outer {
+                border-top-color: #2563eb;
+                border-right-color: #06b6d4;
+                animation: spinRing 1s linear infinite;
+            }
+            .loader-spinner-ring.inner {
+                inset: 6px;
+                border-bottom-color: #8b5cf6;
+                border-left-color: #3b82f6;
+                animation: spinRingReverse 0.8s linear infinite;
+            }
+            .loader-icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: pulseIcon 1.5s ease-in-out infinite;
+            }
+            @keyframes spinRing {
+                to { transform: rotate(360deg); }
+            }
+            @keyframes spinRingReverse {
+                to { transform: rotate(-360deg); }
+            }
+            @keyframes pulseIcon {
+                0%, 100% { transform: scale(1); opacity: 0.9; }
+                50% { transform: scale(1.12); opacity: 1; }
+            }
+            .loader-text-group {
+                text-align: center;
+            }
+            .loader-title {
+                margin: 0;
+                font-size: 16px;
+                font-weight: 700;
+                color: #0f172a;
+                letter-spacing: -0.01em;
+            }
+            .loader-subtitle {
+                margin: 4px 0 0;
+                font-size: 13px;
+                color: #64748b;
+                font-weight: 500;
+            }
+            .loader-dots {
+                display: flex;
+                gap: 6px;
+            }
+            .loader-dots span {
+                width: 6px;
+                height: 6px;
+                background: #2563eb;
+                border-radius: 50%;
+                animation: dotBounce 1.2s infinite ease-in-out both;
+            }
+            .loader-dots span:nth-child(1) { animation-delay: -0.32s; }
+            .loader-dots span:nth-child(2) { animation-delay: -0.16s; }
+            @keyframes dotBounce {
+                0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+                40% { transform: scale(1); opacity: 1; }
+            }
         </style>
     </head>
 
     <body>
+        <!-- GLOBAL PAGE LOADING EFFECT -->
+        <div id="global-top-progress" class="global-top-progress"></div>
+
+        <div id="global-page-loader" class="global-page-loader" aria-hidden="true">
+            <div class="loader-backdrop"></div>
+            <div class="loader-card">
+                <div class="loader-spinner-wrapper">
+                    <div class="loader-spinner-ring outer"></div>
+                    <div class="loader-spinner-ring inner"></div>
+                    <div class="loader-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="rgba(37,99,235,0.12)"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="loader-text-group">
+                    <h4 class="loader-title" id="globalLoaderTitle">Đang tải dữ liệu...</h4>
+                    <p class="loader-subtitle" id="globalLoaderSubtitle">Vui lòng chờ trong giây lát</p>
+                </div>
+                <div class="loader-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
 
         <div class="sticky-top-bar">
             <header class="header">
@@ -900,6 +1069,132 @@
                     });
                 }
             });
+
+            // ============================================================
+            // GLOBAL PAGE LOADER CONTROLLER
+            // ============================================================
+            (function() {
+                let progressTimer = null;
+                let failsafeTimer = null;
+
+                window.showGlobalPageLoader = function(title, subtitle) {
+                    const loader = document.getElementById('global-page-loader');
+                    const progressBar = document.getElementById('global-top-progress');
+                    const titleEl = document.getElementById('globalLoaderTitle');
+                    const subEl = document.getElementById('globalLoaderSubtitle');
+
+                    if (titleEl && title) titleEl.innerText = title;
+                    if (subEl && subtitle) subEl.innerText = subtitle;
+
+                    if (progressBar) {
+                        progressBar.classList.add('active');
+                        progressBar.style.width = '15%';
+                        clearInterval(progressTimer);
+                        progressTimer = setInterval(() => {
+                            const cur = parseFloat(progressBar.style.width) || 15;
+                            if (cur < 85) {
+                                progressBar.style.width = (cur + Math.random() * 12) + '%';
+                            }
+                        }, 250);
+                    }
+
+                    if (loader) {
+                        loader.classList.add('active');
+                        loader.setAttribute('aria-hidden', 'false');
+                    }
+
+                    clearTimeout(failsafeTimer);
+                    failsafeTimer = setTimeout(() => {
+                        window.hideGlobalPageLoader();
+                    }, 12000);
+                };
+
+                window.hideGlobalPageLoader = function() {
+                    const loader = document.getElementById('global-page-loader');
+                    const progressBar = document.getElementById('global-top-progress');
+                    clearInterval(progressTimer);
+                    clearTimeout(failsafeTimer);
+
+                    if (progressBar) {
+                        progressBar.style.width = '100%';
+                        setTimeout(() => {
+                            progressBar.classList.remove('active');
+                            progressBar.style.opacity = '0';
+                            setTimeout(() => { progressBar.style.width = '0%'; }, 200);
+                        }, 180);
+                    }
+
+                    if (loader) {
+                        loader.classList.remove('active');
+                        loader.setAttribute('aria-hidden', 'true');
+                    }
+                };
+
+                window.addEventListener('pageshow', function() {
+                    window.hideGlobalPageLoader();
+                });
+                window.addEventListener('load', function() {
+                    window.hideGlobalPageLoader();
+                });
+
+                // Tự động chặn các click vào link nội bộ để hiển thị loading mượt mà
+                document.addEventListener('click', function(e) {
+                    const link = e.target.closest('a');
+                    if (!link) return;
+
+                    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+                    if (link.target === '_blank' || link.hasAttribute('download')) return;
+
+                    const href = link.getAttribute('href');
+                    if (!href || href === '#' || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+
+                    if (link.id === 'utilitiesDropdownToggle' || link.id === 'notifToggleBtn' || link.classList.contains('dropdown-item-header') || link.getAttribute('onclick')) return;
+
+                    const isInternal = href.startsWith('/') || href.startsWith(window.location.origin);
+                    if (!isInternal) return;
+
+                    const path = href.split('?')[0].split('#')[0];
+                    const curPath = window.location.pathname;
+                    if (path === curPath && !href.includes('?')) return;
+
+                    let title = 'Đang tải dữ liệu...';
+                    let sub = 'Vui lòng chờ trong giây lát...';
+
+                    if (path === '/' || path === '') {
+                        title = 'Trang chủ';
+                        sub = 'Đang nạp dữ liệu khuyến mãi & tin tức...';
+                    } else if (path.includes('/profile')) {
+                        title = 'Profile cá nhân';
+                        sub = 'Đang nạp thông tin doanh số, KPI & xếp hạng...';
+                    } else if (path.includes('/customer-care')) {
+                        title = 'Chăm sóc khách hàng';
+                        sub = 'Đang nạp danh sách khách hàng & lịch sử chăm sóc...';
+                    } else if (path.includes('/fifo-checking') || path.includes('/fifo')) {
+                        title = 'Kiểm tra tồn kho FIFO';
+                        sub = 'Đang nạp danh sách tồn kho theo chi nhánh...';
+                    } else if (path.includes('/sales-dashboard')) {
+                        title = 'Doanh thu Real-time';
+                        sub = 'Đang tổng hợp số liệu doanh thu từ hệ thống...';
+                    } else if (path.includes('/quick-export')) {
+                        title = 'Xuất kho nhanh';
+                        sub = 'Đang khởi động module xuất kho...';
+                    } else if (path.includes('/quote-builder')) {
+                        title = 'Báo giá nhanh';
+                        sub = 'Đang nạp bảng giá và cấu hình linh kiện...';
+                    } else if (path.includes('/pc-builder')) {
+                        title = 'Build PC';
+                        sub = 'Đang nạp danh mục linh kiện & kiểm tra tương thích...';
+                    } else if (path.includes('/clearance-check')) {
+                        title = 'Hàng thanh lý';
+                        sub = 'Đang nạp danh sách sản phẩm thanh lý...';
+                    } else if (path.includes('/bom-')) {
+                        title = 'BOM PCPV';
+                        sub = 'Đang nạp cấu hình bộ linh kiện...';
+                    }
+
+                    window.showGlobalPageLoader(title, sub);
+                });
+            })();
         </script>
         <main class="main-content">
             <div class="container">
