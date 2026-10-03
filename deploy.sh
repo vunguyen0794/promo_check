@@ -33,4 +33,4 @@ rsync -avz \
 echo "🔄 Reload ứng dụng PM2 trên VPS..."
 ssh "$VPS_USER@$VPS_HOST" "cd $REMOTE_DIR && pm2 reload promo_check"
 
-echo "✅ Deploy thành công 100%! Truy cập: http://$VPS_HOST"
+echo "✅ Deploy thành công 100%! Truy cập: https://webmien.duckdns.org"

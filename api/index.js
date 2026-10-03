@@ -1,6 +1,6 @@
 module.exports = (req, res) => {
-  const targetUrl = `http://222.255.184.49${req.url || '/'}`;
-  res.writeHead(307, {
+  const targetUrl = `https://webmien.duckdns.org${req.url || '/'}`;
+  res.writeHead(301, {
     'Location': targetUrl,
     'Content-Type': 'text/plain; charset=utf-8'
   });

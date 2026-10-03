@@ -3,8 +3,8 @@
   "redirects": [
     {
       "source": "/:path*",
-      "destination": "http://222.255.184.49/:path*",
-      "permanent": false
+      "destination": "https://webmien.duckdns.org/:path*",
+      "permanent": true
     }
   ],
   "rewrites": [
