@@ -5,7 +5,7 @@
  * và đồng bộ về hệ thống Xuất kho nhanh.
  */
 (function() {
-  const DEFAULT_ORIGINS = ['http://localhost:3300', 'http://127.0.0.1:3300', 'http://222.255.184.49'];
+  const DEFAULT_ORIGINS = ['https://webmien.duckdns.org', 'http://webmien.duckdns.org', 'http://localhost:3300', 'http://127.0.0.1:3300', 'http://222.255.184.49'];
   let _lastSyncedToken = '';
   let _isSyncing = false;
 
