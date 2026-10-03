@@ -1529,70 +1529,40 @@
 .promo-sorted-list {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 8px;
 }
 .sorted-promo-row {
     background: #ffffff;
     border: 1px solid var(--uupm-border);
-    border-radius: var(--uupm-radius-lg);
-    padding: 16px 20px;
+    border-radius: 10px;
+    padding: 10px 16px;
     display: grid;
-    grid-template-columns: 36px 44px minmax(260px, 1fr) 130px 220px 84px;
+    grid-template-columns: 38px minmax(260px, 1.2fr) minmax(220px, 1fr) auto;
     align-items: center;
-    gap: 16px;
-    transition: var(--uupm-transition);
+    gap: 14px;
+    transition: all 0.15s ease;
     position: relative;
     box-sizing: border-box;
     width: 100%;
 }
 .sorted-promo-row:hover {
-    border-color: #93c5fd;
-    box-shadow: var(--uupm-shadow-hover);
-    transform: translateY(-2px);
-}
-
-/* Rank Badge */
-.sorted-rank {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: #f1f5f9;
-    color: #475569;
-    font-size: 13px;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    flex-shrink: 0;
-}
-.sorted-rank.top-1 {
-    background: linear-gradient(135deg, #fbbf24, #d97706);
-    color: #ffffff;
-    box-shadow: 0 3px 10px rgba(217, 119, 6, 0.35);
-}
-.sorted-rank.top-2 {
-    background: linear-gradient(135deg, #cbd5e1, #64748b);
-    color: #ffffff;
-    box-shadow: 0 3px 8px rgba(100, 116, 139, 0.3);
-}
-.sorted-rank.top-3 {
-    background: linear-gradient(135deg, #fdba74, #ea580c);
-    color: #ffffff;
-    box-shadow: 0 3px 8px rgba(234, 88, 12, 0.3);
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    background: #fafcff;
 }
 
 /* Brand Icon */
 .sorted-icon-box {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
+    font-size: 18px;
     flex-shrink: 0;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0,0,0,0.04);
 }
 
 /* Title & Description */
@@ -1600,25 +1570,45 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     overflow: hidden;
 }
+.sorted-title-wrap {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin-bottom: 2px;
+}
 .sorted-title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--uupm-text-main);
+    line-height: 1.35;
+    word-break: normal;
+    overflow-wrap: break-word;
+}
+.sorted-mini-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+.sorted-desc {
+    font-size: 12px;
+    color: var(--uupm-text-muted);
     line-height: 1.4;
     word-break: normal;
     overflow-wrap: break-word;
-}
-.sorted-desc {
-    font-size: 12.5px;
-    color: var(--uupm-text-muted);
-    line-height: 1.45;
-    word-break: normal;
-    overflow-wrap: break-word;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -1627,91 +1617,64 @@
     color: #64748b;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    background: #f8fafc;
-    padding: 3px 8px;
-    border-radius: 4px;
-    border: 1px solid #edf2f7;
+    gap: 5px;
     width: fit-content;
+    margin-top: 1px;
 }
 
-/* Discount Badge */
-.sorted-discount-col {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    min-width: 0;
-    flex-shrink: 0;
-}
-.sorted-discount-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #ef4444, #b91c1c);
-    color: #ffffff;
-    font-weight: 800;
-    font-size: 13.5px;
-    padding: 6px 12px;
-    border-radius: var(--uupm-radius-md);
-    letter-spacing: 0.2px;
-    box-shadow: 0 3px 10px rgba(239, 68, 68, 0.2);
-    white-space: nowrap;
-    text-align: center;
-}
-
-/* Compatible Promos Cloud */
+/* Compatible Promos Cloud (Gọn gàng & Hiển thị nhiều hơn) */
 .sorted-compat-col {
-    width: 220px;
-    max-width: 220px;
     min-width: 0;
-    flex-shrink: 0;
-    padding: 0 10px;
+    padding-left: 12px;
     border-left: 1px dashed var(--uupm-border);
-    border-right: 1px dashed var(--uupm-border);
     box-sizing: border-box;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 .sorted-compat-title {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 700;
-    color: #64748b;
+    color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin-bottom: 5px;
+    letter-spacing: 0.4px;
     display: flex;
     align-items: center;
     gap: 4px;
+    margin-bottom: 1px;
 }
 .sorted-compat-icons {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 4px;
-    align-items: flex-start;
+    align-items: center;
     width: 100%;
 }
 .compat-chip-specific {
     font-size: 11px;
     font-weight: 600;
     background: #f8fafc;
-    color: #1e293b;
-    padding: 3px 8px;
-    border-radius: 6px;
+    color: #334155;
+    padding: 2px 7px;
+    border-radius: 4px;
     border: 1px solid #e2e8f0;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    width: 100%;
-    max-width: 100%;
+    gap: 4px;
+    max-width: 140px;
     box-sizing: border-box;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.3;
     transition: all 0.15s ease;
+    cursor: default;
 }
 .compat-chip-specific:hover {
     background: #eff6ff;
     border-color: #bfdbfe;
-    color: #2563eb;
+    color: #1d4ed8;
 }
 .compat-chip-specific span:last-child {
     overflow: hidden;
@@ -1721,80 +1684,62 @@
 .compat-none-tag {
     font-size: 11px;
     color: #94a3b8;
-    font-style: italic;
     background: #f8fafc;
-    padding: 3px 8px;
-    border-radius: 6px;
+    padding: 2px 6px;
+    border-radius: 4px;
     border: 1px dashed #e2e8f0;
     display: inline-block;
 }
 .btn-compat-more {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
     color: #2563eb;
     background: #eff6ff;
     border: 1px solid #bfdbfe;
-    border-radius: 6px;
-    padding: 3px 10px;
+    border-radius: 4px;
+    padding: 2px 7px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     transition: all 0.15s ease;
     white-space: nowrap;
     width: fit-content;
+    line-height: 1.3;
 }
 .btn-compat-more:hover {
     background: #2563eb;
     color: #ffffff;
     border-color: #2563eb;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
-}
-.compat-chip {
-    font-size: 11px;
-    font-weight: 600;
-    background: #f8fafc;
-    color: #334155;
-    padding: 3px 8px;
-    border-radius: var(--uupm-radius-md);
-    border: 1px solid var(--uupm-border);
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    transition: var(--uupm-transition);
-}
-.compat-chip:hover {
-    background: #f1f5f9;
-    border-color: #94a3b8;
 }
 
-/* Action CTA */
+/* Action CTA - Nút chi tiết nhỏ gọn, màu đơn giản */
 .sorted-actions-col {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
 }
 .btn-sorted-detail {
-    font-size: 12px;
-    font-weight: 700;
-    background: var(--uupm-primary);
-    color: #ffffff;
-    padding: 9px 16px;
-    border-radius: var(--uupm-radius-md);
-    border: none;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: #ffffff;
+    color: #475569;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
     cursor: pointer;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    transition: var(--uupm-transition);
+    gap: 4px;
+    transition: all 0.15s ease;
     white-space: nowrap;
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 }
 .btn-sorted-detail:hover {
-    background: var(--uupm-primary-dark);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-    transform: translateX(2px);
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* --- BẢNG MA TRẬN KẾT HỢP (COMPATIBILITY MATRIX 2.0) --- */
@@ -1909,57 +1854,64 @@
     color: #1d4ed8;
     transform: translateY(-1px);
 }
+.matrix-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.matrix-legend-dot.dot-allow { background: #10b981; }
+.matrix-legend-dot.dot-deny { background: #94a3b8; }
+.matrix-legend-dot.dot-self { background: #cbd5e1; }
+
 .matrix-badge-allow {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    background: var(--uupm-success-light);
-    color: var(--uupm-success);
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: var(--uupm-radius-full);
-    border: 1px solid var(--uupm-success-border);
+    gap: 4px;
+    background: #ecfdf5;
+    color: #065f46;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid #a7f3d0;
     font-size: 11px;
-    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.08);
 }
 .matrix-badge-deny {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    background: var(--uupm-danger-light);
-    color: var(--uupm-danger);
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: var(--uupm-radius-full);
-    border: 1px solid var(--uupm-danger-border);
+    gap: 4px;
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
     font-size: 11px;
 }
 .matrix-badge-self {
-    color: #94a3b8;
-    font-weight: 800;
-    font-size: 14px;
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 13px;
 }
 .matrix-btn-view {
     font-size: 11px;
-    font-weight: 700;
-    color: var(--uupm-primary);
-    background: var(--uupm-primary-light);
-    padding: 5px 12px;
-    border-radius: var(--uupm-radius-full);
-    border: 1px solid #bfdbfe;
+    font-weight: 600;
+    color: #475569;
+    background: #ffffff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 3px;
     cursor: pointer;
-    transition: var(--uupm-transition);
+    transition: all 0.15s ease;
 }
 .matrix-btn-view:hover {
-    background: var(--uupm-primary);
-    color: #ffffff;
-    border-color: var(--uupm-primary);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #94a3b8;
 }
 
 /* --- MODAL CHI TIẾT CTKM PRO MAX --- */
@@ -2345,7 +2297,7 @@
                         </div>
                         <div>
                             <h3 class="promo-section-title">
-                                <span>Danh Sách CTKM Áp Dụng (Xếp Giảm Dần)</span>
+                                <span>Danh Sách CTKM</span>
                                 <span class="promo-count-pill">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                                     <%= sortedPromosList.length %> chương trình
@@ -2357,7 +2309,6 @@
 
                 <div class="promo-sorted-list">
                     <% sortedPromosList.forEach((promo, idx) => { 
-                        const rankClass = idx === 0 ? 'top-1' : (idx === 1 ? 'top-2' : (idx === 2 ? 'top-3' : ''));
                         const promoPayload = {
                             name: promo.name || 'Chương trình khuyến mãi',
                             icon: promo.__icon || '🏷️',
@@ -2374,32 +2325,35 @@
                             source: promo.source_sheet || '',
                             compatible_icons: promo.__compatible_icons || [],
                             compatible_specific_promos: promo.__compatible_specific_promos || [],
-                            detail_fields: promo.detail_fields || null
+                            detail_fields: promo.detail_fields || null,
+                            promotion_skus: promo.promotion_skus || [],
+                            applicable_skus: promo.applicable_skus || [],
+                            apply_to_categories: promo.apply_to_categories || [],
+                            apply_to_brands: promo.apply_to_brands || [],
+                            apply_to_subcats: promo.apply_to_subcats || [],
+                            apply_to_all_skus: !!promo.apply_to_all_skus
                         };
                         const encodedPromo = encodeURIComponent(JSON.stringify(promoPayload));
+                        const miniBadgeLabel = promo.__discount_label || (promo.discount_amount_calc > 0 ? `-${new Intl.NumberFormat('vi-VN').format(promo.discount_amount_calc)}đ` : (promo.__category_badge || 'Ưu đãi đặc biệt'));
                     %>
                         <div class="sorted-promo-row">
-                            <!-- Cột 1: Rank Badge -->
-                            <div class="sorted-rank <%= rankClass %>" title="Hạng #<%= idx + 1 %>">
-                                <% if (idx === 0) { %>
-                                    👑
-                                <% } else { %>
-                                    #<%= idx + 1 %>
-                                <% } %>
-                            </div>
-                            
-                            <!-- Cột 2: Icon nhận diện -->
+                            <!-- Cột 1: Icon nhận diện -->
                             <div class="sorted-icon-box" style="background: <%= promo.__icon_bg || '#f1f5f9' %>; color: <%= promo.__icon_color || '#334155' %>;">
                                 <%= promo.__icon || '🏷️' %>
                             </div>
 
-                            <!-- Cột 3: Tên & Mô tả & HSD -->
+                            <!-- Cột 2: Tên, Badge ưu đãi nhỏ, Mô tả & HSD -->
                             <div class="sorted-main-info">
-                                <div class="sorted-title"><%= promo.name %></div>
+                                <div class="sorted-title-wrap">
+                                    <span class="sorted-title"><%= promo.name %></span>
+                                    <% if (miniBadgeLabel) { %>
+                                        <span class="sorted-mini-badge"><%= miniBadgeLabel %></span>
+                                    <% } %>
+                                </div>
                                 <div class="sorted-desc"><%= promo.__short_desc || promo.description || 'Ưu đãi áp dụng khi mua sản phẩm' %></div>
                                 <% if (promo.end_date) { %>
                                     <div class="sorted-dates">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                                         <span>Đến <%= new Date(promo.end_date).toLocaleDateString('vi-VN') %></span>
                                         <% if (promo.source_sheet) { %>
                                             <span style="color: #94a3b8;">•</span>
@@ -2409,23 +2363,16 @@
                                 <% } %>
                             </div>
 
-                            <!-- Cột 4: Mức giảm giá -->
-                            <div class="sorted-discount-col">
-                                <div class="sorted-discount-badge">
-                                    <%= promo.__discount_label || 'Ưu đãi đặc biệt' %>
-                                </div>
-                            </div>
-
-                            <!-- Cột 5: Dùng chung với -->
+                            <!-- Cột 3: Dùng chung với (Gọn gàng, hiển thị nhiều chip) -->
                             <div class="sorted-compat-col">
                                 <div class="sorted-compat-title">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                     <span>Dùng chung với:</span>
                                 </div>
                                 <div class="sorted-compat-icons">
                                     <% 
                                         const specificList = promo.__compatible_specific_promos || [];
-                                        const maxVisible = 2;
+                                        const maxVisible = 3;
                                         const visibleChips = specificList.slice(0, maxVisible);
                                         const remainingCount = specificList.length - maxVisible;
                                     %>
@@ -2460,11 +2407,11 @@
                                 </div>
                             </div>
 
-                            <!-- Cột 6: Nút hành động -->
+                            <!-- Cột 4: Nút hành động nhỏ gọn -->
                             <div class="sorted-actions-col">
                                 <button type="button" class="btn-sorted-detail js-btn-promo-detail" data-promo="<%- encodedPromo %>">
                                     <span>Chi tiết</span>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                                 </button>
                             </div>
                         </div>
@@ -2478,25 +2425,27 @@
             const matrixCells = (typeof compatMatrix !== 'undefined' && compatMatrix) ? (compatMatrix.matrix || compatMatrix.cells || []) : [];
         %>
         <% if (matrixList && matrixList.length > 1) { %>
-            <!-- 2. BẢNG MA TRẬN KẾT HỢP CTKM (CÓ THỂ DÙNG CHUNG) - UI/UX PRO MAX -->
+            <!-- 2. BẢNG MA TRẬN KẾT HỢP - UI/UX PRO MAX -->
             <div class="promo-section-card">
                 <div class="promo-section-header">
                     <div class="promo-section-title-wrap">
-                        <div class="promo-section-icon-badge" style="background: #ecfdf5; color: #059669;">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        <div class="promo-section-icon-badge" style="background: #f1f5f9; color: #475569;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                <line x1="3" y1="9" x2="21" y2="9"/>
+                                <line x1="9" y1="21" x2="9" y2="9"/>
                             </svg>
                         </div>
                         <div>
                             <h3 class="promo-section-title">
-                                <span>Ma Trận Kết Hợp CTKM (Có Thể Dùng Chung)</span>
+                                <span>Ma trận kết hợp</span>
                             </h3>
                         </div>
                     </div>
                     <div class="matrix-legend">
-                        <span><strong style="color: #059669;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Có thể:</strong> Dùng chung được</span>
-                        <span><strong style="color: #dc2626;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Không:</strong> Loại trừ lẫn nhau</span>
-                        <span><strong style="color: #94a3b8;">― :</strong> Cùng chương trình</span>
+                        <span><span class="matrix-legend-dot dot-allow"></span> Có thể dùng chung</span>
+                        <span><span class="matrix-legend-dot dot-deny"></span> Không dùng chung</span>
+                        <span><span class="matrix-legend-dot dot-self"></span> Cùng chương trình</span>
                     </div>
                 </div>
 
@@ -2508,12 +2457,11 @@
                                 <% matrixList.forEach((p, colIdx) => { %>
                                     <th title="<%= p.name %>">
                                         <div class="matrix-th-label">
-                                            <span style="font-size: 16px;"><%= p.icon || p.__icon || '🏷️' %></span>
                                             <span class="matrix-th-name"><%= p.name %></span>
                                         </div>
                                     </th>
                                 <% }) %>
-                                <th style="min-width: 90px;">Xem Chi Tiết</th>
+                                <th style="min-width: 80px;">Xem Chi Tiết</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2534,19 +2482,22 @@
                                     source: rowP.source || rowP.source_sheet || rowP.group || '',
                                     compatible_icons: rowP.__compatible_icons || [],
                                     compatible_specific_promos: rowP.__compatible_specific_promos || [],
-                                    detail_fields: rowP.detail_fields || null
+                                    detail_fields: rowP.detail_fields || null,
+                                    promotion_skus: rowP.promotion_skus || [],
+                                    applicable_skus: rowP.applicable_skus || [],
+                                    apply_to_categories: rowP.apply_to_categories || [],
+                                    apply_to_brands: rowP.apply_to_brands || [],
+                                    apply_to_subcats: rowP.apply_to_subcats || [],
+                                    apply_to_all_skus: !!rowP.apply_to_all_skus
                                 };
                                 const encodedRowPromo = encodeURIComponent(JSON.stringify(rowPayload));
                             %>
                                 <tr>
                                     <td class="col-sticky">
-                                        <div style="display: flex; align-items: center; gap: 10px;">
-                                            <span style="font-size: 18px;"><%= rowP.icon || rowP.__icon || '🏷️' %></span>
-                                            <div>
-                                                <div style="font-weight: 700; color: #1e293b; font-size: 13px; line-height: 1.3;"><%= rowP.name %></div>
-                                                <div style="font-size: 11px; color: #ef4444; font-weight: 700; margin-top: 2px;"><%= rowP.discountLabel || rowP.__discount_label %></div>
-                                            </div>
-                                        </div>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 13px; line-height: 1.35;"><%= rowP.name %></div>
+                                        <% if (rowP.discount_amount_calc > 0) { %>
+                                            <div style="font-size: 11px; color: #dc2626; font-weight: 700; margin-top: 2px;">-<%= new Intl.NumberFormat('vi-VN').format(rowP.discount_amount_calc) %>đ</div>
+                                        <% } %>
                                     </td>
                                     <% matrixList.forEach((colP, colIdx) => { 
                                         const rawCell = (matrixCells[rowIdx] && matrixCells[rowIdx][colIdx]);
@@ -2554,15 +2505,15 @@
                                     %>
                                         <td>
                                             <% if (cellVal === 'self') { %>
-                                                <span class="matrix-badge-self">―</span>
+                                                <span class="matrix-badge-self">—</span>
                                             <% } else if (cellVal === 'allow') { %>
                                                 <span class="matrix-badge-allow" title="Có thể kết hợp cùng">
-                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                                                     Có thể
                                                 </span>
                                             <% } else { %>
                                                 <span class="matrix-badge-deny" title="Không thể kết hợp cùng">
-                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                                     Không
                                                 </span>
                                             <% } %>
@@ -2570,7 +2521,6 @@
                                     <% }) %>
                                     <td>
                                         <button type="button" class="matrix-btn-view js-btn-promo-detail" data-promo="<%- encodedRowPromo %>">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                             <span>Xem</span>
                                         </button>
                                     </td>
@@ -3767,9 +3717,10 @@ function viewPromoDetailQuick(promo) {
     
     // Scope (Phạm vi)
     let scopeStr = 'Sản phẩm chỉ định';
-    if (promo.sku === 'ALL' || promo.sku === 'All' || (promo.name && promo.name.toLowerCase().includes('toàn sàn'))) {
+    const isAll = promo.apply_to_all_skus || promo.sku === 'ALL' || promo.sku === 'All' || (promo.name && promo.name.toLowerCase().includes('toàn sàn'));
+    if (isAll) {
         scopeStr = 'Toàn bộ sản phẩm (Toàn sàn)';
-    } else if (promo.sku === 'NH01') {
+    } else if (promo.sku === 'NH01' || (promo.name && promo.name.toLowerCase().includes('laptop'))) {
         scopeStr = 'Toàn bộ Laptop (NH01/NH05)';
     } else if (promo.category) {
         scopeStr = promo.category;
@@ -3779,6 +3730,98 @@ function viewPromoDetailQuick(promo) {
     // Conditions & Details
     const fullDesc = promo.conditions || promo.special_conditions || promo.short_desc || 'Chưa có thông tin thể lệ chi tiết.';
     document.getElementById('qmDesc').innerText = fullDesc;
+
+    // --- DANH SÁCH SKU & NGÀNH HÀNG ÁP DỤNG ---
+    const scopeSection = document.getElementById('qmScopeDetailsSection');
+    const categoriesBox = document.getElementById('qmCategoriesBox');
+    const categoriesList = document.getElementById('qmCategoriesList');
+    const skusBox = document.getElementById('qmSkusBox');
+    const skusList = document.getElementById('qmSkusList');
+    const allNotice = document.getElementById('qmAllSkusNotice');
+    const countPill = document.getElementById('qmSkuCountPill');
+
+    // 1. Thu thập danh sách SKU
+    const rawSkus = new Set();
+    if (promo.sku && typeof promo.sku === 'string' && !['all', 'all_skus', 'nh01', 'nh05'].includes(promo.sku.toLowerCase())) {
+        promo.sku.split(/[,\s\n\r]+/).map(s => s.trim()).filter(Boolean).forEach(s => rawSkus.add(s));
+    }
+    if (Array.isArray(promo.promotion_skus)) {
+        promo.promotion_skus.forEach(ps => {
+            const val = typeof ps === 'string' ? ps : (ps && ps.sku);
+            if (val) rawSkus.add(String(val).trim());
+        });
+    }
+    if (Array.isArray(promo.applicable_skus)) {
+        promo.applicable_skus.forEach(s => { if (s) rawSkus.add(String(s).trim()); });
+    }
+    if (promo.detail_fields) {
+        if (promo.detail_fields.gift_options) {
+            Object.values(promo.detail_fields.gift_options).forEach(g => {
+                if (Array.isArray(g.skus)) g.skus.forEach(s => { if (s) rawSkus.add(String(s).trim()); });
+            });
+        }
+        if (promo.detail_fields.combos) {
+            Object.values(promo.detail_fields.combos).forEach(c => {
+                if (Array.isArray(c.skus)) c.skus.forEach(s => { if (s) rawSkus.add(String(s).trim()); });
+            });
+        }
+        if (promo.detail_fields.next_order_target_skus) {
+            String(promo.detail_fields.next_order_target_skus).split(/[,\s\n\r]+/).map(s => s.trim()).filter(Boolean).forEach(s => rawSkus.add(s));
+        }
+    }
+
+    // 2. Thu thập ngành hàng / danh mục / thương hiệu
+    const rawCategories = new Set();
+    if (Array.isArray(promo.apply_to_categories)) promo.apply_to_categories.forEach(c => { if (c) rawCategories.add(String(c).trim()); });
+    if (promo.category && !['all', 'all_skus'].includes(promo.category.toLowerCase())) rawCategories.add(String(promo.category).trim());
+    if (promo.subcat) rawCategories.add(String(promo.subcat).trim());
+    if (Array.isArray(promo.apply_to_brands)) promo.apply_to_brands.forEach(b => { if (b) rawCategories.add('Hãng: ' + String(b).trim()); });
+    if (promo.sku === 'NH01') rawCategories.add('Ngành hàng: Laptop (NH01)');
+
+    const skuArray = Array.from(rawSkus);
+    const catArray = Array.from(rawCategories);
+
+    if (scopeSection) {
+        if (isAll || skuArray.length > 0 || catArray.length > 0) {
+            scopeSection.style.display = 'block';
+
+            if (allNotice) {
+                allNotice.style.display = isAll ? 'flex' : 'none';
+            }
+
+            if (categoriesBox && categoriesList) {
+                if (catArray.length > 0) {
+                    categoriesBox.style.display = 'block';
+                    categoriesList.innerHTML = catArray.map(c => `
+                        <span style="font-size: 11px; font-weight: 600; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 2px 8px; border-radius: 4px;">${c}</span>
+                    `).join('');
+                } else {
+                    categoriesBox.style.display = 'none';
+                }
+            }
+
+            if (skusBox && skusList) {
+                if (skuArray.length > 0) {
+                    skusBox.style.display = 'block';
+                    if (countPill) {
+                        countPill.style.display = 'inline-block';
+                        countPill.innerText = `${skuArray.length} SKU`;
+                    }
+                    skusList.innerHTML = skuArray.map(s => `
+                        <a href="/promotion?query=${encodeURIComponent(s)}" target="_blank" title="Xem CTKM cho SKU ${s}" style="font-family: monospace; font-size: 11.5px; font-weight: 700; color: #1e293b; background: #ffffff; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; text-decoration: none; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px;">
+                            <span>${s}</span>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </a>
+                    `).join('');
+                } else {
+                    skusBox.style.display = 'none';
+                    if (countPill) countPill.style.display = 'none';
+                }
+            }
+        } else {
+            scopeSection.style.display = 'none';
+        }
+    }
 
     // Compatible Promos
     const compatBox = document.getElementById('qmCompatList');
@@ -4022,6 +4065,34 @@ function closeAllCompatModal() {
             <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.4px;">📝 Thể lệ chi tiết & Điều kiện vận hành:</div>
             <div id="qmDesc" style="font-size: 13px; color: #334155; line-height: 1.7; white-space: pre-line; background: #f8fafc; padding: 16px 18px; border-radius: 10px; border: 1px solid #e2e8f0; font-family: inherit;">
                 Mô tả chi tiết CTKM
+            </div>
+        </div>
+
+        <!-- Danh sách SKU & Ngành hàng áp dụng -->
+        <div id="qmScopeDetailsSection" style="margin-bottom: 20px; display: none;">
+            <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.4px; display: flex; align-items: center; justify-content: space-between;">
+                <span>📦 Danh sách SKU & Ngành hàng áp dụng:</span>
+                <span id="qmSkuCountPill" style="font-size: 11px; font-weight: 700; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 12px; display: none;">0 SKU</span>
+            </div>
+            <div id="qmScopeDetailsBox" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px;">
+                <!-- Ngành hàng / Danh mục / Thương hiệu -->
+                <div id="qmCategoriesBox" style="display: none; margin-bottom: 12px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">📂 Ngành hàng / Danh mục:</div>
+                    <div id="qmCategoriesList" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+                </div>
+                <!-- Listing SKU -->
+                <div id="qmSkusBox" style="display: none;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
+                        <span>🏷️ Danh sách SKU chỉ định:</span>
+                        <span style="font-size: 10.5px; color: #94a3b8; font-weight: normal;">(Bấm để tra cứu hoặc copy)</span>
+                    </div>
+                    <div id="qmSkusList" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 160px; overflow-y: auto; padding: 2px;"></div>
+                </div>
+                <!-- Toàn sàn thông báo -->
+                <div id="qmAllSkusNotice" style="display: none; font-size: 12.5px; color: #0284c7; font-weight: 600; align-items: center; gap: 6px;">
+                    <span>🌐</span>
+                    <span>Chương trình áp dụng cho <strong>Toàn bộ sản phẩm (Toàn sàn)</strong> thỏa mãn điều kiện đơn hàng.</span>
+                </div>
             </div>
         </div>
 

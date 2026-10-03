@@ -3248,9 +3248,14 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     validSheetPromos.forEach(sp => {
       const key = sp.program_name || sp.sheet_name;
       if (!groupedPromos.has(key)) {
-        groupedPromos.set(key, { ...sp });
+        const item = { ...sp, all_skus: sp.sku ? [sp.sku] : [] };
+        groupedPromos.set(key, item);
       } else {
         const existing = groupedPromos.get(key);
+        if (sp.sku) {
+          if (!existing.all_skus) existing.all_skus = existing.sku ? [existing.sku] : [];
+          if (!existing.all_skus.includes(sp.sku)) existing.all_skus.push(sp.sku);
+        }
         if (!existing.online_coupon && sp.online_coupon) {
           existing.online_coupon = sp.online_coupon;
         }
@@ -3345,6 +3350,10 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
         discount_amount_calc: discount,
         detail_fields: detail_fields,
         show_multiple_in_group: true,
+        sku: sp.sku || '',
+        category: sp.category || '',
+        subcat: sp.subcat || '',
+        applicable_skus: sp.all_skus || (sp.sku ? [sp.sku] : []),
       };
     });
 
@@ -3666,12 +3675,26 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
       iconBg: p.__icon_bg || '#f1f5f9',
       iconColor: p.__icon_color || '#334155',
       categoryBadge: p.__category_badge || 'Khuyến mãi',
-      discountLabel: p.__discount_label || (p.discount_amount_calc > 0 ? `-${new Intl.NumberFormat('vi-VN').format(p.discount_amount_calc)}₫` : 'Ưu đãi'),
+      discountLabel: p.__discount_label || (p.discount_amount_calc > 0 ? `-${new Intl.NumberFormat('vi-VN').format(p.discount_amount_calc)}₫` : ''),
       discount_amount_calc: p.discount_amount_calc || 0,
       detail_link: p.is_sheet_promo ? (p.detail_link || '#') : `/promotion-detail/${p.id}`,
       is_sheet_promo: !!p.is_sheet_promo,
       group: p.group_name || '',
-      type: p.promo_type || ''
+      type: p.promo_type || '',
+      sku: p.sku || '',
+      category: p.category || '',
+      subcat: p.subcat || '',
+      promotion_skus: p.promotion_skus || [],
+      applicable_skus: p.applicable_skus || [],
+      apply_to_categories: p.apply_to_categories || [],
+      apply_to_brands: p.apply_to_brands || [],
+      apply_to_subcats: p.apply_to_subcats || [],
+      apply_to_all_skus: !!p.apply_to_all_skus,
+      detail_fields: p.detail_fields || null,
+      conditions: p.__conditions || p.conditions || p.special_conditions || p.description || '',
+      start_date: p.start_date || '',
+      end_date: p.end_date || '',
+      source: p.source_sheet || p.group_name || ''
     }));
 
     const compatMatrix = {
@@ -3865,7 +3888,16 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
             detail_link: target.__detail_link || target.detail_link || '',
             sku: target.sku || '',
             source_sheet: target.source_sheet || '',
-            compatible_icons: target.__compatible_icons || []
+            compatible_icons: target.__compatible_icons || [],
+            category: target.category || '',
+            subcat: target.subcat || '',
+            promotion_skus: target.promotion_skus || [],
+            applicable_skus: target.applicable_skus || [],
+            apply_to_categories: target.apply_to_categories || [],
+            apply_to_brands: target.apply_to_brands || [],
+            apply_to_subcats: target.apply_to_subcats || [],
+            apply_to_all_skus: !!target.apply_to_all_skus,
+            detail_fields: target.detail_fields || null
           });
         }
       }
