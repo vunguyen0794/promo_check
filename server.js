@@ -1530,6 +1530,7 @@ app.post('/login', async (req, res) => {
     }
 
     // Cập nhật last_seen ngay khi login thành công
+    const nowIso = new Date().toISOString();
     await supabase
       .from('users')
       .update({ last_seen: nowIso })
@@ -1541,10 +1542,11 @@ app.post('/login', async (req, res) => {
     delete req.session.returnTo;
     return res.redirect(redirectTo);
   } catch (error) {
+    console.error('[LOGIN ERROR]:', error);
     res.render('login', {
       title: 'Đăng nhập',
       currentPage: 'login',
-      error: 'Lỗi hệ thống',
+      error: 'Lỗi hệ thống: ' + (error?.message || 'Vui lòng thử lại sau'),
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     });
   }
