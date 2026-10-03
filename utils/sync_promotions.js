@@ -35,19 +35,26 @@ const supabase = new Proxy({}, {
 });
 
 /**
- * Robust parser to extract date range from a string
+ * Robust parser to extract date range from a string.
+ * Supports DD/MM - DD/MM/YYYY, DD.MM - DD.MM.YYYY, typos like 2926 -> 2026,
+ * single-ended deadlines like "đến hết 31.10.2026" or "01/06 đến khi có thông báo mới".
  */
 function parseDateRange(text) {
   if (!text) return { startDate: null, endDate: null };
 
-  // 1. Loại bỏ các chuỗi tiền tệ (3.990K, 4.990.000đ...) và tỷ lệ phần trăm (0.49%...) để tránh match nhầm
-  let clean = String(text)
-    .replace(/\d+([.,]\d+)?\s*(k|triệu|tr|đ|vnđ|vnd)/gi, ' ')
+  let raw = String(text).trim();
+
+  // 1. Loại bỏ các chuỗi tiền tệ (3.990K, 4.990.000đ...), tỷ lệ phần trăm (0.49%...)
+  // Dùng unicode flag để không nuốt chữ cái 'đ' trong 'đến'
+  let clean = raw
+    .replace(/\d+([.,]\d+)?\s*(k|triệu|tr|vnđ|vnd|đồng)\b/giu, ' ')
+    .replace(/\d+([.,]\d+)?\s*đ(?!\p{L})/giu, ' ')
     .replace(/\d+([.,]\d+)?%/g, ' ')
+    .replace(/2926/g, '2026') // Sửa lỗi gõ nhầm năm 2926 thành 2026
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Chuẩn hóa dấu chấm giữa các số ngày tháng thành dấu gạch chéo
+  // Chuẩn hóa dấu chấm giữa các số ngày tháng thành dấu gạch chéo: DD.MM.YYYY hoặc DD.MM
   clean = clean.replace(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/g, (m, d, mo, y) => {
     return y ? `${d}/${mo}/${y}` : `${d}/${mo}`;
   });
@@ -61,7 +68,7 @@ function parseDateRange(text) {
     let y = match[3] ? parseInt(match[3], 10) : 2026;
     if (y < 100) y += 2000;
 
-    // Validate hợp lệ ngày tháng
+    // Validate ngày tháng hợp lệ
     if (d >= 1 && d <= 31 && m >= 1 && m <= 12) {
       matches.push({ day: d, month: m, year: y });
     }
@@ -77,8 +84,17 @@ function parseDateRange(text) {
     const endDate = `${matches[1].year}-${String(matches[1].month).padStart(2, '0')}-${String(matches[1].day).padStart(2, '0')}`;
     return { startDate, endDate };
   } else if (matches.length === 1) {
-    const endDate = `${matches[0].year}-${String(matches[0].month).padStart(2, '0')}-${String(matches[0].day).padStart(2, '0')}`;
-    return { startDate: '2026-01-01', endDate };
+    const isStartOnly = /từ|bắt đầu|kể từ|đến khi|thông báo mới/i.test(raw);
+    const isEndOnly = /đến hết|hạn sử dụng|hsd|kết thúc/i.test(raw);
+    const formatted = `${matches[0].year}-${String(matches[0].month).padStart(2, '0')}-${String(matches[0].day).padStart(2, '0')}`;
+    if (isStartOnly) {
+      return { startDate: formatted, endDate: '2026-12-31' };
+    }
+    if (isEndOnly) {
+      const startMonth = String(matches[0].month).padStart(2, '0');
+      return { startDate: `${matches[0].year}-${startMonth}-01`, endDate: formatted };
+    }
+    return { startDate: '2026-01-01', endDate: formatted };
   }
   return { startDate: null, endDate: null };
 }
@@ -89,7 +105,7 @@ function parseDateRange(text) {
 function isSkuHeaderCell(cell) {
   const val = String(cell || '').trim().toLowerCase();
   if (!val) return false;
-  if (val === 'sku' || val === 'sku id' || val === 'mã sp' || val === 'mã hàng' || val === 'mã sku' || val === 'sku bán') return true;
+  if (val === 'sku' || val === 'sku id' || val === 'mã sp' || val === 'mã hàng' || val === 'mã sku' || val === 'sku bán' || val === 'sku laptop') return true;
   // Bắt các trường hợp như "sku máy in", "sku laptop", "sku mực in", "sku giấy in"
   if (val.startsWith('sku') && !val.includes('quà') && !val.includes('tặng') && !val.includes('gift') && !val.includes('lắp đặt') && !val.includes('áp dụng:')) {
     return true;
@@ -98,7 +114,153 @@ function isSkuHeaderCell(cell) {
 }
 
 /**
- * Main function to sync promotions from Google Sheets
+ * Phân giải quà tặng và coupon tương ứng cho từng dòng Laptop trong sheet "Bộ quà Laptop Q3"
+ */
+function resolveBoQuaGift(segment, brand, sku) {
+  // 1. Các SKU cấu hình đặc biệt Acer Predator (tặng trọn gói 3 - 4 món)
+  if (sku === '251202421') {
+    return {
+      giftSku: '251209873, 240705064, 250909708, 251205715',
+      giftName: 'Bộ 4 món: Chuột Predator Cestus 353 + Balo Predator + Phím Predator Aethon 330 + Màn hình Acer 23.8" Nitro',
+      coupon: 'Giảm 300K cho đơn hàng từ 700K mua phụ kiện/gear',
+      cleanBrand: 'Acer'
+    };
+  }
+  if (sku === '250800203' || sku === '240702562') {
+    return {
+      giftSku: '240705064, 19070073, 250909708',
+      giftName: 'Bộ 3 món: Balo Predator + Tai nghe Predator + Phím Predator Aethon 330',
+      coupon: 'Giảm 300K cho đơn hàng từ 700K mua phụ kiện/gear',
+      cleanBrand: 'Acer'
+    };
+  }
+
+  const b = (brand || '').toLowerCase().trim();
+  const seg = (segment || '').toLowerCase().trim();
+  const isGaming = (seg === 'gaming' || b.includes('gaming')) && !seg.includes('non') && !b.includes('non');
+
+  if (b.includes('asus')) {
+    if (isGaming) {
+      return {
+        giftSku: '251001173',
+        giftName: 'Balo Asus BP1800 ROG BACKPACK',
+        coupon: 'Giảm 300K cho đơn từ 700K mua phụ kiện/gear',
+        cleanBrand: 'Asus'
+      };
+    } else {
+      return {
+        giftSku: '230402215',
+        giftName: 'Túi đeo lưng/ Balo laptop Targus 15.6 TSB883 Black (logo Phong Vũ)',
+        coupon: 'Giảm 300K cho đơn từ 700K mua phụ kiện/gear',
+        cleanBrand: 'Asus'
+      };
+    }
+  }
+
+  if (b.includes('acer')) {
+    if (b.includes('gaming 3') || b.includes('suv')) {
+      return {
+        giftSku: '19070052',
+        giftName: 'Ba lô Acer Gaming SUV (Quà tặng)',
+        coupon: 'Giảm 300K cho đơn từ 700K mua phụ kiện/gear',
+        cleanBrand: 'Acer'
+      };
+    }
+    if (b.includes('gaming 4') || b.includes('predator')) {
+      return {
+        giftSku: '240705064',
+        giftName: 'BALO ACER PBG591/PREDATOR GAMING BACKPACK 15"/17"',
+        coupon: 'Giảm 300K cho đơn từ 700K mua phụ kiện/gear',
+        cleanBrand: 'Acer'
+      };
+    }
+    if (b.includes('non-gaming 1')) {
+      return {
+        giftSku: '1200237',
+        giftName: 'Ba lô Acer (Quà tặng)',
+        coupon: 'Giảm 300K cho đơn từ 700K mua phụ kiện/gear',
+        cleanBrand: 'Acer'
+      };
+    }
+    return {
+      giftSku: '1200237',
+      giftName: 'Ba lô Acer (Quà tặng)',
+      coupon: null,
+      cleanBrand: 'Acer'
+    };
+  }
+
+  if (b.includes('dell')) {
+    return {
+      giftSku: '230402215',
+      giftName: 'Túi đeo lưng/ Balo laptop Targus 15.6 TSB883 Black (logo Phong Vũ)',
+      coupon: null,
+      cleanBrand: 'Dell'
+    };
+  }
+
+  if (b.includes('lenovo')) {
+    if (b.includes('gaming 1')) {
+      return {
+        giftSku: '231003262',
+        giftName: 'Túi đeo lưng/ Balo Ideapad Gaming - Đen',
+        coupon: null,
+        cleanBrand: 'Lenovo'
+      };
+    }
+    if (b.includes('gaming 2') || b.includes('legion')) {
+      return {
+        giftSku: '220609559',
+        giftName: 'Ba lô máy tính Lenovo Legion Active Gaming Backpack',
+        coupon: null,
+        cleanBrand: 'Lenovo'
+      };
+    }
+    return {
+      giftSku: '230402215',
+      giftName: 'Túi đeo lưng/ Balo laptop Targus 15.6 TSB883 Black (logo Phong Vũ)',
+      coupon: null,
+      cleanBrand: 'Lenovo'
+    };
+  }
+
+  if (b.includes('msi')) {
+    return {
+      giftSku: isGaming ? '240804241' : '-',
+      giftName: isGaming ? 'Balo MSI (sẵn trong thùng) + Chuột MSI Gaming M99 Pro Box 20th' : 'Balo MSI (sẵn trong thùng)',
+      coupon: b.includes('seri 5') ? 'Giảm 300K cho đơn từ 700K mua phụ kiện/gear' : null,
+      cleanBrand: 'MSI'
+    };
+  }
+
+  if (b.includes('gigabyte')) {
+    return {
+      giftSku: '250415967',
+      giftName: 'Ba lô Laptop Gigabyte (BALOGGB)',
+      coupon: null,
+      cleanBrand: 'Gigabyte'
+    };
+  }
+
+  if (b.includes('hp')) {
+    return {
+      giftSku: '230402215',
+      giftName: 'Túi đeo lưng/ Balo laptop Targus 15.6 TSB883 Black (logo Phong Vũ)',
+      coupon: 'Giảm 300K cho đơn từ 700K mua phụ kiện/gear',
+      cleanBrand: 'HP'
+    };
+  }
+
+  return {
+    giftSku: '230402215',
+    giftName: 'Balo quà tặng Phong Vũ',
+    coupon: null,
+    cleanBrand: brand || 'All'
+  };
+}
+
+/**
+ * Main function to sync promotions from Google Sheets into Supabase promo_sku_master
  */
 async function syncPromotions() {
   console.log("[Sync CTKM] Bắt đầu kết nối Google Sheets...");
@@ -113,43 +275,18 @@ async function syncPromotions() {
     spreadsheetId: PROMO_SPREADSHEET_ID,
   });
 
-  // Filter only visible sheets
+  // BẢO VỆ CHẶT CHẼ: CHỈ LẤY CÁC SHEET ĐANG HIỂN THỊ (KHÔNG BỊ ẨN)
+  // Loại bỏ các sheet cũ đã bị ẩn đi (như FS Laptop 2/9, Đổi điểm T8...) để tránh link nhảy nhầm tab
   const visibleSheets = meta.data.sheets.filter(s => !s.properties.hidden);
-  console.log(`[Sync CTKM] Tìm thấy ${visibleSheets.length} sheet đang hiển thị.`);
+  console.log(`[Sync CTKM] Tìm thấy ${visibleSheets.length} sheet đang hiển thị (bỏ qua ${meta.data.sheets.length - visibleSheets.length} sheet ẩn).`);
 
-  // 2. Fetch Overview data including cell hyperlinks to map campaign links
-  console.log("[Sync CTKM] Đang lấy bản đồ link vận hành từ sheet Overview...");
-  const overviewResponse = await sheets.spreadsheets.get({
-    spreadsheetId: PROMO_SPREADSHEET_ID,
-    ranges: ['Overview!A1:J150'],
-    includeGridData: true
+  const sheetsToProcess = visibleSheets.filter(s => {
+    const t = s.properties.title;
+    if (t === 'Template' || t === 'Overview') return false;
+    if (/^sheet\d+$/i.test(t)) return false; // Bỏ qua sheet rỗng tạo tự động
+    return true;
   });
 
-  const overviewSheet = overviewResponse.data.sheets[0];
-  const overviewRows = overviewSheet.data[0].rowData || [];
-  const gidLinkMap = new Map();
-
-  overviewRows.forEach(row => {
-    const cells = row.values || [];
-    const campaignName = cells[1]?.formattedValue;
-    const linkCell = cells[7]; // Column H is index 7
-    if (campaignName && linkCell) {
-      let hyperlink = linkCell.hyperlink || (linkCell.userEnteredValue?.formulaValue) || '';
-      if (hyperlink.startsWith('#gid=')) {
-        hyperlink = `https://docs.google.com/spreadsheets/d/${PROMO_SPREADSHEET_ID}/edit${hyperlink}`;
-      }
-      // Extract GID from hyperlink if it's internal
-      const matchGid = hyperlink.match(/gid=(\d+)/);
-      if (matchGid) {
-        const gid = matchGid[1];
-        gidLinkMap.set(gid, hyperlink);
-      }
-    }
-  });
-
-  const allRecords = [];
-
-  const sheetsToProcess = visibleSheets.filter(s => s.properties.title !== 'Template' && s.properties.title !== 'Overview');
   const ranges = sheetsToProcess.map(s => `'${s.properties.title}'!A1:AZ250`);
 
   console.log(`[Sync CTKM] Đang tải ${ranges.length} sheets bằng batchGet...`);
@@ -159,49 +296,231 @@ async function syncPromotions() {
   });
 
   const valueRanges = batchRes.data.valueRanges || [];
+  const allRecords = [];
 
   for (let idx = 0; idx < sheetsToProcess.length; idx++) {
     const sheetObj = sheetsToProcess[idx];
     const title = sheetObj.properties.title;
     const sheetId = String(sheetObj.properties.sheetId);
-    const rows = valueRanges[idx]?.values;
+    const rows = valueRanges[idx]?.values || [];
     
-    if (!rows || rows.length === 0) {
-      console.log(`[Sync CTKM] Sheet "${title}" không có dữ liệu.`);
+    if (rows.length < 3) {
+      console.log(`[Sync CTKM] Bỏ qua sheet rỗng/không đủ dữ liệu: "${title}".`);
       continue;
     }
 
-    const defaultLink = gidLinkMap.get(sheetId) || `https://docs.google.com/spreadsheets/d/${PROMO_SPREADSHEET_ID}/edit#gid=${sheetId}`;
+    // Link trực tiếp đến đúng tab của sheet này
+    const defaultLink = `https://docs.google.com/spreadsheets/d/${PROMO_SPREADSHEET_ID}/edit#gid=${sheetId}`;
     const upperTitle = title.toUpperCase();
 
     // =========================================================================
-    // XỬ LÝ ĐẶC THÙ 1: CHƯƠNG TRÌNH HỌC SINH - SINH VIÊN (HSSV)
+    // XỬ LÝ ĐẶC THÙ 1: BỘ QUÀ LAPTOP (QUÝ 3 / 2026)
+    // Ma trận quà phức tạp gồm 2 block: Block định nghĩa quà (row 16-44) và Block Laptop (row 48+)
+    // =========================================================================
+    if (upperTitle.includes('BỘ QUÀ LAPTOP')) {
+      console.log(`[Sync CTKM] Xử lý ma trận phức tạp BỘ QUÀ LAPTOP: "${title}"...`);
+      const pName = rows[1]?.[1] || "Ưu đãi Bộ quà Laptop đến 3 Triệu Q3'2026";
+      const conditions = [rows[7]?.[1], rows[9]?.[1]].filter(Boolean).join('\n\n') || 'Áp dụng theo danh sách chỉ định.';
+      let countBoQua = 0;
+
+      for (let i = 48; i < rows.length; i++) {
+        const r = rows[i] || [];
+        
+        // 1. Nhánh Non Gaming (Col C=Brand/Group, Col D=SKU, Col E=Name)
+        const s1 = String(r[3] || '').replace(/[,.\s]/g, '');
+        if (/^\d{6,12}$/.test(s1)) {
+          const gift = resolveBoQuaGift('Non Gaming', r[2], s1);
+          allRecords.push({
+            sheet_name: title,
+            program_name: pName,
+            time_range: 'Thời gian: 07.07 - 31.10.2026',
+            start_date: '2026-07-07',
+            end_date: '2026-10-31',
+            apply_channels: 'All channels',
+            conditions,
+            detail_link: defaultLink,
+            sku: s1,
+            category: 'Máy tính xách tay / Laptop',
+            product_name: String(r[4] || '').trim(),
+            brand: gift.cleanBrand,
+            list_price: null,
+            promo_price: null,
+            promo_percent: null,
+            limit_qty: null,
+            online_coupon: gift.coupon,
+            no_gift_price: null,
+            gift_sku: gift.giftSku,
+            gift_name: gift.giftName,
+            kfi_value: null,
+          });
+          countBoQua++;
+        }
+
+        // 2. Nhánh Gaming (Col K=Brand/Group, Col L=SKU, Col M=Name)
+        const s2 = String(r[11] || '').replace(/[,.\s]/g, '');
+        if (/^\d{6,12}$/.test(s2)) {
+          const gift = resolveBoQuaGift('Gaming', r[10], s2);
+          allRecords.push({
+            sheet_name: title,
+            program_name: pName,
+            time_range: 'Thời gian: 07.07 - 31.10.2026',
+            start_date: '2026-07-07',
+            end_date: '2026-10-31',
+            apply_channels: 'All channels',
+            conditions,
+            detail_link: defaultLink,
+            sku: s2,
+            category: 'Máy tính xách tay / Laptop',
+            product_name: String(r[12] || '').trim(),
+            brand: gift.cleanBrand,
+            list_price: null,
+            promo_price: null,
+            promo_percent: null,
+            limit_qty: null,
+            online_coupon: gift.coupon,
+            no_gift_price: null,
+            gift_sku: gift.giftSku,
+            gift_name: gift.giftName,
+            kfi_value: null,
+          });
+          countBoQua++;
+        }
+      }
+
+      console.log(`[Sync CTKM] Đã gắn đúng Quà tặng & Coupon cho ${countBoQua} SKU laptop trong "${title}".`);
+      continue;
+    }
+
+    // =========================================================================
+    // XỬ LÝ ĐẶC THÙ 2: ĐỔI ĐIỂM THI THPT (T10 & T9)
+    // =========================================================================
+    if (upperTitle.includes('ĐỔI ĐIỂM') || upperTitle.includes('ĐIỂM THI')) {
+      const isT10 = upperTitle.includes('T10') || upperTitle.includes('THÁNG 10');
+      const startDate = isT10 ? '2026-10-01' : '2026-09-01';
+      const endDate = isT10 ? '2026-10-31' : '2026-09-30';
+      const pName = isT10 
+        ? 'Đổi điểm thi THPT - Giảm đến 5 Triệu (Tháng 10)' 
+        : 'Đổi điểm thi THPT - Giảm đến 5 Triệu (Tháng 9)';
+      const cond = `* THỂ LỆ & ĐIỀU KIỆN CHƯƠNG TRÌNH ĐỔI ĐIỂM THI THPT 2026:
+- Đối tượng: Tân sinh viên 2K8 tham dự kỳ thi THPT 2026.
+- Mức 5 Triệu & 3 Triệu: Áp dụng cho các SKU laptop chỉ định (Điểm >= 9.0).
+- Mức 2 Triệu & 1 Triệu: Áp dụng cho Laptop Dell, HP, Gigabyte, Asus.
+- Lưu ý: Laptop Acer hết ngân sách từ 5/9, Laptop MSI & Lenovo hết ngân sách từ 28/9.`;
+
+      let countExam = 0;
+      // Trích xuất SKU 5 Tr (col A) và 3 Tr (col H) từ row 68 trở đi
+      for (let i = 68; i < rows.length; i++) {
+        const r = rows[i] || [];
+        const s5 = String(r[0] || '').replace(/[,.\s]/g, '');
+        const n5 = String(r[1] || '').trim();
+        if (/^\d{6,12}$/.test(s5)) {
+          allRecords.push({
+            sheet_name: title,
+            program_name: pName,
+            time_range: `Thời gian: ${startDate} - ${endDate}`,
+            start_date: startDate,
+            end_date: endDate,
+            apply_channels: 'All channels',
+            conditions: cond,
+            detail_link: defaultLink,
+            sku: s5,
+            category: 'Máy tính xách tay / Laptop',
+            product_name: n5 || 'Laptop chỉ định mức 5 Triệu',
+            brand: 'All',
+            list_price: null,
+            promo_price: 5000000,
+            promo_percent: null,
+            limit_qty: '1 voucher/khách hàng',
+            online_coupon: 'Voucher Đổi điểm 5.000.000đ (Điểm >= 9.0)',
+            no_gift_price: null,
+            gift_sku: null,
+            gift_name: null,
+            kfi_value: null,
+          });
+          countExam++;
+        }
+
+        const s3 = String(r[7] || '').replace(/[,.\s]/g, '');
+        const b3 = String(r[5] || '').trim();
+        if (/^\d{6,12}$/.test(s3)) {
+          allRecords.push({
+            sheet_name: title,
+            program_name: pName,
+            time_range: `Thời gian: ${startDate} - ${endDate}`,
+            start_date: startDate,
+            end_date: endDate,
+            apply_channels: 'All channels',
+            conditions: cond,
+            detail_link: defaultLink,
+            sku: s3,
+            category: 'Máy tính xách tay / Laptop',
+            product_name: 'Laptop chỉ định mức 3 Triệu',
+            brand: b3 || 'All',
+            list_price: null,
+            promo_price: 3000000,
+            promo_percent: null,
+            limit_qty: '1 voucher/khách hàng',
+            online_coupon: 'Voucher Đổi điểm 3.000.000đ (Điểm >= 9.0)',
+            no_gift_price: null,
+            gift_sku: null,
+            gift_name: null,
+            kfi_value: null,
+          });
+          countExam++;
+        }
+      }
+
+      // Add general brand records for 1Tr and 2Tr
+      const activeBrands = ['HP', 'Dell', 'Asus', 'Gigabyte'];
+      activeBrands.forEach(b => {
+        allRecords.push({
+          sheet_name: title,
+          program_name: pName,
+          time_range: `Thời gian: ${startDate} - ${endDate}`,
+          start_date: startDate,
+          end_date: endDate,
+          apply_channels: 'All channels',
+          conditions: cond,
+          detail_link: defaultLink,
+          sku: 'NH01',
+          category: 'Máy tính xách tay / Laptop',
+          brand: b,
+          product_name: `Toàn bộ Laptop ${b} | Ưu đãi Đổi điểm thi THPT (1Tr - 2Tr)`,
+          list_price: null,
+          promo_price: 2000000,
+          promo_percent: null,
+          limit_qty: null,
+          online_coupon: 'Voucher Đổi điểm 1Tr - 2Tr',
+          no_gift_price: null,
+          gift_sku: null,
+          gift_name: null,
+          kfi_value: null,
+        });
+        countExam++;
+      });
+
+      console.log(`[Sync CTKM] Đã xử lý ${countExam} dòng Đổi điểm thi cho "${title}" (${startDate} -> ${endDate}).`);
+      continue;
+    }
+
+    // =========================================================================
+    // XỬ LÝ ĐẶC THÙ 3: HSSV
     // =========================================================================
     if (upperTitle.includes('HSSV')) {
       console.log(`[Sync CTKM] Xử lý sheet đặc thù HSSV: "${title}"...`);
-      const hssvConditions = `* THỂ LỆ & ĐIỀU KIỆN CHƯƠNG TRÌNH HSSV QUÝ 3/2026:
-- Đối tượng: Khách hàng là Học sinh, Sinh viên (năm sinh 2005 - 2020 hoặc có thẻ HSSV/giấy trúng tuyển còn hiệu lực).
-- Cách nhận ưu đãi: Xác thực tài khoản HSSV trên App Phong Vũ (sử dụng email .edu hoặc upload CCCD + thẻ HSSV).
-- Hạn mức: Mỗi khách hàng nhận 01 mã ưu đãi/quý.
-- Mức giảm: Giảm thêm đến 500.000đ khi mua Laptop tại Phong Vũ (áp dụng theo bậc giá trên App).
-- Áp dụng cùng: Quà tặng theo máy của hãng, Ưu đãi thanh toán ShopeePay, VNPAY, Mở thẻ tín dụng TPBank/VIB.
-- Không áp dụng cùng: Coupon giảm giá khác, Chương trình Đổi điểm thi THPT.`;
-
-      // Tạo record cho Laptop Windows (NH01) và MacBook (NH05)
       const hssvCats = [
         { sku: 'NH01', name: 'Máy tính xách tay / Laptop' },
         { sku: 'NH05', name: 'Apple Laptop / MacBook' }
       ];
-
       hssvCats.forEach(cat => {
         allRecords.push({
           sheet_name: title,
-          program_name: 'Ưu đãi Học sinh - Sinh viên (HSSV) Quý 3/2026',
-          time_range: 'Thời gian: 12/07/2026 - 30/09/2026',
+          program_name: 'Ưu đãi Học sinh - Sinh viên (HSSV) Quý 3',
+          time_range: 'Thời gian: 12/07/2026 - 04/10/2026',
           start_date: '2026-07-12',
-          end_date: '2026-09-30',
-          apply_channels: 'All channels (Showroom & Online)',
-          conditions: hssvConditions,
+          end_date: '2026-10-04',
+          apply_channels: 'All channels',
+          conditions: 'Ưu đãi dành riêng cho HSSV xác thực qua App Phong Vũ. Giảm thêm đến 500.000đ.',
           detail_link: defaultLink,
           sku: cat.sku,
           category: cat.name,
@@ -222,116 +541,10 @@ async function syncPromotions() {
     }
 
     // =========================================================================
-    // XỬ LÝ ĐẶC THÙ 2: CHƯƠNG TRÌNH ĐỔI ĐIỂM THI THPT 2026
-    // =========================================================================
-    if (upperTitle.includes('ĐỔI ĐIỂM') || upperTitle.includes('ĐIỂM THI')) {
-      console.log(`[Sync CTKM] Xử lý sheet đặc thù Đổi điểm thi: "${title}"...`);
-      const examConditions = `* THỂ LỆ & ĐIỀU KIỆN CHƯƠNG TRÌNH ĐỔI ĐIỂM THI THPT 2026:
-- Đối tượng: Tân sinh viên 2K8 tham dự kỳ thi Tốt nghiệp THPT 2026.
-- Chứng từ cần thiết: Xuất trình bản gốc CCCD và Giấy báo điểm / Phiếu báo dự thi THPT 2026 có điểm số hợp lệ.
-- Thang điểm và mức giảm cụ thể:
-  + Điểm trung bình từ 9.0 - 10.0: Giảm 5.000.000đ (hoặc tặng tai nghe AirPods 4 khi mua MacBook).
-  + Điểm trung bình từ 8.0 - <9.0: Giảm 2.000.000đ.
-  + Điểm trung bình từ 7.0 - <8.0: Giảm 1.500.000đ.
-  + Điểm trung bình từ 6.0 - <7.0: Giảm 1.300.000đ.
-  + Điểm trung bình dưới 6.0: Giảm 1.000.000đ.
-- Áp dụng cùng: Quà tặng mặc định của hãng, Ưu đãi thanh toán ShopeePay, VNPAY, Thẻ ngân hàng.
-- Không áp dụng cùng: Ưu đãi HSSV qua App Phong Vũ, Coupon giảm giá khác.`;
-
-      const examBrands = ['Acer', 'MSI', 'Dell', 'Gigabyte', 'Lenovo', 'HP', 'Asus'];
-      examBrands.forEach(b => {
-        allRecords.push({
-          sheet_name: title,
-          program_name: 'Đổi điểm thi THPT 2026 - Giảm đến 5 Triệu cho Laptop',
-          time_range: 'Thời gian: 01/07/2026 - 31/10/2026',
-          start_date: '2026-07-01',
-          end_date: '2026-10-31',
-          apply_channels: 'All channels (Showroom & Online)',
-          conditions: examConditions,
-          detail_link: defaultLink,
-          sku: 'NH01',
-          category: 'Máy tính xách tay / Laptop',
-          brand: b,
-          product_name: `Laptop ${b} | Ưu đãi Đổi điểm thi THPT 2026`,
-          list_price: null,
-          promo_price: null,
-          promo_percent: null,
-          limit_qty: null,
-          online_coupon: 'Voucher Đổi điểm (1Tr - 5Tr)',
-          no_gift_price: null,
-          gift_sku: null,
-          gift_name: null,
-          kfi_value: null,
-        });
-      });
-
-      // Thêm MacBook cho Đổi điểm thi
-      allRecords.push({
-        sheet_name: title,
-        program_name: 'Đổi điểm thi THPT 2026 - Tặng AirPods 4 hoặc Giảm tiền cho MacBook',
-        time_range: 'Thời gian: 01/07/2026 - 31/10/2026',
-        start_date: '2026-07-01',
-        end_date: '2026-10-31',
-        apply_channels: 'All channels (Showroom & Online)',
-        conditions: examConditions,
-        detail_link: defaultLink,
-        sku: 'NH05',
-        category: 'Apple Laptop / MacBook',
-        brand: 'Apple',
-        product_name: 'MacBook | Ưu đãi Đổi điểm thi THPT 2026',
-        list_price: null,
-        promo_price: null,
-        promo_percent: null,
-        limit_qty: null,
-        online_coupon: 'Tặng AirPods 4 hoặc Voucher 3Tr-5Tr',
-        no_gift_price: null,
-        gift_sku: null,
-        gift_name: null,
-        kfi_value: null,
-      });
-
-      continue;
-    }
-
-    // =========================================================================
-    // XỬ LÝ ĐẶC THÙ 3: COMBO THẺ NHỚ / USB
-    // =========================================================================
-    if (upperTitle.includes('THẺ NHỚ') || upperTitle.includes('USB')) {
-      console.log(`[Sync CTKM] Xử lý sheet đặc thù Thẻ nhớ/USB: "${title}"...`);
-      const usbCats = ['NH11-01-01-01', 'NH11-01-01-02'];
-      usbCats.forEach(c => {
-        allRecords.push({
-          sheet_name: title,
-          program_name: 'Combo Thẻ nhớ & USB - Mua càng nhiều, Giảm càng sâu',
-          time_range: 'Thời gian: 01/07/2026 - 30/09/2026',
-          start_date: '2026-07-01',
-          end_date: '2026-09-30',
-          apply_channels: 'All channels',
-          conditions: 'Ưu đãi giảm giá khi mua combo từ 2 sản phẩm USB/Thẻ nhớ bất kỳ:\n- Mua 2 món: Giảm 10.000đ\n- Mua 3 món: Giảm 20.000đ\n- Mua 4 món: Giảm 30.000đ\n- Mua 5 món trở lên: Giảm 40.000đ\nÁp dụng đồng thời cùng VNPAY, ShopeePay.',
-          detail_link: defaultLink,
-          sku: c,
-          category: 'Thiết bị lưu trữ / USB & Thẻ nhớ',
-          product_name: 'USB & Thẻ nhớ theo danh mục',
-          brand: 'All',
-          list_price: null,
-          promo_price: null,
-          promo_percent: null,
-          limit_qty: null,
-          online_coupon: 'Giảm 10K - 40K khi mua combo',
-          no_gift_price: null,
-          gift_sku: null,
-          gift_name: null,
-          kfi_value: null,
-        });
-      });
-      continue;
-    }
-
-    // =========================================================================
-    // Step A: Tìm các dòng Header SKU trong sheet thông thường
+    // TÌM HEADER & DATE TRONG SHEET THƯỜNG
     // =========================================================================
     const headerPositions = [];
-    for (let i = 0; i < rows.length; i++) {
+    for (let i = 0; i < Math.min(rows.length, 35); i++) {
       const row = rows[i] || [];
       const hasSku = row.some(isSkuHeaderCell);
       if (hasSku) {
@@ -342,66 +555,51 @@ async function syncPromotions() {
         const val = String(cell || '').trim().toLowerCase();
         return val === 'product name' || val === 'category' || val === 'ngành hàng' || val === 'cat' || val === 'ngành';
       });
-      if (hasCatName) {
-        const nonValCount = row.filter(Boolean).length;
-        if (nonValCount >= 2) {
-          headerPositions.push({ idx: i, type: 'cat' });
+      if (hasCatName && row.filter(Boolean).length >= 2) {
+        headerPositions.push({ idx: i, type: 'cat' });
+      }
+    }
+
+    // NÂNG CẤP ĐẶC BIỆT: VÒNG LẶP QUÉT NGÀY CHUẨN XÁC, KHÔNG BAO GIỜ BREAK SỚM KHI NGÀY NULL
+    let startDate = null;
+    let endDate = null;
+    let timeRangeText = '';
+    const maxDateSearchRow = headerPositions.length > 0 ? headerPositions[0].idx : Math.min(rows.length, 25);
+    for (let i = 0; i < maxDateSearchRow; i++) {
+      const row = rows[i] || [];
+      const rowText = row.filter(Boolean).join(' ');
+      if (!rowText) continue;
+
+      if (/thời gian|hiệu lực|áp dụng|timeline|từ ngày|hạn|hsd|đến hết/i.test(rowText) || /\d{1,2}[./]\d{1,2}/.test(rowText)) {
+        const parsed = parseDateRange(rowText);
+        if (parsed.startDate && parsed.endDate) {
+          startDate = parsed.startDate;
+          endDate = parsed.endDate;
+          timeRangeText = rowText;
+          break; // Chỉ break khi THỰC SỰ tìm thấy ngày hợp lệ!
         }
       }
     }
 
+    if (!startDate || !endDate) {
+      startDate = '2026-01-01';
+      endDate = '2026-12-31';
+    }
+
+    let programName = title;
+    if (rows[1]) {
+      const nameCell = rows[1].find(c => String(c || '').trim().length > 3 && !/thời gian|kênh|lưu ý/i.test(String(c)));
+      if (nameCell) programName = String(nameCell).trim();
+    }
+
     // =========================================================================
-    // NẾU KHÔNG CÓ HEADER SKU: KIỂM TRA XEM CÓ PHẢI ƯU ĐÃI TOÀN SÀN THỰC SỰ KHÔNG
+    // SHEET TOÀN SÀN / THANH TOÁN (SKU=ALL)
     // =========================================================================
     if (headerPositions.length === 0) {
-      // CHỈ CHO PHÉP CÁC CHƯƠNG TRÌNH THANH TOÁN / NGÂN HÀNG / APP / VỆ SINH ĐƯỢC GÁN SKU=ALL
       const isUniversalSheet = /shopeepay|vnpay|tpbank|vib|payoo|homecredit|shinhan|mở thẻ|loyalty|app quý|vệ sinh miễn phí/i.test(title);
-      
       if (isUniversalSheet) {
-        console.log(`[Sync CTKM] Phát hiện sheet ưu đãi TOÀN SÀN / THANH TOÁN: "${title}". Tiến hành bóc tách toàn sàn (SKU=ALL)...`);
-        
-        let startDate = null;
-        let endDate = null;
-        let timeRangeText = '';
-        for (let i = 0; i < Math.min(rows.length, 12); i++) {
-          const rowText = (rows[i] || []).join(' ');
-          if (/thời gian|hiệu lực|áp dụng/i.test(rowText)) {
-            const cellWithDate = rows[i].find(c => /thời gian|hiệu lực|áp dụng/i.test(String(c)));
-            if (cellWithDate) {
-              timeRangeText = String(cellWithDate).trim();
-              const parsed = parseDateRange(timeRangeText);
-              startDate = parsed.startDate;
-              endDate = parsed.endDate;
-              if (startDate && endDate) break;
-            }
-          }
-        }
-        if (!startDate || !endDate) {
-          startDate = '2026-01-01';
-          endDate = '2026-12-31';
-        }
-
-        let programName = title;
-        if (rows[1] && rows[1].filter(Boolean).length > 0) {
-          const nameCell = rows[1].find(c => String(c || '').trim().length > 3);
-          if (nameCell) programName = String(nameCell).trim();
-        }
-
-        let conditions = [];
         let couponInfo = '';
         let percentVal = null;
-
-        rows.slice(0, 25).forEach(r => {
-          const rowStr = (r || []).filter(Boolean).join(' | ');
-          if (/điều kiện|lưu ý|hình thức|nội dung|áp dụng|scheme/i.test(rowStr)) {
-            conditions.push(rowStr);
-          }
-          if (/giảm\s*(\d+)%/i.test(rowStr)) {
-            const m = rowStr.match(/giảm\s*(\d+)%/i);
-            if (m && !percentVal) percentVal = parseInt(m[1], 10);
-          }
-        });
-
         const lowerTitle = title.toLowerCase();
         if (lowerTitle.includes('shopeepay')) {
           couponInfo = 'Giảm 5% tối đa 500.000đ khi quét QR ShopeePay/SPayLater';
@@ -423,8 +621,6 @@ async function syncPromotions() {
           couponInfo = 'Miễn phí 100% dịch vụ vệ sinh Laptop / PC tại showroom';
         }
 
-        const fullConditions = conditions.join('\n\n') || 'Áp dụng cho toàn bộ sản phẩm kinh doanh tại Phong Vũ theo thể lệ chương trình.';
-
         allRecords.push({
           sheet_name: title,
           program_name: programName,
@@ -432,7 +628,7 @@ async function syncPromotions() {
           start_date: startDate,
           end_date: endDate,
           apply_channels: 'All channels',
-          conditions: fullConditions,
+          conditions: 'Áp dụng cho toàn bộ sản phẩm kinh doanh tại Phong Vũ theo thể lệ chương trình.',
           detail_link: defaultLink,
           sku: 'ALL',
           category: 'Ưu đãi thanh toán & Toàn sàn',
@@ -448,65 +644,22 @@ async function syncPromotions() {
           gift_name: null,
           kfi_value: null,
         });
-
-        console.log(`[Sync CTKM] Đã tạo record toàn sàn (SKU=ALL) cho sheet "${title}".`);
+        console.log(`[Sync CTKM] Đã tạo record toàn sàn (SKU=ALL) cho "${title}" (${startDate} -> ${endDate}).`);
         continue;
       }
-
-      console.log(`[Sync CTKM] Bỏ qua sheet không có SKU và không phải toàn sàn: "${title}".`);
       continue;
     }
 
     // =========================================================================
-    // BÓC TÁCH SHEET CÓ DỮ LIỆU SKU THEO TỪNG KHỐI HEADER
+    // SHEET CÓ HEADER SKU BÌNH THƯỜNG
     // =========================================================================
-    let countRows = 0;
+    let countSheetRows = 0;
     for (let hIdx = 0; hIdx < headerPositions.length; hIdx++) {
       const headerPos = headerPositions[hIdx];
       const headerIdx = headerPos.idx;
       const nextHeaderIdx = headerPositions[hIdx + 1] ? headerPositions[hIdx + 1].idx : rows.length;
       const headerRow = rows[headerIdx];
 
-      // Tìm ngày bắt đầu và kết thúc từ các dòng phía trên header
-      let startDate = null;
-      let endDate = null;
-      let timeRangeText = '';
-      for (let i = 0; i < headerIdx; i++) {
-        const rowText = (rows[i] || []).join(' ');
-        if (/thời gian|hiệu lực|áp dụng/i.test(rowText)) {
-          const cellWithDate = rows[i].find(c => /thời gian|hiệu lực|áp dụng/i.test(String(c)));
-          if (cellWithDate) {
-            timeRangeText = String(cellWithDate).trim();
-            const parsed = parseDateRange(timeRangeText);
-            startDate = parsed.startDate;
-            endDate = parsed.endDate;
-            break;
-          }
-        }
-      }
-      if (!startDate || !endDate) {
-        startDate = '2026-01-01';
-        endDate = '2026-12-31';
-      }
-
-      let programName = title;
-      if (rows[1]) {
-        const row2Cells = rows[1].filter(Boolean);
-        if (row2Cells.length > 0 && !row2Cells[0].includes('Thời gian') && !row2Cells[0].includes('Kênh')) {
-          programName = String(row2Cells[0]).trim();
-        }
-      }
-
-      let conditions = '';
-      for (let i = 0; i < headerIdx; i++) {
-        const rowText = (rows[i] || []).join(' ');
-        if (rowText.includes('Điều kiện') || rowText.includes('Nội dung')) {
-          conditions = rows[i].filter(Boolean).join('\n');
-          break;
-        }
-      }
-
-      // Tìm tất cả các cột SKU trong headerRow
       const skuIndexes = [];
       headerRow.forEach((cell, cIdx) => {
         if (isSkuHeaderCell(cell)) {
@@ -519,29 +672,19 @@ async function syncPromotions() {
         }
       });
 
-      // Xây dựng column map cho từng cột SKU
       const colMaps = [];
       skuIndexes.forEach((skuColIdx, sIdx) => {
         const nextSkuColIdx = skuIndexes[sIdx + 1];
-        const colMap = { sku: skuColIdx };
         const endIdx = nextSkuColIdx || headerRow.length;
+        const colMap = { sku: skuColIdx, programName };
 
-        // Xác định tên chương trình cho cột này nếu có
-        let colProgramName = programName;
-        for (let col = skuColIdx; col >= 0; col--) {
-          const valRow2 = rows[1] ? String(rows[1][col] || '').trim() : '';
-          const valRow3 = rows[2] ? String(rows[2][col] || '').trim() : '';
-          const checkVal = (v) => {
-            if (!v) return null;
-            if (v.includes('Thời gian') || v.includes('Kênh') || v.includes('Lưu ý') || v.includes('Điều kiện')) return null;
-            return v;
-          };
-          const t3 = checkVal(valRow3);
-          const t2 = checkVal(valRow2);
-          if (t3) { colProgramName = t3; break; }
-          if (t2) { colProgramName = t2; break; }
+        // Kiểm tra xem cột trước đó có phải là Brand không (như Brand ở cột C, SKU ở cột D)
+        if (skuColIdx > 0) {
+          const prevVal = String(headerRow[skuColIdx - 1] || '').trim().toLowerCase();
+          if (prevVal.includes('brand') || prevVal.includes('hãng') || prevVal.includes('thương hiệu')) {
+            colMap.brand = skuColIdx - 1;
+          }
         }
-        colMap.programName = colProgramName;
 
         for (let c = skuColIdx + 1; c < endIdx; c++) {
           const cell = headerRow[c];
@@ -550,48 +693,43 @@ async function syncPromotions() {
 
           if (val.includes('category') || val.includes('ngành hàng') || val.includes('nhóm hàng') || val === 'cat' || val === 'ngành') {
             colMap.category = c;
-          } else if (val.includes('name') || val === 'tên' || val === 'sản phẩm' || val.includes('tên sản phẩm')) {
+          } else if (val.includes('name') || val === 'tên' || val === 'sản phẩm' || val.includes('tên sản phẩm') || val === 'model') {
             colMap.name = c;
           } else if (val.includes('brand') || val.includes('hãng') || val.includes('thương hiệu')) {
             colMap.brand = c;
           } else if (val.includes('ny') || val.includes('niêm yết') || val.includes('bán lẻ') || val === 'list price') {
             colMap.list_price = c;
-          } else if (val.includes('giá km') || val.includes('khuyến mãi') || val === 'km' || val === 'giá') {
+          } else if (val.includes('giá km') || val.includes('khuyến mãi') || val.includes('flash sale') || val === 'km' || val === 'giá') {
             colMap.promo_price = c;
-          } else if (val.includes('%') || val.includes('%km')) {
+          } else if (val.includes('%') || val.includes('%discount') || val.includes('%km')) {
             colMap.promo_percent = c;
           } else if (val.includes('giới hạn') || val.includes('số lượng') || val.includes('limit') || val.includes('qty')) {
             colMap.limit_qty = c;
           } else if (val.includes('online') || val.includes('coupon') || val.includes('mã') || val.includes('giảm thêm')) {
             colMap.online_coupon = c;
-          } else if (val.includes('không lấy quà') || val.includes('no gift') || val.includes('promotion price')) {
+          } else if (val.includes('không lấy quà') || val.includes('no gift')) {
             colMap.no_gift_price = c;
           } else if (val.includes('sku quà') || val.includes('mã quà') || val.includes('sku tặng')) {
             colMap.gift_sku = c;
           } else if ((val.includes('quà') || val.includes('tặng')) && !val.includes('sku')) {
             colMap.gift_name = c;
-          } else if (val.startsWith('kfi')) {
+          } else if (val.startsWith('kfi') || val === 'end user') {
             colMap.kfi_value = c;
           }
         }
         colMaps.push(colMap);
       });
 
-      // Duyệt qua các dòng dữ liệu bên dưới header
       for (let j = headerIdx + 1; j < nextHeaderIdx; j++) {
         const r = rows[j];
-        if (!r || r.length === 0) continue;
-        if (r.filter(Boolean).length === 0) continue;
+        if (!r || r.length === 0 || r.filter(Boolean).length === 0) continue;
 
         for (const colMap of colMaps) {
-          let skuRaw = String(r[colMap.sku] || '').trim();
-          if (!skuRaw || skuRaw === '' || skuRaw === '-' || skuRaw.toLowerCase() === 'sku' || skuRaw.toLowerCase() === 'tên') continue;
+          const skuRaw = String(r[colMap.sku] || '').trim();
+          if (!skuRaw || skuRaw === '-' || skuRaw.toLowerCase() === 'sku' || skuRaw.toLowerCase() === 'tên') continue;
 
-          // Xử lý nếu SKU là số chứa dấu phẩy
           let sku = skuRaw.replace(/[,.\s]/g, '');
           if (!/^\d+$/.test(sku) && !/^NH\d+/i.test(skuRaw)) {
-            // Không phải SKU chuẩn dạng số hoặc mã ngành
-            // Nếu là mã ngành NH...
             const matchSubcat = skuRaw.match(/^(NH\d+-\d+(?:-\d+)?)/i);
             if (matchSubcat) {
               sku = matchSubcat[1].toUpperCase();
@@ -602,15 +740,13 @@ async function syncPromotions() {
 
           const parseMoney = (val) => {
             if (!val) return null;
-            const numStr = String(val).replace(/[^0-9.-]/g, '');
-            const num = parseFloat(numStr);
+            const num = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
             return isNaN(num) ? null : num;
           };
 
           const parsePercent = (val) => {
             if (!val) return null;
-            const numStr = String(val).replace(/[^0-9.-]/g, '');
-            const num = parseFloat(numStr);
+            const num = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
             return isNaN(num) ? null : num;
           };
 
@@ -621,7 +757,7 @@ async function syncPromotions() {
             start_date: startDate,
             end_date: endDate,
             apply_channels: 'All channels',
-            conditions: conditions || 'Áp dụng theo danh sách sản phẩm chỉ định.',
+            conditions: 'Áp dụng theo danh sách sản phẩm chỉ định.',
             detail_link: defaultLink,
             sku: sku,
             category: colMap.category !== undefined ? String(r[colMap.category] || '').trim() : null,
@@ -637,13 +773,11 @@ async function syncPromotions() {
             gift_name: colMap.gift_name !== undefined ? String(r[colMap.gift_name] || '').trim() : null,
             kfi_value: colMap.kfi_value !== undefined ? parseMoney(r[colMap.kfi_value]) : null,
           });
-
-          countRows++;
+          countSheetRows++;
         }
       }
     }
-
-    console.log(`[Sync CTKM] Đã bóc tách được ${countRows} sản phẩm từ sheet "${title}".`);
+    console.log(`[Sync CTKM] Đã bóc tách được ${countSheetRows} sản phẩm từ sheet "${title}".`);
   }
 
   // 4. Update Database Supabase
@@ -671,4 +805,4 @@ async function syncPromotions() {
   }
 }
 
-module.exports = { syncPromotions };
+module.exports = { syncPromotions, parseDateRange, resolveBoQuaGift };

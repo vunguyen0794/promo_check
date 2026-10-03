@@ -596,10 +596,11 @@ async function getSerialTracking(serial, token, siteId) {
 }
 
 /**
- * 4. Luân chuyển sản phẩm/serial giữa 2 BIN
- * POST /api/v1/movement/confirm-all-items-of-bin
+ * 4. Luân chuyển sản phẩm / Serial giữa 2 BIN (Luân chuyển hàng trong kho)
+ * POST /api/v1/movement/confirm
+ * https://erp.phongvu.vn/warehousing/internal-stock-movement
  */
-async function moveBin({ fromBinId, toBinId, sku, quantity = 1, siteId }, token, siteIdOpt) {
+async function moveBin({ fromBinId, toBinId, sku, serials, serial, lots, quantity = 1, siteId, documentId }, token, siteIdOpt) {
   if (!fromBinId || !toBinId) {
     throw new Error('Thiếu thông tin BIN nguồn hoặc BIN đích để luân chuyển.');
   }
@@ -608,14 +609,25 @@ async function moveBin({ fromBinId, toBinId, sku, quantity = 1, siteId }, token,
   }
 
   const effectiveSiteId = siteId || siteIdOpt;
+  const serialList = Array.isArray(serials) ? serials : (serial ? [String(serial).trim()] : []);
+  const lotList = Array.isArray(lots) ? lots : [];
+  const qty = serialList.length > 0 ? serialList.length : (Number(quantity) || 1);
+
   const payload = {
     fromBinId: Number(fromBinId),
     toBinId: Number(toBinId),
-    sku: String(sku),
-    quantity: Number(quantity) || 1,
+    items: [
+      {
+        sku: String(sku).trim(),
+        quantity: qty,
+        ...(serialList.length > 0 ? { serials: serialList } : {}),
+        ...(lotList.length > 0 ? { lots: lotList } : {}),
+      }
+    ],
+    ...(documentId ? { documentId: String(documentId).trim() } : {})
   };
 
-  const res = await callTekoBff('/api/v1/movement/confirm-all-items-of-bin', {
+  const res = await callTekoBff('/api/v1/movement/confirm', {
     method: 'POST',
     data: payload,
     token,

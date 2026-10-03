@@ -12,14 +12,14 @@ test('home templates compile and preserve interactive contracts', () => {
 
   for (const id of [
     'searchForm', 'skuSearch', 'promoGroupSelect', 'promoSearchInput',
-    'promoExpiringOnly', 'promo-list-content', 'promo-list-viewport',
-    'loading-spinner', 'promoPrevBtn', 'promoNextBtn'
+    'promoSortSelect', 'promoExpiringOnly', 'promo-list-content',
+    'promo-list-viewport', 'loading-spinner', 'promoPrevBtn', 'promoNextBtn'
   ]) {
     assert.match(indexTemplate, new RegExp(`id=["']${id}["']`));
   }
 
   assert.match(indexTemplate, /\/api\/featured-promos/);
-  assert.match(promoTemplate, /class="fp-row/);
+  assert.match(promoTemplate, /class="promo-item/);
   assert.match(promoTemplate, /data-expiry-level=/);
   assert.match(promoTemplate, /currentRole !== 'manager'/);
 });

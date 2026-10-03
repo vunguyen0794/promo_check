@@ -17,3 +17,6 @@ dist/
 *.txt
 hash.js
 scratch/
+.agent/
+.agents/skills/
+skills-lock.json

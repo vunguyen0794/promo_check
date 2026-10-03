@@ -1,0 +1,37 @@
+<%- include('partials/header', {title: 'Xác nhận kích hoạt tài khoản', currentPage: 'login', time: time}) %>
+
+<div class="auth-container">
+    <div class="auth-card" style="max-width: 500px; text-align: center;">
+        <% if (locals.error) { %>
+            <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
+            <h2 class="section-title" style="color: #dc2626; margin-bottom: 10px;">Xác nhận không thành công</h2>
+            <div style="background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; padding: 14px 18px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">
+                <%= error %>
+            </div>
+            <a href="/login" class="btn btn-primary" style="display: inline-block; padding: 10px 20px; border-radius: 6px; text-decoration: none;">Về trang đăng nhập</a>
+        <% } else { %>
+            <div style="font-size: 52px; margin-bottom: 12px;">🎉</div>
+            <h2 class="section-title" style="color: #15803d; margin-bottom: 10px;">Phê duyệt thành công!</h2>
+            <div style="background: #f0fdf4; border: 1.5px solid #86efac; color: #166534; padding: 16px 20px; border-radius: 8px; font-size: 14px; margin-bottom: 24px; text-align: left; line-height: 1.6;">
+                <p style="margin: 0 0 8px 0; font-weight: 700; color: #15803d; font-size: 15px;">
+                    ✅ Đã kích hoạt lại tài khoản nhân sự:
+                </p>
+                <div style="background: white; border: 1px solid #bbf7d0; border-radius: 6px; padding: 12px 14px; margin-bottom: 10px;">
+                    <div><strong>Họ và tên:</strong> <%= user.fullName %></div>
+                    <div><strong>Email:</strong> <%= user.email %></div>
+                    <div><strong>Chi nhánh:</strong> <%= user.branchCode %></div>
+                    <div><strong>Thời điểm duyệt:</strong> <%= new Date().toLocaleString('vi-VN') %></div>
+                </div>
+                <p style="margin: 0; font-size: 13px; color: #166534;">
+                    Tài khoản đã hoạt động trở lại. Hệ thống đã tự động gửi email thông báo cho nhân viên này để có thể đăng nhập ngay.
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <a href="/login" class="btn btn-primary" style="background: #2563eb; color: white; padding: 10px 22px; border-radius: 6px; text-decoration: none; font-weight: 700;">Đến trang Đăng nhập</a>
+                <a href="/admin/users" class="btn btn-secondary" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600;">Quản lý nhân sự</a>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<%- include('partials/footer') %>

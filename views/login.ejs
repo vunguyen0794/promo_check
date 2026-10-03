@@ -10,14 +10,34 @@
             </div>
         <% } %>
         <% if (locals.successMessage) { %>
-    <div class="success-message" style="color: green; background: #d4edda; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center;">
-        <%= successMessage %>
-    </div>
-<% } %>
+            <div class="success-message" style="color: #15803d; background: #dcfce7; border: 1px solid #86efac; padding: 12px 14px; border-radius: 6px; margin-bottom: 15px; text-align: left; font-size: 13px; line-height: 1.5;">
+                <%= successMessage %>
+            </div>
+        <% } %>
+
+        <% if (locals.inactiveUser) { %>
+            <div class="hibernate-card" style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 16px; margin-bottom: 20px; text-align: left;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 22px;">💤</span>
+                    <strong style="color: #9a3412; font-size: 15px;">Tài khoản đang ngủ đông</strong>
+                </div>
+                <p style="font-size: 13px; color: #7c2d12; margin: 0 0 12px 0; line-height: 1.5;">
+                    Tài khoản <strong><%= inactiveUser.email %></strong> đã tạm dừng hoạt động do không đăng nhập từ 15 ngày trở lên.
+                    Vui lòng bấm nút bên dưới để gửi yêu cầu phê duyệt kích hoạt lại tới Quản trị viên.
+                </p>
+                <form action="/request-reactivation" method="POST" style="margin: 0;">
+                    <input type="hidden" name="email" value="<%= inactiveUser.email %>">
+                    <button type="submit" class="btn btn-warning btn-full" style="background: #ea580c; border: none; color: #fff; font-weight: 700; padding: 11px 16px; border-radius: 6px; cursor: pointer; width: 100%; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        ⚡ Kích hoạt lại tài khoản
+                    </button>
+                </form>
+            </div>
+        <% } %>
+
         <form action="/login" method="POST" class="auth-form">
             <div class="form-group">
                 <label>Email</label>
-                <input type="email" name="email" required placeholder="Nhập email của bạn">
+                <input type="email" name="email" required placeholder="Nhập email của bạn" value="<%= (locals.inactiveUser && inactiveUser.email) || '' %>">
             </div>
             
             <div class="form-group">
@@ -28,10 +48,13 @@
             <button type="submit" class="btn btn-primary btn-full">Đăng nhập</button>
         </form>
         
-        <div class="auth-links" style="display: flex; justify-content: space-between; align-items: center;">
-    <p style="margin: 0;">Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
-    <a href="/forgot-password" style="font-size: 0.9em;">Quên mật khẩu?</a>
-</div>
+        <div class="auth-links" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 14px;">
+            <p style="margin: 0; font-size: 0.9em;">Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
+            <div style="display: flex; gap: 12px;">
+                <a href="/request-reactivation" style="font-size: 0.85em; color: #ea580c;">Ngủ đông?</a>
+                <a href="/forgot-password" style="font-size: 0.85em;">Quên mật khẩu?</a>
+            </div>
+        </div>
     </div>
 </div>
 

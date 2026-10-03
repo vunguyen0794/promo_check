@@ -126,10 +126,7 @@ const bigquery = new Proxy({}, {
   }
 });
 
-// === CÀI ĐẶT LỊCH SYNC TỰ ĐỘNG (7:30 AM Giờ Việt Nam) ===
-// '30 7 * * *' chạy vào 7:30 mỗi ngày. 
-// Nếu server chạy giờ UTC (thường là vậy), 7:30 VN = 00:30 UTC. 
-// Ta cấu hình linh hoạt hoặc dùng timezone.
+// === CÀI ĐẶT LỊCH SYNC TỰ ĐỘNG BQ INVENTORY (7:30 AM Giờ Việt Nam) ===
 cron.schedule('30 7 * * *', () => {
   console.log("[CRON] Bắt đầu đồng bộ định kỳ dữ liệu BQ -> Supabase (07:30 AM)...");
   syncInventory();
@@ -137,6 +134,80 @@ cron.schedule('30 7 * * *', () => {
   scheduled: true,
   timezone: "Asia/Ho_Chi_Minh"
 });
+
+// === CÀI ĐẶT LỊCH QUÉT TỰ ĐỘNG CTKM GOOGLE SHEETS (06:30 AM & 13:30 PM Giờ Việt Nam) ===
+cron.schedule('30 6 * * *', async () => {
+  console.log("[CRON] Bắt đầu tự động quét và đồng bộ CTKM Google Sheets (06:30 AM)...");
+  try {
+    await syncPromotions();
+    console.log("[CRON] Đồng bộ CTKM Google Sheets hoàn tất (06:30 AM)!");
+  } catch (err) {
+    console.error("[CRON] Lỗi đồng bộ CTKM Google Sheets (06:30 AM):", err.message);
+  }
+}, {
+  scheduled: true,
+  timezone: "Asia/Ho_Chi_Minh"
+});
+
+cron.schedule('30 13 * * *', async () => {
+  console.log("[CRON] Bắt đầu tự động quét và đồng bộ CTKM Google Sheets (13:30 PM)...");
+  try {
+    await syncPromotions();
+    console.log("[CRON] Đồng bộ CTKM Google Sheets hoàn tất (13:30 PM)!");
+  } catch (err) {
+    console.error("[CRON] Lỗi đồng bộ CTKM Google Sheets (13:30 PM):", err.message);
+  }
+}, {
+  scheduled: true,
+  timezone: "Asia/Ho_Chi_Minh"
+});
+
+/**
+ * Cơ chế tự động chuyển trạng thái inactive cho các user không đăng nhập từ 15 ngày
+ */
+async function deactivateInactiveUsers() {
+  console.log("[USER INACTIVITY] Bắt đầu quét và chuyển inactive các user không đăng nhập >= 15 ngày...");
+  try {
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+
+    // 1. User có last_seen < 15 ngày trước
+    const { data: updatedSeen, error: err1 } = await supabase
+      .from('users')
+      .update({ is_active: false })
+      .eq('is_active', true)
+      .lt('last_seen', fifteenDaysAgo)
+      .select('id, email');
+
+    if (err1) console.error("[USER INACTIVITY] Lỗi update user có last_seen:", err1.message);
+
+    // 2. User chưa từng có last_seen (last_seen is null) và created_at < 15 ngày trước
+    const { data: updatedNever, error: err2 } = await supabase
+      .from('users')
+      .update({ is_active: false })
+      .eq('is_active', true)
+      .is('last_seen', null)
+      .lt('created_at', fifteenDaysAgo)
+      .select('id, email');
+
+    if (err2) console.error("[USER INACTIVITY] Lỗi update user chưa từng login:", err2.message);
+
+    const total = (updatedSeen?.length || 0) + (updatedNever?.length || 0);
+    console.log(`[USER INACTIVITY] Đã chuyển ${total} user sang trạng thái inactive (không hoạt động >= 15 ngày).`);
+    return { ok: true, count: total };
+  } catch (err) {
+    console.error("[USER INACTIVITY] Lỗi hệ thống:", err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+// === CÀI ĐẶT LỊCH TỰ ĐỘNG INACTIVE USER KHÔNG HOẠT ĐỘNG >= 15 NGÀY (02:00 AM) ===
+cron.schedule('0 2 * * *', async () => {
+  await deactivateInactiveUsers();
+}, {
+  scheduled: true,
+  timezone: "Asia/Ho_Chi_Minh"
+});
+
 
 // -------------------------------------------------------------------
 
@@ -1414,11 +1485,13 @@ app.get('/register', (req, res) => {
 app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    const cleanEmail = String(email || '').trim().toLowerCase();
+
+    // Tìm user theo email (không chặn is_active để có thể tự động kích hoạt lại khi đăng nhập đúng)
     const { data: user } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email)
-      .eq('is_active', true)
+      .ilike('email', cleanEmail)
       .single();
 
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
@@ -1429,6 +1502,29 @@ app.post('/login', async (req, res) => {
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       });
     }
+
+    // NẾU TÀI KHOẢN ĐANG BỊ INACTIVE (DO KHÔNG ĐĂNG NHẬP >= 15 NGÀY / NGỦ ĐÔNG):
+    // Không tự ý kích hoạt ngay. Yêu cầu user bấm nút "Kích hoạt lại tài khoản" để gửi email cho Admin phê duyệt!
+    if (!user.is_active) {
+      return res.render('login', {
+        title: 'Đăng nhập',
+        currentPage: 'login',
+        error: null,
+        inactiveUser: {
+          id: user.id,
+          email: user.email,
+          full_name: user.full_name,
+          branch_code: user.branch_code
+        },
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      });
+    }
+
+    // Cập nhật last_seen ngay khi login thành công
+    await supabase
+      .from('users')
+      .update({ last_seen: nowIso })
+      .eq('id', user.id);
 
     req.session = req.session || {};
     req.session.user = { id: user.id, email: user.email, full_name: user.full_name, role: user.role, branch_code: user.branch_code };
@@ -1712,13 +1808,125 @@ function enrichPromoForDisplay(p) {
   };
 }
 
+// --- HÀM LỌC & SẮP XẾP FEATURED PROMOS DÙNG CHUNG ---
+function sortAndFilterFeaturedPromos({ promos, selectedGroup, searchQuery, sortBy, expiringOnly, userRole, page, pageSize = 9 }) {
+  let filtered = [...promos];
+
+  // Lọc theo nhóm
+  if (selectedGroup) {
+    filtered = filtered.filter(p => p.group_name === selectedGroup);
+  }
+
+  // Lọc theo từ khóa tìm kiếm (tên, group, mô tả, sku)
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(p => {
+      const pName = (p.name || '').toLowerCase();
+      const pGroup = (p.group_name || '').toLowerCase();
+      const pDesc = (p.description || '').toLowerCase();
+      const hasSkuMatch = (p.promotion_skus || []).some(item => (item.sku || '').toLowerCase().includes(q));
+      return pName.includes(q) || pGroup.includes(q) || pDesc.includes(q) || hasSkuMatch;
+    });
+  }
+
+  // Phân quyền KFI chỉ dành cho manager
+  if (userRole !== 'manager') {
+    filtered = filtered.filter(p => p.promo_type !== 'KFI');
+  }
+
+  // Đếm số lượng sắp hết hạn (<= 3 ngày) trên tập dữ liệu đã lọc nhóm & tìm kiếm
+  const now = Date.now();
+  const urgentCount = filtered.filter(p => {
+    if (!p || !p.end_date) return false;
+    const endDate = new Date(p.end_date);
+    endDate.setHours(23, 59, 59, 999);
+    const diffDays = Math.ceil((endDate.getTime() - now) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 3;
+  }).length;
+
+  // Lọc chỉ các chương trình sắp hết hạn (<= 3 ngày) nếu được chọn
+  if (expiringOnly) {
+    filtered = filtered.filter(p => {
+      if (!p || !p.end_date) return false;
+      const endDate = new Date(p.end_date);
+      endDate.setHours(23, 59, 59, 999);
+      const diffDays = Math.ceil((endDate.getTime() - now) / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 3;
+    });
+  }
+
+  // Sắp xếp theo tiêu chí
+  const sortMode = sortBy || 'discount_desc';
+  filtered.sort((a, b) => {
+    if (sortMode === 'discount_asc') {
+      const valA = a.__sort_value || 0;
+      const valB = b.__sort_value || 0;
+      if (valA !== valB) return valA - valB;
+      return (a.name || '').localeCompare(b.name || '', 'vi');
+    }
+    if (sortMode === 'name_asc') {
+      return (a.name || '').localeCompare(b.name || '', 'vi');
+    }
+    if (sortMode === 'name_desc') {
+      return (b.name || '').localeCompare(a.name || '', 'vi');
+    }
+    if (sortMode === 'end_date_asc' || sortMode === 'days_left_asc') {
+      const dateA = a.end_date ? new Date(a.end_date).getTime() : 9999999999999;
+      const dateB = b.end_date ? new Date(b.end_date).getTime() : 9999999999999;
+      if (dateA !== dateB) return dateA - dateB;
+      return (b.__sort_value || 0) - (a.__sort_value || 0);
+    }
+    if (sortMode === 'end_date_desc') {
+      const dateA = a.end_date ? new Date(a.end_date).getTime() : 0;
+      const dateB = b.end_date ? new Date(b.end_date).getTime() : 0;
+      if (dateA !== dateB) return dateB - dateA;
+      return (b.__sort_value || 0) - (a.__sort_value || 0);
+    }
+
+    // Mặc định: 'discount_desc'
+    const isKfiA = (a.promo_type === 'KFI');
+    const isKfiB = (b.promo_type === 'KFI');
+    if (isKfiA && !isKfiB) return -1;
+    if (!isKfiA && isKfiB) return 1;
+
+    const valA = a.__sort_value || 0;
+    const valB = b.__sort_value || 0;
+    if (valA !== valB) return valB - valA;
+
+    const isGiftA = (a.promo_type === 'Gift' || a.promo_type === 'Quà tặng (Gift)');
+    const isGiftB = (b.promo_type === 'Gift' || b.promo_type === 'Quà tặng (Gift)');
+    if (isGiftA && !isGiftB) return -1;
+    if (!isGiftA && isGiftB) return 1;
+
+    const isSheetA = !!a.is_sheet_promo;
+    const isSheetB = !!b.is_sheet_promo;
+    if (isSheetA && isSheetB) {
+      return a.id.localeCompare(b.id);
+    }
+    return (a.name || '').localeCompare(b.name || '', 'vi');
+  });
+
+  const totalItems = filtered.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const paginatedPromos = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  return {
+    paginatedPromos,
+    totalItems,
+    totalPages,
+    urgentCount
+  };
+}
+
 // --- ROUTE TRANG CHỦ (RENDER LẦN ĐẦU) ---
 app.get('/', requireAuth, async (req, res) => {
   try {
     const selectedGroup = req.query.group || '';
     const searchQuery = (req.query.q || '').trim().toLowerCase();
+    const sortBy = req.query.sort || 'discount_desc';
+    const expiringOnly = req.query.expiring === '1' || req.query.expiring === 'true';
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-    const pageSize = 8;
+    const pageSize = 9; // Lưới 3 hàng 3 cột (3x3 = 9)
     const today = new Date().toISOString().slice(0, 10);
     const userRole = req.session.user?.role || '';
     // 1. Query DB (Lấy SKU để search)
@@ -1763,13 +1971,32 @@ app.get('/', requireAuth, async (req, res) => {
     const uniqueSheetPromosMap = {};
     (sheetPromosRaw || []).forEach(sp => {
       const key = sp.sheet_name + "_" + sp.program_name;
+      let skuDiscount = 0;
+      if (sp.list_price && sp.promo_price) {
+        skuDiscount = Math.max(0, sp.list_price - sp.promo_price);
+      } else if (sp.online_coupon) {
+        const match = sp.online_coupon.match(/(\d+)\s*(k|K|triệu|tr)/i);
+        if (match) {
+          const val = parseInt(match[1], 10);
+          skuDiscount = /triệu|tr/i.test(match[2]) ? val * 1000000 : val * 1000;
+        }
+      }
+
       if (!uniqueSheetPromosMap[key]) {
         uniqueSheetPromosMap[key] = {
           ...sp,
+          maxDiscount: skuDiscount,
           skus: [sp.sku]
         };
       } else {
         uniqueSheetPromosMap[key].skus.push(sp.sku);
+        if (skuDiscount > (uniqueSheetPromosMap[key].maxDiscount || 0)) {
+          uniqueSheetPromosMap[key].maxDiscount = skuDiscount;
+        }
+        if (!uniqueSheetPromosMap[key].gift_name && sp.gift_name) {
+          uniqueSheetPromosMap[key].gift_name = sp.gift_name;
+          uniqueSheetPromosMap[key].gift_sku = sp.gift_sku;
+        }
       }
     });
 
@@ -1778,27 +2005,22 @@ app.get('/', requireAuth, async (req, res) => {
       let displayPrefix = 'Giảm';
       let discountValueForSort = 0;
 
-      if (sp.list_price && sp.promo_price) {
-        const amt = sp.list_price - sp.promo_price;
-        if (amt > 0) {
-          displayDiscount = amt;
-          discountValueForSort = amt;
-        }
-      } else if (sp.online_coupon) {
-        const match = sp.online_coupon.match(/(\d+)\s*(k|K)/);
-        if (match) {
-          const parsed = parseInt(match[1], 10) * 1000;
-          displayDiscount = parsed;
-          discountValueForSort = parsed;
-        }
+      if (sp.maxDiscount && sp.maxDiscount > 0) {
+        displayDiscount = sp.maxDiscount;
+        displayPrefix = 'Giảm đến';
+        discountValueForSort = sp.maxDiscount;
+      } else if (sp.promo_percent) {
+        displayDiscount = `${sp.promo_percent}%`;
+        displayPrefix = 'Giảm';
+        discountValueForSort = (sp.promo_percent / 100) * 10000000;
       }
 
-      const isGift = !!(sp.gift_name || sp.gift_sku);
+      const isGift = !!(sp.gift_name || sp.gift_sku) || /bộ quà|tặng kèm|quà tặng/i.test(sp.program_name);
       const isKFI = !!sp.kfi_value;
 
       let desc = sp.conditions || '';
       if (sp.gift_name) {
-        desc = "🎁 Quà tặng: " + sp.gift_name + (desc ? ' | ' + desc : '');
+        desc = "🎁 Quà tặng: " + sp.gift_name + (sp.online_coupon ? ' | Coupon: ' + sp.online_coupon : '');
       } else if (sp.online_coupon) {
         desc = "Coupon: " + sp.online_coupon + (desc ? ' | ' + desc : '');
       }
@@ -1827,83 +2049,25 @@ app.get('/', requireAuth, async (req, res) => {
       ...mappedSheetPromos
     ].map(enrichPromoForDisplay);
 
-    const userBranch = req.session.user?.branch_code;
-
-    // Hàm kiểm tra xem User có được thấy Promo này không
-    const isVisibleToUser = (p) => {
-      // Check Branch
-      if (p.apply_branches && p.apply_branches.length > 0) {
-        // Nếu user chưa đăng nhập hoặc branch user không nằm trong list cho phép
-        if (!userBranch || !p.apply_branches.includes(userBranch)) {
-          return false;
-        }
-      }
-      return true;
-    };
-
-    // 3. --- LOGIC LỌC QUAN TRỌNG (Group -> Search) ---
-    let filteredPromos = promosWithStackInfo;
-
-    // BƯỚC A: Lọc theo Nhóm trước (nếu có) - "Khoanh vùng dữ liệu"
-    if (selectedGroup) {
-      filteredPromos = filteredPromos.filter(p => p.group_name === selectedGroup);
-    }
-
-    // BƯỚC B: Tìm kiếm trong vùng dữ liệu đã khoanh
-    if (searchQuery) {
-      filteredPromos = filteredPromos.filter(p => {
-        const pName = (p.name || '').toLowerCase();
-        const pGroup = (p.group_name || '').toLowerCase();
-        const pDesc = (p.description || '').toLowerCase();
-        // Tìm trong danh sách SKU áp dụng
-        const hasSkuMatch = (p.promotion_skus || []).some(item => (item.sku || '').toLowerCase().includes(searchQuery));
-
-        return pName.includes(searchQuery) ||
-          pGroup.includes(searchQuery) ||
-          pDesc.includes(searchQuery) ||
-          hasSkuMatch;
-      });
-    }
-
-    // KFI chỉ dành cho manager
-    if (userRole !== 'manager') {
-      filteredPromos = filteredPromos.filter(p => p.promo_type !== 'KFI');
-    }
-
-    // 4. Sắp xếp & Phân trang
-    filteredPromos.sort((a, b) => {
-      // --- ƯU TIÊN 1: KFI LUÔN LÊN ĐẦU ---
-      const isKfiA = (a.promo_type === 'KFI');
-      const isKfiB = (b.promo_type === 'KFI');
-      if (isKfiA && !isKfiB) return -1;
-      if (!isKfiA && isKfiB) return 1;
-
-      // --- ƯU TIÊN 2: SẮP THEO GIÁ TRỊ GIẢM ---
-      const valA = a.__sort_value || 0;
-      const valB = b.__sort_value || 0;
-      if (valA !== valB) return valB - valA;
-
-      // --- ƯU TIÊN 3: CÓ QUÀ TẶNG LÊN TRƯỚC ---
-      const isGiftA = (a.promo_type === 'Gift' || a.promo_type === 'Quà tặng (Gift)');
-      const isGiftB = (b.promo_type === 'Gift' || b.promo_type === 'Quà tặng (Gift)');
-      if (isGiftA && !isGiftB) return -1;
-      if (!isGiftA && isGiftB) return 1;
-
-      // --- ƯU TIÊN 4: THỨ TỰ TRONG DOCS (dựa trên id nếu là sheet promo) ---
-      const isSheetA = !!a.is_sheet_promo;
-      const isSheetB = !!b.is_sheet_promo;
-      if (isSheetA && isSheetB) {
-        return a.id.localeCompare(b.id);
-      }
-      return 0;
-    });
-
     // Lấy danh sách nhóm (Sắp xếp A->Z)
     const allGroups = [...new Set(promosWithStackInfo.map(p => p.group_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-    const totalItems = filteredPromos.length;
-    const totalPages = Math.ceil(totalItems / pageSize);
-    const paginatedPromos = filteredPromos.slice((page - 1) * pageSize, page * pageSize);
+    // Lọc & sắp xếp bằng helper dùng chung
+    const {
+      paginatedPromos,
+      totalItems,
+      totalPages,
+      urgentCount
+    } = sortAndFilterFeaturedPromos({
+      promos: promosWithStackInfo,
+      selectedGroup,
+      searchQuery,
+      sortBy,
+      expiringOnly,
+      userRole,
+      page,
+      pageSize
+    });
 
     // 5. Các data phụ (Matrix, Random...) - Giữ nguyên code cũ của bạn
     const { data: pc } = await supabase.from('price_comparisons').select('sku, product_name, brand, competitor_name').order('created_at', { ascending: false }).limit(100);
@@ -1982,6 +2146,9 @@ app.get('/', requireAuth, async (req, res) => {
       allGroups,
       selectedGroup,
       searchQuery,
+      sortBy,
+      expiringOnly,
+      urgentCount,
       page, totalPages,
       totalItems,
       matrixRows, competitorCols,
@@ -1997,6 +2164,7 @@ app.get('/', requireAuth, async (req, res) => {
     res.render('index', {
       title: 'Trang chủ', currentPage: 'home', error: e.message,
       featuredPromos: [], allGroups: [], selectedGroup: '', searchQuery: '',
+      sortBy: 'discount_desc', expiringOnly: false, urgentCount: 0,
       page: 1, totalPages: 1, totalItems: 0, matrixRows: [], competitorCols: [],
       randomSkus: [], userRole: 'branch', newsfeedPosts: [],
       rankingTop1: null, rankingOthers: [], selectedPeriod: ''
@@ -2009,8 +2177,10 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
   try {
     const selectedGroup = req.query.group || '';
     const searchQuery = (req.query.q || '').trim().toLowerCase();
+    const sortBy = req.query.sort || 'discount_desc';
+    const expiringOnly = req.query.expiring === '1' || req.query.expiring === 'true';
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-    const pageSize = 8;
+    const pageSize = 9; // Lưới 3 hàng 3 cột (3x3 = 9)
     const today = new Date().toISOString().slice(0, 10);
     const userRole = req.session.user?.role || '';
 
@@ -2021,11 +2191,11 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
       .lte('start_date', today)
       .gte('end_date', today);
 
-    const promoIds = allPromos.map(p => p.id);
+    const promoIds = (allPromos || []).map(p => p.id);
     const { data: compatRows } = await supabase.from('promotion_compat_allows').select('promotion_id').in('promotion_id', promoIds);
     const promosWithAllowRules = new Set((compatRows || []).map(r => r.promotion_id));
 
-    const promosWithStackInfoBase = allPromos.map(p => {
+    const promosWithStackInfoBase = (allPromos || []).map(p => {
       let displayDiscount = null; let displayPrefix = 'Giảm'; let discountValueForSort = 0;
       if (p.coupon_list && p.coupon_list.length > 0) {
         const discounts = p.coupon_list.map(c => parseFloat(String(c.discount).replace(/[^0-9]/g, '')) || 0);
@@ -2048,17 +2218,35 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
       .lte('start_date', today)
       .gte('end_date', today);
 
-    // Group or filter to unique ones in JS and collect SKUs
     const uniqueSheetPromosMap = {};
     (sheetPromosRaw || []).forEach(sp => {
       const key = sp.sheet_name + "_" + sp.program_name;
+      let skuDiscount = 0;
+      if (sp.list_price && sp.promo_price) {
+        skuDiscount = Math.max(0, sp.list_price - sp.promo_price);
+      } else if (sp.online_coupon) {
+        const match = sp.online_coupon.match(/(\d+)\s*(k|K|triệu|tr)/i);
+        if (match) {
+          const val = parseInt(match[1], 10);
+          skuDiscount = /triệu|tr/i.test(match[2]) ? val * 1000000 : val * 1000;
+        }
+      }
+
       if (!uniqueSheetPromosMap[key]) {
         uniqueSheetPromosMap[key] = {
           ...sp,
+          maxDiscount: skuDiscount,
           skus: [sp.sku]
         };
       } else {
         uniqueSheetPromosMap[key].skus.push(sp.sku);
+        if (skuDiscount > (uniqueSheetPromosMap[key].maxDiscount || 0)) {
+          uniqueSheetPromosMap[key].maxDiscount = skuDiscount;
+        }
+        if (!uniqueSheetPromosMap[key].gift_name && sp.gift_name) {
+          uniqueSheetPromosMap[key].gift_name = sp.gift_name;
+          uniqueSheetPromosMap[key].gift_sku = sp.gift_sku;
+        }
       }
     });
 
@@ -2067,27 +2255,22 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
       let displayPrefix = 'Giảm';
       let discountValueForSort = 0;
 
-      if (sp.list_price && sp.promo_price) {
-        const amt = sp.list_price - sp.promo_price;
-        if (amt > 0) {
-          displayDiscount = amt;
-          discountValueForSort = amt;
-        }
-      } else if (sp.online_coupon) {
-        const match = sp.online_coupon.match(/(\d+)\s*(k|K)/);
-        if (match) {
-          const parsed = parseInt(match[1], 10) * 1000;
-          displayDiscount = parsed;
-          discountValueForSort = parsed;
-        }
+      if (sp.maxDiscount && sp.maxDiscount > 0) {
+        displayDiscount = sp.maxDiscount;
+        displayPrefix = 'Giảm đến';
+        discountValueForSort = sp.maxDiscount;
+      } else if (sp.promo_percent) {
+        displayDiscount = `${sp.promo_percent}%`;
+        displayPrefix = 'Giảm';
+        discountValueForSort = (sp.promo_percent / 100) * 10000000;
       }
 
-      const isGift = !!(sp.gift_name || sp.gift_sku);
+      const isGift = !!(sp.gift_name || sp.gift_sku) || /bộ quà|tặng kèm|quà tặng/i.test(sp.program_name);
       const isKFI = !!sp.kfi_value;
 
       let desc = sp.conditions || '';
       if (sp.gift_name) {
-        desc = "🎁 Quà tặng: " + sp.gift_name + (desc ? ' | ' + desc : '');
+        desc = "🎁 Quà tặng: " + sp.gift_name + (sp.online_coupon ? ' | Coupon: ' + sp.online_coupon : '');
       } else if (sp.online_coupon) {
         desc = "Coupon: " + sp.online_coupon + (desc ? ' | ' + desc : '');
       }
@@ -2116,65 +2299,32 @@ app.get('/api/featured-promos', requireAuth, async (req, res) => {
       ...mappedSheetPromos
     ].map(enrichPromoForDisplay);
 
-    // --- LOGIC LỌC GIỐNG HỆT ROUTE TRANG CHỦ ---
-    let filteredPromos = promosWithStackInfo;
-
-    if (selectedGroup) {
-      filteredPromos = filteredPromos.filter(p => p.group_name === selectedGroup);
-    }
-
-    if (searchQuery) {
-      filteredPromos = filteredPromos.filter(p => {
-        const pName = (p.name || '').toLowerCase();
-        const pGroup = (p.group_name || '').toLowerCase();
-        const pDesc = (p.description || '').toLowerCase();
-        const hasSkuMatch = (p.promotion_skus || []).some(item => (item.sku || '').toLowerCase().includes(searchQuery));
-        return pName.includes(searchQuery) || pGroup.includes(searchQuery) || pDesc.includes(searchQuery) || hasSkuMatch;
-      });
-    }
-
-    if (userRole !== 'manager') {
-      filteredPromos = filteredPromos.filter(p => p.promo_type !== 'KFI');
-    }
-
-    filteredPromos.sort((a, b) => {
-      // --- ƯU TIÊN 1: KFI LUÔN LÊN ĐẦU ---
-      const isKfiA = (a.promo_type === 'KFI');
-      const isKfiB = (b.promo_type === 'KFI');
-      if (isKfiA && !isKfiB) return -1;
-      if (!isKfiA && isKfiB) return 1;
-
-      // --- ƯU TIÊN 2: SẮP THEO GIÁ TRỊ GIẢM ---
-      const valA = a.__sort_value || 0;
-      const valB = b.__sort_value || 0;
-      if (valA !== valB) return valB - valA;
-
-      // --- ƯU TIÊN 3: CÓ QUÀ TẶNG LÊN TRƯỚC ---
-      const isGiftA = (a.promo_type === 'Gift' || a.promo_type === 'Quà tặng (Gift)');
-      const isGiftB = (b.promo_type === 'Gift' || b.promo_type === 'Quà tặng (Gift)');
-      if (isGiftA && !isGiftB) return -1;
-      if (!isGiftA && isGiftB) return 1;
-
-      // --- ƯU TIÊN 4: THỨ TỰ TRONG DOCS (dựa trên id nếu là sheet promo) ---
-      const isSheetA = !!a.is_sheet_promo;
-      const isSheetB = !!b.is_sheet_promo;
-      if (isSheetA && isSheetB) {
-        return a.id.localeCompare(b.id);
-      }
-      return 0;
+    const {
+      paginatedPromos,
+      totalItems,
+      totalPages,
+      urgentCount
+    } = sortAndFilterFeaturedPromos({
+      promos: promosWithStackInfo,
+      selectedGroup,
+      searchQuery,
+      sortBy,
+      expiringOnly,
+      userRole,
+      page,
+      pageSize
     });
-
-    const totalItems = filteredPromos.length;
-    const totalPages = Math.ceil(totalItems / pageSize);
-    const paginatedPromos = filteredPromos.slice((page - 1) * pageSize, page * pageSize);
 
     res.render('partials/_featured-promos', {
       featuredPromos: paginatedPromos,
       page,
       totalPages,
       totalItems,
+      urgentCount,
       userRole,
-      selectedGroup // Không cần truyền searchQuery xuống partial
+      selectedGroup,
+      sortBy,
+      expiringOnly
     });
   } catch (e) {
     console.error(e);
@@ -8750,6 +8900,16 @@ app.post('/api/admin/sync-promotions', requireAuth, requireManager, async (req, 
   }
 });
 
+app.post('/api/admin/inactive-users-check', requireAuth, requireManager, async (req, res) => {
+  try {
+    const result = await deactivateInactiveUsers();
+    res.json({ ok: true, message: `Đã kiểm tra và chuyển ${result.count || 0} user không hoạt động >= 15 ngày sang inactive.`, ...result });
+  } catch (e) {
+    console.error('[INACTIVE USERS CHECK] Lỗi:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 app.get('/api/cron/sync-promotions', async (req, res) => {
   const authHeader = req.headers.authorization || req.query.secret;
   const secret = process.env.CRON_SECRET;
@@ -11654,6 +11814,269 @@ app.post('/reset-password', async (req, res) => {
     res.render('reset-password', {
       title: 'Đặt lại mật khẩu', currentPage: 'login', time: '',
       token, error: 'Lỗi hệ thống. Vui lòng thử lại.'
+    });
+  }
+});
+
+// ========================= YÊU CẦU KÍCH HOẠT LẠI TÀI KHOẢN (SAU THỜI GIAN NGỦ ĐÔNG) =========================
+
+// 1. Trang nhập email yêu cầu kích hoạt lại tài khoản
+app.get('/request-reactivation', (req, res) => {
+  res.render('request-reactivation', {
+    title: 'Kích hoạt lại tài khoản',
+    currentPage: 'login',
+    error: null,
+    success: null,
+    email: req.query.email || '',
+    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  });
+});
+
+// 2. Xử lý gửi email phê duyệt kích hoạt tài khoản tới Quản trị viên
+app.post('/request-reactivation', async (req, res) => {
+  const cleanEmail = String(req.body.email || '').trim().toLowerCase();
+  const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+  if (!cleanEmail) {
+    return res.render('request-reactivation', {
+      title: 'Kích hoạt lại tài khoản',
+      currentPage: 'login',
+      error: 'Vui lòng nhập địa chỉ email của bạn!',
+      success: null,
+      email: '',
+      time: timeStr
+    });
+  }
+
+  try {
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .ilike('email', cleanEmail)
+      .single();
+
+    if (!user) {
+      return res.render('request-reactivation', {
+        title: 'Kích hoạt lại tài khoản',
+        currentPage: 'login',
+        error: `Không tìm thấy tài khoản với email "${cleanEmail}" trong hệ thống!`,
+        success: null,
+        email: cleanEmail,
+        time: timeStr
+      });
+    }
+
+    if (user.is_active) {
+      return res.render('request-reactivation', {
+        title: 'Kích hoạt lại tài khoản',
+        currentPage: 'login',
+        error: null,
+        success: `Tài khoản ${cleanEmail} hiện vẫn đang hoạt động bình thường, không cần kích hoạt lại. Bạn có thể đăng nhập ngay!`,
+        email: cleanEmail,
+        time: timeStr
+      });
+    }
+
+    // Tạo token phê duyệt ngẫu nhiên (hạn 7 ngày)
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiryDate = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+
+    // Lưu token vào bảng site_settings
+    await supabase.from('site_settings').upsert({
+      id: `reactivate_${token}`,
+      value: JSON.stringify({
+        userId: user.id,
+        email: user.email,
+        fullName: user.full_name || user.email,
+        branchCode: user.branch_code || 'CP01',
+        requestedAt: new Date().toISOString(),
+        expiresAt: expiryDate
+      }),
+      updated_at: new Date().toISOString()
+    });
+
+    // Tạo link phê duyệt cho Admin
+    const approveUrl = `${req.protocol}://${req.get('host')}/api/auth/approve-reactivation?token=${token}`;
+    const adminEmail = 'vunguyen0794@gmail.com';
+
+    let lastSeenText = 'Chưa từng đăng nhập';
+    if (user.last_seen) {
+      lastSeenText = new Date(user.last_seen).toLocaleString('vi-VN');
+    }
+
+    // Gửi email cho Admin
+    await transporter.sendMail({
+      from: '"Phong Vu System" <no-reply@phongvu.vn>',
+      to: adminEmail,
+      subject: `🔔 [Kích hoạt tài khoản ngủ đông] ${user.full_name || user.email} (${user.email}) - ${user.branch_code || 'CP01'}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+          <div style="background: linear-gradient(135deg, #ea580c, #f97316); padding: 24px; color: #ffffff;">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 800;">
+              ⚡ Yêu cầu kích hoạt lại tài khoản (Ngủ đông)
+            </h2>
+            <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 13px;">Hệ thống Phong Vũ Promo Check & Xuất kho</p>
+          </div>
+          <div style="padding: 24px; color: #1e293b;">
+            <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">
+              Chào Quản trị viên,
+            </p>
+            <p style="font-size: 14px; line-height: 1.6;">
+              Nhân viên dưới đây đã tạm dừng hoạt động do <strong>không đăng nhập từ 15 ngày trở lên</strong> và đang yêu cầu bạn phê duyệt để kích hoạt lại tài khoản:
+            </p>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 18px 0; font-size: 14px;">
+              <div style="margin-bottom: 8px;"><strong>👤 Họ và tên:</strong> ${user.full_name || 'Chưa cập nhật'}</div>
+              <div style="margin-bottom: 8px;"><strong>✉️ Email:</strong> <a href="mailto:${user.email}" style="color: #2563eb;">${user.email}</a></div>
+              <div style="margin-bottom: 8px;"><strong>🏢 Chi nhánh:</strong> ${user.branch_code || 'CP01'}</div>
+              <div style="margin-bottom: 8px;"><strong>🕒 Hoạt động gần nhất:</strong> ${lastSeenText}</div>
+              <div><strong>⏱️ Thời điểm yêu cầu:</strong> ${new Date().toLocaleString('vi-VN')}</div>
+            </div>
+            <div style="text-align: center; margin: 28px 0 20px 0;">
+              <a href="${approveUrl}" style="background: #16a34a; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3);">
+                ✅ BẤM ĐỂ XÁC NHẬN KÍCH HOẠT TÀI KHOẢN
+              </a>
+            </div>
+            <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin-bottom: 0; text-align: center;">
+              (Hoặc copy link này dán vào trình duyệt: <br><a href="${approveUrl}" style="color: #2563eb; word-break: break-all;">${approveUrl}</a>)
+            </p>
+          </div>
+          <div style="background: #f1f5f9; padding: 14px 24px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+            Email tự động gửi từ hệ thống Phong Vũ Promo Check.
+          </div>
+        </div>
+      `
+    });
+
+    console.log(`[AUTH] Đã gửi email yêu cầu kích hoạt tài khoản của ${user.email} tới Admin (${adminEmail})`);
+
+    // Render trang login kèm thông báo thành công
+    res.render('login', {
+      title: 'Đăng nhập',
+      currentPage: 'login',
+      error: null,
+      successMessage: `✅ Đã gửi yêu cầu kích hoạt lại tài khoản tới Quản trị viên qua email! Vui lòng chờ Quản trị viên xác nhận phê duyệt trước khi đăng nhập lại.`,
+      time: timeStr
+    });
+
+  } catch (err) {
+    console.error("[AUTH] Lỗi gửi yêu cầu kích hoạt lại tài khoản:", err.message);
+    res.render('request-reactivation', {
+      title: 'Kích hoạt lại tài khoản',
+      currentPage: 'login',
+      error: `Lỗi khi gửi yêu cầu kích hoạt: ${err.message}. Vui lòng thử lại sau hoặc liên hệ Quản trị viên.`,
+      success: null,
+      email: cleanEmail,
+      time: timeStr
+    });
+  }
+});
+
+// 3. Link phê duyệt kích hoạt tài khoản cho Admin (Click từ Email)
+app.get('/api/auth/approve-reactivation', async (req, res) => {
+  const { token } = req.query;
+  const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+  if (!token) {
+    return res.render('reactivation-result', {
+      title: 'Lỗi xác nhận kích hoạt',
+      currentPage: 'login',
+      error: 'Thiếu mã xác nhận (token). Link không hợp lệ.',
+      user: null,
+      time: timeStr
+    });
+  }
+
+  try {
+    const settingKey = `reactivate_${token}`;
+    const { data: settingRow } = await supabase
+      .from('site_settings')
+      .select('*')
+      .eq('id', settingKey)
+      .maybeSingle();
+
+    if (!settingRow || !settingRow.value) {
+      return res.render('reactivation-result', {
+        title: 'Lỗi xác nhận kích hoạt',
+        currentPage: 'login',
+        error: 'Link xác nhận kích hoạt không hợp lệ, đã hết hạn hoặc đã được phê duyệt trước đó.',
+        user: null,
+        time: timeStr
+      });
+    }
+
+    const record = JSON.parse(settingRow.value);
+
+    // Kiểm tra hết hạn
+    if (record.expiresAt && new Date(record.expiresAt) < new Date()) {
+      await supabase.from('site_settings').delete().eq('id', settingKey);
+      return res.render('reactivation-result', {
+        title: 'Lỗi xác nhận kích hoạt',
+        currentPage: 'login',
+        error: 'Link xác nhận này đã hết hạn (quá hạn 7 ngày). Nhân viên vui lòng gửi lại yêu cầu kích hoạt mới.',
+        user: null,
+        time: timeStr
+      });
+    }
+
+    // Kích hoạt lại user trong bảng users
+    const nowIso = new Date().toISOString();
+    const { error: updateErr } = await supabase
+      .from('users')
+      .update({
+        is_active: true,
+        last_seen: nowIso
+      })
+      .eq('id', record.userId);
+
+    if (updateErr) {
+      throw updateErr;
+    }
+
+    // Xóa token sau khi đã duyệt thành công
+    await supabase.from('site_settings').delete().eq('id', settingKey);
+
+    console.log(`[AUTH] Quản trị viên đã phê duyệt kích hoạt thành công cho user ${record.email} (${record.fullName})`);
+
+    // Gửi email báo cho nhân viên biết đã được duyệt
+    try {
+      await transporter.sendMail({
+        from: '"Phong Vu System" <no-reply@phongvu.vn>',
+        to: record.email,
+        subject: '🎉 Tài khoản của bạn đã được kích hoạt lại thành công',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; margin: 0 auto;">
+            <h3 style="color: #16a34a; margin-top: 0; font-size: 18px;">🎉 Tài khoản đã được kích hoạt lại</h3>
+            <p>Chào <b>${record.fullName}</b>,</p>
+            <p style="line-height: 1.6;">Yêu cầu kích hoạt lại tài khoản <b>${record.email}</b> của bạn sau thời gian ngủ đông đã được <b>Quản trị viên phê duyệt</b> thành công!</p>
+            <p style="margin: 24px 0;">
+              <a href="${req.protocol}://${req.get('host')}/login" style="background: #2563eb; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                Đăng nhập vào hệ thống ngay
+              </a>
+            </p>
+            <p style="font-size: 12px; color: #94a3b8; margin-bottom: 0;">Email tự động gửi từ hệ thống Phong Vũ Promo Check.</p>
+          </div>
+        `
+      });
+    } catch (userMailErr) {
+      console.warn('[AUTH] Không thể gửi mail báo user:', userMailErr.message);
+    }
+
+    res.render('reactivation-result', {
+      title: 'Kích hoạt tài khoản thành công',
+      currentPage: 'login',
+      error: null,
+      user: record,
+      time: timeStr
+    });
+
+  } catch (err) {
+    console.error("[AUTH] Lỗi xử lý phê duyệt kích hoạt:", err.message);
+    res.render('reactivation-result', {
+      title: 'Lỗi xác nhận kích hoạt',
+      currentPage: 'login',
+      error: `Lỗi hệ thống: ${err.message}`,
+      user: null,
+      time: timeStr
     });
   }
 });
@@ -15079,31 +15502,10 @@ app.post('/api/quick-export/process-serial', requireAuth, async (req, res) => {
       }
     }
 
-    // B3: Kiểm tra vị trí BIN và tự động luân chuyển nếu khác BIN soạn hàng
-    let moved = false;
-    let actualBinId = track.binId || pickingBinId;
-    let fromBinName = track.binName || 'Kho';
-
-    if (track.binId && pickingBinId && Number(track.binId) !== Number(pickingBinId)) {
-      try {
-        // Thử gọi API luân chuyển BIN của Teko
-        await quickExportService.moveBin({
-          fromBinId: track.binId,
-          toBinId: pickingBinId,
-          sku: targetSku,
-          quantity: 1,
-          siteId,
-        }, token, siteId);
-        moved = true;
-        actualBinId = pickingBinId;
-      } catch (moveErr) {
-        // Nếu Teko chặn chuyển lẻ do BIN có nhiều hơn 1 sp (lỗi 400003),
-        // tự động giữ nguyên BIN thực tế để xuất thẳng từ BIN này trên ERP mà không báo lỗi
-        console.warn(`[QuickExport] Không thể chuyển lẻ serial ${serial} (BIN ${track.binId}): ${moveErr.message}. Sẽ xuất thẳng từ BIN này.`);
-        moved = false;
-        actualBinId = track.binId;
-      }
-    }
+    // B3: Chỉ ghi nhận vị trí BIN thực tế của Serial - KHÔNG tự ý luân chuyển khi chỉ vừa quét serial
+    const actualBinId = track.binId || pickingBinId;
+    const fromBinName = track.binName || 'Kho';
+    const moved = false;
 
     // B4: Kiểm tra FIFO thời gian thực dựa trên Supabase inventory_serials & serial_check_log
     let fifoInfo = {
@@ -15312,57 +15714,63 @@ app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
     const autoHandover = Boolean(isAutoHandover);
     const effectiveRequestId = String(requestId || documentId || '').trim();
 
-    // Gom nhóm items và serials theo từng binId thực tế
-    const binGroups = {};
+    // Chuẩn bị toàn bộ items của đơn hàng (Teko WMS yêu cầu gửi đầy đủ tất cả SKU trong 1 lần confirm-packing duy nhất)
+    const formattedItems = (items || []).map(it => ({
+      sku: String(it.sku),
+      serials: Array.isArray(it.serials) ? it.serials : [],
+      lots: Array.isArray(it.lots) ? it.lots : [],
+    }));
+
+    // Xác định binId soạn hàng / đóng gói
+    const targetBinId = Number(pickingBinId)
+      || Number(Object.values(serialBinMap || {}).find(b => Boolean(b) && Number(b) > 0))
+      || Number((items || []).find(it => it.fromBinId)?.fromBinId)
+      || 0;
+
+    if (!targetBinId) {
+      throw new Error('Thiếu mã BIN soạn hàng (pickingBinId). Vui lòng kiểm tra lại cấu hình BIN.');
+    }
+
+    // Tự động kiểm tra và luân chuyển tất cả Serial về cùng targetBinId (BIN soạn hàng) khi bấm Xác nhận
+    let movedSerialsCount = 0;
     for (const item of (items || [])) {
-      const serials = Array.isArray(item.serials) ? item.serials : [];
-      if (serials.length > 0) {
-        for (const sn of serials) {
-          const bId = String(serialBinMap[sn] || pickingBinId);
-          if (!binGroups[bId]) binGroups[bId] = {};
-          if (!binGroups[bId][item.sku]) binGroups[bId][item.sku] = [];
-          binGroups[bId][item.sku].push(sn);
+      for (const sn of (item.serials || [])) {
+        let snBin = serialBinMap[sn];
+        if (!snBin) {
+          try {
+            const tr = await quickExportService.getSerialTracking(sn, token, siteId);
+            snBin = tr.binId;
+          } catch (e) {}
         }
-      } else {
-        // Sản phẩm không quản lý serial
-        const bId = String(pickingBinId);
-        if (!binGroups[bId]) binGroups[bId] = {};
-        if (!binGroups[bId][item.sku]) binGroups[bId][item.sku] = [];
+        if (snBin && Number(snBin) !== Number(targetBinId)) {
+          console.log(`[QuickExport] Bấm xác nhận: Đang tự động luân chuyển serial ${sn} từ BIN ${snBin} sang BIN soạn hàng ${targetBinId}...`);
+          try {
+            await quickExportService.moveBin({
+              fromBinId: Number(snBin),
+              toBinId: Number(targetBinId),
+              sku: item.sku,
+              serial: sn,
+              quantity: 1,
+              siteId,
+            }, token, siteId);
+            serialBinMap[sn] = targetBinId;
+            movedSerialsCount++;
+          } catch (moveErr) {
+            console.error(`[QuickExport] Lỗi luân chuyển serial ${sn} về BIN soạn hàng:`, moveErr.message);
+            throw new Error(`Không thể luân chuyển serial "${sn}" về BIN soạn hàng (${targetBinId}): ${moveErr.message}`);
+          }
+        }
       }
     }
 
-    // Nếu không gom được bin nào, fallback về pickingBinId
-    if (Object.keys(binGroups).length === 0 && pickingBinId) {
-      binGroups[String(pickingBinId)] = {};
-      for (const item of (items || [])) {
-        binGroups[String(pickingBinId)][item.sku] = item.serials || [];
-      }
-    }
-
-    const binEntries = Object.entries(binGroups);
-    let lastResult = null;
-    for (let i = 0; i < binEntries.length; i++) {
-      const [bId, skuMap] = binEntries[i];
-      const isLast = (i === binEntries.length - 1);
-      const binItems = Object.entries(skuMap).map(([sku, serials]) => ({
-        sku,
-        serials,
-        lots: []
-      }));
-
-      // QUAN TRỌNG: Chỉ bàn giao (isAutoHandover) ở lần gọi cuối cùng!
-      // Nếu bàn giao ở lần đầu, Teko WMS sẽ đổi đơn sang EXPORTED ngay, khiến lần gọi tiếp theo bị lỗi "State of request is not valid".
-      const handoverThisStep = isLast ? autoHandover : false;
-
-      lastResult = await quickExportService.confirmPacking({
-        requestId: effectiveRequestId,
-        binId: Number(bId),
-        items: binItems,
-        isAutoHandover: handoverThisStep,
-        receiverName: handoverThisStep ? receiverName : undefined,
-        siteId,
-      }, token, siteId);
-    }
+    const lastResult = await quickExportService.confirmPacking({
+      requestId: effectiveRequestId,
+      binId: targetBinId,
+      items: formattedItems,
+      isAutoHandover: autoHandover,
+      receiverName: autoHandover ? receiverName : undefined,
+      siteId,
+    }, token, siteId);
 
     // ĐỒNG THỜI ĐÁNH DẤU "ĐÃ XUẤT" VÀO BẢNG serial_check_log TRÊN SUPABASE (FIFO)
     const todayDate = new Date().toISOString().slice(0, 10);
@@ -15391,14 +15799,16 @@ app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
       }
     }
 
+    const moveMsg = movedSerialsCount > 0 ? ` (Đã tự động luân chuyển ${movedSerialsCount} serial về BIN soạn hàng)` : '';
     res.json({
       success: true,
       data: lastResult,
       updatedFifoCount,
+      movedSerialsCount,
       isAutoHandover: autoHandover,
       message: autoHandover
-        ? `Hoàn tất xuất kho thành công trên ERP! Đã tick "Đã xuất" cho ${updatedFifoCount} serial vào bảng FIFO.`
-        : `Xác nhận soạn hàng (Đã đóng gói) thành công trên ERP! Đã tick "Đã xuất" cho ${updatedFifoCount} serial vào bảng FIFO.`
+        ? `Hoàn tất xuất kho thành công trên ERP!${moveMsg} Đã tick "Đã xuất" cho ${updatedFifoCount} serial vào bảng FIFO.`
+        : `Xác nhận soạn hàng (Đã đóng gói) thành công trên ERP!${moveMsg} Đã tick "Đã xuất" cho ${updatedFifoCount} serial vào bảng FIFO.`
     });
   } catch (err) {
     // Nếu gặp lỗi "State of request is not valid", kiểm tra xem đơn hàng thực tế đã được xuất kho / đóng gói thành công trước đó chưa

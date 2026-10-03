@@ -17,16 +17,13 @@ function getExpiryInfo(endDateString) {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     let level = 'safe';
-    let badgeClass = 'promo-expiry-badge--safe';
     let remainingLabel = '';
 
     if (diffDays < 0) {
         level = 'expired';
-        badgeClass = 'promo-expiry-badge--expired';
         remainingLabel = 'Đã hết hạn';
     } else if (diffDays <= 3) {
         level = 'urgent';
-        badgeClass = 'promo-expiry-badge--urgent';
         remainingLabel = diffDays === 0 ? 'Hết hạn hôm nay' : `Còn ${diffDays} ngày`;
     } else {
         remainingLabel = `Còn ${diffDays} ngày`;
@@ -38,12 +35,13 @@ function getExpiryInfo(endDateString) {
         year: 'numeric'
     });
 
-    return { level, badgeClass, formattedDate, remainingLabel };
+    return { level, formattedDate, remainingLabel };
 }
 
 const currentRole = (typeof userRole !== 'undefined') ? userRole : '';
 const totalPageValue = Number(totalPages) || 1;
 const totalItemValue = Number(totalItems) || (featuredPromos || []).length;
+const urgentCountValue = (typeof urgentCount !== 'undefined') ? Number(urgentCount) : 0;
 %>
 
 <div class="promo-page-chunk" data-page="<%= Number(page) || 1 %>">
@@ -51,7 +49,7 @@ const totalItemValue = Number(totalItems) || (featuredPromos || []).length;
         <% if (!featuredPromos || featuredPromos.length === 0) { %>
             <div class="promo-empty-state">
                 <div class="promo-empty-state__title">Không tìm thấy CTKM phù hợp</div>
-                <div class="promo-empty-state__desc">Thử đổi nhóm lọc hoặc từ khóa tìm kiếm để xem thêm kết quả.</div>
+                <div class="promo-empty-state__desc">Thử đổi nhóm lọc, từ khóa tìm kiếm hoặc bỏ chọn sắp hết hạn.</div>
             </div>
         <% } %>
 
@@ -65,12 +63,12 @@ const totalItemValue = Number(totalItems) || (featuredPromos || []).length;
                 }
 
                 let linkHref = "/promotion-detail/" + p.id;
-                let linkText = "Chi tiết CTKM";
+                let linkText = "Chi tiết CTKM →";
                 let targetAttr = "";
 
                 if (isKFI) {
                     linkHref = "/kfi-program";
-                    linkText = "Xem tồn kho & thưởng";
+                    linkText = "Xem KFI →";
                 } else if (p.is_sheet_promo) {
                     linkHref = p.detail_link || "#";
                     linkText = "Link vận hành ↗";
@@ -79,10 +77,11 @@ const totalItemValue = Number(totalItems) || (featuredPromos || []).length;
             %>
 
             <a class="promo-item promo-item--<%= expiry.level %>" href="<%= linkHref %>" <%= targetAttr %> data-expiry-level="<%= expiry.level %>">
+                <!-- Header chips: Nhóm | Loại CTKM -->
                 <div class="promo-item__head">
                     <div class="promo-chip-stack">
                         <% if (p.group_name) { %>
-                            <span class="promo-chip promo-chip--group"><%= p.group_name %></span>
+                            <span class="promo-chip promo-chip--group" title="<%= p.group_name %>"><%= p.group_name %></span>
                         <% } %>
                         <% if (p.promo_type) { %>
                             <span class="promo-chip promo-chip--type"><%= p.promo_type %></span>
@@ -93,21 +92,23 @@ const totalItemValue = Number(totalItems) || (featuredPromos || []).length;
                     <% } %>
                 </div>
 
-                <div class="promo-name"><%= p.name %></div>
+                <!-- 1. Tên CTKM -->
+                <h3 class="promo-name" title="<%= p.name %>"><%= p.name %></h3>
 
-                <div class="promo-meta">
+                <!-- 2. Mức giảm -->
+                <div class="promo-discount-row">
                     <% 
                         const HIDE_PRICE_TYPES = ['Combo', 'Gift', 'Quà tặng (Gift)', 'Trả góp', 'Ưu đãi thanh toán', 'KFI'];
                         const shouldShowPrice = p.__display_discount && !HIDE_PRICE_TYPES.includes(p.promo_type);
                     %>
 
                     <% if (isKFI) { %>
-                        <span class="promo-meta-text">
-                            <%= p.description && p.description.includes('Thưởng') ? p.description : 'Theo dõi KFI tháng này và tồn kho liên quan' %>
+                        <span class="promo-discount-desc" title="<%= p.description || '' %>">
+                            <%= p.description && p.description.includes('Thưởng') ? p.description : 'Theo dõi KFI và tồn kho áp dụng' %>
                         </span>
                     <% } else if (shouldShowPrice) { %>
-                        <span class="promo-price-prefix"><%= p.__display_prefix || 'Ưu đãi' %>:</span>
-                        <strong class="promo-price-value">
+                        <span class="promo-discount-label"><%= p.__display_prefix || 'Giảm' %>:</span>
+                        <strong class="promo-discount-value">
                             <% if (String(p.__display_discount).includes('%')) { %>
                                 <%= p.__display_discount %>
                             <% } else { %>
@@ -115,21 +116,41 @@ const totalItemValue = Number(totalItems) || (featuredPromos || []).length;
                             <% } %>
                         </strong>
                     <% } else { %>
-                        <span class="promo-meta-text"><%= p.description ? p.description : (p.promo_type || 'Xem chi tiết') %></span>
+                        <span class="promo-discount-desc" title="<%= p.description ? p.description : (p.promo_type || 'Xem chi tiết') %>">
+                            <%= p.description ? p.description : (p.promo_type || 'Xem chi tiết CTKM') %>
+                        </span>
                     <% } %>
                 </div>
 
+                <!-- 3. HSD -->
                 <% if (expiry.formattedDate) { %>
-                    <div class="promo-expiry-badge <%= expiry.badgeClass %>">HSD: <%= expiry.formattedDate %></div>
+                    <div class="promo-hsd-badge">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        <span>HSD: <%= expiry.formattedDate %></span>
+                    </div>
+                <% } else { %>
+                    <div class="promo-hsd-badge promo-hsd-badge--unlimited">
+                        <span>HSD: Không thời hạn</span>
+                    </div>
                 <% } %>
 
+                <!-- 4. Link & 5. Thời gian còn lại -->
                 <div class="promo-item__foot">
-                    <span class="promo-link-label"><%= linkText %></span>
-                    <span class="promo-days-left"><%= expiry.remainingLabel %></span>
+                    <span class="promo-link-action"><%= linkText %></span>
+                    <span class="promo-time-badge promo-time-badge--<%= expiry.level %>"><%= expiry.remainingLabel %></span>
                 </div>
             </a>
         <% }) %>
     </div>
 
-    <div class="promo-fetch-meta" data-total-pages="<%= totalPageValue %>" data-total-items="<%= totalItemValue %>" style="display:none;"></div>
+    <div class="promo-fetch-meta" 
+        data-total-pages="<%= totalPageValue %>" 
+        data-total-items="<%= totalItemValue %>" 
+        data-urgent-count="<%= urgentCountValue %>" 
+        style="display:none;"></div>
 </div>

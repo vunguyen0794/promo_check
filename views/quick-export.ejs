@@ -1225,7 +1225,7 @@
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--qe-border); flex-shrink: 0;">
             <div style="font-size: 12px; color: var(--qe-text-muted);">
-                💡 Bấm <strong>"Chọn serial này"</strong> để tự động nhận serial vào đơn hàng.
+                💡 Bảng tra cứu FIFO & vị trí BIN. Vui lòng dùng máy quét barcode hoặc nhập thủ công serial vào ô quét của đơn hàng để xác nhận.
             </div>
             <button class="btn-header-action" onclick="closeFifoModal()">Đóng</button>
         </div>
@@ -2474,7 +2474,11 @@
             addLog(`⚠️ [FIFO CẢNH BÁO] Serial [${serial}]: ${fifo.message}`, 'warn');
         } else {
             playBeep('success');
-            addLog(`🟢 Serial [${serial}] tại BIN [${fromBinName || binName}]: Đạt FIFO!`, 'success');
+            if (moved) {
+                addLog(`📦 Đã tự động luân chuyển Serial [${serial}] từ BIN [${fromBinName}] ➔ BIN soạn hàng [${toBinName || binName}]: Đạt FIFO!`, 'success');
+            } else {
+                addLog(`🟢 Serial [${serial}] tại BIN [${fromBinName || binName}]: Đạt FIFO!`, 'success');
+            }
         }
 
         renderSkuTable();
@@ -2620,6 +2624,10 @@
 
             playBeep('success');
             const savedDoc = currentOrder.documentId;
+
+            if (data.movedSerialsCount > 0) {
+                addLog(`📦 Đã tự động luân chuyển ${data.movedSerialsCount} serial về BIN soạn hàng [${pickingBin.name || pickingBin.id}]`, 'info');
+            }
 
             if (data.isAlreadyDone) {
                 addLog(`ℹ️ ${data.message}`, 'info');
@@ -2789,7 +2797,7 @@
                                         <th style="width: 110px;">Ngày nhập kho</th>
                                         <th style="width: 90px; text-align: center;">Tuổi tồn</th>
                                         <th style="width: 140px;">Khu vực (Bin Zone)</th>
-                                        <th style="width: 130px; text-align: center;">Thao tác</th>
+                                        <th style="width: 120px; text-align: center;">Trạng thái</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2834,14 +2842,9 @@
                                                 <td style="font-size: 12px; color: var(--qe-text-muted);">${s.binZone || '-'}</td>
                                                 <td style="text-align: center; white-space: nowrap;">
                                                     ${isAlreadyScanned ? `
-                                                        <span style="font-size: 12px; color: var(--qe-green-primary); font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">✓ Đã quét</span>
+                                                        <span style="font-size: 12px; color: var(--qe-green-primary); font-weight: 700; background: #dcfce7; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">✓ Đã quét</span>
                                                     ` : `
-                                                        <button type="button" 
-                                                                class="qe-btn-primary btn-fifo-select" 
-                                                                style="height: 32px; padding: 0 12px; font-size: 12px; border-radius: 6px; font-weight: 700; ${isOldest ? 'background: var(--qe-green-primary);' : ''}" 
-                                                                onclick="selectFifoSerial(this, '${sku}', '${s.serial}')">
-                                                            Chọn serial này
-                                                        </button>
+                                                        <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">Chưa quét</span>
                                                     `}
                                                 </td>
                                             </tr>
@@ -3023,56 +3026,7 @@
         renderSkuTable();
     }
 
-    let isProcessingFifoSelect = false;
 
-    async function selectFifoSerial(btn, sku, serial) {
-        if (!btn || isProcessingFifoSelect) return;
-        isProcessingFifoSelect = true;
-
-        const originalText = btn.innerHTML;
-        const originalBg = btn.style.background;
-
-        btn.disabled = true;
-        btn.style.opacity = '0.85';
-        btn.style.cursor = 'wait';
-        btn.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:qeSpin 0.6s linear infinite;vertical-align:middle;margin-right:4px;"></span> Đang nhận...`;
-
-        // Vô hiệu hoá tạm thời tất cả các nút chọn khác trong modal để chống bấm đúp
-        const otherBtns = document.querySelectorAll('.btn-fifo-select');
-        otherBtns.forEach(b => { if (b !== btn) b.disabled = true; });
-
-        try {
-            await executeScanSerial(serial);
-
-            // Đổi trạng thái nút thành công
-            btn.innerHTML = '✓ Đã nhận';
-            btn.style.background = '#10b981';
-            btn.style.borderColor = '#059669';
-            btn.style.cursor = 'default';
-            btn.classList.add('btn-fifo-done');
-
-            // Cập nhật lại nội dung modal sau một chút để user thấy phản hồi trực quan
-            setTimeout(() => {
-                renderFifoModalContent(currentFifoTabSku);
-            }, 500);
-
-        } catch (err) {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-            btn.innerHTML = originalText;
-            btn.style.background = originalBg;
-            playBeep('error');
-            addLog(`Lỗi chọn serial "${serial}": ${err.message}`, 'error');
-            alert(`Lỗi nhận serial: ${err.message}`);
-        } finally {
-            isProcessingFifoSelect = false;
-            const remainingBtns = document.querySelectorAll('.btn-fifo-select');
-            remainingBtns.forEach(b => {
-                if (!b.classList.contains('btn-fifo-done')) b.disabled = false;
-            });
-        }
-    }
 
     // --- KHỞI TẠO & LẮNG NGHE ENTER ---
     document.addEventListener('DOMContentLoaded', async () => {
