@@ -691,9 +691,9 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(15, 23, 42, 0.5);
+        background: rgba(15, 23, 42, 0.65);
         backdrop-filter: blur(4px);
-        z-index: 9999;
+        z-index: 100000;
         align-items: center;
         justify-content: center;
     }
@@ -990,7 +990,7 @@
         </div>
 
         <!-- PHƯƠNG THỨC 2: THỦ CÔNG (COLLAPSIBLE) -->
-        <details style="border: 1px solid var(--qe-border); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;">
+        <details id="manualTokenDetails" style="border: 1px solid var(--qe-border); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;">
             <summary style="font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; user-select: none;">
                 🔧 Cách 2: Đồng bộ qua Bookmarklet (Không cần cài Extension)
             </summary>
@@ -1036,7 +1036,7 @@
 <!-- ================================================================
      MODAL HƯỚNG DẪN CÀI EXTENSION (15 GIÂY)
      ================================================================ -->
-<div class="qe-modal-backdrop" id="extensionGuideModal" style="display: none;">
+<div class="qe-modal-backdrop" id="extensionGuideModal" style="display: none; z-index: 100010;">
     <div class="qe-modal" style="max-width: 600px; width: 95%;">
         <div class="qe-modal-header">
             <h3 class="qe-modal-title" style="display: flex; align-items: center; gap: 8px;">
@@ -1274,26 +1274,31 @@
 </div>
 
 <!-- ERP LOGIN GATE SCREEN -->
-<div id="erpGateScreen" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.92); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center; flex-direction:column; font-family:'Be Vietnam Pro','Inter',sans-serif;">
-    <div style="background:#fff; border-radius:20px; padding:40px 36px; max-width:460px; width:90%; text-align:center; box-shadow:0 25px 60px rgba(0,0,0,0.35); border:1px solid #e2e8f0;">
-        <div style="width:64px;height:64px;background:#eff6ff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;">🔐</div>
+<div id="erpGateScreen" style="display:none; position:fixed; inset:0; z-index:9990; background:rgba(15,23,42,0.92); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center; flex-direction:column; font-family:'Be Vietnam Pro','Inter',sans-serif;">
+    <div style="background:#fff; border-radius:20px; padding:36px 32px; max-width:480px; width:92%; text-align:center; box-shadow:0 25px 60px rgba(0,0,0,0.35); border:1px solid #e2e8f0;">
+        <div style="width:60px;height:60px;background:#eff6ff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:26px;">🔐</div>
         <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px;">Chưa kết nối ERP</h2>
-        <p style="font-size:14px;color:#475569;margin:0 0 24px;line-height:1.6;">Để sử dụng <strong>Xuất kho nhanh</strong>, bạn cần đăng nhập vào hệ thống ERP Phong Vũ trước. Chrome Extension sẽ tự động đồng bộ token về.</p>
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin-bottom:20px;text-align:left;font-size:13px;color:#166534;line-height:1.8;">
-            <div style="font-weight:700;margin-bottom:6px;color:#15803d;">⚡ Hướng dẫn 2 bước:</div>
-            <div>1️⃣ Bấm "<strong>Mở ERP & Đăng nhập</strong>" bên dưới</div>
-            <div>2️⃣ Đăng nhập ERP → Extension tự đồng bộ → Trang tự động mở khóa 🔓</div>
+        <p style="font-size:13.5px;color:#475569;margin:0 0 18px;line-height:1.6;">Để sử dụng <strong>Xuất kho nhanh</strong>, bạn cần đăng nhập ERP Phong Vũ. Extension sẽ tự động đồng bộ kết nối.</p>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:18px;text-align:left;font-size:12.5px;color:#166534;line-height:1.7;">
+            <div style="font-weight:700;margin-bottom:4px;color:#15803d;">⚡ Hướng dẫn 2 bước:</div>
+            <div>1️⃣ Bấm "<strong>Mở ERP &amp; Đăng nhập</strong>" bên dưới</div>
+            <div>2️⃣ Đăng nhập ERP &rarr; Extension tự đồng bộ &rarr; Trang tự động mở khóa 🔓</div>
         </div>
-        <div id="gatePollingStatus" style="margin-bottom:16px;font-size:13px;color:#64748b;min-height:20px;"></div>
+        <div id="gatePollingStatus" style="margin-bottom:14px;font-size:13px;color:#64748b;min-height:20px;"></div>
         <div style="display:flex;flex-direction:column;gap:10px;">
-            <a id="btnOpenErpLogin" href="https://erp.phongvu.vn" target="_blank" onclick="startGatePolling()" style="display:block;padding:14px 20px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+            <a id="btnOpenErpLogin" href="https://erp.phongvu.vn" target="_blank" onclick="startGatePolling()" style="display:block;padding:13px 20px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border-radius:10px;font-size:14.5px;font-weight:700;text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
                 🔑 Mở ERP &amp; Đăng nhập
             </a>
-            <button onclick="openTokenModal()" style="padding:11px 20px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:600;color:#334155;cursor:pointer;">
-                ✍️ Nhập Token thủ công
-            </button>
-            <a href="javascript:void(0)" onclick="showExtensionGuide()" style="font-size:12px;color:#2563eb;text-decoration:underline;margin-top:6px;font-weight:600;">
-                📦 Hướng dẫn cài / Tải Extension tự đồng bộ (.zip)
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <a href="/phongvu-erp-sync.zip" download="phongvu-erp-sync.zip" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;font-size:12.5px;font-weight:700;color:#166534;text-decoration:none;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+                    <span>⬇️</span> Tải Extension (.zip)
+                </a>
+                <button type="button" onclick="openTokenModal(true)" style="padding:11px 10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;font-size:12.5px;font-weight:600;color:#334155;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f8fafc'">
+                    ✍️ Nhập thủ công
+                </button>
+            </div>
+            <a href="javascript:void(0)" onclick="showExtensionGuide()" style="font-size:12px;color:#2563eb;text-decoration:underline;margin-top:4px;font-weight:600;">
+                📦 Xem hướng dẫn cài Extension (15 giây)
             </a>
         </div>
     </div>
@@ -1618,9 +1623,22 @@
         }
     }
 
-    function openTokenModal() {
+    function openTokenModal(focusManual = false) {
         initBookmarklet();
         document.getElementById('tokenModal').style.display = 'flex';
+
+        // Nếu bấm "Nhập thủ công" từ Gate screen, tự động mở rộng phần nhập token và focus
+        if (focusManual) {
+            const details = document.getElementById('manualTokenDetails');
+            if (details) details.open = true;
+            setTimeout(() => {
+                const input = document.getElementById('txtManualToken');
+                if (input) {
+                    input.focus();
+                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        }
 
         // Kiểm tra Extension đã cài hay chưa
         const hasExt = document.documentElement.dataset.pvExtensionInstalled === 'true' || window.__PV_EXTENSION_INSTALLED__ === true;

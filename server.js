@@ -14308,6 +14308,15 @@ async function resolveUserExportToken(req) {
   return '';
 }
 
+// 1b. Tải Chrome Extension (.zip)
+app.get('/api/quick-export/download-extension', (req, res) => {
+  const filePath = path.join(__dirname, 'public', 'phongvu-erp-sync.zip');
+  if (fs.existsSync(filePath)) {
+    return res.download(filePath, 'phongvu-erp-sync.zip');
+  }
+  res.status(404).send('Không tìm thấy file cài đặt Extension');
+});
+
 // 2. Lấy cài đặt cá nhân (chỉ dùng token riêng của user, không dùng chung)
 app.get('/api/quick-export/settings', requireAuth, async (req, res) => {
   try {
