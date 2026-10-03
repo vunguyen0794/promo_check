@@ -1310,6 +1310,16 @@
     window.pvBranchCode = '<%= user && user.branch_code ? user.branch_code : "" %>';
     window.pvUserEmail = '<%= user && user.email ? user.email : "" %>';
 
+    // Gán vào dataset để extension đọc được qua DOM
+    try {
+        document.documentElement.dataset.pvUserId = window.pvUserId;
+        document.documentElement.dataset.pvUserEmail = window.pvUserEmail;
+        document.documentElement.dataset.pvBranchCode = window.pvBranchCode;
+        window.dispatchEvent(new CustomEvent('pv-user-info', {
+            detail: { userId: window.pvUserId, email: window.pvUserEmail, branchCode: window.pvBranchCode, origin: window.location.origin }
+        }));
+    } catch(e) {}
+
     // --- STATE ---
     let currentOrder = null;
     let pickingBin = {

@@ -14329,7 +14329,26 @@ app.get('/api/quick-export/settings', requireAuth, async (req, res) => {
       try { settings = JSON.parse(data.value); } catch (e) {}
     }
 
-    const effectiveToken = settings.tekoToken || '';
+    let effectiveToken = settings.tekoToken || '';
+    if (!effectiveToken) {
+      // Fallback: nếu global token vừa được cập nhật trong vòng 5 phút (ví dụ từ Extension tự sync)
+      const { data: globalData } = await supabase.from('site_settings').select('value, updated_at').eq('id', 'quick_export_global_token').maybeSingle();
+      if (globalData && globalData.value) {
+        try {
+          const g = JSON.parse(globalData.value);
+          const diffMs = Date.now() - new Date(globalData.updated_at || g.updatedAt || 0).getTime();
+          if (diffMs < 5 * 60 * 1000 && g.tekoToken) {
+            effectiveToken = g.tekoToken;
+            settings.tekoToken = effectiveToken;
+            await supabase.from('site_settings').upsert({
+              id: settingKey,
+              value: JSON.stringify(settings),
+              updated_at: new Date().toISOString()
+            });
+          }
+        } catch (e) {}
+      }
+    }
 
     res.json({
       success: true,
@@ -14382,36 +14401,81 @@ app.post('/api/quick-export/settings', requireAuth, async (req, res) => {
 app.options('/api/quick-export/sync-token', (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.sendStatus(200);
 });
+
+async function handleSyncTokenRequest(cleanToken, branchCode, userId, userEmail) {
+  let effectiveUserId = userId;
+  let jwtEmail = userEmail || '';
+
+  try {
+    const parts = cleanToken.split('.');
+    if (parts.length >= 2) {
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+      jwtEmail = payload.email || payload.sub || payload.preferred_username || jwtEmail || '';
+    }
+  } catch (e) {}
+
+  if (!effectiveUserId && jwtEmail) {
+    try {
+      const { data: matchedUser } = await supabase.from('users').select('id').ilike('email', jwtEmail).maybeSingle();
+      if (matchedUser && matchedUser.id) {
+        effectiveUserId = matchedUser.id;
+      }
+    } catch (e) {}
+  }
+
+  const tokenObj = {
+    tekoToken: cleanToken,
+    branchCode: branchCode || '',
+    email: jwtEmail,
+    userId: effectiveUserId || '',
+    updatedAt: new Date().toISOString()
+  };
+
+  if (effectiveUserId) {
+    const settingKey = `quick_export_${effectiveUserId}`;
+    const { data } = await supabase.from('site_settings').select('value').eq('id', settingKey).maybeSingle();
+    let currentSettings = {};
+    if (data && data.value) {
+      try { currentSettings = JSON.parse(data.value); } catch (e) {}
+    }
+    currentSettings.tekoToken = cleanToken;
+    currentSettings.updatedAt = new Date().toISOString();
+
+    await supabase.from('site_settings').upsert({
+      id: settingKey,
+      value: JSON.stringify(currentSettings),
+      updated_at: new Date().toISOString()
+    });
+  }
+
+  // Luôn cập nhật quick_export_global_token làm fallback an toàn
+  await supabase.from('site_settings').upsert({
+    id: 'quick_export_global_token',
+    value: JSON.stringify(tokenObj),
+    updated_at: new Date().toISOString()
+  });
+
+  return { effectiveUserId, jwtEmail };
+}
 
 app.post('/api/quick-export/sync-token', async (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   try {
-    const { token, branchCode, userId } = req.body;
+    const { token, branchCode, userId, userEmail } = req.body;
     if (!token) return res.status(400).json({ success: false, message: 'Thiếu token' });
 
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
-    const tokenObj = { tekoToken: cleanToken, branchCode: branchCode || '', updatedAt: new Date().toISOString() };
+    const result = await handleSyncTokenRequest(cleanToken, branchCode, userId, userEmail);
 
-    // Ưu tiên lưu trực tiếp theo userId
-    if (userId) {
-      await supabase.from('site_settings').upsert({
-        id: `quick_export_${userId}`,
-        value: JSON.stringify(tokenObj),
-        updated_at: new Date().toISOString()
-      });
-    } else {
-      // Fallback nếu không có userId (ví dụ bookmarklet chung)
-      await supabase.from('site_settings').upsert({
-        id: 'quick_export_global_token',
-        value: JSON.stringify(tokenObj),
-        updated_at: new Date().toISOString()
-      });
-    }
-
-    res.json({ success: true, message: 'Đã tự động đồng bộ token ERP thành công!' });
+    res.json({
+      success: true,
+      message: 'Đã tự động đồng bộ token ERP thành công!',
+      userId: result.effectiveUserId,
+      email: result.jwtEmail
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -14423,26 +14487,18 @@ app.get('/api/quick-export/sync-token', async (req, res) => {
     const token = req.query.token;
     const branchCode = req.query.branchCode;
     const userId = req.query.userId;
+    const userEmail = req.query.userEmail;
     if (!token) return res.status(400).json({ success: false, message: 'Thiếu token' });
 
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
-    const tokenObj = { tekoToken: cleanToken, branchCode: branchCode || '', updatedAt: new Date().toISOString() };
+    const result = await handleSyncTokenRequest(cleanToken, branchCode, userId, userEmail);
 
-    if (userId) {
-      await supabase.from('site_settings').upsert({
-        id: `quick_export_${userId}`,
-        value: JSON.stringify(tokenObj),
-        updated_at: new Date().toISOString()
-      });
-    } else {
-      await supabase.from('site_settings').upsert({
-        id: 'quick_export_global_token',
-        value: JSON.stringify(tokenObj),
-        updated_at: new Date().toISOString()
-      });
-    }
-
-    res.json({ success: true, message: 'Đã tự động đồng bộ token ERP thành công!' });
+    res.json({
+      success: true,
+      message: 'Đã tự động đồng bộ token ERP thành công!',
+      userId: result.effectiveUserId,
+      email: result.jwtEmail
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
