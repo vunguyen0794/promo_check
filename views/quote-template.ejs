@@ -202,8 +202,11 @@
         </div>
 
         <% const hasAnyDiscount=items.some(i=> (i.item_discount || 0) > 0);
-            const hasAnyItemDetailedSpecs = items.some(i => String(i.quote_detailed_specs || '').trim().length > 0);
-            const hasAnyItemImages = items.some(i => Array.isArray(i.quote_image_urls) && i.quote_image_urls.length > 0);
+            const showSpecs = typeof show_specs !== 'undefined' ? (show_specs === true || show_specs === 'true') : true;
+            const showImages = typeof show_images !== 'undefined' ? (show_images === true || show_images === 'true') : true;
+            const showWarranty = typeof show_warranty !== 'undefined' ? (show_warranty === true || show_warranty === 'true') : true;
+            const hasAnyItemDetailedSpecs = showSpecs && items.some(i => String(i.quote_detailed_specs || '').trim().length > 0);
+            const hasAnyItemImages = showImages && items.some(i => Array.isArray(i.quote_image_urls) && i.quote_image_urls.length > 0);
             let grandTotalExVat = 0;
             let grandTotalVat = 0;
         %>
@@ -271,7 +274,16 @@
                                     <%= item.sku %>
                                 </td>
                                 <td class="product-name-cell">
-                                    <%= item.product_name %>
+                                    <div style="font-weight: 600;"><%= item.product_name %></div>
+                                    <% if (showWarranty && item.warranty) { 
+                                        const cleanW = String(item.warranty).replace(/\s*chính\s*hãng/gi, '').trim();
+                                        if (cleanW) {
+                                    %>
+                                        <div style="font-size: 10px; color: #475569; margin-top: 2px; font-weight: normal;">
+                                            (Bảo hành: <%= cleanW %>)
+                                        </div>
+                                    <%   }
+                                       } %>
                                 </td>
                                 <% if (hasAnyItemDetailedSpecs) { %>
                                     <td>

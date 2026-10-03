@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "deploy": "bash deploy.sh",
     "test:home-ui": "node --test tests/home-ui-contract.test.js",
     "test:fifo-ui": "node --test tests/fifo-ui-contract.test.js",
     "test:quick-export": "node --test tests/quick-export-contract.test.js"

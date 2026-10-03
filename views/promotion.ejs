@@ -529,30 +529,91 @@
         margin: 0 0 14px 0;
         letter-spacing: -0.2px;
     }
-    .uupm-meta-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 16px;
-    }
-    .uupm-meta-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
+    /* Product Info Block: 1 block 2 cột gọn gàng */
+    .product-info-block {
         background: #f8fafc;
         border: 1px solid #e2e8f0;
         border-radius: 8px;
-        padding: 6px 12px;
-        font-size: 12.5px;
-        color: #475569;
+        padding: 9px 14px;
+        margin-bottom: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
     }
-    .uupm-meta-pill .meta-lbl {
+    .product-info-block .info-row {
+        display: flex;
+        align-items: center;
+    }
+    .product-info-block .info-cell {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        min-width: 0;
+    }
+    .product-info-block .info-lbl {
         color: #64748b;
         font-weight: 500;
+        white-space: nowrap;
     }
-    .uupm-meta-pill .meta-val {
+    .product-info-block .info-val {
         color: #0f172a;
         font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .product-info-block .info-divider {
+        width: 1px;
+        height: 14px;
+        background: #cbd5e1;
+        margin: 0 14px;
+    }
+
+    /* Product Spec Action Row */
+    .product-spec-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+    }
+    .btn-spec-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 6px;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #1d4ed8;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .btn-spec-action:hover {
+        background: #dbeafe;
+        border-color: #93c5fd;
+    }
+    .btn-spec-sync {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 10px;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #475569;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .btn-spec-sync:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #0f172a;
     }
 
     /* KFI Bar UI/UX Pro Max */
@@ -593,66 +654,175 @@
         color: #059669;
     }
 
-    /* Price Showcase Box */
+    /* Price Showcase Box: Gọn gàng, sạch sẽ */
     .uupm-price-showcase {
         background: #f8fafc;
         border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 16px 20px;
+        border-radius: 8px;
+        padding: 10px 14px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        transition: all 0.2s ease;
-    }
-    .uupm-price-showcase:hover {
-        background: #ffffff;
-        border-color: #cbd5e1;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        gap: 6px;
     }
     .uupm-price-top-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #f1f5f9;
     }
     .uupm-price-label {
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 800;
-        color: #64748b;
+        color: #475569;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: flex;
-        align-items: center;
-        gap: 5px;
+        letter-spacing: 0.4px;
     }
     .uupm-price-tools {
         display: flex;
+        align-items: center;
         gap: 6px;
+    }
+    .tool-sep {
+        color: #cbd5e1;
+        font-size: 11px;
+        user-select: none;
     }
     .btn-price-tool {
         font-size: 12px;
         font-weight: 700;
-        background: #ffffff;
-        border: 1px solid #cbd5e1;
-        color: #334155;
-        padding: 4px 10px;
-        border-radius: 6px;
+        background: transparent;
+        border: none;
+        color: #2563eb;
+        padding: 0 4px;
         cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
         transition: all 0.15s ease;
     }
     .btn-price-tool:hover {
-        background: #eff6ff;
-        border-color: #93c5fd;
-        color: #2563eb;
+        color: #1d4ed8;
+        text-decoration: underline;
     }
-    .uupm-main-price {
-        font-size: 26px;
+    .uupm-price-content-row {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding-top: 2px;
+    }
+    .price-cell-promo {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+    .price-cell-orig {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+    .price-text-lbl {
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748b;
+    }
+    .price-text-val.promo {
+        font-size: 17px;
         font-weight: 900;
         color: #dc2626;
-        letter-spacing: -0.3px;
-        line-height: 1.2;
+        letter-spacing: -0.2px;
+    }
+    .price-text-discount {
+        font-size: 13px;
+        font-weight: 700;
+        color: #64748b;
+    }
+    .price-text-discount.has-saving {
+        color: #059669;
+        font-weight: 800;
+    }
+    .price-v-sep {
+        width: 1px;
+        height: 14px;
+        background: #cbd5e1;
+        margin: 0 4px;
+        align-self: center;
+    }
+    .price-text-val.orig {
+        font-size: 14px;
+        font-weight: 700;
+        color: #334155;
+    }
+    .price-text-val.orig.is-slashed {
+        color: #94a3b8;
+        text-decoration: line-through;
+        font-weight: 500;
+    }
+    .spec-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+    }
+    .spec-table tr:nth-child(even) {
+        background-color: #f8fafc;
+    }
+    .spec-table th, .spec-table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        text-align: left;
+    }
+    .spec-table th {
+        width: 30%;
+        font-weight: 700;
+        color: #475569;
+        vertical-align: top;
+        background: #f8fafc;
+    }
+    .spec-table td {
+        color: #0f172a;
+        line-height: 1.5;
+    }
+    .spec-compare-table {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .spec-compare-table thead th {
+        border-bottom: 2px solid #cbd5e1;
+        text-align: left;
+    }
+    .spec-compare-table tbody th {
+        width: 22%;
+        background: #f8fafc;
+        border-right: 1px solid #f1f5f9;
+        font-weight: 700;
+        font-size: 13px;
+        color: #334155;
+    }
+    .spec-compare-table tbody td {
+        border-right: 1px solid #f1f5f9;
+        font-size: 13px;
+        vertical-align: top;
+    }
+    .spec-thumb-gallery {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+        margin-bottom: 14px;
+    }
+    .spec-thumb-item {
+        width: 68px;
+        height: 68px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        object-fit: cover;
+        background: #f8fafc;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: transform 0.15s, border-color 0.15s;
+    }
+    .spec-thumb-item:hover {
+        transform: scale(1.05);
+        border-color: #2563eb;
     }
     .price-edit-inline {
         display: flex;
@@ -1915,79 +2085,129 @@
     <% if (typeof product !=='undefined' && product) { %>
         <div class="product-dashboard-card">
             <div class="pd-header-uupm">
-                <div class="pd-title-wrap">
-                    <span class="pd-icon-badge" aria-hidden="true">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9 5-9-5"/><path d="M3 8l9-5 9 5v8l-9 5-9-5Z"/><path d="M12 13v8"/></svg>
-                    </span>
-                    <div>
-                        <h2 class="pd-title-main">Thông tin sản phẩm</h2>
-                        <div class="pd-title-desc">Giá niêm yết, KFI và tồn kho theo thời gian thực</div>
-                    </div>
-                </div>
+                <h2 class="pd-title-main">Thông tin sản phẩm</h2>
                 <span class="sku-badge-pill"><span class="sku-lbl">SKU</span><span class="sku-val"><%= product.sku %></span></span>
             </div>
             <div class="pd-body-uupm">
                 <div>
                     <h3 class="uupm-product-name"><%= product.product_name %></h3>
-                    <div class="uupm-meta-row">
-                        <span class="uupm-meta-pill"><span class="meta-lbl">Thương hiệu</span><span class="meta-val"><%= product.brand %></span></span>
-                        <span class="uupm-meta-pill"><span class="meta-lbl">Nhóm hàng</span><span class="meta-val"><%= product.subcat %></span></span>
-                    </div>
-                        <% if (product.kfi_end_user > 0 || product.kfi_dealer > 0) { %>
-    
-    <% 
-        // Logic lấy tháng hiện tại
-        const d = new Date();
-        const currentMonth = d.getMonth() + 1;
-        const monthStr = currentMonth < 10 ? '0' + currentMonth : currentMonth;
-    %>
 
-    <div class="uupm-kfi-bar">
-        <div class="uupm-kfi-left">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3.1 6.3L22 9.3l-5 4.9 1.2 6.8L12 17.8 5.8 21 7 14.2l-5-4.9 6.9-1Z"/></svg>
-            KFI THÁNG <%= monthStr %>
-        </div>
-
-        <div class="uupm-kfi-right">
-            <% if (product.kfi_end_user > 0) { %>
-                <div class="uupm-kfi-tag">
-                    <span>User:</span>
-                    <span class="val"><%= Number(product.kfi_end_user).toLocaleString('vi-VN') %></span>
-                </div>
-            <% } %>
-
-            <% if (product.kfi_end_user > 0 && product.kfi_dealer > 0) { %>
-                <span aria-hidden="true" style="width:1px; height:14px; background:#a7f3d0;"></span>
-            <% } %>
-
-            <% if (product.kfi_dealer > 0) { %>
-                <div class="uupm-kfi-tag">
-                    <span>Dealer:</span>
-                    <span class="val"><%= Number(product.kfi_dealer).toLocaleString('vi-VN') %></span>
-                </div>
-            <% } %>
-        </div>
-    </div>
-<% } %>
-                        
-                        <div class="uupm-price-showcase">
-                            <div class="uupm-price-top-bar">
-                                <span class="uupm-price-label">Giá niêm yết</span>
-                                <div class="uupm-price-tools">
-                                    <button id="btnEditPrice" type="button" class="btn-price-tool">Sửa giá</button>
-                                    <button id="btnHistoryPrice" type="button" class="btn-price-tool">Lịch sử</button>
-                                </div>
+                    <!-- Chung 1 block: Thương hiệu, Nhóm hàng, Bảo hành, VAT -->
+                    <div class="product-info-block">
+                        <div class="info-row">
+                            <div class="info-cell">
+                                <span class="info-lbl">Thương hiệu:</span>
+                                <span class="info-val"><%= product.brand || 'Chưa rõ' %></span>
                             </div>
-                            <span id="priceView" class="uupm-main-price">
-                                <%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) + ' đ' : 'N/A' %>
-                            </span>
-                            <span id="priceEdit" class="price-edit-inline" style="display:none;">
-                                <input id="priceInput" class="price-edit-field" type="text" value="<%= product.list_price ? new Intl.NumberFormat('vi-VN').format(product.list_price) : '0' %>">
-                                <button id="btnSavePrice" class="btn-price-confirm">Lưu</button>
-                                <button id="btnCancelPrice" class="btn-price-abort">Hủy</button>
-                            </span>
+                            <div class="info-divider"></div>
+                            <div class="info-cell">
+                                <span class="info-lbl">Nhóm hàng:</span>
+                                <span class="info-val"><%= product.subcat || product.category || 'Chưa rõ' %></span>
+                            </div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-cell">
+                                <span class="info-lbl">Bảo hành:</span>
+                                <span class="info-val" id="metaWarranty"><%= (product.warranty || 'Chưa cập nhật').replace(/\s*chính\s*hãng/gi, '').trim() %></span>
+                            </div>
+                            <div class="info-divider"></div>
+                            <div class="info-cell">
+                                <span class="info-lbl">VAT:</span>
+                                <span class="info-val" id="metaVat"><%= (product.vat_rate !== null && typeof product.vat_rate !== 'undefined') ? product.vat_rate + '%' : 'Chưa cập nhật' %></span>
+                            </div>
                         </div>
                     </div>
+
+                    <% if (product.kfi_end_user > 0 || product.kfi_dealer > 0) { %>
+                        <% 
+                            const d = new Date();
+                            const currentMonth = d.getMonth() + 1;
+                            const monthStr = currentMonth < 10 ? '0' + currentMonth : currentMonth;
+                        %>
+                        <div class="uupm-kfi-bar">
+                            <div class="uupm-kfi-left">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3.1 6.3L22 9.3l-5 4.9 1.2 6.8L12 17.8 5.8 21 7 14.2l-5-4.9 6.9-1Z"/></svg>
+                                KFI THÁNG <%= monthStr %>
+                            </div>
+                            <div class="uupm-kfi-right">
+                                <% if (product.kfi_end_user > 0) { %>
+                                    <div class="uupm-kfi-tag">
+                                        <span>User:</span>
+                                        <span class="val"><%= Number(product.kfi_end_user).toLocaleString('vi-VN') %></span>
+                                    </div>
+                                <% } %>
+                                <% if (product.kfi_end_user > 0 && product.kfi_dealer > 0) { %>
+                                    <span aria-hidden="true" style="width:1px; height:14px; background:#a7f3d0;"></span>
+                                <% } %>
+                                <% if (product.kfi_dealer > 0) { %>
+                                    <div class="uupm-kfi-tag">
+                                        <span>Dealer:</span>
+                                        <span class="val"><%= Number(product.kfi_dealer).toLocaleString('vi-VN') %></span>
+                                    </div>
+                                <% } %>
+                            </div>
+                        </div>
+                    <% } %>
+
+                    <!-- Bảng giá sản phẩm -->
+                    <div class="uupm-price-showcase">
+                        <div class="uupm-price-top-bar">
+                            <span class="uupm-price-label">Bảng giá sản phẩm</span>
+                            <div class="uupm-price-tools">
+                                <button id="btnEditPrice" type="button" class="btn-price-tool">Sửa giá</button>
+                                <span class="tool-sep">|</span>
+                                <button id="btnHistoryPrice" type="button" class="btn-price-tool">Lịch sử</button>
+                            </div>
+                        </div>
+
+                        <% 
+                            const origPrice = Number(product.list_price) || 0;
+                            const promoPrice = (product.promo_price && Number(product.promo_price) > 0)
+                                ? Number(product.promo_price)
+                                : origPrice;
+                            const discountAmt = (product.discount_amount && Number(product.discount_amount) > 0)
+                                ? Number(product.discount_amount)
+                                : Math.max(0, origPrice - promoPrice);
+                        %>
+
+                        <div class="uupm-price-content-row">
+                            <div class="price-cell-promo">
+                                <span class="price-text-lbl">Giá khuyến mãi:</span>
+                                <span class="price-text-val promo" id="pricePromoView">
+                                    <%= promoPrice > 0 ? new Intl.NumberFormat('vi-VN').format(promoPrice) + ' đ' : (origPrice > 0 ? new Intl.NumberFormat('vi-VN').format(origPrice) + ' đ' : 'Chưa có') %>
+                                </span>
+                                <span class="price-text-discount <%= discountAmt > 0 ? 'has-saving' : '' %>" id="discountBadge">
+                                    <%= discountAmt > 0 ? ('- ' + new Intl.NumberFormat('vi-VN').format(discountAmt) + ' đ') : '0 đ' %>
+                                </span>
+                            </div>
+
+                            <div class="price-v-sep"></div>
+
+                            <div class="price-cell-orig">
+                                <span class="price-text-lbl">Giá gốc:</span>
+                                <span class="price-text-val orig <%= discountAmt > 0 ? 'is-slashed' : '' %>" id="priceView">
+                                    <%= origPrice > 0 ? new Intl.NumberFormat('vi-VN').format(origPrice) + ' đ' : 'Chưa có' %>
+                                </span>
+                            </div>
+                        </div>
+
+                        <span id="priceEdit" class="price-edit-inline" style="display:none; margin-top:8px;">
+                            <input id="priceInput" class="price-edit-field" type="text" value="<%= origPrice ? new Intl.NumberFormat('vi-VN').format(origPrice) : '0' %>">
+                            <button id="btnSavePrice" class="btn-price-confirm">Lưu</button>
+                            <button id="btnCancelPrice" class="btn-price-abort">Hủy</button>
+                        </span>
+                    </div>
+
+                    <!-- Block Thông số kỹ thuật & Đồng bộ -->
+                    <div class="product-spec-row">
+                        <button id="btnViewSpec" type="button" class="btn-spec-action" title="Xem chi tiết thông số kỹ thuật dạng popup">
+                            Thông số kỹ thuật
+                        </button>
+                        <button id="btnSyncSpec" type="button" class="btn-spec-sync" title="Đồng bộ lại thông số & giá mới nhất từ hệ thống" style="padding: 5px 8px; font-size: 13px;">
+                            🔄
+                        </button>
+                    </div>
+                </div>
     
                     <div class="uupm-stock-section">
                         <% if (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin && inventoryMap && inventoryMap.get(product.sku)) { %>
@@ -2131,7 +2351,6 @@
                                     <%= sortedPromosList.length %> chương trình
                                 </span>
                             </h3>
-                            <div class="promo-section-desc">Được tối ưu và sắp xếp tự động theo mức tiền giảm giá thực tế cao nhất</div>
                         </div>
                     </div>
                 </div>
@@ -2272,7 +2491,6 @@
                             <h3 class="promo-section-title">
                                 <span>Ma Trận Kết Hợp CTKM (Có Thể Dùng Chung)</span>
                             </h3>
-                            <div class="promo-section-desc">Đối chiếu 2 chiều trực quan khả năng áp dụng đồng thời giữa các chương trình khuyến mãi</div>
                         </div>
                     </div>
                     <div class="matrix-legend">
@@ -2904,17 +3122,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const historyTbody = document.querySelector('#phTable tbody');
 
         if (input) input.addEventListener('input', (e) => { e.target.value = formatNumber(parseNumber(e.target.value)); });
-        if (btnEdit) btnEdit.onclick = () => { view.style.display = 'none'; editWrap.style.display = 'block'; input.focus(); };
-        if (btnCancel) btnCancel.onclick = () => { editWrap.style.display = 'none'; view.style.display = 'block'; };
+        if (btnEdit) btnEdit.onclick = () => { editWrap.style.display = editWrap.style.display === 'none' ? 'block' : 'none'; if (editWrap.style.display === 'block') input.focus(); };
+        if (btnCancel) btnCancel.onclick = () => { editWrap.style.display = 'none'; };
         
         if (btnSave) btnSave.onclick = async () => {
             try {
                 const newPrice = parseNumber(input.value);
                 if (newPrice < 0) { alert('Giá không hợp lệ'); return; }
                 const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ new_price: newPrice })
                 });
+                const contentType = res.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    throw new Error(res.status === 401 ? 'Phiên đăng nhập đã hết hạn.' : `Máy chủ phản hồi mã ${res.status}.`);
+                }
                 const js = await res.json();
                 if (!js.ok) throw new Error(js.error || 'Cập nhật thất bại');
                 document.getElementById('searchForm').submit();
@@ -2927,6 +3149,10 @@ document.addEventListener('DOMContentLoaded', function() {
             historyModal.style.display = 'flex';
             try {
                 const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/price-history`);
+                const contentType = res.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    throw new Error(res.status === 401 ? 'Phiên đăng nhập đã hết hạn.' : `Lỗi ${res.status}`);
+                }
                 const js = await res.json();
                 if (!js.ok) throw new Error(js.error);
                 const rows = (js.history || []).map(r => `<tr><td>${new Date(r.changed_at).toLocaleString('vi-VN')}</td><td>${new Intl.NumberFormat('vi-VN').format(r.old_price||0)}</td><td><strong>${new Intl.NumberFormat('vi-VN').format(r.new_price||0)}</strong></td><td>${r.user||'-'}</td></tr>`).join('');
@@ -2934,15 +3160,368 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (e) { historyTbody.innerHTML = `<tr><td colspan="4">Lỗi: ${e.message}</td></tr>`; }
         };
         
+        // Logic Xem Thông số KT / Đồng bộ thông số
+        const btnViewSpec = document.getElementById('btnViewSpec');
+        const btnSyncSpec = document.getElementById('btnSyncSpec');
+        const specModal = document.getElementById('specificationsModal');
+
+        if (btnViewSpec) {
+            btnViewSpec.onclick = () => {
+                if (specModal) specModal.style.display = 'flex';
+            };
+        }
+
+        if (btnSyncSpec) {
+            btnSyncSpec.onclick = async () => {
+                const originalText = btnSyncSpec.innerHTML;
+                btnSyncSpec.disabled = true;
+                btnSyncSpec.innerHTML = '<span>⏳ Đang đồng bộ...</span>';
+                try {
+                    const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/refresh-spec`, {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const contentType = res.headers.get('content-type') || '';
+                    if (!contentType.includes('application/json')) {
+                        throw new Error(res.status === 401 ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : `Máy chủ phản hồi mã ${res.status}. Vui lòng thử lại.`);
+                    }
+                    const js = await res.json();
+                    if (!js.ok) throw new Error(js.error || 'Đồng bộ thất bại');
+                    
+                    alert('Đã cập nhật thông số và giá mới nhất vào Supabase thành công!');
+                    window.location.reload();
+                } catch (err) {
+                    alert('Lỗi: ' + err.message);
+                } finally {
+                    btnSyncSpec.disabled = false;
+                    btnSyncSpec.innerHTML = originalText;
+                }
+            };
+        }
+
+        if (specModal) {
+            const closeBtn = specModal.querySelector('.close-spec-modal');
+            const closeFooterBtn = specModal.querySelector('.btn-close-spec');
+            if (closeBtn) closeBtn.onclick = () => specModal.style.display = 'none';
+            if (closeFooterBtn) closeFooterBtn.onclick = () => specModal.style.display = 'none';
+        }
+        
+        window.currentProductData = {
+            sku: "<%= (typeof product !== 'undefined' && product) ? product.sku : '' %>",
+            name: "<%= (typeof product !== 'undefined' && product) ? (product.product_name || '').replace(/\"/g, '\\"') : '' %>",
+            brand: "<%= (typeof product !== 'undefined' && product) ? (product.brand || '') : '' %>",
+            price: <%= (typeof product !== 'undefined' && product && product.list_price) ? Number(product.list_price) : 0 %>,
+            promo_price: <%= (typeof product !== 'undefined' && product && product.promo_price) ? Number(product.promo_price) : 0 %>,
+            warranty: "<%= (typeof product !== 'undefined' && product && product.warranty) ? (product.warranty || '').replace(/\s*chính\s*hãng/gi, '').trim() : '' %>",
+            vat_rate: <%= (typeof product !== 'undefined' && product && product.vat_rate !== null) ? Number(product.vat_rate) : 'null' %>,
+            attributes: <%- (typeof product !== 'undefined' && product && product.specifications && product.specifications.attributes) ? JSON.stringify(product.specifications.attributes) : '[]' %>
+        };
+
+        window.filterSpecs = function(query) {
+            const q = (query || '').toLowerCase().trim();
+            const rows = document.querySelectorAll('#specTableContainer .spec-table tbody tr');
+            let count = 0;
+            rows.forEach(tr => {
+                const text = tr.innerText.toLowerCase();
+                const match = !q || text.includes(q);
+                tr.style.display = match ? '' : 'none';
+                if (match) count++;
+            });
+            const noMatch = document.getElementById('specFilterNoMatch');
+            if (noMatch) {
+                noMatch.style.display = (count === 0 && q) ? 'block' : 'none';
+            }
+        };
+
+        window.runCompareSku = async function() {
+            const input = document.getElementById('compareSkuInput');
+            const alertBox = document.getElementById('compareAlert');
+            const btnRun = document.getElementById('btnRunCompare');
+            const btnClear = document.getElementById('btnClearCompare');
+            const targetSku = (input ? input.value : '').trim();
+
+            if (!targetSku) {
+                if (alertBox) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#fef2f2';
+                    alertBox.style.color = '#b91c1c';
+                    alertBox.style.border = '1px solid #fecaca';
+                    alertBox.innerHTML = 'Vui lòng nhập mã SKU laptop cần so sánh.';
+                }
+                return;
+            }
+
+            if (targetSku === window.currentProductData.sku) {
+                if (alertBox) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#fffbeb';
+                    alertBox.style.color = '#b45309';
+                    alertBox.style.border = '1px solid #fde68a';
+                    alertBox.innerHTML = 'Mã SKU này trùng với sản phẩm hiện tại. Vui lòng nhập SKU khác để so sánh.';
+                }
+                return;
+            }
+
+            if (alertBox) {
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#eff6ff';
+                alertBox.style.color = '#1d4ed8';
+                alertBox.style.border = '1px solid #bfdbfe';
+                alertBox.innerHTML = '⏳ Đang tải thông số SKU ' + targetSku + '...';
+            }
+            if (btnRun) {
+                btnRun.disabled = true;
+                btnRun.innerText = 'Đang tải...';
+            }
+
+            try {
+                const res = await fetch(`/api/sku/${encodeURIComponent(targetSku)}/details`);
+                const js = await res.json();
+                if (!res.ok || !js.ok || !js.product) {
+                    throw new Error(js.error || `Không tìm thấy sản phẩm với SKU: ${targetSku}`);
+                }
+
+                renderCompareTable(js.product);
+
+                if (alertBox) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#f0fdf4';
+                    alertBox.style.color = '#15803d';
+                    alertBox.style.border = '1px solid #bbf7d0';
+                    alertBox.innerHTML = `✓ Đang so sánh: <strong>${window.currentProductData.sku}</strong> vs <strong>${js.product.sku}</strong> (${js.product.product_name})`;
+                }
+                if (btnClear) btnClear.style.display = 'inline-block';
+            } catch (err) {
+                if (alertBox) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#fef2f2';
+                    alertBox.style.color = '#b91c1c';
+                    alertBox.style.border = '1px solid #fecaca';
+                    alertBox.innerHTML = 'Lỗi: ' + err.message;
+                }
+            } finally {
+                if (btnRun) {
+                    btnRun.disabled = false;
+                    btnRun.innerText = 'So sánh';
+                }
+            }
+        };
+
+        window.clearCompareSku = function() {
+            const input = document.getElementById('compareSkuInput');
+            const alertBox = document.getElementById('compareAlert');
+            const btnClear = document.getElementById('btnClearCompare');
+            const modalContent = document.querySelector('#specificationsModal .modal-content');
+
+            if (input) input.value = '';
+            if (alertBox) alertBox.style.display = 'none';
+            if (btnClear) btnClear.style.display = 'none';
+            if (modalContent) modalContent.style.maxWidth = '780px';
+
+            renderSingleTable();
+            window.filterSpecs(document.getElementById('specFilterInput')?.value || '');
+        };
+
+        function renderCompareTable(p2) {
+            const container = document.getElementById('specTableContainer');
+            const modalContent = document.querySelector('#specificationsModal .modal-content');
+            if (modalContent) modalContent.style.maxWidth = '960px';
+
+            const p1 = window.currentProductData;
+            const p1Attrs = p1.attributes || [];
+            const p2Attrs = (p2.specifications && p2.specifications.attributes) || [];
+
+            const map1 = {};
+            p1Attrs.forEach(a => { if (a && a.name) map1[a.name.trim()] = a.value || '-'; });
+
+            const map2 = {};
+            p2Attrs.forEach(a => { if (a && a.name) map2[a.name.trim()] = a.value || '-'; });
+
+            const allNames = [];
+            const seen = new Set();
+            p1Attrs.forEach(a => {
+                const n = a && a.name ? a.name.trim() : '';
+                if (n && !seen.has(n)) { seen.add(n); allNames.push(n); }
+            });
+            p2Attrs.forEach(a => {
+                const n = a && a.name ? a.name.trim() : '';
+                if (n && !seen.has(n)) { seen.add(n); allNames.push(n); }
+            });
+
+            const p1Price = p1.promo_price > 0 ? (new Intl.NumberFormat('vi-VN').format(p1.promo_price) + ' đ') : (p1.price > 0 ? new Intl.NumberFormat('vi-VN').format(p1.price) + ' đ' : '-');
+            const p2Price = p2.promo_price > 0 ? (new Intl.NumberFormat('vi-VN').format(p2.promo_price) + ' đ') : (p2.list_price > 0 ? new Intl.NumberFormat('vi-VN').format(p2.list_price) + ' đ' : '-');
+
+            const p1Warranty = p1.warranty || '-';
+            const p2Warranty = p2.warranty ? p2.warranty.replace(/\s*chính\s*hãng/gi, '').trim() : '-';
+
+            const p1Vat = p1.vat_rate !== null ? (p1.vat_rate + '%') : '-';
+            const p2Vat = p2.vat_rate !== null ? (p2.vat_rate + '%') : '-';
+
+            let html = `
+            <table class="spec-table spec-compare-table">
+              <thead>
+                <tr style="background:#f8fafc; border-bottom:2px solid #cbd5e1;">
+                  <th style="width:24%; font-size:12.5px; font-weight:800; color:#475569; padding:8px 10px;">Thuộc tính</th>
+                  <th style="width:38%; font-size:12.5px; font-weight:800; color:#1d4ed8; padding:8px 10px; background:#eff6ff;">
+                    <div>SKU: ${p1.sku} (Đang xem)</div>
+                    <div style="font-size:12px; font-weight:600; color:#334155; margin-top:2px; line-height:1.35;">${p1.name}</div>
+                    <div style="margin-top:4px; font-size:15px; font-weight:900; color:#dc2626;">${p1Price}</div>
+                  </th>
+                  <th style="width:38%; font-size:12.5px; font-weight:800; color:#059669; padding:8px 10px; background:#f0fdf4;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span>SKU: ${p2.sku}</span>
+                      <a href="/search-promotion?sku=${encodeURIComponent(p2.sku)}" target="_blank" style="font-size:11.5px; color:#2563eb; text-decoration:none; font-weight:700;">Xem chi tiết ↗</a>
+                    </div>
+                    <div style="font-size:12px; font-weight:600; color:#334155; margin-top:2px; line-height:1.35;">${p2.product_name}</div>
+                    <div style="margin-top:4px; font-size:15px; font-weight:900; color:#dc2626;">${p2Price}</div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="background:#fafafa;">
+                  <th style="font-weight:700; color:#334155;">Bảo hành</th>
+                  <td style="font-weight:700; color:#1e40af; background:#f8fafc;">${p1Warranty}</td>
+                  <td style="font-weight:700; color:#065f46; background:#fcfdfd;">${p2Warranty}</td>
+                </tr>
+                <tr style="background:#fafafa;">
+                  <th style="font-weight:700; color:#334155;">VAT</th>
+                  <td style="background:#f8fafc;">${p1Vat}</td>
+                  <td style="background:#fcfdfd;">${p2Vat}</td>
+                </tr>
+            `;
+
+            allNames.forEach(name => {
+                const val1 = map1[name] || '-';
+                const val2 = map2[name] || '-';
+                const isDiff = (val1 !== '-' && val2 !== '-' && val1.trim() !== val2.trim());
+                const rowStyle = isDiff ? 'style="background:#fffbeb;"' : '';
+                html += `
+                <tr ${rowStyle}>
+                  <th>${name} ${isDiff ? '<span title="Điểm khác biệt" style="color:#d97706; font-size:12px;">★</span>' : ''}</th>
+                  <td style="vertical-align:top; font-size:12.5px;">${val1}</td>
+                  <td style="vertical-align:top; font-size:12.5px;">${val2}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function renderSingleTable() {
+            const container = document.getElementById('specTableContainer');
+            const p1 = window.currentProductData;
+            const p1Attrs = p1.attributes || [];
+
+            if (!p1Attrs || p1Attrs.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;">Chưa có thông số kỹ thuật chi tiết</div>';
+                return;
+            }
+
+            let rows = p1Attrs.map(a => `<tr><th>${a.name}</th><td>${a.value}</td></tr>`).join('');
+            container.innerHTML = `<table class="spec-table" id="singleSpecTable"><tbody>${rows}</tbody></table>`;
+        }
+
         // Close modal
         window.onclick = (e) => {
             if (e.target == historyModal) historyModal.style.display = "none";
             if (e.target == document.getElementById('couponListModal')) document.getElementById('couponListModal').style.display = "none";
+            if (specModal && e.target == specModal) specModal.style.display = "none";
         }
         document.querySelectorAll('.close').forEach(el => el.onclick = function() { this.closest('.modal').style.display = 'none'; });
     }
 });
 </script>
+
+<div id="specificationsModal" class="modal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(15,23,42,0.65); backdrop-filter:blur(6px); align-items:center; justify-content:center;">
+  <div class="modal-content" style="background:#fff; margin:20px auto; padding:24px 28px; border-radius:16px; width:92%; max-width:780px; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(15,23,42,0.25); border:1px solid #e2e8f0; position:relative;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #f1f5f9;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:26px; width:48px; height:48px; background:#eff6ff; color:#2563eb; border-radius:12px; display:flex; align-items:center; justify-content:center; border:1px solid #dbeafe; flex-shrink:0;">📑</span>
+        <div>
+          <h3 id="specModalTitle" style="margin:0; font-size:17px; font-weight:800; color:#0f172a; line-height:1.35;"><%= (typeof product !== 'undefined' && product) ? product.product_name : '' %></h3>
+          <div style="font-size:12.5px; color:#64748b; margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>SKU: <strong style="color:#2563eb;"><%= (typeof product !== 'undefined' && product) ? product.sku : '' %></strong></span>
+            <% if (typeof product !== 'undefined' && product && product.warranty) { %>
+                <span>• 🛡️ <%= product.warranty.replace(/\s*chính\s*hãng/gi, '').trim() %></span>
+            <% } %>
+            <% if (typeof product !== 'undefined' && product && product.vat_rate !== null) { %>
+                <span>• 📋 VAT: <%= product.vat_rate %>%</span>
+            <% } %>
+          </div>
+        </div>
+      </div>
+      <span class="close-spec-modal" style="font-size:28px; font-weight:700; color:#94a3b8; cursor:pointer; line-height:1; transition:color 0.15s; margin-left:10px;">&times;</span>
+    </div>
+
+    <!-- Modal Body -->
+    <div id="specModalBody" style="overflow-y:auto; flex:1; padding-right:6px;">
+      <% if (typeof product !== 'undefined' && product && product.specifications && product.specifications.images && product.specifications.images.length > 0) { %>
+        <div class="spec-thumb-gallery">
+          <% product.specifications.images.forEach(function(imgUrl) { %>
+            <img src="<%= imgUrl %>" alt="Product Image" class="spec-thumb-item" onclick="window.open('<%= imgUrl %>', '_blank')" title="Bấm để xem ảnh phóng to">
+          <% }); %>
+        </div>
+      <% } %>
+
+      <div class="spec-modal-controls" style="margin-bottom:12px; position:sticky; top:0; background:#fff; z-index:10; padding:2px 0 6px 0; display:flex; flex-direction:column; gap:8px;">
+        <!-- Hàng 1: Tìm kiếm nhanh thông số -->
+        <input type="text" id="specFilterInput" placeholder="🔍 Lọc nhanh thông số (CPU, RAM, màn hình, cổng kết nối, pin, card...)" oninput="filterSpecs(this.value)" style="width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; outline:none; background:#f8fafc; transition:all 0.2s;" onfocus="this.style.borderColor='#2563eb'; this.style.background='#fff';" onblur="this.style.borderColor='#cbd5e1'; if(!this.value) this.style.background='#f8fafc';">
+
+        <!-- Hàng 2: So sánh cấu hình với SKU khác -->
+        <div style="display:flex; align-items:center; gap:8px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:6px 10px;">
+          <span style="font-size:12.5px; font-weight:700; color:#1e40af; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+            ⚖️ So sánh với SKU:
+          </span>
+          <input type="text" id="compareSkuInput" placeholder="Nhập mã SKU laptop thứ 2 (vd: 240801234)..." style="flex:1; min-width:120px; padding:6px 10px; border:1px solid #93c5fd; border-radius:6px; font-size:12.5px; outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();runCompareSku();}">
+          <button type="button" id="btnRunCompare" onclick="runCompareSku()" style="padding:6px 14px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap; transition:background 0.15s;">
+            So sánh
+          </button>
+          <button type="button" id="btnClearCompare" onclick="clearCompareSku()" style="display:none; padding:6px 10px; background:#e2e8f0; color:#475569; border:none; border-radius:6px; font-weight:600; font-size:12px; cursor:pointer; white-space:nowrap;">
+            ✕ Hủy so sánh
+          </button>
+        </div>
+        <div id="compareAlert" style="display:none; padding:6px 12px; border-radius:6px; font-size:12.5px;"></div>
+      </div>
+
+      <div id="specTableContainer">
+        <% if (typeof product !== 'undefined' && product && product.specifications && product.specifications.attributes && product.specifications.attributes.length > 0) { %>
+          <table class="spec-table" id="singleSpecTable">
+            <tbody>
+              <% product.specifications.attributes.forEach(function(attr) { %>
+                <tr>
+                  <th><%= attr.name %></th>
+                  <td><%= attr.value %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        <% } else { %>
+          <div style="text-align:center; padding:35px 20px; color:#64748b; background:#f8fafc; border-radius:12px; border:1px dashed #cbd5e1;">
+            <div style="font-size:32px; margin-bottom:8px;">📦</div>
+            <div style="font-weight:700; font-size:15px; color:#334155; margin-bottom:6px;">Chưa có thông số kỹ thuật chi tiết</div>
+            <div style="font-size:13px; max-width:400px; margin:0 auto 15px auto;">Sản phẩm chưa được lưu thông số vào Supabase. Bấm nút dưới để đồng bộ thông tin ngay.</div>
+            <button type="button" onclick="document.getElementById('btnSyncSpec').click()" style="padding:8px 16px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-weight:700; font-size:13px; cursor:pointer;">🔄 Đồng bộ thông số từ hệ thống</button>
+          </div>
+        <% } %>
+      </div>
+
+      <div id="specFilterNoMatch" style="display:none; text-align:center; padding:24px 16px; color:#64748b; font-size:13px; background:#f8fafc; border-radius:8px; margin-top:8px;">
+        Không tìm thấy thông số phù hợp với từ khóa
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid #f1f5f9; font-size:12px; color:#94a3b8;">
+      <span id="specModalUpdatedAt">
+        <% if (typeof product !== 'undefined' && product && product.spec_updated_at) { %>
+          Cập nhật: <%= new Date(product.spec_updated_at).toLocaleString('vi-VN') %> (Supabase)
+        <% } else { %>
+          Lưu trữ nội bộ Supabase
+        <% } %>
+      </span>
+      <button type="button" class="btn-close-spec" style="padding:7px 16px; background:#f1f5f9; color:#475569; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Đóng</button>
+    </div>
+  </div>
+</div>
 
 <div id="priceHistoryModal" class="modal">
   <div class="modal-content">

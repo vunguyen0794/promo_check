@@ -294,6 +294,27 @@
         <textarea id="quoteNotes" style="width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 6px; height: 60px; resize: vertical;" placeholder="Nhập ghi chú riêng cho báo giá..."></textarea>
       </div>
 
+      <!-- TÙY CHỌN ẨN/HIỆN TRÊN BÁO GIÁ (Bảo hành, Thông số kỹ thuật, Hình ảnh) -->
+      <div class="form-group" style="margin-bottom: 16px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <label style="font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 8px; display: block;">
+          Tùy chọn hiển thị khi xuất:
+        </label>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #1e293b; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="quoteShowWarranty" checked style="accent-color: #2563eb; width: 16px; height: 16px; cursor: pointer;">
+            <span>🛡️ Bảo hành</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #1e293b; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="quoteShowSpecs" checked style="accent-color: #2563eb; width: 16px; height: 16px; cursor: pointer;">
+            <span>📋 Thông số kỹ thuật</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #1e293b; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="quoteShowImages" checked style="accent-color: #2563eb; width: 16px; height: 16px; cursor: pointer;">
+            <span>🖼️ Hình ảnh</span>
+          </label>
+        </div>
+      </div>
+
       <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
         <button type="button" class="btn btn-secondary" style="flex: 1; min-width: 120px; padding: 12px; font-weight: 700; background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;" id="btnPreviewPDF">
           <i class="fas fa-eye"></i> Xem trước
@@ -378,13 +399,16 @@ document.addEventListener('DOMContentLoaded', function() {
               data.forEach(item => {
                   if (String(item.sku).toLowerCase() === value.toLowerCase()) exactMatch = true;
 
+                  const cleanW = item.warranty ? String(item.warranty).replace(/\s*chính\s*hãng/gi, '').trim() : '';
+                  const wMeta = cleanW ? ` • 🛡️ BH: ${cleanW}` : '';
+                  const vatMeta = (item.vat_rate !== undefined && item.vat_rate !== null) ? ` • 🏷️ VAT: ${item.vat_rate}%` : '';
                   const div = document.createElement('div');
                   div.className = 'ac-item';
                   div.innerHTML = `
                       <div class="ac-info">
                           <div class="ac-name">${item.product_name || 'Không tên'}</div>
                           <div class="ac-sku">SKU: ${item.sku}</div>
-                          <div class="ac-meta">${item.brand || ''} | ${item.category || ''}</div>
+                          <div class="ac-meta">${item.brand || ''} | ${item.category || ''}${wMeta}${vatMeta}</div>
                       </div>
                       <div class="ac-price">${item.list_price ? formatVND(item.list_price) : 'Liên hệ'}</div>
                   `;
@@ -585,6 +609,100 @@ document.addEventListener('DOMContentLoaded', function() {
       `).join('');
   };
 
+  // Chuyển đổi object specifications { attributes: [{name, value},...] } thành chuỗi text dễ đọc
+  function specsObjToText(spec) {
+      if (!spec) return '';
+      if (typeof spec === 'string') return spec.trim();
+      if (typeof spec !== 'object') return String(spec);
+      const lines = [];
+      // Ưu tiên attributes array
+      if (Array.isArray(spec.attributes)) {
+          spec.attributes.forEach(attr => {
+              const n = (attr.name || attr.key || attr.label || '').trim();
+              const v = (attr.value || attr.val || '').toString().trim();
+              if (n && v) lines.push(`${n}: ${v}`);
+          });
+      }
+      // Fallback: summary object
+      if (lines.length === 0 && spec.summary && typeof spec.summary === 'object') {
+          const labelMap = { cpu: 'CPU', ram: 'RAM', storage: 'Ổ cứng', vga: 'Card màn hình', screen: 'Màn hình', os: 'Hệ điều hành', weight: 'Trọng lượng', color: 'Màu sắc' };
+          Object.entries(spec.summary).forEach(([k, v]) => {
+              if (v && String(v).trim()) {
+                  lines.push(`${labelMap[k] || k}: ${String(v).trim()}`);
+              }
+          });
+      }
+      return lines.join('\n');
+  }
+
+  const skuDetailsCache = {};
+  async function fetchRealtimeSkuDetails(sku) {
+      const item = currentBuildConfig[sku];
+      if (!item || item._loadingDetails) return;
+
+      if (skuDetailsCache[sku]) {
+          const p = skuDetailsCache[sku];
+          if (!item.warranty && p.warranty) item.warranty = p.warranty;
+          if (item.vat_rate === undefined && p.vat_rate !== undefined) item.vat_rate = p.vat_rate;
+          const extras = ensureItemExtras(sku);
+          if (!extras.detailedSpecs && p.specifications) {
+              extras.detailedSpecs = specsObjToText(p.specifications);
+          }
+          updateSummaryAndTotal();
+          return;
+      }
+
+      if (!item.warranty || item.vat_rate === undefined || item.vat_rate === null) {
+          item._loadingDetails = true;
+          updateSummaryAndTotal();
+          try {
+              const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/details`);
+              const data = await res.json();
+              if (data && data.ok && data.product) {
+                  skuDetailsCache[sku] = data.product;
+                  const p = data.product;
+                  if (currentBuildConfig[sku]) {
+                      if (p.warranty) currentBuildConfig[sku].warranty = p.warranty;
+                      if (p.vat_rate !== undefined && p.vat_rate !== null) currentBuildConfig[sku].vat_rate = p.vat_rate;
+                      const extras = ensureItemExtras(sku);
+                      if (!extras.detailedSpecs && p.specifications) {
+                          extras.detailedSpecs = specsObjToText(p.specifications);
+                      }
+                  }
+              }
+          } catch (err) {
+              console.warn(`Lỗi fetch realtime details SKU ${sku}:`, err);
+          } finally {
+              if (currentBuildConfig[sku]) {
+                  delete currentBuildConfig[sku]._loadingDetails;
+                  updateSummaryAndTotal();
+              }
+          }
+      }
+  }
+
+  window.editItemWarranty = (sku) => {
+      const item = currentBuildConfig[sku];
+      if (!item) return;
+      const cur = item.warranty ? String(item.warranty).replace(/\s*chính\s*hãng/gi, '').trim() : '';
+      const val = prompt(`Sửa thời gian bảo hành cho SKU ${sku}:`, cur);
+      if (val !== null) {
+          item.warranty = val.trim();
+          updateSummaryAndTotal();
+      }
+  };
+
+  window.editItemVat = (sku) => {
+      const item = currentBuildConfig[sku];
+      if (!item) return;
+      const cur = item.vat_rate !== undefined && item.vat_rate !== null ? item.vat_rate : 10;
+      const val = prompt(`Sửa thuế VAT (%) cho SKU ${sku}:`, cur);
+      if (val !== null) {
+          item.vat_rate = Number(val) || 0;
+          updateSummaryAndTotal();
+      }
+  };
+
   // Hàm thêm vào giỏ (Local)
   function addItemToCart(item) {
       const sku = item.sku;
@@ -596,8 +714,12 @@ document.addEventListener('DOMContentLoaded', function() {
           currentBuildConfig[sku] = { ...item, quantity: 1, item_discount: 0 };
           currentBuildOrder.push(sku);
       }
-      ensureItemExtras(sku);
+      const extras = ensureItemExtras(sku);
+      if (!extras.detailedSpecs && item.specifications) {
+          extras.detailedSpecs = specsObjToText(item.specifications);
+      }
       updateSummaryAndTotal();
+      fetchRealtimeSkuDetails(sku);
   }
 
   // Đóng dropdown khi click ra ngoài
@@ -668,6 +790,12 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>`;
       }
 
+      let cleanWarranty = item.warranty ? String(item.warranty).replace(/\s*chính\s*hãng/gi, '').trim() : '';
+      let warrantyDisplay = cleanWarranty || (item._loadingDetails ? 'Đang tải...' : 'Theo NSX');
+      let vatDisplay = (item.vat_rate !== undefined && item.vat_rate !== null && item.vat_rate !== '')
+          ? `${item.vat_rate}%`
+          : (item._loadingDetails ? 'Đang tải...' : '10%');
+
       html += `
       <div class="summary-item" data-item-sku="${sku}">
         <div class="summary-item-top" style="align-items: center;">
@@ -678,7 +806,15 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div style="flex:1; margin-right:10px;">
                 <div class="summary-item-name">${escapeHtml(item.product_name)}</div>
-                <div class="summary-item-sku">SKU: ${item.sku}</div>
+                <div class="summary-item-meta" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 3px;">
+                    <span class="summary-item-sku" style="margin-top: 0;">SKU: ${item.sku}</span>
+                    <span class="badge-warranty" onclick="editItemWarranty('${sku}')" title="Bấm để sửa bảo hành (nếu cần)" style="cursor: pointer; font-size: 11px; color: #0369a1; background: #f0f9ff; padding: 2px 8px; border-radius: 4px; border: 1px solid #bae6fd; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                        🛡️ Bảo hành: <strong style="color: #0284c7;">${warrantyDisplay}</strong> ✏️
+                    </span>
+                    <span class="badge-vat" onclick="editItemVat('${sku}')" title="Bấm để sửa VAT (nếu cần)" style="cursor: pointer; font-size: 11px; color: #15803d; background: #f0fdf4; padding: 2px 8px; border-radius: 4px; border: 1px solid #bbf7d0; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                        🏷️ VAT: <strong style="color: #16a34a;">${vatDisplay}</strong> ✏️
+                    </span>
+                </div>
             </div>
             <button class="btn-icon" onclick="removeItem('${sku}')" title="Xóa" style="color:#ef4444; background:#fee2e2; border-radius:4px; padding:2px 6px;">✖️</button>
         </div>
@@ -978,6 +1114,10 @@ document.addEventListener('DOMContentLoaded', function() {
               label: 'Ảnh lịch sử',
               previewUrl: url
           }));
+
+          if (!item.warranty || item.vat_rate === undefined) {
+              fetchRealtimeSkuDetails(sku);
+          }
       }
 
       // Restore một số parameter
@@ -1070,6 +1210,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
           payloadConfig[sku] = {
               ...item,
+              warranty: item.warranty,
+              vat_rate: item.vat_rate,
               quote_detailed_specs: String(extras.detailedSpecs || '').replace(/\r\n/g, '\n').slice(0, 12000),
               quote_image_urls: quoteImageUrls
           };
@@ -1191,6 +1333,10 @@ document.addEventListener('DOMContentLoaded', function() {
           return;
       }
       
+      const showWarranty = document.getElementById('quoteShowWarranty') ? document.getElementById('quoteShowWarranty').checked : true;
+      const showSpecs = document.getElementById('quoteShowSpecs') ? document.getElementById('quoteShowSpecs').checked : true;
+      const showImages = document.getElementById('quoteShowImages') ? document.getElementById('quoteShowImages').checked : true;
+
       const payload = {
           buildConfig: buildConfigPayload,
           customerName: name, 
@@ -1199,6 +1345,9 @@ document.addEventListener('DOMContentLoaded', function() {
           isGeneralQuote: true, 
           notes: notes,
           itemOrder: currentBuildOrder,
+          show_warranty: showWarranty,
+          show_specs: showSpecs,
+          show_images: showImages,
           globalDiscount: { 
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
@@ -1307,6 +1456,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
           payloadConfig[sku] = {
               ...item,
+              warranty: item.warranty,
+              vat_rate: item.vat_rate,
               quote_detailed_specs: String(extras.detailedSpecs || '').replace(/\r\n/g, '\n').slice(0, 12000),
               quote_image_urls: quoteImageUrls.slice(0, MAX_QUOTE_IMAGES)
           };
@@ -1352,6 +1503,10 @@ document.addEventListener('DOMContentLoaded', function() {
           return;
       }
       
+      const showWarranty = document.getElementById('quoteShowWarranty') ? document.getElementById('quoteShowWarranty').checked : true;
+      const showSpecs = document.getElementById('quoteShowSpecs') ? document.getElementById('quoteShowSpecs').checked : true;
+      const showImages = document.getElementById('quoteShowImages') ? document.getElementById('quoteShowImages').checked : true;
+
       const payload = {
           buildConfig: buildConfigPayload,
           customerName: name, 
@@ -1360,6 +1515,9 @@ document.addEventListener('DOMContentLoaded', function() {
           isGeneralQuote: true, 
           notes: notes,
           itemOrder: currentBuildOrder,
+          show_warranty: showWarranty,
+          show_specs: showSpecs,
+          show_images: showImages,
           globalDiscount: { 
               value: Number(globalDiscountVal.value)||0, 
               type: globalDiscountType.value 
