@@ -2,8 +2,8 @@
   "version": 2,
   "redirects": [
     {
-      "source": "/:path*",
-      "destination": "https://webmien.duckdns.org/:path*",
+      "source": "/(.*)",
+      "destination": "https://webmien.duckdns.org/$1",
       "permanent": true
     }
   ],
