@@ -250,6 +250,15 @@ async function resolveCsiSourceTable() {
 // ------------------------- App & core middlewares -------------------------
 const app = express();
 
+// Chuyển hướng toàn bộ traffic từ Vercel (promo-check) sang domain https://webmien.duckdns.org
+app.use((req, res, next) => {
+  const host = (req.headers.host || '').toLowerCase();
+  if (process.env.VERCEL || host.includes('vercel.app')) {
+    return res.redirect(301, `https://webmien.duckdns.org${req.originalUrl || req.url || '/'}`);
+  }
+  next();
+});
+
 // Safeguard: chuyển hướng nếu request trỏ nhầm file server
 app.use((req, res, next) => {
   if (req.url === '/server.js' || req.path === '/server.js' || req.url === '/api/index.js' || req.path === '/api/index.js') {
