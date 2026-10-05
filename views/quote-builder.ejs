@@ -402,6 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   const cleanW = item.warranty ? String(item.warranty).replace(/\s*chính\s*hãng/gi, '').trim() : '';
                   const wMeta = cleanW ? ` • 🛡️ BH: ${cleanW}` : '';
                   const vatMeta = (item.vat_rate !== undefined && item.vat_rate !== null) ? ` • 🏷️ VAT: ${item.vat_rate}%` : '';
+
                   const div = document.createElement('div');
                   div.className = 'ac-item';
                   div.innerHTML = `
@@ -636,47 +637,46 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   const skuDetailsCache = {};
-  async function fetchRealtimeSkuDetails(sku) {
+  async function fetchRealtimeSkuDetails(sku, forceRefresh = true) {
       const item = currentBuildConfig[sku];
       if (!item || item._loadingDetails) return;
 
-      if (skuDetailsCache[sku]) {
-          const p = skuDetailsCache[sku];
-          if (!item.warranty && p.warranty) item.warranty = p.warranty;
-          if (item.vat_rate === undefined && p.vat_rate !== undefined) item.vat_rate = p.vat_rate;
-          const extras = ensureItemExtras(sku);
-          if (!extras.detailedSpecs && p.specifications) {
-              extras.detailedSpecs = specsObjToText(p.specifications);
-          }
-          updateSummaryAndTotal();
-          return;
-      }
+      item._loadingDetails = true;
+      updateSummaryAndTotal();
+      try {
+          const url = `/api/sku/${encodeURIComponent(sku)}/details${forceRefresh ? '?refresh=1' : ''}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data && data.ok && data.product) {
+              skuDetailsCache[sku] = data.product;
+              const p = data.product;
+              if (currentBuildConfig[sku]) {
+                  if (p.warranty) currentBuildConfig[sku].warranty = p.warranty;
+                  if (p.vat_rate !== undefined && p.vat_rate !== null) currentBuildConfig[sku].vat_rate = p.vat_rate;
+                  if (p.list_price) currentBuildConfig[sku].list_price = p.list_price;
+                  if (p.promo_price) currentBuildConfig[sku].promo_price = p.promo_price;
+                  if (p.discount_amount !== undefined) currentBuildConfig[sku].discount_amount = p.discount_amount;
 
-      if (!item.warranty || item.vat_rate === undefined || item.vat_rate === null) {
-          item._loadingDetails = true;
-          updateSummaryAndTotal();
-          try {
-              const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/details`);
-              const data = await res.json();
-              if (data && data.ok && data.product) {
-                  skuDetailsCache[sku] = data.product;
-                  const p = data.product;
-                  if (currentBuildConfig[sku]) {
-                      if (p.warranty) currentBuildConfig[sku].warranty = p.warranty;
-                      if (p.vat_rate !== undefined && p.vat_rate !== null) currentBuildConfig[sku].vat_rate = p.vat_rate;
-                      const extras = ensureItemExtras(sku);
-                      if (!extras.detailedSpecs && p.specifications) {
-                          extras.detailedSpecs = specsObjToText(p.specifications);
-                      }
+                  // Tự động đồng bộ và gán mức giảm khuyến mãi mới nhất vào ô GIẢM/MÓN nếu user chưa sửa thủ công
+                  if (!currentBuildConfig[sku]._customDiscountEdited) {
+                      const promoDisc = (p.discount_amount && Number(p.discount_amount) > 0)
+                          ? Number(p.discount_amount)
+                          : Math.max(0, (Number(p.list_price) || Number(currentBuildConfig[sku].list_price) || 0) - (Number(p.promo_price) || 0));
+                      currentBuildConfig[sku].item_discount = promoDisc;
+                  }
+
+                  const extras = ensureItemExtras(sku);
+                  if (!extras.detailedSpecs && p.specifications) {
+                      extras.detailedSpecs = specsObjToText(p.specifications);
                   }
               }
-          } catch (err) {
-              console.warn(`Lỗi fetch realtime details SKU ${sku}:`, err);
-          } finally {
-              if (currentBuildConfig[sku]) {
-                  delete currentBuildConfig[sku]._loadingDetails;
-                  updateSummaryAndTotal();
-              }
+          }
+      } catch (err) {
+          console.warn(`Lỗi tự động đồng bộ chi tiết SKU ${sku}:`, err);
+      } finally {
+          if (currentBuildConfig[sku]) {
+              delete currentBuildConfig[sku]._loadingDetails;
+              updateSummaryAndTotal();
           }
       }
   }
@@ -706,12 +706,22 @@ document.addEventListener('DOMContentLoaded', function() {
   // Hàm thêm vào giỏ (Local)
   function addItemToCart(item) {
       const sku = item.sku;
+      const listP = Number(item.list_price) || 0;
+      const promoP = (item.promo_price && Number(item.promo_price) > 0) ? Number(item.promo_price) : listP;
+      const promoDiscount = (item.discount_amount && Number(item.discount_amount) > 0)
+          ? Number(item.discount_amount)
+          : Math.max(0, listP - promoP);
+
       // Nếu đã có -> Tăng số lượng
       if (currentBuildConfig[sku]) {
           currentBuildConfig[sku].quantity = (currentBuildConfig[sku].quantity || 1) + 1;
       } else {
-          // Nếu chưa có -> Thêm mới
-          currentBuildConfig[sku] = { ...item, quantity: 1, item_discount: 0 };
+          // Nếu chưa có -> Thêm mới với item_discount tự động theo khuyến mãi
+          currentBuildConfig[sku] = { 
+              ...item, 
+              quantity: 1, 
+              item_discount: promoDiscount 
+          };
           currentBuildOrder.push(sku);
       }
       const extras = ensureItemExtras(sku);
@@ -719,7 +729,9 @@ document.addEventListener('DOMContentLoaded', function() {
           extras.detailedSpecs = specsObjToText(item.specifications);
       }
       updateSummaryAndTotal();
-      fetchRealtimeSkuDetails(sku);
+      
+      // MỖI KHI BẤM VÀO SKU: TỰ ĐỘNG ĐỒNG BỘ GIÁ KHUYẾN MÃI MỚI NHẤT
+      fetchRealtimeSkuDetails(sku, true);
   }
 
   // Đóng dropdown khi click ra ngoài
@@ -755,6 +767,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     summaryList.style.display = 'block';
     emptyCartMsg.style.display = 'none';
+
+    let sumOriginalTotal = 0;
+    let sumPromoDiscountTotal = 0;
 
     for (let i = 0; i < skus.length; i++) {
       const sku = skus[i];
@@ -829,12 +844,12 @@ document.addEventListener('DOMContentLoaded', function() {
             <div style="flex:1; display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
                 ${priceHtml}
                 <div class="item-discount-wrapper">
-                    <span class="item-discount-label">Giảm:</span>
+                    <span class="item-discount-label">GIẢM/MÓN:</span>
                     <input type="number" class="item-discount-input" 
                            value="${itemDiscount}" min="0" placeholder="0"
                            onchange="changeItemDiscount('${sku}', this.value)">
                 </div>
-                <div class="final-line-price">${formatVND(lineTotal)}</div>
+                <div class="final-line-price">Thành tiền: ${formatVND(lineTotal)}</div>
             </div>
         </div>
 
@@ -913,6 +928,7 @@ document.addEventListener('DOMContentLoaded', function() {
   window.changeItemDiscount = (sku, val) => {
     if (currentBuildConfig[sku]) {
         currentBuildConfig[sku].item_discount = Math.max(0, Number(val));
+        currentBuildConfig[sku]._customDiscountEdited = true;
         updateSummaryAndTotal();
     }
   };

@@ -2548,17 +2548,52 @@ app.get('/api/sku/:sku/details', async (req, res) => {
     const sku = (req.params.sku || '').trim();
     if (!sku) return res.status(400).json({ ok: false, error: 'Thiếu mã SKU.' });
     const userBranch = req.session?.user?.branch_code || 'CP01';
-    const product = await getOrSyncProductData(sku, userBranch, supabase, false);
+    const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
+    const product = await getOrSyncProductData(sku, userBranch, supabase, forceRefresh);
     if (!product) return res.status(404).json({ ok: false, error: `Không tìm thấy sản phẩm với SKU: ${sku}` });
+
+    let finalListPrice = Number(product.list_price) || 0;
+    let finalPromoPrice = (product.promo_price && Number(product.promo_price) > 0) ? Number(product.promo_price) : finalListPrice;
+    let finalDiscountAmt = (product.discount_amount && Number(product.discount_amount) > 0) ? Number(product.discount_amount) : Math.max(0, finalListPrice - finalPromoPrice);
+
+    // Kiểm tra thêm nếu có promo_price từ bảng promo_sku_master (Google Sheets)
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data: sheetPromos } = await supabase
+        .from('promo_sku_master')
+        .select('promo_price, list_price')
+        .eq('sku', sku)
+        .lte('start_date', today)
+        .gte('end_date', today)
+        .not('promo_price', 'is', null);
+
+      if (sheetPromos && sheetPromos.length > 0) {
+        sheetPromos.forEach(sp => {
+          const spPromo = Number(sp.promo_price);
+          if (spPromo > 0 && (finalPromoPrice === 0 || spPromo < finalPromoPrice)) {
+            finalPromoPrice = spPromo;
+            if (sp.list_price && Number(sp.list_price) > 0) {
+              finalListPrice = Number(sp.list_price);
+            }
+          }
+        });
+        if (finalPromoPrice > 0 && finalListPrice > 0 && finalPromoPrice < finalListPrice) {
+          finalDiscountAmt = Math.max(finalDiscountAmt, finalListPrice - finalPromoPrice);
+        }
+      }
+    } catch (eSheet) {
+      console.warn('[SKU-DETAILS] Lỗi tra cứu sheet promo:', eSheet.message);
+    }
+
     return res.json({
       ok: true,
       product: {
         sku: product.sku,
         product_name: product.product_name,
         brand: product.brand,
-        list_price: product.list_price,
-        promo_price: product.promo_price,
-        discount_amount: product.discount_amount,
+        list_price: finalListPrice,
+        promo_price: finalPromoPrice,
+        discount_amount: finalDiscountAmt,
         vat_rate: product.vat_rate,
         warranty: product.warranty,
         specifications: product.specifications,
@@ -2586,7 +2621,7 @@ app.get('/api/skus', async (req, res) => {
 
     let dbQuery = supabase
       .from('skus')
-      .select('sku, product_name, brand, category, subcat, list_price, promo_price, warranty, vat_rate, specifications');
+      .select('sku, product_name, brand, category, subcat, list_price, promo_price, discount_amount, warranty, vat_rate, specifications');
 
     // 2. [QUAN TRỌNG] Xây dựng bộ lọc "AND"
     // Với mỗi từ khóa, bắt buộc SKU hoặc Tên phải chứa từ đó.
@@ -7945,7 +7980,15 @@ app.post('/api/pc-builder/generate-quote', requireAuth, async (req, res) => {
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
-    } : { headless: true };
+    } : {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ]
+    };
 
     browser = await puppeteerToUse.launch(launchOptions);
     const page = await browser.newPage();
@@ -8700,7 +8743,7 @@ app.get('/api/quote/search-products', requireAuth, async (req, res) => {
 
     let query = supabase
       .from('skus')
-      .select('sku, product_name, brand, list_price, subcat');
+      .select('sku, product_name, brand, list_price, promo_price, discount_amount, warranty, vat_rate, subcat');
 
     // 1. Lọc theo từ khóa (nếu có)
     if (q) {
