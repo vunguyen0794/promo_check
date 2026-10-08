@@ -15060,6 +15060,11 @@ app.get('/quick-export', requireAuth, async (req, res) => {
 app.get('/quick-order', requireAuth, async (req, res) => {
   try {
     const user = req.session.user;
+    const allowedEmails = ['vu.nt1@phongvu-mna.vn', 'thu.hm@phongvu-mna.vn'];
+    if (!user || (!allowedEmails.includes(user.email) && user.role !== 'admin')) {
+      return res.redirect('/');
+    }
+
     const branchCode = user?.branch_code || 'CP01';
     const branchInfo = BRANCH_CONFIG[branchCode] || BRANCH_CONFIG['DEFAULT'] || {
       name: `Chi nhánh ${branchCode}`,
