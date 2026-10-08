@@ -8704,8 +8704,9 @@ app.post('/api/pc-builder/generate-quote-excel', requireAuth, async (req, res) =
 
 app.get('/quote-builder', requireAuth, (req, res) => {
   res.render('quote-builder', {
-    title: 'Báo giá nhanh',
+    title: 'Báo giá nhanh (Đang bảo trì)',
     currentPage: 'quote-builder', // Dùng để active menu (nếu cần)
+    isMaintenance: true,
   });
 });
 
@@ -14991,6 +14992,7 @@ app.get('/api/executive/salesman-data', requireAuth, async (req, res) => {
 // --- [TÍNH NĂNG] XUẤT KHO NHANH (QUICK EXPORT / SMART PICKING) ---
 // =========================================================================
 const quickExportService = require('./utils/quick_export_service');
+const sposOrderService = require('./utils/spos_order_service');
 
 const SITE_ID_TO_BRANCH = {
   7: 'CP01',
@@ -15052,6 +15054,66 @@ app.get('/quick-export', requireAuth, async (req, res) => {
   }
 });
 
+// =========================================================================
+// --- [TÍNH NĂNG] TẠO ĐƠN HÀNG NHANH (QUICK ORDER / SPOS WEB) ---
+// =========================================================================
+app.get('/quick-order', requireAuth, async (req, res) => {
+  try {
+    const user = req.session.user;
+    const branchCode = user?.branch_code || 'CP01';
+    const branchInfo = BRANCH_CONFIG[branchCode] || BRANCH_CONFIG['DEFAULT'] || {
+      name: `Chi nhánh ${branchCode}`,
+      address: 'Showroom Phong Vũ'
+    };
+
+    res.render('quick-order', {
+      title: '🛒 Tạo Đơn Hàng Nhanh - SPOS Web',
+      currentPage: 'quick-order',
+      user,
+      branchCode,
+      branchInfo,
+      branches: BRANCH_CONFIG
+    });
+  } catch (err) {
+    console.error('Error rendering quick-order:', err);
+    res.status(500).send('Lỗi máy chủ khi tải trang Tạo đơn hàng nhanh');
+  }
+});
+
+app.post('/api/quick-order/create', requireAuth, async (req, res) => {
+  try {
+    const user = req.session?.user;
+    const token = await resolveUserExportToken(req);
+    const branchCode = req.body.branchCode || user?.branch_code || 'CP01';
+
+    const result = await sposOrderService.createPendingOrder({
+      ...req.body,
+      branchCode,
+      token,
+      userId: user?.id || ''
+    });
+
+    // Lưu vào bảng site_settings làm lịch sử nếu có user
+    if (user?.id && result.ok && result.orderData) {
+      try {
+        const orderKey = `quick_order_${result.orderCode}`;
+        await supabase.from('site_settings').upsert({
+          id: orderKey,
+          value: JSON.stringify(result.orderData),
+          updated_at: new Date().toISOString()
+        });
+      } catch (dbErr) {
+        console.warn('Lỗi lưu đơn hàng vào site_settings:', dbErr.message);
+      }
+    }
+
+    return res.json(result);
+  } catch (err) {
+    console.error('Lỗi API tạo đơn hàng nhanh:', err);
+    return res.status(500).json({ ok: false, error: err.message || 'Lỗi khi tạo đơn hàng' });
+  }
+});
+
 // Helper lấy token cho user (chỉ dùng token cá nhân để bảo mật, chống mạo danh và kiểm soát thu hồi)
 async function resolveUserExportToken(req) {
   let token = req.headers['x-teko-token'] || req.headers['authorization'];
@@ -15072,6 +15134,15 @@ async function resolveUserExportToken(req) {
       } catch (e) {}
     }
   }
+
+  // Fallback: nếu user chưa có token riêng, thử dùng global token từ Extension
+  try {
+    const { data: globalData } = await supabase.from('site_settings').select('value, updated_at').eq('id', 'quick_export_global_token').maybeSingle();
+    if (globalData && globalData.value) {
+      const g = JSON.parse(globalData.value);
+      if (g.tekoToken) return g.tekoToken;
+    }
+  } catch (e) {}
 
   return '';
 }
