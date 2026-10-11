@@ -6,6 +6,12 @@
 const TEKO_CARTS_URL = 'https://carts.tekoapis.com';
 const TEKO_STAFF_BFF_URL = 'https://staff-bff.tekoapis.com';
 
+const { createClient } = require('@supabase/supabase-js');
+let supabase = null;
+if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
+  supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
+}
+
 /**
  * Chuẩn hoá token
  */
@@ -16,12 +22,89 @@ function normalizeToken(token) {
 }
 
 /**
- * Lấy số thứ tự terminalId của máy POS quầy tại chi nhánh (chuẩn Teko SPOS: luôn là 1)
+ * Danh mục cấu hình Terminal & Showroom chuẩn Teko SPOS
+ * id: Mã terminalId nội bộ trên hệ thống Teko Carts/SPOS (Ví dụ: CP74 -> 100246, CP00 -> 1, CP01 -> 26)
+ * siteId: Mã kho / địa điểm xuất hàng WMS tương ứng (appId trong Teko Terminals)
  */
-function extractTerminalId(branchCode) {
-  // Trên Teko Carts API, mỗi showroom được định danh bởi terminal=CPxx, còn terminalId luôn là 1 (máy POS 1 tại showroom)
-  // Nếu truyền terminalId theo số của mã showroom (ví dụ CP74 -> 74) Teko sẽ báo 404109 "Một số sản phẩm trong yêu cầu của bạn không tồn tại"
-  return 1;
+const TEKO_TERMINAL_CONFIG = {
+  'CP00': { id: 1, siteId: 27, name: 'CP00 - NTMK' },
+  'CP01': { id: 26, siteId: 7, name: 'CP01 - 264A-264B-264C Nguyễn Thị Minh Khai,Phường 6' },
+  'CP02': { id: 14, siteId: 8, name: 'CP02 - Số 408 Đại Lộ Bình Dương, Phường Phú Lợi' },
+  'CP04': { id: 16, siteId: 0, name: 'CP04 - 17A Đường Cộng Hòa, Phường 4' },
+  'CP05': { id: 17, siteId: 46, name: 'CP05 - 1081C Hậu Giang, Phường 11' },
+  'CP06': { id: 18, siteId: 0, name: 'CP06 - 1A Lê Văn Việt , Phường Hiệp Phú' },
+  'CP07': { id: 19, siteId: 9, name: 'CP07 - Số 9-11 Nguyễn Thị Thập, Phường Tân Phú' },
+  'CP08': { id: 20, siteId: 54, name: 'CP08 - Số 2A, Đường Nguyễn Oanh, Phường 7' },
+  'CP09': { id: 9, siteId: 0, name: 'CP09 - Tầng 1, Số 1 Thái Hà, Phường Trung Liệt' },
+  'CP10': { id: 21, siteId: 55, name: 'CP10 - 29 Nguyễn Lương Bằng, Phường Hòa Khánh Bắc' },
+  'CP14': { id: 22, siteId: 57, name: 'CP14 - Lô 11 G2 Đường Nguyễn Thái Học, Phường 7' },
+  'CP15': { id: 10, siteId: 16, name: 'CP15 - Tầng 1 Số 218 Lê Duẩn, Phường Trường Thi' },
+  'CP18': { id: 25, siteId: 63, name: 'CP18 - 37-39 Lý Thường Kiệt, Phường 2' },
+  'CP20': { id: 15, siteId: 65, name: 'CP20 - 37 Bùi Văn Hòa, Khu Phố 4, Phường Long Bình' },
+  'CP25': { id: 30, siteId: 82, name: 'CP25 - Số 159 Quốc Lộ 9, Phường 5' },
+  'CP28': { id: 33, siteId: 72, name: 'CP28 - 232 Ngô Gia Tự, Phường Thanh Sơn' },
+  'CP32': { id: 35, siteId: 74, name: 'CP32 - 12 Lê Thánh Tông, Phường Thắng Lợi' },
+  'CP34': { id: 38, siteId: 77, name: 'CP34 - 225 Ấp Bắc, Khu Phố 3, Phường 10' },
+  'CP37': { id: 43, siteId: 81, name: 'CP37 - 40-42 Thái Nguyên, P. Phương Sài, Tp. Nha Trang' },
+  'CP40': { id: 125, siteId: 85, name: 'CP40 - Showroom Hoàng Hoa Thám' },
+  'CP42': { id: 283, siteId: 599, name: 'CP42 - Đường 30/4, P.Rạch Dừa Tỉnh Bà Rịa - Vũng Tàu' },
+  'CP46': { id: 355, siteId: 628, name: 'CP46 - 164 Lê Văn Việt, Tăng Nhơn Phú B, TP.Thủ Đức' },
+  'CP48': { id: 410, siteId: 692, name: 'CP48 - 62 Trần Đại Nghĩa, Phường Đồng Tâm' },
+  'CP50': { id: 376, siteId: 642, name: 'CP50 - Địa Điểm Kinh Doanh 49' },
+  'CP58': { id: 478, siteId: 763, name: 'CP58 - ĐỊA ĐIỂM KINH DOANH 52' },
+  'CP62': { id: 493, siteId: 779, name: 'CP62 - ĐỊA ĐIỂM KINH DOANH 39' },
+  'CP64': { id: 1292, siteId: 1600, name: 'CP64 - ĐỊA ĐIỂM KINH DOANH 54' },
+  'CP65': { id: 3028, siteId: 3270, name: 'CP65 - ĐỊA ĐIỂM KINH DOANH 56' },
+  'CP67': { id: 10020, siteId: 3480, name: 'CP67 - ĐỊA ĐIỂM KINH DOANH 57' },
+  'CP68': { id: 10014, siteId: 3495, name: 'CP68 - CHI NHÁNH 37' },
+  'CP69': { id: 100213, siteId: 29499, name: 'CP69 - ĐỊA ĐIỂM KINH DOANH 58' },
+  'CP74': { id: 100246, siteId: 53019, name: 'CP74 - 162-164 Khánh Hội, Phường Khánh Hội, Quận 4' },
+  'CP90': { id: 3208, siteId: 3416, name: 'CP90 - CHI NHÁNH 30' },
+};
+
+const terminalCache = new Map();
+
+/**
+ * Tra cứu thông tin terminalId và siteId chính xác của showroom
+ */
+async function resolveTerminalInfo(branchCode, token = '') {
+  if (!branchCode) return { id: 1, siteId: 27, code: 'CP00' };
+  const cleanCode = String(branchCode).trim().toUpperCase();
+
+  if (terminalCache.has(cleanCode)) {
+    return terminalCache.get(cleanCode);
+  }
+
+  if (TEKO_TERMINAL_CONFIG[cleanCode]) {
+    const conf = { ...TEKO_TERMINAL_CONFIG[cleanCode], code: cleanCode };
+    terminalCache.set(cleanCode, conf);
+    return conf;
+  }
+
+  // Nếu showroom mới chưa có trong static list, tự động query Staff BFF API
+  if (token) {
+    try {
+      const res = await callTeko(`https://staff-bff.tekoapis.com/api/v1/terminals?code=${encodeURIComponent(cleanCode)}`, {
+        method: 'GET',
+        token
+      });
+      const term = res.data?.result?.terminals?.[0];
+      if (term && term.id) {
+        const info = {
+          id: Number(term.id),
+          siteId: Number(term.appId || 0),
+          name: term.name || cleanCode,
+          code: cleanCode
+        };
+        terminalCache.set(cleanCode, info);
+        return info;
+      }
+    } catch (e) {
+      console.warn(`[SPOS-ORDER] Không thể truy vấn terminalId cho ${cleanCode}:`, e.message);
+    }
+  }
+
+  return { id: 1, siteId: 27, code: cleanCode };
 }
 
 /**
@@ -110,7 +193,8 @@ async function createPendingOrder(payload) {
       ? 'Chuyển khoản'
       : (selectedPaymentMethod === 'CARD' ? 'Quẹt thẻ' : 'Tiền mặt'));
 
-  const terminalId = extractTerminalId(branchCode);
+  const terminalInfo = await resolveTerminalInfo(branchCode, token);
+  const terminalId = terminalInfo.id || 1;
   const isTestOrMock = payload.allowOfflineMock || payload.isTestOrMock || process.env.NODE_ENV === 'test';
 
   // 1. Kiểm tra Token bắt buộc
@@ -188,6 +272,10 @@ async function createPendingOrder(payload) {
       },
       paymentMethod: selectedPaymentMethod,
       paymentMethodLabel,
+      voucherCode: voucherCode || '',
+      appliedPromo: payload.appliedPromo || null,
+      note: (note || '').trim(),
+      rawNote: note || '',
       branchCode,
       userId,
       tokenStatus: 'MOCK',
@@ -255,7 +343,27 @@ async function createPendingOrder(payload) {
       }
     }
 
-    // 4. Thêm sản phẩm vào giỏ hàng
+    // 3.9. Tự động kiểm tra và gắn promotionId cho các sản phẩm có ưu đãi showroom/chi nhánh
+    for (const it of orderItems) {
+      if (!it.promotionId) {
+        try {
+          const { fetchTekoProductDetails } = require('./teko_product_service');
+          const pDetails = await fetchTekoProductDetails(it.sku, branchCode, supabase);
+          if (pDetails && pDetails.promotions && pDetails.promotions.length > 0) {
+            const discountPromo = pDetails.promotions.find(p => p.benefit?.discount?.flat > 0 || p.benefit?.discount?.percent > 0);
+            if (discountPromo) {
+              it.promotionId = discountPromo.id;
+            } else if (pDetails.promotions[0]?.id) {
+              it.promotionId = pDetails.promotions[0].id;
+            }
+          }
+        } catch (e) {
+          // Fallback an toàn nếu không lấy được chi tiết KM
+        }
+      }
+    }
+
+    // 4. Thêm sản phẩm vào giỏ hàng (kèm promotionId để kích hoạt giá giảm khuyến mãi ngay lập tức)
     // POST https://carts.tekoapis.com/api/v2/carts/items?terminal=CP01&terminalId=1
     const addItemsUrl = `${TEKO_CARTS_URL}/api/v2/carts/items?terminal=${encodeURIComponent(branchCode)}&terminalId=${terminalId}`;
     const addItemsRes = await callTeko(addItemsUrl, {
@@ -267,10 +375,16 @@ async function createPendingOrder(payload) {
       data: {
         groups: [
           {
-            products: orderItems.map(it => ({
-              sku: String(it.sku),
-              quantity: Number(it.quantity) || 1
-            }))
+            products: orderItems.map(it => {
+              const p = {
+                sku: String(it.sku),
+                quantity: Number(it.quantity) || 1
+              };
+              if (it.promotionId) {
+                p.promotionId = Number(it.promotionId);
+              }
+              return p;
+            })
           }
         ]
       }
@@ -284,6 +398,32 @@ async function createPendingOrder(payload) {
         error: `Không thể đưa sản phẩm vào giỏ SPOS: ${errMsg}`,
         tokenStatus: 'ERROR'
       };
+    }
+
+    // 4.1. Áp dụng mã giảm giá / Voucher lên giỏ hàng Teko Carts (để kích hoạt ưu đãi & tự động đính kèm quà tặng vào đơn)
+    const cleanVoucher = String(voucherCode || payload.appliedPromo?.code || '').trim().toUpperCase();
+    if (cleanVoucher) {
+      try {
+        const couponUrl = `${TEKO_CARTS_URL}/api/v1/cart/apply-coupon?terminal=${encodeURIComponent(branchCode)}&terminalId=${terminalId}&channel=pv_showroom`;
+        const couponRes = await callTeko(couponUrl, {
+          method: 'POST',
+          token,
+          headers: {
+            'x-cart-token': currentCartToken
+          },
+          data: {
+            coupon: cleanVoucher
+          }
+        });
+        updateTokenFromRes(couponRes);
+        if (couponRes.ok) {
+          console.log(`[SPOS-ORDER] Đã áp thành công mã coupon ${cleanVoucher} lên giỏ hàng Teko!`);
+        } else {
+          console.warn(`[SPOS-ORDER] Áp mã coupon ${cleanVoucher} thất bại:`, couponRes.status, couponRes.data?.error || couponRes.data?.message);
+        }
+      } catch (cErr) {
+        console.warn(`[SPOS-ORDER] Lỗi gọi API apply-coupon:`, cErr.message);
+      }
     }
 
     // 5. Lấy danh sách địa chỉ nhận hàng & chọn địa chỉ showroom
@@ -318,7 +458,7 @@ async function createPendingOrder(payload) {
     const wardId = cleanAddress.wardId ? String(cleanAddress.wardId) : '12910815';
     const districtId = cleanAddress.districtId ? String(cleanAddress.districtId) : (wardId.length >= 6 ? wardId.slice(0, 6) : '129108');
     const provinceId = String(cleanAddress.provinceId || '129');
-    const siteId = cleanAddress.siteId || (branchCode.toUpperCase() === 'CP74' ? 53019 : 53019);
+    const siteId = cleanAddress.siteId || terminalInfo.siteId || 53019;
     const addressId = cleanAddress.addressId || `phongvu:${branchCode}`;
     const address = cleanAddress.address || delivery?.address || 'Showroom Phong Vũ';
     const fullAddress = cleanAddress.fullAddress || delivery?.address || 'Showroom Phong Vũ';
@@ -437,88 +577,143 @@ async function createPendingOrder(payload) {
       };
     }
 
-    // 7. Gán phương thức thanh toán đã chọn (COD / BANK_TRANSFER / CARD / CASH)
-    let tekoMethodCode = 'COD';
-    if (selectedPaymentMethod === 'BANK_TRANSFER') {
-      tekoMethodCode = 'BANK_TRANSFER';
-    } else if (selectedPaymentMethod === 'CARD') {
-      tekoMethodCode = 'VNPAY_SPOS_CARD';
-    } else if (selectedPaymentMethod === 'CASH') {
-      tekoMethodCode = 'CASH';
-    } else {
-      tekoMethodCode = 'COD';
+    // 7. Gán phương thức thanh toán đã chọn
+    // Đối với COD (Thanh toán khi nhận hàng): Luôn apply payment method 'COD' lên giỏ hàng Teko
+    // để Teko OMS và SPOS Mobile ghi nhận chính xác phương thức COD (thay vì tự động fallback về Tiền mặt CASH).
+    if (selectedPaymentMethod === 'COD') {
+      try {
+        const payUrl = `${TEKO_CARTS_URL}/api/v1/cart/apply-payment-method?terminal=${encodeURIComponent(branchCode)}&terminalId=${terminalId}&channel=pv_showroom&cartId=${encodeURIComponent(currentCartId)}`;
+        const pmRes = await callTeko(payUrl, {
+          method: 'PUT',
+          token,
+          headers: {
+            'x-cart-token': currentCartToken
+          },
+          data: {
+            paymentMethodCode: 'COD'
+          }
+        });
+        updateTokenFromRes(pmRes);
+      } catch (e) {
+        console.warn('[SPOS-ORDER] Không thể apply-payment-method COD:', e.message);
+      }
     }
 
+    // 8. Thực hiện Lưu đơn hàng (Record Order) trên Teko Carts API V2
+    // Endpoint: POST /api/v2/carts/record
+    // Cơ chế V2 Record Order chuẩn Teko SPOS:
+    // 1. Ghi nhận trực tiếp note vào order.note trên Teko OMS (hiển thị ngay trong chi tiết & ghi chú đơn trên app SPOS Mobile)
+    // 2. Không làm rỗng allowedPaymentMethods, giữ nguyên trạng thái chờ thanh toán
+    // 3. Thời gian giữ đơn predictCancelAt kéo dài 24h, không bị hủy tức thì
+    const orderNoteText = (note || '').trim();
+    let finalOrderCode = '';
+    let finalGrandTotal = totalPayable;
+
     try {
-      const payUrl = `${TEKO_CARTS_URL}/api/v1/cart/apply-payment-method?terminal=${encodeURIComponent(branchCode)}&terminalId=${terminalId}&channel=pv_showroom&cartId=${encodeURIComponent(currentCartId)}`;
-      const pmRes = await callTeko(payUrl, {
-        method: 'PUT',
+      const recordUrl = `${TEKO_CARTS_URL}/api/v2/carts/record?terminal=${encodeURIComponent(branchCode)}&terminalId=${terminalId}`;
+      const recordRes = await callTeko(recordUrl, {
+        method: 'POST',
         token,
         headers: {
           'x-cart-token': currentCartToken
         },
         data: {
-          paymentMethodCode: tekoMethodCode
+          terminalCode: branchCode,
+          storeCode: branchCode,
+          order: {
+            note: orderNoteText,
+            terminalCode: branchCode,
+            storeCode: branchCode,
+            deliveryInfo: {
+              name: customerName,
+              phone: customerPhone,
+              email: customerEmail
+            },
+            customerInfo: {
+              name: customerName,
+              phone: customerPhone,
+              email: customerEmail
+            },
+            channelInfo: {
+              channelId: 1,
+              channelType: 'showroom',
+              channelCode: 'pv_showroom',
+              terminalCode: branchCode,
+              storeCode: branchCode
+            }
+          },
+          payments: []
         }
       });
-      updateTokenFromRes(pmRes);
-    } catch (e) {
-      console.warn('[SPOS-ORDER] Không thể apply-payment-method:', e.message);
-    }
 
-    // 8. Thực hiện Checkout Đơn hàng chính thức trên Teko OMS
-    // Endpoint: POST /api/v1/cart/checkout
-    const checkoutUrl = `${TEKO_CARTS_URL}/api/v1/cart/checkout?terminal=${encodeURIComponent(branchCode)}&terminalId=${terminalId}&channel=pv_showroom&cartId=${encodeURIComponent(currentCartId)}`;
-    const checkoutRes = await callTeko(checkoutUrl, {
-      method: 'POST',
-      token,
-      headers: {
-        'x-cart-token': currentCartToken
-      },
-      data: {
-        channelId: 1,
-        channelType: 'showroom',
-        channelCode: 'pv_showroom',
-        customer: {
-          name: customerName,
-          phone: customerPhone,
-          email: customerEmail
-        },
-        shippingInfo: checkoutShippingInfo
+      if (recordRes.ok && (recordRes.data?.data?.code || recordRes.data?.data?.orderId)) {
+        finalOrderCode = String(recordRes.data.data.code || recordRes.data.data.orderId);
+        finalGrandTotal = Number(recordRes.data.data.grandTotal) || totalPayable;
+      } else {
+        console.warn('[SPOS-ORDER] V2 /record không thành công, thử fallback sang V1 checkout:', recordRes.status, recordRes.data);
       }
-    });
-
-    if (!checkoutRes.ok || !checkoutRes.data?.result) {
-      console.error('[SPOS-ORDER] Teko Checkout thất bại:', checkoutRes.status, checkoutRes.data);
-      const errMsg = checkoutRes.data?.error || checkoutRes.data?.message || `Lỗi máy chủ Teko (Mã ${checkoutRes.status})`;
-      return {
-        ok: false,
-        error: `Không thể tạo đơn hàng trên Teko SPOS: ${errMsg}`,
-        tokenStatus: 'ERROR'
-      };
+    } catch (recErr) {
+      console.warn('[SPOS-ORDER] Ngoại lệ khi gọi V2 /record:', recErr.message);
     }
 
-    const orderRes = checkoutRes.data.result;
-    const finalOrderCode = String(orderRes.code || orderRes.orderId || orderRes.orderIdString || '');
+    // Fallback nếu V2 /record không trả về mã đơn
+    if (!finalOrderCode) {
+      const checkoutUrl = `${TEKO_CARTS_URL}/api/v1/cart/checkout?terminal=${encodeURIComponent(branchCode)}&terminalId=${terminalId}&channel=pv_showroom&cartId=${encodeURIComponent(currentCartId)}`;
+      const checkoutRes = await callTeko(checkoutUrl, {
+        method: 'POST',
+        token,
+        headers: {
+          'x-cart-token': currentCartToken
+        },
+        data: {
+          channelId: 1,
+          channelType: 'showroom',
+          channelCode: 'pv_showroom',
+          terminalCode: branchCode,
+          storeCode: branchCode,
+          note: orderNoteText,
+          customer: {
+            name: customerName,
+            phone: customerPhone,
+            email: customerEmail
+          },
+          shippingInfo: checkoutShippingInfo
+        }
+      });
+
+      if (checkoutRes.ok && checkoutRes.data?.result) {
+        finalOrderCode = String(checkoutRes.data.result.code || checkoutRes.data.result.orderId || checkoutRes.data.result.orderIdString || '');
+        finalGrandTotal = Number(checkoutRes.data.result.grandTotal) || totalPayable;
+      } else {
+        const errMsg = checkoutRes.data?.error || checkoutRes.data?.message || `Lỗi máy chủ Teko (Mã ${checkoutRes.status})`;
+        return {
+          ok: false,
+          error: `Không thể tạo đơn hàng trên Teko SPOS: ${errMsg}`,
+          tokenStatus: 'ERROR'
+        };
+      }
+    }
+
     if (!finalOrderCode) {
       return {
         ok: false,
-        error: 'Teko không trả về mã đơn hàng hợp lệ sau khi checkout.',
+        error: 'Teko không trả về mã đơn hàng hợp lệ sau khi lưu đơn.',
         tokenStatus: 'ERROR'
       };
     }
 
-    // Tự động ghi chú Phương thức thanh toán vào Teko OMS để hiển thị rõ trong Ghi chú trên SPOS Mobile & Web ERP
-    try {
-      const commentUrl = `https://staff-bff.tekoapis.com/api/v1/orders/${encodeURIComponent(finalOrderCode)}/comments?sellerId=1&channel=pv_showroom`;
-      const commentText = `[PTTT: ${paymentMethodLabel}]${note ? ' - ' + note.trim() : ''}`;
-      await callTeko(commentUrl, {
-        method: 'POST',
-        token,
-        data: { content: commentText }
-      });
-    } catch (cErr) {
-      console.warn('[SPOS-ORDER] Không thể tự động ghi chú PTTT vào Teko OMS:', cErr.message);
+    // Tự động ghi chú vào Teko OMS comments thread nếu người dùng có nhập ghi chú
+    if (orderNoteText) {
+      try {
+        const commentUrl = `https://staff-bff.tekoapis.com/api/v1/orders/${encodeURIComponent(finalOrderCode)}/comments?sellerId=1&channel=pv_showroom`;
+        await callTeko(commentUrl, {
+          method: 'POST',
+          token,
+          data: { content: orderNoteText }
+        });
+      } catch (cErr) {
+        console.warn('[SPOS-ORDER] Không thể ghi chú vào Teko OMS comments:', cErr.message);
+      }
     }
 
     const orderData = {
@@ -545,10 +740,12 @@ async function createPendingOrder(payload) {
         totalOriginal,
         totalPromoDiscount,
         totalManualDiscount,
-        totalPayable: Number(orderRes.grandTotal) || totalPayable
+        totalPayable: finalGrandTotal
       },
       voucherCode: voucherCode || '',
-      note: note || '',
+      appliedPromo: payload.appliedPromo || null,
+      note: orderNoteText,
+      rawNote: note || '',
       branchCode,
       userId,
       tokenStatus: 'VALID',
@@ -556,7 +753,7 @@ async function createPendingOrder(payload) {
       createdAt: new Date().toISOString()
     };
 
-    const finalPayable = Number(orderRes.grandTotal) || totalPayable;
+    const finalPayable = finalGrandTotal;
 
     const successMessage = `Tạo đơn hàng thành công trên hệ thống SPOS Teko! Mã đơn: #${finalOrderCode}. Hình thức: ${paymentMethodLabel}.`;
 
@@ -603,8 +800,14 @@ async function cancelPendingOrder(orderId, reason = 'Huỷ đơn từ hệ thố
             try {
               const parsed = JSON.parse(item.value);
               if (parsed.tekoToken) {
-                effectiveToken = parsed.tekoToken;
-                break;
+                const parts = parsed.tekoToken.split('.');
+                if (parts.length === 3) {
+                  const payload = JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+                  if (payload.exp && payload.exp * 1000 > Date.now()) {
+                    effectiveToken = parsed.tekoToken;
+                    break;
+                  }
+                }
               }
             } catch (e) {}
           }
@@ -630,5 +833,6 @@ async function cancelPendingOrder(orderId, reason = 'Huỷ đơn từ hệ thố
 module.exports = {
   createPendingOrder,
   cancelPendingOrder,
-  generateOrderCode
+  generateOrderCode,
+  TEKO_TERMINAL_CONFIG
 };

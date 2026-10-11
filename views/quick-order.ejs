@@ -44,6 +44,12 @@
     box-sizing: border-box;
   }
 
+  body, button, input, select, textarea, table, th, td, p, h1, h2, h3, h4, span, label, div {
+    font-family: var(--qo-font);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
     background-color: var(--qo-bg) !important;
     color: var(--qo-text-main);
@@ -52,14 +58,30 @@
     padding-bottom: 60px;
   }
 
+  /* Override global style.css container constraints for wide full-dashboard layout */
+  .main-content {
+    padding: 12px 0 40px !important;
+  }
+
+  .main-content > .container,
+  .container {
+    max-width: 1440px !important;
+    width: 100% !important;
+    padding: 0 16px !important;
+    margin: 0 auto !important;
+  }
+
   .qo-layout {
-    max-width: 1360px;
-    margin: 20px auto;
-    padding: 0 16px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0;
   }
 
   /* TOP HEADER CARD */
   .qo-header-card {
+    width: 100%;
+    box-sizing: border-box;
     background: var(--qo-card);
     border: 1px solid var(--qo-border);
     border-top: 4px solid var(--qo-blue-primary);
@@ -81,75 +103,404 @@
   }
 
   .qo-header-icon {
-    width: 44px;
-    height: 44px;
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    color: #ffffff;
-    border-radius: 10px;
+    width: 38px;
+    height: 38px;
+    background: var(--qo-blue-light);
+    color: var(--qo-blue-primary);
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    box-shadow: 0 2px 8px rgba(29, 78, 216, 0.25);
+    flex-shrink: 0;
   }
 
   .qo-header-title {
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 800;
     color: var(--qo-text-main);
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
   }
 
-  .qo-header-subtitle {
-    font-size: 13px;
-    color: var(--qo-text-muted);
-    margin: 3px 0 0 0;
+  .qo-tag-smart {
+    background: var(--qo-blue-light);
+    color: var(--qo-blue-primary);
+    border: 1px solid var(--qo-blue-border);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
   }
 
-  .qo-header-badges {
+  .qo-header-right {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
   }
 
-  .qo-badge {
+  .qo-pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 10px;
+    padding: 6px 12px;
+    background: #f8fafc;
+    border: 1px solid var(--qo-border);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--qo-text-secondary);
+    transition: all 0.15s ease;
+  }
+
+  .qo-pill-showroom {
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .qo-showroom-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: #eff6ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231d4ed8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 8px center;
+    padding: 3px 24px 3px 10px;
+    border: 1px solid var(--qo-blue-border);
     border-radius: 6px;
     font-size: 12px;
+    font-weight: 700;
+    color: var(--qo-blue-primary);
+    cursor: pointer;
+    outline: none;
+    font-family: var(--qo-font);
+    transition: all 0.15s ease;
+  }
+
+  .qo-showroom-select:hover:not(:disabled) {
+    border-color: var(--qo-blue-primary);
+    background-color: #dbeafe;
+  }
+
+  .qo-showroom-select:disabled {
+    cursor: default;
+    background-color: #f8fafc;
+    color: var(--qo-text-secondary);
+    border-color: var(--qo-border);
+  }
+
+  .qo-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--qo-red-primary);
+    flex-shrink: 0;
+  }
+
+  .qo-dot.active {
+    background-color: var(--qo-green-primary);
+    box-shadow: 0 0 6px rgba(21, 128, 61, 0.6);
+  }
+
+  .btn-header-action {
+    background: #ffffff;
+    border: 1px solid var(--qo-border);
+    color: var(--qo-text-secondary);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+  }
+
+  .btn-header-action:hover {
+    background: var(--qo-blue-light);
+    color: var(--qo-blue-primary);
+    border-color: var(--qo-blue-border);
+  }
+
+  .qo-sku-badge {
+    font-family: var(--qo-font);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    font-weight: 500;
+    color: #475569;
+    background: transparent;
+    border: none;
+    padding: 0;
+    display: inline-block;
+  }
+
+  .qo-promo-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #ea580c;
+    padding: 7px 10px;
+    border-radius: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 6px;
+  }
+
+  .qo-promo-banner-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .qo-promo-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .qo-promo-banner-icon {
+    font-size: 13px;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+
+  .qo-promo-banner-name {
+    font-weight: 700;
+    color: #9a3412;
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: normal;
+    white-space: normal;
+  }
+
+  .qo-promo-banner-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .qo-promo-banner-tag {
+    flex-shrink: 0;
+    white-space: nowrap;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #b91c1c;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 1.5px 6px;
+    border-radius: 4px;
+  }
+
+  .qo-promo-applied-badge {
+    font-size: 11px;
+    color: #15803d;
+    font-weight: 700;
+    background: #ffffff;
+    border: 1px solid #86efac;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .qo-promo-banner-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding-top: 4px;
+    border-top: 1px dashed #f1f5f9;
+  }
+
+  .qo-promo-banner-gift {
+    font-size: 11.5px;
+    color: #475569;
+    font-weight: 500;
+    line-height: 1.4;
+    word-break: normal;
+    white-space: normal;
+  }
+
+  .qo-promo-banner-gift strong {
+    color: #1e40af;
     font-weight: 600;
   }
 
-  .qo-badge-branch {
-    background: #eff6ff;
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
+  .qo-promo-gift-stock-wrap {
+    margin-top: 2px;
   }
 
-  .qo-badge-spos {
-    background: #f0fdf4;
-    color: #166534;
-    border: 1px solid #bbf7d0;
+  .qo-promo-gift-stock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: #334155;
+    line-height: 1.4;
+  }
+
+  .qo-gift-sku-tag {
+    font-family: monospace;
+    font-weight: 700;
+    color: #0f172a;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  .qo-gift-name-tag {
+    font-weight: 500;
+    color: #334155;
+  }
+
+  .qo-gift-stock-loading {
+    font-size: 11px;
+    color: #64748b;
+    font-style: italic;
+  }
+
+  .qo-cart-product-title {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 14px;
+    line-height: 1.45;
+    word-break: break-word;
+    margin-bottom: 6px;
+  }
+
+  .qo-cart-product-meta {
+    margin-top: 0;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .qo-promo-pill {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    color: #dc2626;
+    background: #fee2e2;
+    padding: 1px 5px;
+    border-radius: 3px;
   }
 
   /* 2-COLUMN MAIN CONTENT */
   .qo-grid {
     display: grid;
-    grid-template-columns: 1fr 440px;
-    gap: 20px;
+    grid-template-columns: 1fr 390px;
+    gap: 22px;
     align-items: start;
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1100px) {
     .qo-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  .qo-btn-hint-ctkm {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+    transition: all 0.15s ease;
+    line-height: 1.3;
+  }
+  .qo-btn-hint-ctkm:hover {
+    background: #dbeafe;
+    border-color: #60a5fa;
+    color: #1e40af;
+    transform: translateY(-1px);
+  }
+  .qo-btn-apply-coupon-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2.5px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .qo-btn-apply-coupon-inline:hover {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+  }
+  .btn-voucher-apply {
+    background: #f1f5f9;
+    border: 1.5px solid #cbd5e1;
+    color: #1e293b;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 0 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .btn-voucher-apply:hover {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+  }
+  .voucher-suggestion-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #fed7aa;
+    border-radius: 6px;
+    padding: 7px 10px;
+    gap: 10px;
+  }
+  .btn-use-voucher {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .btn-use-voucher:hover {
+    background: #2563eb;
+    color: #ffffff;
   }
 
   /* CARDS */
@@ -329,7 +680,21 @@
     font-size: 13px;
   }
 
-  .qo-cart-table tr:hover td {
+  .qo-cart-table tr.has-stock-row td {
+    border-bottom: none;
+    padding-bottom: 4px;
+  }
+
+  .qo-cart-stock-row td {
+    padding: 0 12px 10px 12px !important;
+    border-top: none !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    vertical-align: top;
+    text-align: left;
+  }
+
+  .qo-cart-table tr:hover td,
+  .qo-cart-stock-row:hover td {
     background: #fafcff;
   }
 
@@ -374,7 +739,7 @@
   }
 
   .qo-discount-input {
-    width: 110px;
+    width: 90px;
     padding: 6px 8px;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
@@ -668,7 +1033,10 @@
     background: #ffffff;
     border-radius: 16px;
     width: 100%;
-    max-width: 520px;
+    max-width: 530px;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
     overflow: hidden;
     animation: qoPopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -682,13 +1050,14 @@
   .qo-modal-header {
     background: linear-gradient(135deg, #15803d, #16a34a);
     color: #ffffff;
-    padding: 24px 20px 20px 20px;
+    padding: 22px 20px 18px 20px;
     text-align: center;
+    flex-shrink: 0;
   }
 
   .qo-modal-success-icon {
-    font-size: 42px;
-    margin-bottom: 6px;
+    font-size: 40px;
+    margin-bottom: 4px;
     display: inline-block;
   }
 
@@ -705,7 +1074,9 @@
   }
 
   .qo-modal-body {
-    padding: 20px 24px;
+    padding: 18px 22px;
+    overflow-y: auto;
+    flex: 1;
   }
 
   .qo-order-code-box {
@@ -801,6 +1172,157 @@
     color: #475569;
   }
 
+  /* VIETQR & PAYMENT METHOD DISPLAY */
+  .qo-vietqr-box {
+    background: #f0fdf4;
+    border: 1.5px solid #86efac;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+
+  .qo-vietqr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+    color: #166534;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed #bbf7d0;
+  }
+
+  .qo-vietqr-badge {
+    background: #16a34a;
+    color: #ffffff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .qo-vietqr-content {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .qo-vietqr-img-wrap {
+    width: 135px;
+    height: 135px;
+    background: #ffffff;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .qo-vietqr-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .qo-vietqr-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  .qo-vietqr-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .qo-vietqr-row .lbl {
+    color: #475569;
+    font-size: 11.5px;
+  }
+
+  .qo-vietqr-row .val {
+    color: #0f172a;
+    text-align: right;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .qo-vietqr-row .val.mono {
+    font-family: var(--qo-mono);
+  }
+
+  .qo-vietqr-row .val.highlight {
+    color: #1d4ed8;
+    font-weight: 700;
+  }
+
+  .qo-vietqr-row .val.money {
+    color: #15803d;
+    font-weight: 800;
+    font-size: 13.5px;
+  }
+
+  .qo-pm-banner {
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.45;
+  }
+
+  .qo-pm-banner.cash {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+  }
+
+  .qo-pm-banner.card {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+  }
+
+  .qo-pm-banner.cod {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+  }
+
+  .qo-btn-erp-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    color: #1d4ed8;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+  }
+
+  .qo-btn-erp-action:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1e40af;
+    transform: translateY(-1px);
+  }
+
   /* RECENT ORDERS TABLE */
   .qo-recent-table {
     width: 100%;
@@ -824,38 +1346,95 @@
     border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
   }
+
+  /* STOCK & BIN BADGE IN CART */
+  .qo-cart-stock-badge {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 0;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: left;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+  .qo-cart-stock-badge.in-stock {
+    background: #ffffff;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+  }
+  .qo-cart-stock-badge.out-stock {
+    background: #ffffff;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+  }
+  .qo-cart-stock-badge.loading-stock {
+    background: #ffffff;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+  }
+  .qo-stock-sep {
+    color: #cbd5e1;
+    font-weight: 300;
+  }
 </style>
 
 <div class="qo-layout">
   <!-- TOP HEADER -->
   <div class="qo-header-card">
     <div class="qo-header-left">
-      <div class="qo-header-icon">🛒</div>
+      <div class="qo-header-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+      </div>
       <div>
         <h1 class="qo-header-title">
-          Tạo Đơn Hàng Nhanh (SPOS Web)
-          <span style="font-size: 11px; font-weight: 700; background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 4px;">BƯỚC 1: TẠO ĐƠN & THU TIỀN TẠI QUẦY</span>
+          Tạo Đơn Hàng Nhanh <span class="qo-tag-smart">SPOS Web</span>
         </h1>
-        <p class="qo-header-subtitle">
-          Tìm kiếm SKU ➔ Tự động áp giá khuyến mãi ➔ Điền Tên & SĐT ➔ Thu tiền trực tiếp trên máy SPOS
-        </p>
       </div>
     </div>
-    <div class="qo-header-badges">
-      <div class="qo-badge qo-badge-branch" style="display: flex; align-items: center; gap: 6px;">
-        <span>🏢 Showroom:</span>
-        <select id="headerBranchSelect" onchange="onBranchChange(this.value)" 
-                style="border: 1px solid rgba(29, 78, 216, 0.25); background: #eff6ff; font-weight: 700; color: #1e40af; font-size: 12px; border-radius: 6px; padding: 3px 6px; outline: none; cursor: pointer;">
+    <div class="qo-header-right">
+      <!-- Showroom Selector Pill -->
+      <div class="qo-pill qo-pill-showroom">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color: var(--qo-blue-primary); flex-shrink: 0;">
+          <path d="M3 21h18"></path>
+          <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"></path>
+          <path d="M9 9h1"></path>
+          <path d="M9 13h1"></path>
+          <path d="M9 17h1"></path>
+          <path d="M14 9h1"></path>
+          <path d="M14 13h1"></path>
+          <path d="M14 17h1"></path>
+        </svg>
+        <span style="color: var(--qo-text-muted); font-size: 12px; font-weight: 600;">Showroom:</span>
+        <% const canChangeBranch = user && (user.role === 'admin' || user.role === 'manager'); %>
+        <select id="headerBranchSelect" class="qo-showroom-select" onchange="onBranchChange(this.value)" <%= !canChangeBranch ? 'disabled' : '' %>>
           <% Object.keys(branches).filter(k => k !== 'DEFAULT').forEach(function(code) { %>
-            <option value="<%= code %>" <%= code === branchCode ? 'selected' : '' %>>
-              <%= code %> - <%= branches[code].name %>
+            <option value="<%= code %>" <%= code === branchCode ? 'selected' : '' %> title="<%= code %> - <%= branches[code].name %>">
+              <%= code %>
             </option>
           <% }); %>
         </select>
       </div>
-      <div id="sposTokenBadge" class="qo-badge" style="background: #fffbeb; color: #92400e; border: 1px solid #fde68a; cursor: pointer;" onclick="checkOrPromptToken()" title="Bấm để kiểm tra hoặc gia hạn token SPOS">
-        <span>🔄</span> <span id="sposTokenText">Đang kiểm tra kết nối SPOS...</span>
+
+      <!-- SPOS Token Status Pill -->
+      <div id="sposTokenBadge" class="qo-pill" onclick="openQoTokenModal()" style="cursor: pointer;" title="Bấm để kết nối hoặc gia hạn token SPOS / ERP">
+        <span class="qo-dot" id="dotToken"></span>
+        <span id="sposTokenText">Đang kiểm tra kết nối SPOS...</span>
       </div>
+
+      <!-- Button Kết nối SPOS -->
+      <button type="button" class="btn-header-action" onclick="openQoTokenModal()">
+        🔑 Kết nối SPOS
+      </button>
     </div>
   </div>
 
@@ -901,12 +1480,12 @@
           <table class="qo-cart-table">
             <thead>
               <tr>
-                <th style="min-width: 220px;">Sản phẩm</th>
-                <th style="text-align: right; width: 110px;">Đơn giá</th>
-                <th style="text-align: center; width: 100px;">Số lượng</th>
-                <th style="text-align: right; width: 120px;">Giảm/Món</th>
-                <th style="text-align: right; width: 120px;">Thành tiền</th>
-                <th style="text-align: center; width: 40px;"></th>
+                <th style="min-width: 360px;">Sản phẩm</th>
+                <th style="text-align: right; width: 105px; white-space: nowrap;">Đơn giá</th>
+                <th style="text-align: center; width: 95px; white-space: nowrap;">Số lượng</th>
+                <th style="text-align: right; width: 95px; white-space: nowrap;">Giảm/Món</th>
+                <th style="text-align: right; width: 115px; white-space: nowrap;">Thành tiền</th>
+                <th style="text-align: center; width: 36px;"></th>
               </tr>
             </thead>
             <tbody id="cartTableBody"></tbody>
@@ -983,14 +1562,11 @@
             </div>
 
             <div style="margin-bottom: 8px;">
-              <label for="branchSelect" style="display: block; font-size: 11.5px; color: #64748b; margin-bottom: 4px; font-weight: 600;">
-                Chọn chi nhánh (Khớp với phân quyền tài khoản của bạn trên SPOS):
-              </label>
               <select id="branchSelect" class="qo-form-select" onchange="onBranchChange(this.value)" 
-                      style="font-weight: 600; background: #fff; border: 1.5px solid #93c5fd; box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);">
+                      <%= !canChangeBranch ? 'disabled style="font-weight: 700; background: #f8fafc; border: 1.5px solid #cbd5e1; cursor: default;"' : 'style="font-weight: 700; background: #fff; border: 1.5px solid #93c5fd; box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08); cursor: pointer;"' %>>
                 <% Object.keys(branches).filter(k => k !== 'DEFAULT').forEach(function(code) { %>
-                  <option value="<%= code %>" <%= code === branchCode ? 'selected' : '' %>>
-                    <%= code %> - <%= branches[code].name %>
+                  <option value="<%= code %>" <%= code === branchCode ? 'selected' : '' %> title="<%= code %> - <%= branches[code].name %>">
+                    <%= code %>
                   </option>
                 <% }); %>
               </select>
@@ -998,9 +1574,6 @@
 
             <div id="showroomAddressText" style="font-size: 12px; color: #475569; line-height: 1.4; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px dashed #cbd5e1;">
               📍 <strong>Địa chỉ:</strong> <span id="showroomAddressVal"><%= branchInfo.address %></span>
-            </div>
-            <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #166534;">
-              <span>✅</span> <em>Tự động gán showroom đã chọn vào giỏ hàng và lệnh xuất bán SPOS</em>
             </div>
           </div>
 
@@ -1048,16 +1621,46 @@
               <span class="qo-payment-option-desc">Thu tại quầy</span>
             </div>
           </div>
-
-          <div id="paymentMethodNote" style="font-size: 11.5px; color: #64748b; margin-top: 6px; line-height: 1.4;">
-            💡 <span id="paymentMethodNoteText">Gán hình thức <strong>Thanh toán khi nhận hàng (COD)</strong> vào đơn.</span>
-          </div>
         </div>
 
         <!-- GHI CHÚ ĐƠN -->
         <div class="qo-form-group">
           <label class="qo-form-label">Ghi chú đơn hàng (Tuỳ chọn)</label>
           <input type="text" id="orderNote" class="qo-form-input" placeholder="Ghi chú in trên phiếu thu / dặn dò bán hàng...">
+        </div>
+
+        <!-- MÃ GIẢM GIÁ / VOUCHER -->
+        <div class="qo-form-group" style="margin-top: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="qo-form-label" style="margin-bottom: 0;">🎟️ Mã giảm giá / Voucher</label>
+            <button type="button" id="voucherHintBtn" class="qo-btn-hint-ctkm" style="display: none;" onclick="toggleVoucherSuggestions()">
+              🎁 Gợi ý CTKM (<span id="voucherSuggestionCount">0</span>)
+            </button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="voucherCodeInput" class="qo-form-input" placeholder="Nhập mã coupon (VD: PVACER...)" style="text-transform: uppercase; font-weight: 700; letter-spacing: 0.03em;">
+            <button type="button" class="btn-voucher-apply" onclick="applyVoucherCode()">Áp dụng</button>
+          </div>
+
+          <!-- Box gợi ý voucher khả dụng -->
+          <div id="voucherSuggestionBox" style="display: none; margin-top: 8px; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 8px; padding: 10px;">
+            <div style="font-size: 11px; font-weight: 800; color: #b45309; text-transform: uppercase; margin-bottom: 6px;">
+              🎁 CTKM KHẢ DỤNG THEO SẢN PHẨM:
+            </div>
+            <div id="voucherSuggestionList" style="display: flex; flex-direction: column; gap: 6px;"></div>
+          </div>
+
+          <!-- Tag voucher đã áp dụng -->
+          <div id="appliedVoucherTag" style="display: none; margin-top: 8px; padding: 8px 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; font-size: 12px; color: #166534; justify-content: space-between; align-items: center;">
+            <div style="min-width: 0; flex: 1;">
+              <div style="font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                <span>🎟️</span>
+                <span id="appliedVoucherCode"></span>
+              </div>
+              <div id="appliedVoucherDesc" style="font-size: 11px; color: #15803d; margin-top: 2px;"></div>
+            </div>
+            <button type="button" onclick="removeVoucherCode()" style="background: none; border: none; color: #dc2626; font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1;" title="Gỡ bỏ mã">&times;</button>
+          </div>
         </div>
 
         <!-- TỔNG KẾT TIỀN -->
@@ -1067,11 +1670,19 @@
             <span id="sumListPrice">0 đ</span>
           </div>
           <div class="qo-summary-row">
-            <span style="color: #dc2626;">Giảm giá khuyến mãi (cTKM):</span>
+            <span style="color: #dc2626;">Giảm giá theo CTKM:</span>
             <span id="sumPromoDisc" style="color: #dc2626; font-weight: 600;">-0 đ</span>
           </div>
+          <div class="qo-summary-row" id="rowVoucherDisc" style="display: none;">
+            <span style="color: #16a34a;">Giảm theo Voucher:</span>
+            <span id="sumVoucherDisc" style="color: #16a34a; font-weight: 600;">-0 đ</span>
+          </div>
+          <div class="qo-summary-row" id="rowGiftItem" style="display: none;">
+            <span style="color: #2563eb;">🎁 Quà tặng kèm theo:</span>
+            <span id="sumGiftItem" style="color: #2563eb; font-weight: 700; font-size: 12px; text-align: right;"></span>
+          </div>
           <div class="qo-summary-row">
-            <span style="color: #b45309;">Chiết khấu thêm:</span>
+            <span style="color: #b45309;">Giảm giá xin thêm:</span>
             <span id="sumManualDisc" style="color: #b45309; font-weight: 600;">-0 đ</span>
           </div>
           <div class="qo-summary-row">
@@ -1084,15 +1695,9 @@
           </div>
         </div>
 
-        <!-- THÔNG BÁO QUY TRÌNH -->
-        <div class="qo-alert-info">
-          <strong>💡 Hướng dẫn thu tiền:</strong> Sau khi bấm tạo đơn, hệ thống sẽ cấp <strong>Mã đơn hàng & Barcode</strong>. Bạn mở máy SPOS tại quầy quét mã này để thu tiền và in phiếu cho khách.
-        </div>
-
         <!-- NÚT TẠO ĐƠN -->
         <button type="button" id="btnSubmitOrder" class="qo-btn-submit" onclick="submitQuickOrder()">
-          <span>🚀</span>
-          <span>TẠO ĐƠN HÀNG (CHỜ THU TRÊN SPOS)</span>
+          <span>Tạo đơn</span>
         </button>
       </div>
     </div>
@@ -1114,7 +1719,7 @@
         <div class="qo-order-code-label">MÃ ĐƠN HÀNG TRÊN APP SPOS</div>
         <div id="modalOrderCode" class="qo-order-code-val">#2610...</div>
         <div style="font-size: 12px; color: #166534; font-weight: 600; margin-top: -2px; margin-bottom: 8px;">
-          📍 Trạng thái: Nằm trong tab <strong>"Đang xử lý"</strong> trên app SPOS của bạn
+          📍 Trạng thái: Nằm trong tab <strong>"Chờ thanh toán"</strong> trên app SPOS
         </div>
         
         <!-- Canvas Barcode -->
@@ -1151,12 +1756,69 @@
         </div>
       </div>
 
-      <!-- HƯỚNG DẪN 3 BƯỚC THU TIỀN -->
+      <!-- KHỐI THANH TOÁN VIETQR (KHI CHỌN CHUYỂN KHOẢN) -->
+      <div id="modalVietQrBox" class="qo-vietqr-box" style="display: none;">
+        <div class="qo-vietqr-header">
+          <span class="qo-vietqr-badge">⚡ VIETQR TỰ ĐỘNG</span>
+          <span>Khách quét mã chuyển khoản tại quầy</span>
+        </div>
+        <div class="qo-vietqr-content">
+          <div class="qo-vietqr-img-wrap">
+            <img id="modalVietQrImg" src="" alt="Mã VietQR" class="qo-vietqr-img" />
+          </div>
+          <div class="qo-vietqr-info">
+            <div class="qo-vietqr-row">
+              <span class="lbl">Ngân hàng:</span>
+              <strong id="modalBankName" class="val">VietinBank</strong>
+            </div>
+            <div class="qo-vietqr-row">
+              <span class="lbl">Số tài khoản:</span>
+              <strong id="modalBankAcc" class="val mono highlight" title="Bấm để sao chép" onclick="copyText(this.textContent, 'số tài khoản')">...</strong>
+            </div>
+            <div class="qo-vietqr-row">
+              <span class="lbl">Chủ tài khoản:</span>
+              <strong id="modalBankHolder" class="val" style="font-size: 11px;">...</strong>
+            </div>
+            <div class="qo-vietqr-row">
+              <span class="lbl">Số tiền:</span>
+              <strong id="modalQrAmount" class="val money">0 đ</strong>
+            </div>
+            <div class="qo-vietqr-row">
+              <span class="lbl">Nội dung CK:</span>
+              <strong id="modalQrContent" class="val mono highlight" title="Bấm để sao chép" onclick="copyText(this.textContent, 'nội dung chuyển khoản')">...</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KHỐI BANNER THÔNG BÁO CHO TIỀN MẶT / QUẸT THẺ / COD -->
+      <div id="modalPaymentBanner" class="qo-pm-banner cash" style="display: none;">
+        <span id="modalPmBannerIcon" style="font-size: 20px;">💵</span>
+        <div id="modalPmBannerText">
+          <strong>Tiền mặt tại quầy:</strong> Thu trực tiếp từ khách và bấm xác nhận trên SPOS.
+        </div>
+      </div>
+
+      <!-- NÚT MỞ ĐƠN TRÊN ERP PHONG VŨ (CHI TIẾT ĐƠN HÀNG MARKETPLACE) -->
+      <div style="margin-bottom: 14px;">
+        <a id="modalErpLink" href="https://erp.phongvu.vn/orders/marketplace" target="_blank" rel="noopener noreferrer" class="qo-btn-erp-action">
+          <span>🌐</span>
+          <span id="modalErpLinkText">Chi tiết đơn hàng trên ERP</span>
+          <span style="margin-left: auto; font-size: 14px;">↗</span>
+        </a>
+      </div>
+
+      <!-- HƯỚNG DẪN XỬ LÝ & THU TIỀN -->
       <div class="qo-steps-guide">
-        <strong>📌 Hướng dẫn hoàn tất trên app/máy SPOS:</strong><br>
-        1. Mở app SPOS hoặc máy SmartPOS quầy ➔ Quét mã vạch bên trên (hoặc tìm theo mã đơn).<br>
-        2. Tại chi tiết đơn, bấm nút màu xanh <strong>"Thanh toán lại"</strong> (hoặc "Thanh toán") ở đáy màn hình.<br>
-        3. Xác nhận thu tiền (COD / Chuyển khoản / Quẹt thẻ / Tiền mặt) và in phiếu xuất bán cho khách.
+        <div style="font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+          <span>📌</span> <span>HƯỚNG DẪN XÁC NHẬN THU TIỀN:</span>
+        </div>
+        <div style="margin-bottom: 6px;">
+          📟 <strong>Trên máy SmartPOS quầy:</strong> Đưa máy quét mã vạch quét trực tiếp mã <strong>Code128</strong> bên trên để gọi đơn thu tiền và in phiếu xuất kho tức thì.
+        </div>
+        <div>
+          📱 <strong>Trên app SPOS Mobile:</strong> Vào tab <strong>"Chờ thanh toán"</strong> ➔ Mở đơn (Ghi chú PTTT đã được lưu tự động vào đơn). Để thu tiền trực tiếp trên mobile: bấm dòng <em>"Trường hợp muốn thay đổi hình thức thanh toán... bấm vào đây"</em> để mở giỏ thu tiền.
+        </div>
       </div>
 
       <div class="qo-modal-footer">
@@ -1167,20 +1829,111 @@
   </div>
 </div>
 
+<!-- MODAL KẾT NỐI TOKEN SPOS / ERP (TƯƠNG TỰ TRANG XUẤT KHO NHANH) -->
+<div id="qoTokenModal" class="qo-modal-overlay">
+  <div class="qo-modal-card" style="max-width: 540px;">
+    <div class="qo-modal-header" style="background: linear-gradient(135deg, #1d4ed8, #2563eb); text-align: left; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3 class="qo-modal-title" style="font-size: 17px; display: flex; align-items: center; gap: 8px; margin: 0;">
+          <span>🔑</span> Kết nối Token SPOS / Teko ERP
+        </h3>
+        <p class="qo-modal-subtitle" style="font-size: 12px; opacity: 0.95; margin: 4px 0 0 0;">
+          Đồng bộ token đăng nhập cá nhân để tạo đơn &amp; thu tiền SPOS
+        </p>
+      </div>
+      <button type="button" onclick="closeQoTokenModal()" style="border: none; background: rgba(255,255,255,0.2); color: #fff; width: 32px; height: 32px; border-radius: 8px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;">&times;</button>
+    </div>
+
+    <div class="qo-modal-body" style="padding: 18px 20px;">
+      <!-- EXTENSION DETECTION BANNER -->
+      <div id="qoExtBanner" style="padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; line-height: 1.4; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af;">
+        <span>💡</span> <span>Hệ thống hỗ trợ tự động bắt token qua Extension hoặc sao chép nhanh qua Clipboard.</span>
+      </div>
+
+      <!-- CÁCH 1: MỞ ERP TỰ ĐỘNG -->
+      <div style="background: linear-gradient(135deg, #eff6ff, #f0fdf4); border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 16px 18px; margin-bottom: 14px;">
+        <div style="font-size: 13.5px; font-weight: 800; color: #1e3a8a; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+          <span>⚡</span> Cách 1: Mở ERP &amp; Tự động kết nối (Khuyên dùng)
+        </div>
+        <p style="font-size: 12.5px; color: #334155; margin: 0 0 12px 0; line-height: 1.45;">
+          Mở tab ERP Phong Vũ. Nếu bạn đã đăng nhập ERP, Extension sẽ tự động bắt Token và đồng bộ vào Web Miền ngay tức thì!
+        </p>
+        <button type="button" id="btnQoAutoLogin" onclick="openErpTabAutoQo()" style="width: 100%; height: 42px; background: linear-gradient(135deg, #1d4ed8, #2563eb); color: #fff; border: none; border-radius: 8px; font-size: 13.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 8px rgba(37,99,235,0.25);">
+          🚀 Mở ERP &amp; Tự động kết nối Token
+        </button>
+
+        <!-- Checklist tiến trình -->
+        <div id="qoTokenStepChecklist" style="display: none; margin-top: 10px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #334155;">
+          <div style="display:flex;align-items:center;gap:8px;padding:3px 0;"><span id="qoStep1Icon" style="font-size:14px;">⏳</span> Bước 1: Mở tab ERP Phong Vũ</div>
+          <div style="display:flex;align-items:center;gap:8px;padding:3px 0;"><span id="qoStep2Icon" style="font-size:14px;">&#9744;</span> Bước 2: Extension phát hiện &amp; gửi Token</div>
+          <div style="display:flex;align-items:center;gap:8px;padding:3px 0;"><span id="qoStep3Icon" style="font-size:14px;">&#9744;</span> <span id="qoStep3Txt">Bước 3: Server nhận Token - đang chờ...</span></div>
+        </div>
+      </div>
+
+      <!-- CÁCH 2: DÁN TỪ CLIPBOARD -->
+      <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 14px;">
+        <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+          <span>📋</span> Cách 2: Dán Token từ Clipboard
+        </div>
+        <p style="font-size: 12px; color: #64748b; margin: 0 0 10px 0;">
+          Nếu bạn đã copy chuỗi Token từ ERP hoặc từ Bookmarklet, bấm nút bên dưới:
+        </p>
+        <button type="button" onclick="pasteTokenFromClipboardQo()" style="width: 100%; height: 38px; background: #0f172a; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          📋 Dán Token từ Clipboard
+        </button>
+      </div>
+
+      <!-- CÁCH 3: NHẬP THỦ CÔNG -->
+      <details id="qoManualTokenDetails" style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px;">
+        <summary style="font-size: 12.5px; font-weight: 700; color: #475569; cursor: pointer; user-select: none;">
+          🔧 Cách 3: Nhập chuỗi Bearer Token thủ công
+        </summary>
+        <div style="margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 10px;">
+          <textarea id="txtQoManualToken" style="width: 100%; height: 60px; box-sizing: border-box; font-size: 11px; font-family: monospace; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; resize: vertical;" placeholder="Dán mã Bearer Token (eyJ...) vào đây"></textarea>
+          <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+            <button type="button" onclick="saveManualTokenQo()" style="background: #1d4ed8; color: #fff; border: none; padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+              Lưu Token
+            </button>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="qo-modal-footer" style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+      <button type="button" class="qo-modal-btn secondary" onclick="closeQoTokenModal()" style="padding: 8px 18px; border-radius: 8px; font-size: 13px; cursor: pointer;">Đóng</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // ==========================================
   // STATE MANAGEMENT
   // ==========================================
   const branchConfigMap = <%- JSON.stringify(branches) %>;
-  let currentBranchCode = localStorage.getItem('qo_selected_branch') || '<%= branchCode %>';
+  const assignedBranchCode = '<%= branchCode %>';
+  const currentUserId = '<%= user ? user.id : "guest" %>';
+  const currentUserEmail = '<%= user ? (user.email || "").toLowerCase().trim() : "" %>';
+  const isManagerOrAdmin = <%= Boolean(user && (user.role === 'admin' || user.role === 'manager')) %>;
+
+  function isVuAccount(email, id) {
+    const e = (email || '').toLowerCase().trim();
+    return e === 'vu.nt1@phongvu-mna.vn' || 
+           e === 'vu.nt2@phongvu-mna.vn' || 
+           id === 'f1bebeaf-fc7e-4e15-afd2-eccf5309cb40' || 
+           id === '9b514d2c-f2d3-4ecb-ab2b-7530fcb3cf1a';
+  }
+  const isVuUser = isVuAccount(currentUserEmail, currentUserId);
+
+  // Luồng hiển thị khi chưa lấy token: Mặc định branch & địa chỉ từ phân quyền Supabase
+  let currentBranchCode = assignedBranchCode;
   if (!branchConfigMap[currentBranchCode]) {
-    currentBranchCode = '<%= branchCode %>';
+    currentBranchCode = Object.keys(branchConfigMap).filter(k => k !== 'DEFAULT')[0] || 'CP01';
   }
 
   function onBranchChange(code) {
-    if (!code || !branchConfigMap[code]) return;
+    if (!code) return;
+    const bInfo = branchConfigMap[code] || branchConfigMap['DEFAULT'] || {};
     currentBranchCode = code;
-    localStorage.setItem('qo_selected_branch', code);
 
     // Đồng bộ giá trị 2 thẻ select
     const sel1 = document.getElementById('branchSelect');
@@ -1188,19 +1941,76 @@
     const sel2 = document.getElementById('headerBranchSelect');
     if (sel2 && sel2.value !== code) sel2.value = code;
 
-    // Cập nhật text hiển thị
-    const bInfo = branchConfigMap[code];
+    // Cập nhật text hiển thị địa chỉ & badge
     const addrVal = document.getElementById('showroomAddressVal');
-    if (addrVal) addrVal.textContent = bInfo.address || 'Showroom Phong Vũ';
+    if (addrVal) {
+      addrVal.textContent = bInfo.address || 'Showroom Phong Vũ';
+    }
 
     const badgeCode = document.getElementById('showroomBadgeCode');
-    if (badgeCode) badgeCode.textContent = code;
+    if (badgeCode) {
+      badgeCode.textContent = code;
+    }
 
     const sumStoreEl = document.getElementById('sumStoreCode');
-    if (sumStoreEl) sumStoreEl.textContent = `${code} (${bInfo.name})`;
+    if (sumStoreEl) {
+      sumStoreEl.textContent = `${code} (${bInfo.name || code})`;
+    }
+
+    // Cập nhật lại tồn kho chi nhánh mới cho các sản phẩm trong giỏ hàng
+    refreshCartStock(code);
+  }
+  window.onBranchChange = onBranchChange;
+
+  async function refreshCartStock(branch) {
+    const skus = Object.keys(cart);
+    if (skus.length === 0) return;
+    for (const sku of skus) {
+      if (cart[sku]) {
+        fetchStockDetail(sku, branch).then(stock => {
+          if (cart[sku]) {
+            cart[sku].stockInfo = stock;
+            renderCart();
+          }
+        });
+        // Cập nhật giá niêm yết và giá khuyến mãi theo đúng showroom đang chọn
+        fetch(`/api/sku/${encodeURIComponent(sku)}/details?branch=${encodeURIComponent(branch)}&refresh=1`)
+          .then(r => r.json())
+          .then(resProd => {
+            if (resProd && resProd.ok && resProd.product && cart[sku]) {
+              const p = resProd.product;
+              const listP = Number(p.list_price) || 0;
+              const promoP = (p.promo_price && Number(p.promo_price) > 0) ? Number(p.promo_price) : listP;
+              cart[sku].listPrice = listP;
+              cart[sku].promoPrice = promoP;
+              cart[sku].promotions = p.promotions || [];
+              const discountPromo = (p.promotions || []).find(pr => (pr.benefit?.discount?.flat > 0 || pr.benefit?.discount?.percent > 0));
+              cart[sku].selectedPromotionId = discountPromo ? discountPromo.id : ((p.promotions && p.promotions.length > 0) ? p.promotions[0].id : null);
+              cart[sku].flashSales = p.flash_sales || [];
+              cart[sku].marketingPromotions = p.marketing_promotions || [];
+              renderCart();
+            }
+          })
+          .catch(() => null);
+      }
+    }
   }
 
-  const cart = {}; // { sku: { sku, name, listPrice, promoPrice, discount, quantity } }
+  async function fetchStockDetail(sku, branch) {
+    try {
+      const b = branch || currentBranchCode;
+      const res = await fetch(`/api/quick-order/stock-detail?sku=${encodeURIComponent(sku)}&branch=${encodeURIComponent(b)}`);
+      const data = await res.json();
+      if (data && data.ok) {
+        return data;
+      }
+    } catch (e) {
+      console.warn('Lỗi lấy tồn kho SKU:', sku, e);
+    }
+    return { branch: branch || currentBranchCode, quantity: 0, bins: [], binText: 'Chưa phân bin' };
+  }
+
+  const cart = {}; // { sku: { sku, name, listPrice, promoPrice, discount, quantity, stockInfo } }
   let currentDeliveryType = 'SHOWROOM';
   let selectedPaymentMethod = 'COD';
   let recentOrders = [];
@@ -1229,19 +2039,6 @@
     const activeEl = document.getElementById(idMap[method] || 'payOptCod');
     if (activeEl) activeEl.classList.add('active');
 
-    const noteEl = document.getElementById('paymentMethodNoteText');
-    if (noteEl) {
-      if (method === 'COD') {
-        noteEl.innerHTML = 'Gán hình thức <strong>Thanh toán khi nhận hàng (COD)</strong> vào đơn.';
-      } else if (method === 'BANK_TRANSFER') {
-        noteEl.innerHTML = 'Gán hình thức <strong>Chuyển khoản</strong>. Khi lên máy SPOS tại showroom, cho khách quét mã VietQR và xác nhận thanh toán.';
-      } else if (method === 'CARD') {
-        noteEl.innerHTML = 'Gán hình thức <strong>Quẹt thẻ</strong>. Khi lên máy SPOS tại showroom, quẹt thẻ khách qua máy SmartPOS và in phiếu.';
-      } else {
-        noteEl.innerHTML = 'Gán hình thức <strong>Tiền mặt</strong>. Khi lên máy SPOS tại showroom, bạn thu tiền mặt và in phiếu.';
-      }
-    }
-
     const sumPmEl = document.getElementById('sumPaymentMethod');
     if (sumPmEl) {
       sumPmEl.textContent = paymentMethodLabels[method] || method;
@@ -1249,74 +2046,330 @@
   }
 
   const formatVND = (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0)) + ' đ';
+  const formatNumber = (n) => new Intl.NumberFormat('vi-VN').format(Number(n || 0));
 
   // ==========================================
-  // SPOS / TEKO TOKEN MANAGEMENT
+  // SPOS / TEKO TOKEN MANAGEMENT & VALIDATION
   // ==========================================
   let tekoToken = localStorage.getItem('qe_teko_token') || '';
+  let _qoPollingTimer = null;
+  let _qoPollingCount = 0;
 
   function getJwtInfo(token) {
     if (!token) return null;
     try {
-      const parts = token.split('.');
+      const clean = token.replace(/^Bearer\s+/i, '').trim();
+      const parts = clean.split('.');
       if (parts.length !== 3) return null;
-      const payload = JSON.parse(atob(parts[1]));
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
       const now = Math.floor(Date.now() / 1000);
       const isExpired = payload.exp ? payload.exp < now : false;
-      return { payload, isExpired, email: payload.email || payload.sub || '' };
+      const isVuSub = payload.sub === '7c9dc072cbdf45d9af7c1ee203e2c796';
+      const email = payload.email || (isVuSub ? 'vu.nt1@phongvu-mna.vn' : (payload.sub || ''));
+      const name = payload.name || payload.fullName || (isVuSub ? 'Nguyễn Tuấn Vũ' : '');
+      const expiresDate = payload.exp ? new Date(payload.exp * 1000) : null;
+      return { payload, isExpired, email, name, isVuSub, expiresDate };
     } catch (e) {
       return null;
     }
   }
 
+  function validateAndApplyToken(rawToken, silent = false, isInitial = false) {
+    if (!rawToken) {
+      updateTokenBadge();
+      return { valid: false };
+    }
+    const clean = rawToken.replace(/^Bearer\s+/i, '').trim();
+    const jwt = getJwtInfo(clean);
+    if (!jwt || jwt.isExpired) {
+      updateTokenBadge();
+      return { valid: false, expired: true };
+    }
+
+    // 1. ĐỐI CHIẾU TOKEN VỚI vu.nt1/vu.nt2:
+    // Nếu token thuộc về Vũ nhưng user đăng nhập trên web miền KHÔNG PHẢI Vũ
+    if (jwt.isVuSub && !isVuUser) {
+      localStorage.removeItem('qe_teko_token');
+      tekoToken = '';
+      updateTokenBadge();
+      if (!silent) {
+        alert('⚠️ CẢNH BÁO AN TOÀN:\n\nToken SPOS này thuộc về tài khoản Vũ Nguyễn Tuấn!\nBạn không thể sử dụng token của người khác.\n\nVui lòng mở trang https://erp.phongvu.vn và đăng nhập tài khoản của bạn để kết nối token chính chủ.');
+      }
+      return { valid: false, misassigned: true };
+    }
+
+    // 2. CHECK BRANCH TRÊN TOKEN:
+    let tokenBranch = '';
+    if (jwt.payload) {
+      const pl = jwt.payload;
+      if (pl.terminalCode && branchConfigMap[pl.terminalCode]) tokenBranch = pl.terminalCode;
+      else if (pl.storeCode && branchConfigMap[pl.storeCode]) tokenBranch = pl.storeCode;
+      else if (Array.isArray(pl.terminals) && pl.terminals.length > 0) {
+        const match = pl.terminals.find(t => branchConfigMap[t]);
+        if (match) tokenBranch = match;
+      }
+    }
+
+    // Chỉ tự đổi chi nhánh nếu JWT có chứa chi nhánh cụ thể hoặc lúc khởi tạo ban đầu
+    if (tokenBranch && branchConfigMap[tokenBranch] && tokenBranch !== currentBranchCode) {
+      onBranchChange(tokenBranch);
+    } else if (isInitial && assignedBranchCode && branchConfigMap[assignedBranchCode]) {
+      onBranchChange(assignedBranchCode);
+    }
+
+    tekoToken = clean;
+    updateTokenBadge();
+    return { valid: true, email: jwt.email, branch: currentBranchCode };
+  }
+
   function updateTokenBadge() {
     const badge = document.getElementById('sposTokenBadge');
     const text = document.getElementById('sposTokenText');
+    const dot = document.getElementById('dotToken');
     if (!badge || !text) return;
     tekoToken = localStorage.getItem('qe_teko_token') || '';
     const jwt = getJwtInfo(tekoToken);
     if (tekoToken && jwt && !jwt.isExpired) {
-      badge.style.background = '#f0fdf4';
-      badge.style.color = '#166534';
-      badge.style.borderColor = '#bbf7d0';
-      const staffName = jwt.email ? jwt.email.split('@')[0] : 'Nhân viên';
-      text.innerHTML = `🟢 SPOS: Đã kết nối (${staffName})`;
+      if (jwt.isVuSub && !isVuUser) {
+        if (dot) dot.classList.remove('active');
+        text.innerHTML = `SPOS: Chưa kết nối`;
+        return;
+      }
+      if (dot) dot.classList.add('active');
+      const displayName = jwt.name || (jwt.email ? jwt.email.split('@')[0] : 'Đã kết nối');
+      const expTime = jwt.expiresDate ? jwt.expiresDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+      text.innerHTML = `SPOS: Đã kết nối (${displayName}${expTime ? ' - Hạn: ' + expTime : ''})`;
     } else if (tekoToken && jwt && jwt.isExpired) {
-      badge.style.background = '#fef2f2';
-      badge.style.color = '#b91c1c';
-      badge.style.borderColor = '#fecaca';
-      text.innerHTML = `🔴 SPOS: Token hết hạn (Bấm gia hạn)`;
+      if (dot) dot.classList.remove('active');
+      text.innerHTML = `SPOS: Token hết hạn (Bấm gia hạn)`;
     } else {
-      badge.style.background = '#fffbeb';
-      badge.style.color = '#92400e';
-      badge.style.borderColor = '#fde68a';
-      text.innerHTML = `⚠️ SPOS: Chưa đồng bộ token`;
+      if (dot) dot.classList.remove('active');
+      text.innerHTML = `SPOS: Chưa kết nối (Bấm kết nối)`;
     }
   }
 
-  function checkOrPromptToken() {
-    tekoToken = localStorage.getItem('qe_teko_token') || '';
-    const jwt = getJwtInfo(tekoToken);
-    if (!tekoToken || (jwt && jwt.isExpired)) {
-      if (confirm('Phiên làm việc SPOS/ERP chưa có hoặc đã hết hạn.\n\nBạn có muốn mở trang erp.phongvu.vn để Extension tự động gia hạn token kết nối SPOS không?')) {
-        window.open('https://erp.phongvu.vn', '_blank');
+  // --- TOKEN MODAL HANDLERS ---
+  function openQoTokenModal() {
+    const modal = document.getElementById('qoTokenModal');
+    if (modal) modal.classList.add('active');
+
+    // Extension check
+    const hasExt = document.documentElement.dataset.pvExtensionInstalled === 'true' || window.__PV_EXTENSION_INSTALLED__ === true;
+    const banner = document.getElementById('qoExtBanner');
+    if (banner) {
+      if (hasExt) {
+        banner.style.background = '#dcfce7';
+        banner.style.borderColor = '#bbf7d0';
+        banner.style.color = '#15803d';
+        banner.innerHTML = '<span>✅</span> Đã phát hiện Extension Phong Vũ Auto Sync! Bấm nút bên dưới để đồng bộ ngay.';
+      } else {
+        banner.style.background = '#eff6ff';
+        banner.style.borderColor = '#bfdbfe';
+        banner.style.color = '#1e40af';
+        banner.innerHTML = '<span>💡</span> Gợi ý: Bấm <strong>Mở ERP</strong> để kết nối tự động hoặc dùng <strong>Dán từ Clipboard</strong>.';
       }
-    } else {
-      alert(`Đã kết nối tài khoản SPOS thành công: ${jwt?.email || 'Hợp lệ'}`);
     }
   }
+  window.openQoTokenModal = openQoTokenModal;
+
+  function closeQoTokenModal() {
+    const modal = document.getElementById('qoTokenModal');
+    if (modal) modal.classList.remove('active');
+    if (_qoPollingTimer) {
+      clearInterval(_qoPollingTimer);
+      _qoPollingTimer = null;
+    }
+    const btn = document.getElementById('btnQoAutoLogin');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '🚀 Mở ERP &amp; Tự động kết nối Token';
+      btn.style.background = '';
+    }
+    const checklist = document.getElementById('qoTokenStepChecklist');
+    if (checklist) checklist.style.display = 'none';
+  }
+  window.closeQoTokenModal = closeQoTokenModal;
+
+  function openErpTabAutoQo() {
+    const btn = document.getElementById('btnQoAutoLogin');
+    const checklist = document.getElementById('qoTokenStepChecklist');
+    const s1 = document.getElementById('qoStep1Icon');
+    const s2 = document.getElementById('qoStep2Icon');
+    const s3 = document.getElementById('qoStep3Icon');
+    const s3Txt = document.getElementById('qoStep3Txt');
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle;margin-right:6px;"></span> Đang lắng nghe Token từ ERP...';
+    }
+    if (checklist) checklist.style.display = 'block';
+    if (s1) s1.innerHTML = '⏳';
+    if (s2) s2.innerHTML = '&#9744;';
+    if (s3) s3.innerHTML = '&#9744;';
+
+    window.open('https://erp.phongvu.vn', '_blank');
+
+    setTimeout(() => {
+      if (s1) s1.innerHTML = '&#9745;';
+      if (s2) s2.innerHTML = '⏳';
+    }, 1000);
+
+    setTimeout(() => {
+      if (s3Txt) s3Txt.textContent = 'Bước 3: Server nhận Token - đang chờ...';
+    }, 3000);
+
+    startQoTokenPolling();
+  }
+  window.openErpTabAutoQo = openErpTabAutoQo;
+
+  function startQoTokenPolling() {
+    if (_qoPollingTimer) return;
+    _qoPollingCount = 0;
+    const btn = document.getElementById('btnQoAutoLogin');
+    const s2 = document.getElementById('qoStep2Icon');
+    const s3 = document.getElementById('qoStep3Icon');
+    const s3Txt = document.getElementById('qoStep3Txt');
+
+    _qoPollingTimer = setInterval(async () => {
+      _qoPollingCount++;
+      if (_qoPollingCount > 150) {
+        clearInterval(_qoPollingTimer);
+        _qoPollingTimer = null;
+        if (s2) s2.innerHTML = '&#10060;';
+        if (s3) s3.innerHTML = '&#10060;';
+        if (s3Txt) s3Txt.textContent = 'Hết thời gian chờ!';
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '🚀 Mở ERP &amp; Tự động kết nối Token';
+        }
+        return;
+      }
+      try {
+        const res = await fetch('/api/quick-export/settings');
+        const data = await res.json();
+        if (data && data.success && data.settings?.tekoToken) {
+          const jwt = getJwtInfo(data.settings.tekoToken);
+          if (jwt && !jwt.isExpired) {
+            clearInterval(_qoPollingTimer);
+            _qoPollingTimer = null;
+            if (s2) s2.innerHTML = '&#9745;';
+            if (s3) s3.innerHTML = '&#9745;';
+            if (s3Txt) s3Txt.textContent = 'Token đã về server!';
+            if (btn) {
+              btn.innerHTML = '✅ KẾT NỐI THÀNH CÔNG!';
+              btn.style.background = '#16a34a';
+            }
+            localStorage.setItem('qe_teko_token', data.settings.tekoToken);
+            validateAndApplyToken(data.settings.tekoToken, false, false);
+            setTimeout(() => {
+              closeQoTokenModal();
+            }, 1200);
+          }
+        }
+      } catch (e) {}
+    }, 2000);
+  }
+
+  async function pasteTokenFromClipboardQo() {
+    try {
+      const text = await navigator.clipboard.readText();
+      const clean = text.replace(/^Bearer\s+/i, '').trim();
+      if (!clean || clean.length < 30) {
+        alert('Nội dung trong Clipboard không phải là token hợp lệ!');
+        return;
+      }
+      const jwt = getJwtInfo(clean);
+      if (!jwt || jwt.isExpired) {
+        alert('Token trong Clipboard không hợp lệ hoặc đã hết hạn!');
+        return;
+      }
+      if (jwt.isVuSub && !isVuUser) {
+        alert('⚠️ CẢNH BÁO AN TOÀN:\n\nToken này thuộc về tài khoản Vũ Nguyễn Tuấn! Bạn không thể sử dụng token của người khác.');
+        return;
+      }
+      localStorage.setItem('qe_teko_token', clean);
+      fetch('/api/quick-export/sync-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: clean, userId: currentUserId, branchCode: currentBranchCode })
+      }).catch(() => {});
+
+      validateAndApplyToken(clean, false, false);
+      alert('✅ Đã nhận diện Token SPOS thành công từ Clipboard!');
+      closeQoTokenModal();
+    } catch (e) {
+      alert('Không thể đọc Clipboard: ' + e.message);
+    }
+  }
+  window.pasteTokenFromClipboardQo = pasteTokenFromClipboardQo;
+
+  function saveManualTokenQo() {
+    const input = document.getElementById('txtQoManualToken');
+    const val = input ? input.value.trim() : '';
+    if (!val) {
+      alert('Vui lòng nhập chuỗi Token!');
+      return;
+    }
+    const clean = val.replace(/^Bearer\s+/i, '').trim();
+    const jwt = getJwtInfo(clean);
+    if (!jwt || jwt.isExpired) {
+      alert('Token không hợp lệ hoặc đã hết hạn!');
+      return;
+    }
+    if (jwt.isVuSub && !isVuUser) {
+      alert('⚠️ CẢNH BÁO AN TOÀN:\n\nToken này thuộc về tài khoản Vũ Nguyễn Tuấn! Bạn không thể sử dụng token của người khác.');
+      return;
+    }
+    localStorage.setItem('qe_teko_token', clean);
+    fetch('/api/quick-export/sync-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: clean, userId: currentUserId, branchCode: currentBranchCode })
+    }).catch(() => {});
+
+    validateAndApplyToken(clean, false, false);
+    alert('✅ Đã lưu Token SPOS thành công!');
+    closeQoTokenModal();
+  }
+  window.saveManualTokenQo = saveManualTokenQo;
 
   window.addEventListener('DOMContentLoaded', async () => {
-    updateTokenBadge();
-    // Nếu chưa có token hoặc token hết hạn, thử lấy token đã lưu từ máy chủ
+    // 1. Áp dụng showroom từ Supabase ngay từ đầu
+    onBranchChange(assignedBranchCode);
+
+    // Gắn thêm event change thủ công để đảm bảo 100% không bị miss
+    const bSel = document.getElementById('branchSelect');
+    if (bSel) {
+      bSel.addEventListener('change', function() {
+        onBranchChange(this.value);
+      });
+    }
+    const hSel = document.getElementById('headerBranchSelect');
+    if (hSel) {
+      hSel.addEventListener('change', function() {
+        onBranchChange(this.value);
+      });
+    }
+
+    // 2. Kiểm tra token đã lưu trong localStorage
+    const savedToken = localStorage.getItem('qe_teko_token') || '';
+    if (savedToken) {
+      validateAndApplyToken(savedToken, true, true);
+    } else {
+      updateTokenBadge();
+    }
+
+    // 3. Luôn fetch /api/quick-export/settings nếu chưa có token hoặc token hết hạn
     if (!tekoToken || getJwtInfo(tekoToken)?.isExpired) {
       try {
         const res = await fetch('/api/quick-export/settings');
         const data = await res.json();
         if (data && data.success && data.settings?.tekoToken) {
-          localStorage.setItem('qe_teko_token', data.settings.tekoToken);
-          tekoToken = data.settings.tekoToken;
-          updateTokenBadge();
+          const jwt = getJwtInfo(data.settings.tekoToken);
+          if (jwt && !jwt.isExpired) {
+            localStorage.setItem('qe_teko_token', data.settings.tekoToken);
+            validateAndApplyToken(data.settings.tekoToken, true, true);
+          }
         }
       } catch (e) {}
     }
@@ -1324,8 +2377,7 @@
 
   window.addEventListener('storage', (e) => {
     if (e.key === 'qe_teko_token') {
-      tekoToken = e.newValue || '';
-      updateTokenBadge();
+      validateAndApplyToken(e.newValue || '', false, false);
     }
   });
 
@@ -1334,8 +2386,7 @@
       const newToken = event.data.token;
       if (newToken) {
         localStorage.setItem('qe_teko_token', newToken);
-        tekoToken = newToken;
-        updateTokenBadge();
+        validateAndApplyToken(newToken, false, false);
       }
     }
   });
@@ -1398,7 +2449,7 @@
           <div class="qo-item-info">
             <div class="qo-item-title">${escapeHtml(name)}</div>
             <div class="qo-item-meta">
-              <span style="font-family: var(--qo-mono); font-weight: 700; color: #1d4ed8;">SKU: ${sku}</span>
+              <span class="qo-sku-badge">${sku}</span>
               ${p.brand ? `<span>• Hiệu: ${escapeHtml(p.brand)}</span>` : ''}
               ${p.warranty ? `<span>• BH: ${escapeHtml(p.warranty)}</span>` : ''}
             </div>
@@ -1430,7 +2481,7 @@
   }
 
   // ==========================================
-  // THÊM & CẬP NHẬT GIỎ HÀNG (REALTIME PROMO)
+  // THÊM & CẬP NHẬT GIỎ HÀNG (REALTIME PROMO & STOCK/BIN)
   // ==========================================
   async function addItemToCart(sku) {
     searchDropdown.style.display = 'none';
@@ -1443,7 +2494,7 @@
       return;
     }
 
-    // Nếu chưa có -> Tạo tạm và gọi API lấy chi tiết giá KM mới nhất
+    // Nếu chưa có -> Tạo tạm và gọi API lấy chi tiết giá KM & Tồn kho BIN mới nhất
     cart[sku] = {
       sku: sku,
       name: `Đang tải thông tin ${sku}...`,
@@ -1451,30 +2502,41 @@
       promoPrice: 0,
       discount: 0,
       quantity: 1,
+      stockInfo: null,
       _loading: true
     };
     renderCart();
 
     try {
-      const res = await fetch(`/api/sku/${encodeURIComponent(sku)}/details?refresh=1`);
-      const data = await res.json();
-      if (data && data.ok && data.product) {
-        const p = data.product;
+      const [resProd, resStock] = await Promise.all([
+        fetch(`/api/sku/${encodeURIComponent(sku)}/details?branch=${encodeURIComponent(currentBranchCode)}&refresh=1`).then(r => r.json()).catch(() => null),
+        fetch(`/api/quick-order/stock-detail?sku=${encodeURIComponent(sku)}&branch=${encodeURIComponent(currentBranchCode)}`).then(r => r.json()).catch(() => null)
+      ]);
+
+      if (resStock && resStock.ok && cart[sku]) {
+        cart[sku].stockInfo = resStock;
+      }
+
+      if (resProd && resProd.ok && resProd.product && cart[sku]) {
+        const p = resProd.product;
         const listP = Number(p.list_price) || 0;
         const promoP = (p.promo_price && Number(p.promo_price) > 0) ? Number(p.promo_price) : listP;
-        const promoDiscount = (p.discount_amount && Number(p.discount_amount) > 0) 
-            ? Number(p.discount_amount) 
-            : Math.max(0, listP - promoP);
 
-        if (cart[sku]) {
-          cart[sku].name = p.product_name || `Sản phẩm ${sku}`;
-          cart[sku].listPrice = listP;
-          cart[sku].promoPrice = promoP;
-          cart[sku].discount = promoDiscount;
-          cart[sku].warranty = p.warranty || '';
-          cart[sku].vat_rate = p.vat_rate;
-          delete cart[sku]._loading;
-        }
+        cart[sku].sku = sku;
+        cart[sku].name = p.product_name || `Sản phẩm ${sku}`;
+        cart[sku].brand = p.brand || '';
+        cart[sku].listPrice = listP;
+        cart[sku].promoPrice = promoP;
+        cart[sku].discount = 0; // Giảm giá xin thêm mặc định là 0
+        cart[sku].promotions = p.promotions || [];
+        const discountPromo = (p.promotions || []).find(pr => (pr.benefit?.discount?.flat > 0 || pr.benefit?.discount?.percent > 0));
+        cart[sku].selectedPromotionId = discountPromo ? discountPromo.id : ((p.promotions && p.promotions.length > 0) ? p.promotions[0].id : null);
+        cart[sku].flashSales = p.flash_sales || [];
+        cart[sku].marketingPromotions = p.marketing_promotions || [];
+        cart[sku].marketing_promotions = p.marketing_promotions || [];
+        cart[sku].warranty = p.warranty || '';
+        cart[sku].vat_rate = p.vat_rate;
+        delete cart[sku]._loading;
       } else {
         if (cart[sku]) {
           cart[sku].name = `Sản phẩm ${sku}`;
@@ -1482,7 +2544,7 @@
         }
       }
     } catch (e) {
-      console.warn('Lỗi fetch chi tiết SKU:', e);
+      console.warn('Lỗi fetch chi tiết SKU & tồn kho:', e);
       if (cart[sku]) {
         cart[sku].name = `Sản phẩm SKU ${sku}`;
         delete cart[sku]._loading;
@@ -1560,6 +2622,7 @@
     let totalPayable = 0;
 
     let html = '';
+    const giftStockTasks = [];
     skus.forEach((sku) => {
       const it = cart[sku];
       const listP = it.listPrice || 0;
@@ -1574,18 +2637,137 @@
       totalManual += manualD * it.quantity;
       totalPayable += lineTotal;
 
+      const hasStockRow = !!(it.stockInfo || it._loading);
+
+      const branchLabel = it.stockInfo?.branch || currentBranchCode;
+      
+      // Tập hợp danh sách các CTKM áp dụng chính xác cho sản phẩm này
+      const activePromos = [];
+      if (it.promotions && it.promotions.length > 0) {
+        it.promotions.forEach(p => {
+          const pName = (p.name || p.description || '').trim();
+          if (pName && !activePromos.some(ap => ap.name === pName)) {
+            const flatVal = p.benefit?.discount?.flat;
+            const maxVal = p.benefit?.discount?.maxAmount;
+            const pctVal = p.benefit?.discount?.percent;
+            let dText = '';
+            if (flatVal && flatVal > 0) {
+              dText = `Giảm ${formatNumber(flatVal)}đ`;
+            } else if (maxVal && maxVal > 0) {
+              dText = `Giảm ${formatNumber(maxVal)}đ`;
+            } else if (pctVal && pctVal > 0) {
+              dText = `Giảm ${pctVal}%`;
+            } else if (promoD > 0) {
+              dText = `Giảm ${formatNumber(promoD)}đ`;
+            }
+            activePromos.push({
+              name: pName,
+              discountText: dText,
+              gift: p.benefit?.gift?.name || '',
+              couponCode: (p.coupon || p.benefit?.coupon || '').trim().toUpperCase()
+            });
+          }
+        });
+      }
+
+      const mPromos = (it.marketingPromotions || it.marketing_promotions || []);
+      if (mPromos.length > 0) {
+        const brandStr = ((it.brand || '') + ' ' + (it.name || '')).toUpperCase();
+        mPromos.forEach(mp => {
+          const mName = (mp.name || '').trim();
+          if (!mName) return;
+          if (mName.includes('MÁY IN') && !brandStr.includes('MÁY IN')) return;
+
+          const couponInfo = resolvePromoCouponInfo(mp, brandStr);
+          const couponCode = couponInfo ? couponInfo.code : '';
+          const giftName = couponInfo ? couponInfo.gift : (mp.gift || '');
+          const dText = promoD > 0 ? `Giảm ${formatNumber(promoD)}đ` : '';
+
+          if (!activePromos.some(ap => ap.name === mName)) {
+            activePromos.push({
+              name: mName,
+              discountText: dText,
+              gift: giftName,
+              couponCode: couponCode
+            });
+          }
+        });
+      }
+
+      if (activePromos.length === 0 && promoD > 0) {
+        activePromos.push({
+          name: `CTKM ${branchLabel}`,
+          discountText: `Giảm ${formatNumber(promoD)}đ`,
+          gift: '',
+          couponCode: ''
+        });
+      }
+
       html += `
-        <tr>
-          <td>
-            <div style="font-weight: 600; color: #1e293b; line-height: 1.35;">${escapeHtml(it.name)}</div>
-            <div style="font-size: 11px; color: #64748b; font-family: var(--qo-mono); margin-top: 2px;">
-              SKU: <strong style="color: #1d4ed8;">${sku}</strong>
-              ${it.warranty ? ` • BH: ${escapeHtml(it.warranty)}` : ''}
+        <tr class="qo-cart-item-row ${hasStockRow ? 'has-stock-row' : ''}">
+          <td style="padding: 12px 14px 8px 14px;">
+            <div class="qo-cart-product-title">${escapeHtml(it.name)}</div>
+            <div class="qo-cart-product-meta">
+              <span class="qo-sku-badge">${sku}</span>
+              ${it.warranty ? `<span>• BH: ${escapeHtml(it.warranty)}</span>` : ''}
             </div>
+            ${activePromos.length > 0 ? `
+              <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+                ${activePromos.map((pr, prIdx) => {
+                  const targetGiftId = `giftStock_${sku}_${prIdx}`;
+                  if (pr.gift) {
+                    giftStockTasks.push({ giftName: pr.gift, sku, targetId: targetGiftId });
+                  }
+                  return `
+                  <div class="qo-promo-banner" title="${escapeHtml(pr.name)}">
+                    <!-- Hàng trên: 2 cột (Trái: Tên CTKM, Phải: Mã giảm / Nút áp mã) -->
+                    <div class="qo-promo-banner-header">
+                      <div class="qo-promo-banner-left">
+                        <span class="qo-promo-banner-icon">🎁</span>
+                        <div class="qo-promo-banner-name">${escapeHtml(pr.name)}</div>
+                      </div>
+                      <div class="qo-promo-banner-right">
+                        ${pr.discountText ? `
+                          <span class="qo-promo-banner-tag">${escapeHtml(pr.discountText)}</span>
+                        ` : ''}
+                        ${!pr.couponCode && pr.discountText ? `
+                          <span class="qo-promo-applied-badge" style="background: #ecfdf5; color: #047857; border-color: #a7f3d0; font-weight: 600;">✓ Tự động áp dụng đơn</span>
+                        ` : ''}
+                        ${pr.couponCode ? `
+                          ${appliedVoucher && appliedVoucher.code === pr.couponCode ? `
+                            <span class="qo-promo-applied-badge">✓ Đã áp mã ${escapeHtml(pr.couponCode)}</span>
+                          ` : `
+                            <button type="button" class="qo-btn-apply-coupon-inline" onclick="applySuggestedVoucher('${escapeHtml(pr.couponCode)}')" title="Nhấn để áp dụng mã giảm giá này">
+                              🎟️ Áp mã: ${escapeHtml(pr.couponCode)}
+                            </button>
+                          `}
+                        ` : ''}
+                      </div>
+                    </div>
+
+                    <!-- Hàng dưới: Thông tin quà tặng và Block hiển thị tồn xuống hẳn phần dưới -->
+                    ${pr.gift ? `
+                      <div class="qo-promo-banner-bottom">
+                        <div class="qo-promo-banner-gift">Quà tặng: <strong>${escapeHtml(pr.gift)}</strong></div>
+                        <div class="qo-promo-gift-stock-wrap" id="${targetGiftId}">
+                          <span class="qo-gift-stock-loading">⏳ Đang tra cứu tồn quà tặng...</span>
+                        </div>
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+                }).join('')}
+              </div>
+            ` : ''}
           </td>
           <td style="text-align: right;">
-            <div style="font-weight: 700; color: #1e293b;">${formatVND(promoP)}</div>
-            ${promoD > 0 ? `<div style="font-size: 10.5px; color: #94a3b8; text-decoration: line-through;">${formatVND(listP)}</div>` : ''}
+            <div style="font-weight: 700; color: #1e293b;">${formatNumber(promoP)}</div>
+            ${promoD > 0 ? `
+              <div style="font-size: 10.5px; color: #94a3b8; text-decoration: line-through;">${formatNumber(listP)}</div>
+              <div style="margin-top: 3px;">
+                <span class="qo-promo-pill">-${Math.round((promoD / listP) * 100)}%</span>
+              </div>
+            ` : ''}
           </td>
           <td style="text-align: center;">
             <div class="qo-qty-ctrl">
@@ -1601,24 +2783,313 @@
                    title="Chiết khấu riêng cho từng món">
           </td>
           <td style="text-align: right; font-weight: 800; color: #15803d; font-size: 14px;">
-            ${formatVND(lineTotal)}
+            ${formatNumber(lineTotal)}
           </td>
           <td style="text-align: center;">
             <button type="button" class="qo-btn-del" title="Xóa món này" onclick="removeItem('${sku}')">×</button>
           </td>
         </tr>
+        ${it.stockInfo ? `
+        <tr class="qo-cart-stock-row">
+          <td colspan="6">
+            <div class="qo-cart-stock-badge ${it.stockInfo.quantity > 0 ? 'in-stock' : 'out-stock'}">
+              <span>Tồn <strong>${escapeHtml(it.stockInfo.branch)}</strong>: <strong style="color: ${it.stockInfo.quantity > 0 ? '#15803d' : '#dc2626'};">${it.stockInfo.quantity}</strong></span>
+              <span class="qo-stock-sep">|</span>
+              <span>Bin tồn: <strong style="color: #475569;">${escapeHtml((it.stockInfo.binText || 'Chưa phân bin').replace(/\s*cái\b/gi, ''))}</strong></span>
+            </div>
+          </td>
+        </tr>
+        ` : (it._loading ? `
+        <tr class="qo-cart-stock-row">
+          <td colspan="6">
+            <div class="qo-cart-stock-badge loading-stock">
+              <span>Đang kiểm tra tồn kho & bin...</span>
+            </div>
+          </td>
+        </tr>
+        ` : '')}
       `;
     });
 
     tbody.innerHTML = html;
     updateSummary(totalList, totalPromo, totalManual, totalPayable);
+    refreshVoucherSuggestions();
+
+    // Tra cứu và hiển thị tồn kho quà tặng theo chi nhánh
+    giftStockTasks.forEach(task => {
+      loadGiftStock(task.giftName, task.sku, currentBranchCode, task.targetId);
+    });
+  }
+
+  // ==========================================
+  // TRA CỨU TỒN KHO QUÀ TẶNG (GIFT STOCK)
+  // ==========================================
+  const giftStockCache = {};
+
+  async function loadGiftStock(giftName, parentSku, branch, targetId) {
+    const el = document.getElementById(targetId);
+    if (!el) return;
+
+    const cacheKey = `${parentSku}_${giftName}_${branch}`;
+    if (giftStockCache[cacheKey]) {
+      renderGiftStockHtml(el, giftStockCache[cacheKey]);
+      return;
+    }
+
+    try {
+      const url = `/api/quick-order/gift-stock?giftName=${encodeURIComponent(giftName)}&sku=${encodeURIComponent(parentSku)}&branch=${encodeURIComponent(branch)}`;
+      const res = await fetch(url).then(r => r.json());
+      if (res && res.ok && res.found) {
+        giftStockCache[cacheKey] = res;
+        renderGiftStockHtml(el, res);
+      } else {
+        el.innerHTML = `
+          <div class="qo-promo-gift-stock-badge" style="color: #64748b; background: #f8fafc; border-color: #e2e8f0;">
+            <span>Chưa tìm thấy mã tồn kho cho quà tặng này</span>
+          </div>
+        `;
+      }
+    } catch (e) {
+      console.warn('Lỗi tra cứu tồn quà tặng:', e);
+      el.innerHTML = '';
+    }
+  }
+
+  function renderGiftStockHtml(el, data) {
+    if (!el || !data) return;
+    const isOut = (Number(data.quantity) || 0) <= 0;
+    el.innerHTML = `
+      <div class="qo-promo-gift-stock-badge">
+        <span class="qo-gift-sku-tag">${escapeHtml(data.sku)}</span>
+        <span class="qo-stock-sep">|</span>
+        <span class="qo-gift-name-tag">${escapeHtml(data.product_name)}</span>
+        <span class="qo-stock-sep">|</span>
+        <span>Tồn <strong>${escapeHtml(data.branch)}</strong>: <strong style="color: ${isOut ? '#dc2626' : '#15803d'}; font-weight: 800;">${data.quantity}</strong></span>
+        <span class="qo-stock-sep">|</span>
+        <span>Bin tồn: <strong style="color: #475569;">${escapeHtml(data.binText || 'Chưa phân bin')}</strong></span>
+      </div>
+    `;
+  }
+
+  // ==========================================
+  // XỬ LÝ MÃ GIẢM GIÁ / VOUCHER / QUÀ TẶNG CTKM
+  // ==========================================
+  let appliedVoucher = null;
+
+  function resolvePromoCouponInfo(mp, brandStr) {
+    if (!mp) return null;
+    const directCoupon = (mp.coupon || mp.online_coupon || '').trim().toUpperCase();
+    if (directCoupon) {
+      return {
+        code: directCoupon,
+        gift: mp.gift || mp.gift_name || ''
+      };
+    }
+    const nameUpper = (mp.name || mp.program_name || '').toUpperCase();
+    const sheetUpper = (mp.sheet || mp.sheet_name || '').toUpperCase();
+    const giftName = mp.gift || mp.gift_name || '';
+
+    // BỘ QUÀ LAPTOP: Chỉ khi tên CTKM hoặc sheet chứa "BỘ QUÀ" hoặc có quà tặng phần cứng laptop
+    const isBoQua = nameUpper.includes('BỘ QUÀ') || sheetUpper.includes('BỘ QUÀ') || !!giftName;
+    if (isBoQua) {
+      let code = '';
+      if (brandStr.includes('ACER')) code = 'PVACERBQ260701';
+      else if (brandStr.includes('ASUS')) code = 'PVASUSBQ260701';
+      else if (brandStr.includes('MSI')) code = 'PVMSIBQ260701';
+      else if (brandStr.includes('LENOVO')) code = 'PVLENOVOBQ260701';
+      else if (brandStr.includes('HP')) code = 'PVHPBQ260701';
+      else if (brandStr.includes('DELL')) code = 'PVDELLBQ260701';
+
+      if (code) {
+        return {
+          code: code,
+          gift: giftName || 'Ba lô Acer (Quà tặng)'
+        };
+      }
+    }
+    return null;
+  }
+
+  function refreshVoucherSuggestions() {
+    const hintBtn = document.getElementById('voucherHintBtn');
+    const countEl = document.getElementById('voucherSuggestionCount');
+    const listEl = document.getElementById('voucherSuggestionList');
+    const box = document.getElementById('voucherSuggestionBox');
+    if (!hintBtn || !listEl) return;
+
+    const suggestions = [];
+    Object.values(cart).forEach(it => {
+      const brandStr = ((it.brand || '') + ' ' + (it.name || '')).toUpperCase();
+      const mPromos = (it.marketingPromotions || it.marketing_promotions || []);
+      
+      mPromos.forEach(mp => {
+        const mName = (mp.name || '').trim();
+        if (!mName) return;
+        if (mName.includes('MÁY IN') && !brandStr.includes('MÁY IN')) return;
+
+        // Chỉ gợi ý nếu chương trình này THỰC SỰ cần mã coupon
+        const couponInfo = resolvePromoCouponInfo(mp, brandStr);
+        if (couponInfo && couponInfo.code) {
+          if (!suggestions.some(s => s.code === couponInfo.code)) {
+            suggestions.push({
+              code: couponInfo.code,
+              name: mp.name,
+              gift: couponInfo.gift || mp.gift || 'Quà tặng khuyến mãi',
+              sku: it.sku
+            });
+          }
+        }
+      });
+
+      const tPromos = (it.promotions || []);
+      tPromos.forEach(tp => {
+        const cCode = (tp.coupon || (tp.benefit && tp.benefit.coupon) || '').trim().toUpperCase();
+        if (cCode && !suggestions.some(s => s.code === cCode)) {
+          suggestions.push({
+            code: cCode,
+            name: tp.name || tp.description || 'Ưu đãi mã giảm giá',
+            gift: tp.benefit?.gift?.name || '',
+            sku: it.sku
+          });
+        }
+      });
+    });
+
+    if (suggestions.length > 0) {
+      countEl.textContent = suggestions.length;
+      hintBtn.style.display = 'inline-flex';
+      listEl.innerHTML = suggestions.map(s => `
+        <div class="voucher-suggestion-item">
+          <div style="font-size: 11.5px; line-height: 1.4; min-width: 0; flex: 1;">
+            <div style="font-weight: 700; color: #9a3412;">🎁 ${escapeHtml(s.name)}</div>
+            ${s.gift ? `<div style="color: #2563eb; font-weight: 600; font-size: 11px;">Quà tặng: ${escapeHtml(s.gift)}</div>` : ''}
+            <div style="color: #475569; font-size: 11px; margin-top: 2px;">Mã khả dụng: <strong style="color: #dc2626; font-family: monospace; font-size: 11.5px; background: #fef2f2; padding: 1px 5px; border-radius: 4px; border: 1px solid #fecaca;">${escapeHtml(s.code)}</strong></div>
+          </div>
+          <button type="button" class="btn-use-voucher" onclick="applySuggestedVoucher('${escapeHtml(s.code)}')">Áp dụng mã</button>
+        </div>
+      `).join('');
+      if (box && !appliedVoucher) {
+        box.style.display = 'block';
+      }
+    } else {
+      hintBtn.style.display = 'none';
+      if (box) box.style.display = 'none';
+    }
+  }
+
+  function toggleVoucherSuggestions() {
+    const box = document.getElementById('voucherSuggestionBox');
+    if (box) {
+      box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
+    }
+  }
+
+  function applySuggestedVoucher(code) {
+    const input = document.getElementById('voucherCodeInput');
+    if (input) input.value = code;
+    applyVoucherCode();
+  }
+
+  function applyVoucherCode(customGift, customName) {
+    const input = document.getElementById('voucherCodeInput');
+    const code = (input ? input.value : '').trim().toUpperCase();
+    if (!code) {
+      alert('Vui lòng nhập mã giảm giá / voucher!');
+      return;
+    }
+
+    let gift = customGift || '';
+    let desc = customName || `Áp dụng mã ${code}`;
+
+    if (!gift) {
+      Object.values(cart).forEach(it => {
+        const brandStr = ((it.brand || '') + ' ' + (it.name || '')).toUpperCase();
+        const mPromos = (it.marketingPromotions || it.marketing_promotions || []);
+        mPromos.forEach(mp => {
+          const couponInfo = resolvePromoCouponInfo(mp, brandStr);
+          if (couponInfo && couponInfo.code === code) {
+            gift = couponInfo.gift || mp.gift || '';
+            desc = mp.name || desc;
+          }
+        });
+        const tPromos = (it.promotions || []);
+        tPromos.forEach(tp => {
+          const cCode = (tp.coupon || (tp.benefit && tp.benefit.coupon) || '').trim().toUpperCase();
+          if (cCode === code) {
+            gift = tp.benefit?.gift?.name || '';
+            desc = tp.name || tp.description || desc;
+          }
+        });
+      });
+      if (!gift && (code.includes('ACER') || code.includes('BQ'))) {
+        gift = 'Ba lô Acer (Quà tặng)';
+        desc = 'ƯU ĐÃI BỘ QUÀ LAPTOP ĐẾN 3 TRIỆU Q3\'2026';
+      }
+    }
+
+    appliedVoucher = {
+      code,
+      desc,
+      gift: gift || 'Ưu đãi khuyến mãi theo mã',
+      discount: 0
+    };
+
+    const tag = document.getElementById('appliedVoucherTag');
+    if (tag) {
+      tag.style.display = 'flex';
+      document.getElementById('appliedVoucherCode').textContent = code;
+      document.getElementById('appliedVoucherDesc').textContent = appliedVoucher.gift ? `Quà tặng: ${appliedVoucher.gift}` : desc;
+    }
+
+    const sugBox = document.getElementById('voucherSuggestionBox');
+    if (sugBox) sugBox.style.display = 'none';
+
+    renderCart();
+  }
+
+  window.applySuggestedVoucher = applySuggestedVoucher;
+  window.applyVoucherCode = applyVoucherCode;
+  window.toggleVoucherSuggestions = toggleVoucherSuggestions;
+
+  function removeVoucherCode() {
+    appliedVoucher = null;
+    const tag = document.getElementById('appliedVoucherTag');
+    if (tag) tag.style.display = 'none';
+    const input = document.getElementById('voucherCodeInput');
+    if (input) input.value = '';
+    renderCart();
   }
 
   function updateSummary(list, promo, manual, finalPay) {
     document.getElementById('sumListPrice').textContent = formatVND(list);
     document.getElementById('sumPromoDisc').textContent = '-' + formatVND(promo);
     document.getElementById('sumManualDisc').textContent = '-' + formatVND(manual);
-    document.getElementById('sumFinalPayable').textContent = formatVND(finalPay);
+
+    const rowVoucherDisc = document.getElementById('rowVoucherDisc');
+    const sumVoucherDisc = document.getElementById('sumVoucherDisc');
+    const voucherDisc = (appliedVoucher && appliedVoucher.discount > 0) ? appliedVoucher.discount : 0;
+    if (rowVoucherDisc && sumVoucherDisc) {
+      if (voucherDisc > 0) {
+        rowVoucherDisc.style.display = 'flex';
+        sumVoucherDisc.textContent = '-' + formatVND(voucherDisc);
+      } else {
+        rowVoucherDisc.style.display = 'none';
+      }
+    }
+
+    const rowGift = document.getElementById('rowGiftItem');
+    const giftEl = document.getElementById('sumGiftItem');
+    if (rowGift && giftEl) {
+      if (appliedVoucher && appliedVoucher.gift) {
+        rowGift.style.display = 'flex';
+        giftEl.textContent = appliedVoucher.gift;
+      } else {
+        rowGift.style.display = 'none';
+      }
+    }
+
+    const payable = Math.max(0, finalPay - voucherDisc);
+    document.getElementById('sumFinalPayable').textContent = formatVND(payable);
   }
 
   // ==========================================
@@ -1684,7 +3155,10 @@
 
     const btnSubmit = document.getElementById('btnSubmitOrder');
     btnSubmit.disabled = true;
-    btnSubmit.innerHTML = '⏳ ĐANG TẠO ĐƠN HÀNG...';
+    btnSubmit.innerHTML = '<span>⏳ Đang tạo đơn...</span>';
+
+    // Chỉ giữ ghi chú thực tế do người dùng nhập (không tự gán mã KM vào ghi chú)
+    const finalNote = orderNote || '';
 
     const orderPayload = {
       customer: {
@@ -1702,9 +3176,12 @@
         quantity: cart[s].quantity,
         listPrice: cart[s].listPrice,
         promoPrice: cart[s].promoPrice,
-        discount: cart[s].discount
+        discount: cart[s].discount,
+        promotionId: cart[s].selectedPromotionId || (cart[s].promotions && cart[s].promotions.find(pr => (pr.benefit?.discount?.flat > 0 || pr.benefit?.discount?.percent > 0))?.id) || (cart[s].promotions?.[0]?.id) || undefined
       })),
-      note: orderNote,
+      voucherCode: appliedVoucher ? appliedVoucher.code : (document.getElementById('voucherCodeInput').value.trim() || undefined),
+      appliedPromo: appliedVoucher || null,
+      note: finalNote,
       paymentMethod: selectedPaymentMethod,
       branchCode: currentBranchCode
     };
@@ -1715,9 +3192,9 @@
       if (!tekoToken || (jwt && jwt.isExpired)) {
         const proceed = confirm('⚠️ Chú ý: Phiên kết nối SPOS của bạn chưa có hoặc đã hết hạn.\n\nĐể đơn hàng xuất hiện trong tab "Đang xử lý" trên app SPOS của bạn, bạn nên mở ERP để Extension đồng bộ token trước.\n\nBấm "Cancel" để dừng lại mở ERP, hoặc "OK" để tiếp tục tạo đơn.');
         if (!proceed) {
-          window.open('https://erp.phongvu.vn', '_blank');
+          openQoTokenModal();
           btnSubmit.disabled = false;
-          btnSubmit.innerHTML = '<span>🚀</span><span>TẠO ĐƠN HÀNG (CHỜ THU TRÊN SPOS)</span>';
+          btnSubmit.innerHTML = '<span>Tạo đơn</span>';
           return;
         }
       }
@@ -1750,7 +3227,7 @@
       alert('Lỗi kết nối khi tạo đơn hàng: ' + err.message);
     } finally {
       btnSubmit.disabled = false;
-      btnSubmit.innerHTML = '<span>🚀</span><span>TẠO ĐƠN HÀNG (CHỜ THU TRÊN SPOS)</span>';
+      btnSubmit.innerHTML = '<span>Tạo đơn</span>';
     }
   }
 
@@ -1760,19 +3237,90 @@
   function showSuccessModal(data) {
     const code = String(data.orderCode || '').replace(/^#/, '');
     const displayCode = `#${code}`;
+    latestCreatedOrderCode = code;
+
     document.getElementById('modalOrderCode').textContent = displayCode;
-    document.getElementById('modalCustName').textContent = data.orderData?.customer?.name || document.getElementById('custName').value;
-    document.getElementById('modalCustPhone').textContent = data.orderData?.customer?.phone || document.getElementById('custPhone').value;
+    document.getElementById('modalCustName').textContent = data.orderData?.customer?.name || document.getElementById('custName').value || 'Khách lẻ';
+    document.getElementById('modalCustPhone').textContent = data.orderData?.customer?.phone || document.getElementById('custPhone').value || '---';
     document.getElementById('modalTotalPayable').textContent = formatVND(data.totalPayable);
 
-    const pmLabel = data.orderData?.paymentMethodLabel || paymentMethodLabels[data.paymentMethod || selectedPaymentMethod] || 'Tiền mặt';
+    const chosenPm = data.paymentMethod || data.orderData?.paymentMethod || selectedPaymentMethod;
+    const pmLabel = data.orderData?.paymentMethodLabel || paymentMethodLabels[chosenPm] || 'Tiền mặt';
     const modalPmEl = document.getElementById('modalPaymentMethod');
     if (modalPmEl) modalPmEl.textContent = pmLabel;
 
     const bCode = data.orderData?.branchCode || currentBranchCode;
-    const bName = branchConfigMap[bCode]?.name || bCode;
+    const bConfig = branchConfigMap[bCode] || branchConfigMap['DEFAULT'] || {};
+    const bName = bConfig.name || bCode;
     const modalBranchEl = document.getElementById('modalBranchInfo');
     if (modalBranchEl) modalBranchEl.textContent = `${bCode} - ${bName}`;
+
+    // Link mở đơn trên ERP Phong Vũ (Chi tiết đơn hàng Marketplace: https://erp.phongvu.vn/orders/marketplace/{orderCode})
+    const erpLinkEl = document.getElementById('modalErpLink');
+    if (erpLinkEl) {
+      const targetOrderCode = data.orderCode || '';
+      erpLinkEl.href = targetOrderCode ? `https://erp.phongvu.vn/orders/marketplace/${encodeURIComponent(targetOrderCode)}` : `https://erp.phongvu.vn/orders/marketplace`;
+      const linkTextEl = document.getElementById('modalErpLinkText');
+      if (linkTextEl) {
+        linkTextEl.textContent = targetOrderCode ? `[Chi tiết đơn hàng #${targetOrderCode}]` : '[Chi tiết đơn hàng]';
+      }
+    }
+
+    // Hiển thị VietQR hoặc Banner tương ứng phương thức thanh toán
+    const qrBox = document.getElementById('modalVietQrBox');
+    const bannerBox = document.getElementById('modalPaymentBanner');
+    const bannerIcon = document.getElementById('modalPmBannerIcon');
+    const bannerText = document.getElementById('modalPmBannerText');
+
+    if (chosenPm === 'BANK_TRANSFER') {
+      if (qrBox) qrBox.style.display = 'block';
+      if (bannerBox) bannerBox.style.display = 'none';
+
+      const bankAcc = bConfig.bankAccount || '18PVSFI';
+      const bankHolder = bConfig.bankHolder || 'CTY CO PHAN THUONG MAI DV PHONG VU';
+      const bankName = bConfig.bankName || 'VietinBank (Chi nhánh 2 TP.HCM)';
+
+      const bankNameEl = document.getElementById('modalBankName');
+      if (bankNameEl) bankNameEl.textContent = bankName;
+      const bankAccEl = document.getElementById('modalBankAcc');
+      if (bankAccEl) bankAccEl.textContent = bankAcc;
+      const bankHolderEl = document.getElementById('modalBankHolder');
+      if (bankHolderEl) bankHolderEl.textContent = bankHolder;
+      const qrAmountEl = document.getElementById('modalQrAmount');
+      if (qrAmountEl) qrAmountEl.textContent = formatVND(data.totalPayable);
+      const qrContentEl = document.getElementById('modalQrContent');
+      if (qrContentEl) qrContentEl.textContent = code;
+
+      // URL ảnh VietQR chuẩn
+      const qrUrl = `https://img.vietqr.io/image/ICB-${encodeURIComponent(bankAcc)}-compact2.jpg?amount=${Number(data.totalPayable || 0)}&addInfo=${encodeURIComponent(code)}&accountName=${encodeURIComponent(bankHolder)}`;
+      const qrImg = document.getElementById('modalVietQrImg');
+      if (qrImg) qrImg.src = qrUrl;
+    } else {
+      if (qrBox) qrBox.style.display = 'none';
+      if (bannerBox) {
+        bannerBox.style.display = 'flex';
+        bannerBox.className = 'qo-pm-banner';
+        if (chosenPm === 'CASH') {
+          bannerBox.classList.add('cash');
+          if (bannerIcon) bannerIcon.textContent = '💵';
+          if (bannerText) {
+            bannerText.innerHTML = `<strong>Tiền mặt tại quầy:</strong> Đã ghi nhận PTTT vào đơn. Vui lòng thu đúng <strong>${formatVND(data.totalPayable)}</strong> và bấm xác nhận trên SPOS.`;
+          }
+        } else if (chosenPm === 'CARD') {
+          bannerBox.classList.add('card');
+          if (bannerIcon) bannerIcon.textContent = '💳';
+          if (bannerText) {
+            bannerText.innerHTML = `<strong>Quẹt thẻ SmartPOS:</strong> Đã ghi nhận PTTT vào đơn. Mở đơn trên máy quầy/app SPOS chọn <strong>Quẹt thẻ</strong> số tiền <strong>${formatVND(data.totalPayable)}</strong> để in phiếu.`;
+          }
+        } else {
+          bannerBox.classList.add('cod');
+          if (bannerIcon) bannerIcon.textContent = '📦';
+          if (bannerText) {
+            bannerText.innerHTML = `<strong>Thanh toán khi nhận hàng (COD):</strong> Đã gán thu hộ <strong>${formatVND(data.totalPayable)}</strong> khi giao hàng tận nơi.`;
+          }
+        }
+      }
+    }
 
     // Sinh Barcode Code128 bằng JsBarcode (chỉ lấy chuỗi số, không lấy ký tự #)
     try {
@@ -1791,6 +3339,13 @@
 
     document.getElementById('copyBtnText').textContent = 'Sao chép mã đơn';
     document.getElementById('orderSuccessModal').classList.add('active');
+  }
+
+  function copyText(text, label) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      alert(`Đã sao chép ${label || 'nội dung'}: ${text}`);
+    }).catch(() => {});
   }
 
   function closeSuccessModal() {
@@ -1829,14 +3384,14 @@
     recentOrders.unshift(order);
     if (recentOrders.length > 20) recentOrders.pop();
     try {
-      localStorage.setItem('qo_recent_orders', JSON.stringify(recentOrders));
+      localStorage.setItem('qo_recent_orders_' + currentUserId, JSON.stringify(recentOrders));
     } catch (e) {}
     renderRecentOrders();
   }
 
   function loadRecentOrders() {
     try {
-      const stored = localStorage.getItem('qo_recent_orders');
+      const stored = localStorage.getItem('qo_recent_orders_' + currentUserId);
       if (stored) {
         recentOrders = JSON.parse(stored) || [];
       }
@@ -1898,7 +3453,12 @@
 
   function escapeHtml(str) {
     if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // Khởi tạo giao diện ban đầu

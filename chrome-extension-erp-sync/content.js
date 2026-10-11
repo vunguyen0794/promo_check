@@ -205,7 +205,7 @@
   // -------------------------------------------------------------
   // 5. HIỂN THỊ TOAST THÔNG BÁO TRÊN ERP
   // -------------------------------------------------------------
-  function showSyncToast(origin) {
+  function showSyncToast(origin, email) {
     if (document.getElementById('pv-erp-sync-toast')) return;
     const toast = document.createElement('div');
     toast.id = 'pv-erp-sync-toast';
@@ -233,7 +233,7 @@
           Phong Vũ Auto Sync
         </div>
         <div style="font-size: 12px; color: #334155; line-height: 1.4;">
-          Đã đồng bộ kết nối ERP sang Xuất Kho Nhanh thành công!
+          Đã đồng bộ Token cá nhân (${email || 'bạn'}) sang Xuất Kho Nhanh!
         </div>
       </div>
       <button id="pv-toast-close" style="border:none;background:none;font-size:16px;cursor:pointer;color:#94a3b8;padding:0;">&times;</button>
@@ -241,6 +241,44 @@
     document.body.appendChild(toast);
     document.getElementById('pv-toast-close').onclick = () => toast.remove();
     setTimeout(() => { if (toast.parentNode) toast.remove(); }, 6000);
+  }
+
+  function showErrorToast(msg) {
+    const old = document.getElementById('pv-erp-sync-toast');
+    if (old) old.remove();
+    const toast = document.createElement('div');
+    toast.id = 'pv-erp-sync-toast';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 99999999;
+      background: #ffffff;
+      border: 2px solid #dc2626;
+      border-radius: 12px;
+      padding: 14px 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 380px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    `;
+    toast.innerHTML = `
+      <div style="font-size: 24px;">⚠️</div>
+      <div style="flex: 1;">
+        <div style="font-weight: 800; font-size: 13px; color: #dc2626; margin-bottom: 2px;">
+          Lỗi xác thực Token ERP
+        </div>
+        <div style="font-size: 12px; color: #991b1b; line-height: 1.4;">
+          ${msg || 'Không thể đồng bộ token do không khớp tài khoản.'}
+        </div>
+      </div>
+      <button id="pv-toast-close" style="border:none;background:none;font-size:16px;cursor:pointer;color:#94a3b8;padding:0;">&times;</button>
+    `;
+    document.body.appendChild(toast);
+    document.getElementById('pv-toast-close').onclick = () => toast.remove();
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 8000);
   }
 
   // -------------------------------------------------------------
@@ -257,9 +295,20 @@
 
     const target = await getTargetOriginsAndUser();
 
+    // Thử trích xuất email từ ERP
+    let erpEmail = '';
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const val = localStorage.getItem(localStorage.key(i)) || '';
+        try {
+          const p = JSON.parse(val);
+          if (p && p.currentUser && p.currentUser.email) erpEmail = p.currentUser.email;
+        } catch(e) {}
+      }
+    } catch(e) {}
+
     for (const origin of target.origins) {
       try {
-        // Gửi POST
         fetch(origin + '/api/quick-export/sync-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -267,7 +316,8 @@
             token: cleanToken,
             userId: target.userId || '',
             userEmail: target.userEmail || '',
-            branchCode: target.branchCode || ''
+            branchCode: target.branchCode || '',
+            erpEmail: erpEmail
           }),
           mode: 'cors'
         })
@@ -275,13 +325,17 @@
         .then(data => {
           if (data && data.success) {
             console.log('[Phong Vũ Auto Sync] Đã gửi token tới ' + origin + ' thành công!');
-            showSyncToast(origin);
+            showSyncToast(origin, data.email || erpEmail);
+          } else if (data && data.blocked) {
+            console.warn('[Phong Vũ Auto Sync] Bị chặn:', data.message);
+            showErrorToast(data.message);
           }
         })
         .catch(() => {
-          // Fallback qua Image beacon GET nếu POST bị CORS
           new Image().src = origin + '/api/quick-export/sync-token?token=' + encodeURIComponent(cleanToken)
             + '&userId=' + encodeURIComponent(target.userId || '')
+            + '&userEmail=' + encodeURIComponent(target.userEmail || '')
+            + '&erpEmail=' + encodeURIComponent(erpEmail)
             + '&branchCode=' + encodeURIComponent(target.branchCode || '');
         });
       } catch (err) {}

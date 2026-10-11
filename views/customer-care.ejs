@@ -470,6 +470,15 @@
 </div>
 
    <div class="dash-card" style="margin-top: 20px;">
+        <!-- BANNER THÔNG BÁO TRẠNG THÁI BẢNG BIGQUERY 2024 -->
+        <div id="bqSyncBanner" style="display: none; margin-bottom: 15px; padding: 12px 16px; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 8px; font-size: 13px; color: #92400e; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div>
+                ⚠️ <strong>Lưu ý BigQuery:</strong> Bảng <code>sales.raw_sales_orders_2024</code> hiện chưa có trên BigQuery (đã hết hạn sau 30 ngày trên sandbox free). Khi bạn tạo/nạp lại bảng 2024 trên BigQuery, hãy bấm nút bên cạnh để tự động liên kết dữ liệu 2024 vào hệ thống!
+            </div>
+            <button type="button" id="btnSyncBqView" onclick="syncBqView()" style="font-weight: 700; font-size: 12px; padding: 6px 14px; cursor: pointer; border-radius: 6px; border: 1px solid #d97706; background: #ffffff; color: #b45309; transition: all 0.2s;">
+                🔄 Đồng bộ lại View BigQuery
+            </button>
+        </div>
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap:15px;">
             <div class="dash-title" style="margin:0; border-bottom:none; font-size:18px; white-space:nowrap;">
@@ -944,7 +953,8 @@
                     ? `<span style="color:#16a34a; font-weight:600; font-size:12px;">${order.result}${order.carer_name ? ` <em style="color:#64748b">(${order.carer_name})</em>` : ''}</span>`
                     : '<span style="color:#94a3b8; font-size:12px;">-</span>';
                 
-                const productDisplay = `<div style="font-size:13px; line-height:1.6;">${order.Product_Display_Html}</div>`;
+                const pHtml = (order.Product_Display_Html && order.Product_Display_Html !== 'undefined') ? order.Product_Display_Html : (order.Full_Product_Info && order.Full_Product_Info !== 'undefined' ? order.Full_Product_Info : (order.SKU ? `<span style="color:#2563eb; font-weight:700;">${order.SKU}</span> - ${order.SKU_name || ''}` : '<span style="color:#94a3b8; font-style:italic;">Chưa có thông tin sản phẩm</span>'));
+                const productDisplay = `<div style="font-size:13px; line-height:1.6;">${pHtml}</div>`;
 
                 html += `
                     <tr>
@@ -1194,7 +1204,8 @@
                     ? `<span style="color:#16a34a; font-weight:600; font-size:12px;">${order.result}</span>` 
                     : '<span style="color:#94a3b8; font-size:12px;">-</span>';
 
-                const productDisplay = `<div style="font-size:13px; line-height:1.6;">${order.Product_Display_Html}</div>`;
+                const pHtml = (order.Product_Display_Html && order.Product_Display_Html !== 'undefined') ? order.Product_Display_Html : (order.Full_Product_Info && order.Full_Product_Info !== 'undefined' ? order.Full_Product_Info : (order.SKU ? `<span style="color:#2563eb; font-weight:700;">${order.SKU}</span> - ${order.SKU_name || ''}` : '<span style="color:#94a3b8; font-style:italic;">Chưa có thông tin sản phẩm</span>'));
+                const productDisplay = `<div style="font-size:13px; line-height:1.6;">${pHtml}</div>`;
                 
                 html += `
                     <tr>
@@ -1257,7 +1268,8 @@
                             ? `<span style="color:#16a34a; font-weight:600; font-size:12px;">${order.result} ${order.carer_name ? `(${order.carer_name})` : ''}</span>` 
                             : '<span style="color:#94a3b8; font-size:12px;">-</span>';
 
-                        const productDisplay = `<div style="font-size:13px; line-height:1.6;">${order.Product_Display_Html}</div>`;
+                        const pHtml = (order.Product_Display_Html && order.Product_Display_Html !== 'undefined') ? order.Product_Display_Html : (order.Full_Product_Info && order.Full_Product_Info !== 'undefined' ? order.Full_Product_Info : (order.SKU ? `<span style="color:#2563eb; font-weight:700;">${order.SKU}</span> - ${order.SKU_name || ''}` : '<span style="color:#94a3b8; font-style:italic;">Chưa có thông tin sản phẩm</span>'));
+                        const productDisplay = `<div style="font-size:13px; line-height:1.6;">${pHtml}</div>`;
                         
                         html += `
                             <tr>
@@ -1273,10 +1285,10 @@
                     if(html === '') html = '<tr><td colspan="7" style="text-align:center;">Không có dữ liệu</td></tr>';
                     if(tbody) tbody.innerHTML = html;
                 } else {
-                    if(tbody) tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Lỗi: ${json.error}</td></tr>`;
+                    if(tbody) tbody.innerHTML = `<tr><td colspan="7" style="color: #b91c1c; background: #fef2f2; text-align: center; font-weight: 600; padding: 14px; border: 1px dashed #fecaca; border-radius: 6px;">⚠️ ${json.error || 'Lỗi không xác định khi tải đơn hàng'}</td></tr>`;
                 }
             } catch(e) {
-                if(tbody) tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Lỗi kết nối</td></tr>`;
+                if(tbody) tbody.innerHTML = `<tr><td colspan="7" style="color: #b91c1c; background: #fef2f2; text-align: center; font-weight: 600; padding: 14px;">⚠️ Lỗi kết nối máy chủ: ${e.message}</td></tr>`;
             }
         }
     }
@@ -1803,5 +1815,51 @@ window.addEventListener('click', function(e) {
 
         // 5. Gán lại giá trị đã format vào ô input
         $(this).val(formattedValue);
+    });
+
+    // --- KIỂM TRA TRẠNG THÁI BẢNG BIGQUERY 2024 ---
+    async function checkBqStatus() {
+        try {
+            const res = await fetch('/api/cskh/check-bq-status');
+            const data = await res.json();
+            const banner = document.getElementById('bqSyncBanner');
+            if (banner) {
+                if (data.ok && data.missingTables && data.missingTables.includes('raw_sales_orders_2024')) {
+                    banner.style.display = 'flex';
+                } else {
+                    banner.style.display = 'none';
+                }
+            }
+        } catch (e) {
+            console.warn('[Check BQ Status] Lỗi:', e.message);
+        }
+    }
+
+    async function syncBqView() {
+        const btn = document.getElementById('btnSyncBqView');
+        if (btn) { btn.disabled = true; btn.innerText = '⏳ Đang đồng bộ...'; }
+        try {
+            const res = await fetch('/api/cskh/sync-bq-view', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                alert(data.message);
+                if (data.has2024) {
+                    const banner = document.getElementById('bqSyncBanner');
+                    if (banner) banner.style.display = 'none';
+                }
+                loadWorkList(1);
+            } else {
+                alert('Lỗi đồng bộ view: ' + data.error);
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerText = '🔄 Đồng bộ lại View BigQuery'; }
+        }
+    }
+
+    // Tự động kiểm tra trạng thái BigQuery khi mở trang
+    $(document).ready(function() {
+        checkBqStatus();
     });
 </script>

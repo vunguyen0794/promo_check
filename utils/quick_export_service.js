@@ -303,36 +303,90 @@ async function loadExportRequest(documentId, binId, token, siteId) {
       }
     }
 
-    // Nếu WMS vẫn không có (ví dụ đơn bán hàng cũ/đã giao), fallback dựng order từ dữ liệu Marketplace
+    // Nếu WMS vẫn không có (ví dụ đơn bán hàng cũ/đã giao hoặc đơn đã hủy), fallback dựng order từ dữ liệu Marketplace
     if (!res && marketplaceOrder) {
-      const mItems = (marketplaceOrder.items || marketplaceOrder.shipments?.[0]?.routerItems || []).map(it => ({
-        sku: String(it.sku),
-        skuName: it.displayName || it.name || `SKU ${it.sku}`,
-        requestQuantity: Number(it.quantity || 1),
-        scannedQuantity: Number(it.quantity || 1),
-        tracking: Array.isArray(it.serial) && it.serial.length > 0 ? 'SERIAL' : 'NONE',
-        serials: it.serial || [],
-        lots: [],
-        binQuantity: 0,
-        uom: it.uom || 'Cái',
-      }));
+      const rawStatus = String(marketplaceOrder.status || '').toUpperCase();
+      const isCancelled = ['CANCELLED', 'CANCELED', 'VOID'].includes(rawStatus);
+      const isActuallyExported = !isCancelled && ['EXPORTED', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(rawStatus) && Array.isArray(marketplaceOrder.shipments) && marketplaceOrder.shipments.length > 0;
+      const isPacked = !isCancelled && rawStatus === 'PACKED';
+
+      const mItems = (marketplaceOrder.items || marketplaceOrder.shipments?.[0]?.routerItems || []).map(it => {
+        const itemSerials = Array.isArray(it.serial) ? it.serial : [];
+        // Xác định quản lý serial: Nếu đã có serial hoặc có thời hạn bảo hành > 0 tháng hoặc it.tracking === 'SERIAL'
+        const isSerialManaged = (Array.isArray(it.serial) && it.serial.length > 0) ||
+                                (Number(it.warranty || 0) > 0) ||
+                                String(it.tracking || '').toUpperCase() === 'SERIAL';
+        return {
+          sku: String(it.sku),
+          skuName: it.displayName || it.name || `SKU ${it.sku}`,
+          requestQuantity: Number(it.quantity || 1),
+          scannedQuantity: isActuallyExported ? Number(it.quantity || 1) : 0,
+          tracking: isSerialManaged ? 'SERIAL' : 'NONE',
+          serials: isActuallyExported ? itemSerials : [],
+          lots: [],
+          binQuantity: 0,
+          uom: it.uom || 'Cái',
+        };
+      });
+
+      // Xác định chính xác chi nhánh và kho xuất thực tế (không nhầm với terminal trung tâm CP00)
+      let resolvedBranchCode = '';
+      let resolvedSiteName = '';
+      let resolvedSiteId = 0;
+
+      // 1. Kiểm tra items có siteCode / siteName
+      const firstItem = marketplaceOrder.items?.[0];
+      if (firstItem?.siteCode) {
+        resolvedBranchCode = firstItem.siteCode;
+        resolvedSiteName = firstItem.siteName || '';
+        resolvedSiteId = Number(firstItem.siteIdInt || firstItem.siteId || 0);
+      }
+
+      // 2. Kiểm tra shippingInfo.storeCode (ví dụ: "[CP74] ĐỊA ĐIỂM KINH DOANH 62...")
+      if (!resolvedBranchCode && marketplaceOrder.shippingInfo?.storeCode) {
+        const match = marketplaceOrder.shippingInfo.storeCode.match(/\[(CP\d+)\]/i);
+        if (match) {
+          resolvedBranchCode = match[1].toUpperCase();
+          resolvedSiteName = marketplaceOrder.shippingInfo.storeCode;
+        }
+      }
+
+      // 3. Fallback terminalCode
+      if (!resolvedBranchCode) {
+        resolvedBranchCode = marketplaceOrder.terminalCode || 'CP01';
+        resolvedSiteName = marketplaceOrder.terminalName || '';
+      }
+
+      // Resolve siteId số nguyên chuẩn WMS Teko
+      const branchToSiteMap = {
+        'CP01': 7, 'CP02': 8, 'CP07': 9, 'CP05': 46, 'CP08': 54, 'CP40': 85,
+        'CP46': 628, 'CP58': 763, 'CP62': 779, 'CP64': 1600, 'CP67': 3480,
+        'CP69': 29499, 'CP74': 53019
+      };
+      if (!resolvedSiteId || isNaN(resolvedSiteId)) {
+        resolvedSiteId = branchToSiteMap[resolvedBranchCode] || Number(siteId) || 53019;
+      }
 
       return {
         requestId: marketplaceOrder.code,
         documentId: cleanDoc,
-        status: marketplaceOrder.displayStatusName || marketplaceOrder.status || 'COMPLETED',
-        isExported: true,
-        exportedDate: marketplaceOrder.updatedAt || null,
-        exportedBy: marketplaceOrder.creator?.name || 'Hệ thống',
-        siteId: marketplaceOrder.terminalCode || siteId,
-        siteName: marketplaceOrder.terminalName || '',
-        branchCode: marketplaceOrder.terminalCode || 'CP02',
+        status: isCancelled ? 'CANCELLED' : (marketplaceOrder.displayStatusName || marketplaceOrder.status || 'PROCESSING'),
+        isExported: isActuallyExported,
+        isPacked: isPacked,
+        isCancelled: isCancelled,
+        cancellationReason: marketplaceOrder.cancellationReason || '',
+        exportedDate: isActuallyExported ? (marketplaceOrder.updatedAt || null) : null,
+        exportedBy: isActuallyExported ? (marketplaceOrder.creator?.name || 'Hệ thống') : '',
+        siteId: resolvedSiteId,
+        siteIdInt: resolvedSiteId,
+        siteName: resolvedSiteName,
+        branchCode: resolvedBranchCode,
         saleName: marketplaceOrder.consultant?.name || marketplaceOrder.creator?.name || 'Nhân viên bán hàng',
         deliveryAddress: marketplaceOrder.shippingInfo?.fullAddress || marketplaceOrder.customer?.fullAddress || 'Tại quầy',
         receiverName: marketplaceOrder.shippingInfo?.name || marketplaceOrder.customer?.name || '',
-        paymentStatus: marketplaceOrder.paymentStatus === 'FULLY_PAID' ? 'Đã thanh toán' : (marketplaceOrder.paymentStatus || 'Đã thanh toán'),
-        paymentStatusCode: marketplaceOrder.paymentStatus || 'FULLY_PAID',
-        paymentMethod: marketplaceOrder.payment?.displayName || marketplaceOrder.payments?.[0]?.paymentMethod || 'Tiền mặt',
+        paymentStatus: marketplaceOrder.paymentStatus === 'FULLY_PAID' ? 'Đã thanh toán' : (marketplaceOrder.paymentStatus || 'Chưa thanh toán'),
+        paymentStatusCode: marketplaceOrder.paymentStatus || 'PENDING',
+        paymentMethod: marketplaceOrder.payment?.displayName || marketplaceOrder.payments?.[0]?.paymentMethod || 'Chuyển khoản',
         remainPayment: Number(marketplaceOrder.remainPayment ?? 0),
         grandTotal: Number(marketplaceOrder.grandTotal ?? 0),
         orderNote: marketplaceOrder.note || marketplaceOrder.customerNote || '',
@@ -687,19 +741,33 @@ async function confirmPacking({ requestId, binId, items, isAutoHandover = false,
  */
 async function getStockQuantityByBin(sku, siteId, token) {
   if (!sku) throw new Error('Thiếu mã SKU cần tra cứu tồn kho.');
-  if (!siteId) throw new Error('Thiếu mã chi nhánh/siteId.');
+
+  let validSiteId = Number(siteId);
+  if (!validSiteId || isNaN(validSiteId)) {
+    const branchToSiteMap = {
+      'CP01': 7, 'CP02': 8, 'CP07': 9, 'CP05': 46, 'CP08': 54, 'CP40': 85,
+      'CP46': 628, 'CP58': 763, 'CP62': 779, 'CP64': 1600, 'CP67': 3480,
+      'CP69': 29499, 'CP74': 53019
+    };
+    const bMatch = String(siteId || '').match(/CP\d+/i);
+    if (bMatch && branchToSiteMap[bMatch[0].toUpperCase()]) {
+      validSiteId = branchToSiteMap[bMatch[0].toUpperCase()];
+    } else {
+      validSiteId = 53019; // Mặc định Showroom CP74
+    }
+  }
 
   const res = await callTekoBff('/api/v1/stock-quantity', {
     method: 'GET',
-    params: { siteId: Number(siteId), skus: String(sku).trim() },
+    params: { siteId: validSiteId, skus: String(sku).trim() },
     token,
-    siteId: Number(siteId),
+    siteId: validSiteId,
   });
 
   const stocks = Array.isArray(res?.stocks) ? res.stocks : [];
   return {
     sku: String(sku).trim(),
-    siteId: Number(siteId),
+    siteId: validSiteId,
     stocks: stocks.map(s => ({
       binId: s.binId,
       binName: s.binName || `BIN #${s.binId}`,

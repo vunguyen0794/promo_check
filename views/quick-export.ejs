@@ -1254,9 +1254,6 @@
             <div style="font-size: 13px; color: var(--qe-text-main);">
                 Sản phẩm: <strong id="lblStockSkuName">-</strong>
             </div>
-            <a href="https://erp.phongvu.vn/warehousing/stock-count/stock-product-by-bin" target="_blank" rel="noopener noreferrer" class="btn-header-action" style="font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; color: #2563eb; border-color: #bfdbfe; background: #eff6ff; font-weight: 600;">
-                <span>↗ Mở trang trên ERP</span>
-            </a>
         </div>
 
         <!-- Body content with table -->
@@ -1289,11 +1286,14 @@
             <a id="btnOpenErpLogin" href="https://erp.phongvu.vn" target="_blank" onclick="startGatePolling()" style="display:block;padding:13px 20px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border-radius:10px;font-size:14.5px;font-weight:700;text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
                 🔑 Mở ERP &amp; Đăng nhập
             </a>
+            <button type="button" onclick="pasteTokenFromClipboard()" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;background:#f0fdf4;border:2px solid #86efac;border-radius:10px;font-size:13.5px;font-weight:700;color:#15803d;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+                📋 Dán Token từ Clipboard (1-chạm mở khóa)
+            </button>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <a href="/phongvu-erp-sync.zip" download="phongvu-erp-sync.zip" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;font-size:12.5px;font-weight:700;color:#166534;text-decoration:none;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+                <a href="/phongvu-erp-sync.zip" download="phongvu-erp-sync.zip" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 10px;background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:10px;font-size:12.5px;font-weight:700;color:#334155;text-decoration:none;cursor:pointer;">
                     <span>⬇️</span> Tải Extension (.zip)
                 </a>
-                <button type="button" onclick="openTokenModal(true)" style="padding:11px 10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;font-size:12.5px;font-weight:600;color:#334155;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f8fafc'">
+                <button type="button" onclick="openTokenModal(true)" style="padding:11px 10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;font-size:12.5px;font-weight:600;color:#334155;cursor:pointer;">
                     ✍️ Nhập thủ công
                 </button>
             </div>
@@ -1309,6 +1309,42 @@
     window.pvUserId = '<%= user && user.id ? user.id : "" %>';
     window.pvBranchCode = '<%= user && user.branch_code ? user.branch_code : "" %>';
     window.pvUserEmail = '<%= user && user.email ? user.email : "" %>';
+
+    // Dán Token trực tiếp từ Clipboard (1-chạm)
+    async function pasteTokenFromClipboard() {
+        try {
+            let text = '';
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                text = await navigator.clipboard.readText();
+            } else {
+                text = prompt('Dán chuỗi Token ERP vào đây:');
+            }
+            if (!text) return;
+            const clean = text.replace(/^Bearer\s+/i, '').trim();
+            const jwt = getJwtInfo(clean);
+            if (!jwt || jwt.isExpired) {
+                return alert('⚠️ Chuỗi trong Clipboard không phải Token ERP hợp lệ hoặc đã hết hạn!\n\nVui lòng đăng nhập trang ERP rồi bấm Bookmarklet để tự động sao chép Token.');
+            }
+
+            const res = await fetch('/api/quick-export/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tekoToken: clean })
+            });
+            const data = await res.json();
+            if (data && data.success) {
+                tekoToken = clean;
+                localStorage.setItem('qe_teko_token', clean);
+                updateConfigBadges();
+                hideGate();
+                addLog('✅ Đã nhận diện Token cá nhân thành công từ Clipboard!', 'success');
+            } else {
+                alert(data.message || 'Không thể lưu token.');
+            }
+        } catch (e) {
+            alert('Không thể đọc Clipboard: ' + e.message);
+        }
+    }
 
     // Gán vào dataset để extension đọc được qua DOM
     try {
@@ -1610,7 +1646,11 @@
     // --- TOKEN MODAL & BOOKMARKLET ---
     function getBookmarkletCode() {
         const host = window.location.origin;
-        return `javascript:(function(){function f(){try{if(window.TekoID&&window.TekoID.user&&typeof window.TekoID.user.getAccessToken==='function'){var t=window.TekoID.user.getAccessToken();if(t&&t.length>30)return Promise.resolve(t);}}catch(e){}try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);var v=localStorage.getItem(k)||'';if(v.startsWith('eyJ')&&v.length>40)return Promise.resolve(v);try{var p=JSON.parse(v);if(p){var tok=p.access_token||p.accessToken||p.id_token||(p.currentUser&&(p.currentUser.access_token||p.currentUser.accessToken));if(tok&&tok.length>30)return Promise.resolve(tok);}}catch(e){}}}catch(e){}try{for(var j=0;j<sessionStorage.length;j++){var sk=sessionStorage.key(j);var sv=sessionStorage.getItem(sk)||'';if(sv.startsWith('eyJ')&&sv.length>40)return Promise.resolve(sv);try{var sp=JSON.parse(sv);if(sp){var stok=sp.access_token||sp.accessToken||sp.id_token;if(stok&&stok.length>30)return Promise.resolve(stok);}}catch(e){}}}catch(e){}return new Promise(function(res){try{var req=indexedDB.open('ERPAdminLocalDB');req.onsuccess=function(e){try{var db=e.target.result;if(!db||!db.objectStoreNames||!db.objectStoreNames.contains('currentUser')){return res(null);}var tx=db.transaction('currentUser','readonly');var st=tx.objectStore('currentUser');var getReq=st.getAll();getReq.onsuccess=function(ev){var r=ev.target.result;var u=r&&r[0];var tok=u&&(u.accessToken||u.access_token||u.token);res(tok||null);};getReq.onerror=function(){res(null);};}catch(err){res(null);}};req.onerror=function(){res(null);};}catch(err){res(null);}});}f().then(function(tok){if(!tok){alert('❌ Không tìm thấy Token ERP trên trang này!\\n\\n👉 Hãy đăng nhập tại https://erp.phongvu.vn rồi bấm lại bookmark này nhé.');return;}var cl=tok.startsWith('Bearer ')?tok.slice(7).trim():tok.trim();var h='${host}';var cp=false;try{var ta=document.createElement('textarea');ta.value=cl;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();cp=document.execCommand('copy');document.body.removeChild(ta);}catch(e){}if(!cp&&navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(cl).then(function(){cp=true;}).catch(function(){});}try{fetch(h+'/api/quick-export/sync-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:cl,userId:'${window.pvUserId||""}',branchCode:'${window.pvBranchCode||""}'}),mode:'no-cors'}).catch(function(){});new Image().src=h+'/api/quick-export/sync-token?token='+encodeURIComponent(cl)+'&userId='+encodeURIComponent('${window.pvUserId||""}')+'&branchCode='+encodeURIComponent('${window.pvBranchCode||""}');}catch(e){}var old=document.getElementById('pv-token-banner');if(old)old.remove();var b=document.createElement('div');b.id='pv-token-banner';b.style.cssText='position:fixed;top:24px;right:24px;z-index:99999999;background:#ffffff;border:2px solid #2563eb;border-radius:12px;padding:16px 20px;box-shadow:0 12px 35px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:380px;color:#0f172a;';b.innerHTML='<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;\"><span style=\"font-weight:800;font-size:14px;color:#1e40af;\">⚡ ĐỒNG BỘ TOKEN ERP</span><button id=\"pv-close-bn\" style=\"border:none;background:none;font-size:18px;cursor:pointer;color:#64748b;\">&times;</button></div><div style=\"background:#dcfce7;border:1px solid #bbf7d0;color:#166534;font-size:12px;padding:8px 10px;border-radius:6px;font-weight:600;margin-bottom:12px;\">'+(cp?'✅ Đã tự động copy Token vào bộ nhớ tạm!':'✅ Đã lấy được mã Token ERP!')+'</div><div style=\"display:flex;gap:8px;\"><button id=\"pv-copy-btn\" style=\"flex:1;background:#2563eb;color:#fff;border:none;padding:9px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;\">📋 Copy Token</button><a href=\"'+h+'/quick-export?token='+encodeURIComponent(cl)+'\" target=\"_blank\" style=\"flex:1.2;background:#10b981;color:#fff;text-decoration:none;padding:9px;border-radius:6px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;\">🚀 Mở Xuất Kho</a></div>';document.body.appendChild(b);document.getElementById('pv-close-bn').onclick=function(){b.remove();};document.getElementById('pv-copy-btn').onclick=function(){if(navigator.clipboard){navigator.clipboard.writeText(cl).then(function(){alert('✅ Đã copy Token ERP vào Clipboard!');});}else{var t2=document.createElement('textarea');t2.value=cl;document.body.appendChild(t2);t2.select();document.execCommand('copy');document.body.removeChild(t2);alert('✅ Đã copy Token ERP vào Clipboard!');}};});})();`.replace(/\s+/g, ' ').trim();
+        const userId = window.pvUserId || '';
+        const userEmail = window.pvUserEmail || '';
+        const branchCode = window.pvBranchCode || '';
+
+        return `javascript:(function(){function f(){try{if(window.TekoID&&window.TekoID.user&&typeof window.TekoID.user.getAccessToken==='function'){var t=window.TekoID.user.getAccessToken();var u=(window.TekoID.user.getUserInfo&&window.TekoID.user.getUserInfo())||{};if(t&&t.length>30)return Promise.resolve({token:t,email:u.email||'',name:u.name||''});}}catch(e){}try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);var v=localStorage.getItem(k)||'';try{var p=JSON.parse(v);if(p&&p.currentUser){var cu=p.currentUser;var tok=cu.access_token||cu.accessToken||cu.token;if(tok&&tok.length>30)return Promise.resolve({token:tok,email:cu.email||'',name:cu.name||cu.fullName||''});}}catch(e){}}}catch(e){}return new Promise(function(res){try{var req=indexedDB.open('ERPAdminLocalDB');req.onsuccess=function(e){try{var db=e.target.result;if(!db||!db.objectStoreNames||!db.objectStoreNames.contains('currentUser')){return res(null);}var tx=db.transaction('currentUser','readonly');var st=tx.objectStore('currentUser');var getReq=st.getAll();getReq.onsuccess=function(ev){var r=ev.target.result;var u=r&&r[0];if(u){var tok=u.accessToken||u.access_token||u.token;res({token:tok||'',email:u.email||u.username||'',name:u.name||u.fullName||''});}else{res(null);}};getReq.onerror=function(){res(null);};}catch(err){res(null);}};req.onerror=function(){res(null);};}catch(err){res(null);}});}f().then(function(data){if(!data||!data.token){alert('❌ Không tìm thấy Token ERP trên trang này!\\n\\n👉 Hãy đăng nhập tại https://erp.phongvu.vn rồi bấm lại bookmark này nhé.');return;}var cl=data.token.startsWith('Bearer ')?data.token.slice(7).trim():data.token.trim();var erpEmail=data.email||'';var erpName=data.name||'';var h='${host}';var targetUserId='${userId}';var targetUserEmail='${userEmail}';var targetBranch='${branchCode}';var cp=false;try{var ta=document.createElement('textarea');ta.value=cl;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();cp=document.execCommand('copy');document.body.removeChild(ta);}catch(e){}if(!cp&&navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(cl).then(function(){cp=true;}).catch(function(){});}fetch(h+'/api/quick-export/sync-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:cl,userId:targetUserId,userEmail:targetUserEmail,branchCode:targetBranch,erpEmail:erpEmail,erpName:erpName})}).then(function(r){return r.json();}).then(function(res){var old=document.getElementById('pv-token-banner');if(old)old.remove();var b=document.createElement('div');b.id='pv-token-banner';b.style.cssText='position:fixed;top:24px;right:24px;z-index:99999999;background:#fff;border-radius:12px;padding:16px 20px;box-shadow:0 12px 35px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:380px;color:#0f172a;';if(res&&res.success){b.style.border='2px solid #16a34a';b.innerHTML='<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;\"><span style=\"font-weight:800;font-size:14px;color:#15803d;\">⚡ ĐỒNG BỘ THÀNH CÔNG</span><button id=\"pv-close-bn\" style=\"border:none;background:none;font-size:18px;cursor:pointer;\">&times;</button></div><div style=\"background:#dcfce7;border:1px solid #bbf7d0;color:#166534;font-size:12px;padding:8px 10px;border-radius:6px;font-weight:600;margin-bottom:12px;\">✅ Đã kết nối Token cá nhân của '+(res.email||erpEmail||'bạn')+' vào Web Miền!</div><div style=\"display:flex;gap:8px;\"><a href=\"'+h+'/quick-export\" target=\"_blank\" style=\"flex:1;background:#10b981;color:#fff;text-decoration:none;padding:9px;border-radius:6px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;\">🚀 Mở Xuất Kho Nhanh</a></div>';}else{b.style.border='2px solid #dc2626';b.innerHTML='<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;\"><span style=\"font-weight:800;font-size:14px;color:#dc2626;\">⚠️ LỖI XÁC THỰC TOKEN</span><button id=\"pv-close-bn\" style=\"border:none;background:none;font-size:18px;cursor:pointer;\">&times;</button></div><div style=\"background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:12px;padding:8px 10px;border-radius:6px;font-weight:600;\">'+(res&&res.message?res.message:'Lỗi không xác định!')+'</div>';}document.body.appendChild(b);document.getElementById('pv-close-bn').onclick=function(){b.remove();};}).catch(function(err){new Image().src=h+'/api/quick-export/sync-token?token='+encodeURIComponent(cl)+'&userId='+encodeURIComponent(targetUserId)+'&userEmail='+encodeURIComponent(targetUserEmail)+'&erpEmail='+encodeURIComponent(erpEmail)+'&branchCode='+encodeURIComponent(targetBranch);alert('✅ Đã sao chép Token vào Clipboard! Bạn có thể quay lại tab Web Miền bấm \"Dán Token từ Clipboard\" để mở khóa.');});});})();`.replace(/\s+/g, ' ').trim();
     }
 
     function initBookmarklet() {
@@ -2098,10 +2138,13 @@
 
         // Trạng thái đơn (Nằm ngay dưới Mã đơn hàng theo Yêu cầu 2)
         const statusUpper = String(currentOrder.status || '').trim().toUpperCase();
-        const isExported = Boolean(currentOrder.isExported || statusUpper === 'EXPORTED' || statusUpper === 'COMPLETED');
-        const isPacked = Boolean(currentOrder.isPacked || statusUpper === 'PACKED');
+        const isCancelled = Boolean(currentOrder.isCancelled || statusUpper === 'CANCELLED' || statusUpper === 'CANCELED' || statusUpper === 'VOID');
+        const isExported = !isCancelled && Boolean(currentOrder.isExported || statusUpper === 'EXPORTED' || statusUpper === 'COMPLETED');
+        const isPacked = !isCancelled && Boolean(currentOrder.isPacked || statusUpper === 'PACKED');
         const dispStatus = document.getElementById('dispStatus');
-        if (isExported) {
+        if (isCancelled) {
+            dispStatus.innerHTML = `<span style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">❌ ĐÃ HỦY ĐƠN</span>`;
+        } else if (isExported) {
             dispStatus.innerHTML = `<span style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">✓ ĐÃ XUẤT KHO</span>`;
         } else if (isPacked) {
             dispStatus.innerHTML = `<span style="background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;">📦 ĐÃ ĐÓNG GÓI</span>`;
@@ -2183,7 +2226,26 @@
         const scannerGroup = document.getElementById('scannerInputGroup');
         const actionFooter = document.getElementById('actionFooterArea');
 
-        if (isExported) {
+        if (isCancelled) {
+            banner.style.display = 'flex';
+            banner.style.background = '#fef2f2';
+            banner.style.borderColor = '#fecaca';
+            bannerIcon.textContent = '❌';
+            bannerIcon.style.background = '#ef4444';
+            bannerTitle.textContent = 'ĐƠN HÀNG ĐÃ BỊ HỦY TRÊN HỆ THỐNG (CANCELLED)';
+            bannerTitle.style.color = '#991b1b';
+
+            const reasonStr = currentOrder.cancellationReason ? `Lý do hủy: "${currentOrder.cancellationReason}"` : 'Đơn hàng đã bị hủy theo yêu cầu của Sales hoặc hệ thống';
+            bannerDesc.textContent = `${reasonStr}. Không thể thực hiện xuất kho hay quét serial cho đơn này.`.trim();
+            bannerDesc.style.color = '#b91c1c';
+
+            scannerGroup.style.display = 'none';
+            actionFooter.innerHTML = `
+                <button class="qe-btn-primary" style="background: #dc2626;" onclick="resetForNewOrder()">
+                    🔄 Quét đơn khác
+                </button>
+            `;
+        } else if (isExported) {
             banner.style.display = 'flex';
             banner.style.background = '#f0fdf4';
             banner.style.borderColor = '#bbf7d0';
@@ -2912,7 +2974,19 @@
         totalLabel.textContent = 'Tổng tồn kho: ...';
 
         try {
-            const siteId = currentOrder?.siteId || '';
+            let siteId = currentOrder?.siteId || currentOrder?.siteIdInt || '';
+            if (!siteId || isNaN(Number(siteId))) {
+                const bCode = currentOrder?.branchCode || currentOrder?.exportBranch || '';
+                const match = String(bCode).match(/CP\d+/i);
+                const branchSiteMap = {
+                    'CP01': 7, 'CP02': 8, 'CP07': 9, 'CP05': 46, 'CP08': 54, 'CP40': 85,
+                    'CP46': 628, 'CP58': 763, 'CP62': 779, 'CP64': 1600, 'CP67': 3480,
+                    'CP69': 29499, 'CP74': 53019
+                };
+                if (match && branchSiteMap[match[0].toUpperCase()]) {
+                    siteId = branchSiteMap[match[0].toUpperCase()];
+                }
+            }
             const res = await fetch(`/api/quick-export/stock-by-bin?sku=${encodeURIComponent(sku)}&siteId=${encodeURIComponent(siteId)}`, {
                 headers: { 'x-teko-token': tekoToken }
             });

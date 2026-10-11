@@ -20,6 +20,10 @@ test('Quick Order view and service contract tests', async (t) => {
     assert.match(content, /payOptCard/);
     assert.match(content, /payOptBank/);
     assert.match(content, /modalPaymentMethod/);
+    assert.match(content, /modalVietQrBox/);
+    assert.match(content, /modalPaymentBanner/);
+    assert.match(content, /modalErpLink/);
+    assert.match(content, /modalBankAcc/);
 
     // Test EJS compilation
     const html = ejs.render(content, {
@@ -44,6 +48,8 @@ test('Quick Order view and service contract tests', async (t) => {
     assert.match(html, /Tiền mặt/);
     assert.match(html, /Quẹt thẻ/);
     assert.match(html, /Chuyển khoản/);
+    assert.match(html, /modalVietQrBox/);
+    assert.match(html, /modalErpLink/);
   });
 
   await t.test('spos_order_service module exports required API functions and generates valid order codes with payment methods', async () => {
@@ -94,5 +100,14 @@ test('Quick Order view and service contract tests', async (t) => {
     assert.equal(resBank.ok, true);
     assert.equal(resBank.paymentMethod, 'BANK_TRANSFER');
     assert.equal(resBank.paymentMethodLabel, 'Chuyển khoản');
+    assert.equal(resBank.orderData.note, '', 'Default note should be empty');
+
+    const resWithNote = await sos.createPendingOrder({
+      customer: { name: 'Khách có ghi chú', phone: '0977111222' },
+      items: [{ sku: 'TEST04', name: 'Tai nghe', quantity: 1, listPrice: 500000 }],
+      note: 'Giao trước 17h',
+      allowOfflineMock: true
+    });
+    assert.equal(resWithNote.orderData.note, 'Giao trước 17h');
   });
 });

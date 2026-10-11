@@ -4,6 +4,7 @@
  * Đảm bảo 0% spam tới Teko: Ưu tiên đọc 100% từ Supabase, chỉ gọi 1 lần khi thiếu dữ liệu hoặc khi bấm 'Làm mới'.
  */
 
+const { TEKO_TERMINAL_CONFIG } = require('./spos_order_service');
 const TEKO_DISCOVERY_URL = 'https://discovery.tekoapis.com/api/v1/product';
 
 /**
@@ -31,7 +32,7 @@ async function getGlobalTekoToken(supabaseClient) {
 }
 
 /**
- * Gọi Discovery API của Teko để lấy thông tin chi tiết sản phẩm
+ * Gọi Discovery API của Teko để lấy thông tin chi tiết sản phẩm và giá/khuyến mãi theo từng Showroom (CPxx)
  * Có timeout 4000ms an toàn để không bao giờ làm treo hệ thống
  */
 async function fetchTekoProductDetails(sku, terminalCode = 'phongvu', supabaseClient) {
@@ -44,7 +45,7 @@ async function fetchTekoProductDetails(sku, terminalCode = 'phongvu', supabaseCl
   
   // Xác định mã terminal hợp lệ của hệ thống Phong Vũ (CPxx hoặc phongvu)
   const isCpCode = /^CP\d+$/i.test(String(terminalCode || '').trim());
-  const initialTerminal = isCpCode ? String(terminalCode).trim() : 'phongvu';
+  const initialTerminal = isCpCode ? String(terminalCode).trim().toUpperCase() : 'phongvu';
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -65,7 +66,13 @@ async function fetchTekoProductDetails(sku, terminalCode = 'phongvu', supabaseCl
       'Sec-Fetch-Site': 'cross-site',
     };
 
-    let res = await fetch(`${TEKO_DISCOVERY_URL}?sku=${encodeURIComponent(sku)}&terminalCode=${encodeURIComponent(initialTerminal)}`, {
+    let termUrl = `${TEKO_DISCOVERY_URL}?sku=${encodeURIComponent(sku)}&terminalCode=${encodeURIComponent(initialTerminal)}`;
+    const termConf = TEKO_TERMINAL_CONFIG ? TEKO_TERMINAL_CONFIG[initialTerminal] : null;
+    if (termConf && termConf.id) {
+      termUrl += `&terminalId=${termConf.id}`;
+    }
+
+    let res = await fetch(termUrl, {
       method: 'GET',
       headers: stealthHeaders,
       signal: controller.signal
@@ -159,7 +166,12 @@ async function fetchTekoProductDetails(sku, terminalCode = 'phongvu', supabaseCl
       vat_rate: vatRate,
       warranty: warranty,
       specifications: specifications,
-      images: images
+      images: images,
+      terminal_code: initialTerminal,
+      terminal_price: terminalPrice,
+      latest_price: latestPrice,
+      promotions: p.promotions || [],
+      flash_sales: p.flashSales || []
     };
 
   } catch (err) {
@@ -247,7 +259,12 @@ async function getOrSyncProductData(sku, terminalCode, supabaseClient, forceRefr
       ...updatePayload,
       list_price: finalListPrice,
       promo_price: finalPromoPrice,
-      discount_amount: finalDiscountAmt
+      discount_amount: finalDiscountAmt,
+      terminal_code: details.terminal_code || initialTerminal,
+      terminal_price: details.terminal_price,
+      latest_price: details.latest_price,
+      promotions: details.promotions || [],
+      flash_sales: details.flash_sales || []
     };
 
   } catch (syncErr) {
