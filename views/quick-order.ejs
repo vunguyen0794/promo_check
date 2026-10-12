@@ -2591,6 +2591,73 @@
     }
   }
 
+  // Bóc tách danh sách quà tặng từ CTKM (hỗ trợ cả mảng gifts của Teko và chuỗi ghép nối)
+  function extractPromotionGifts(p) {
+    if (!p) return [];
+    const gifts = [];
+
+    // 1. Nếu p.benefit.gifts là mảng danh sách quà tặng chuẩn từ Teko API
+    if (Array.isArray(p.benefit?.gifts) && p.benefit.gifts.length > 0) {
+      p.benefit.gifts.forEach(g => {
+        const gName = (g.name || '').trim();
+        const gSku = String(g.sku || '').trim();
+        if (gName || gSku) {
+          gifts.push({
+            sku: gSku || undefined,
+            name: gName || `Quà tặng ${gSku}`,
+            quantity: Number(g.quantity) || 1
+          });
+        }
+      });
+      if (gifts.length > 0) return gifts;
+    }
+
+    // 2. Nếu p.benefit.gift là 1 đối tượng hoặc chuỗi
+    if (p.benefit?.gift) {
+      if (typeof p.benefit.gift === 'object') {
+        const gName = (p.benefit.gift.name || '').trim();
+        const gSku = String(p.benefit.gift.sku || '').trim();
+        if (gName || gSku) {
+          gifts.push({ sku: gSku || undefined, name: gName || `Quà tặng ${gSku}`, quantity: 1 });
+        }
+      } else if (typeof p.benefit.gift === 'string' && p.benefit.gift.trim()) {
+        gifts.push({ name: p.benefit.gift.trim(), quantity: 1 });
+      }
+      if (gifts.length > 0) return gifts;
+    }
+
+    // 3. Nếu p.gift là chuỗi (Marketing promotions)
+    const rawGiftStr = typeof p.gift === 'string' ? p.gift.trim() : '';
+    if (rawGiftStr) {
+      if (rawGiftStr.includes('+')) {
+        const parts = rawGiftStr.split('+').map(s => s.trim()).filter(Boolean);
+        parts.forEach(part => {
+          gifts.push({ name: part, quantity: 1 });
+        });
+      } else {
+        gifts.push({ name: rawGiftStr, quantity: 1 });
+      }
+      if (gifts.length > 0) return gifts;
+    }
+
+    // 4. Nếu trong tên CTKM (p.name hoặc p.description) có cụm từ "tặng bộ quà ... + ..." hoặc "tặng ... + ..."
+    const fullName = (p.name || p.description || '').trim();
+    const tangMatch = fullName.match(/tặng\s+(?:bộ\s+quà\s+)?([^\(\)]+)/i);
+    if (tangMatch && tangMatch[1]) {
+      const giftPart = tangMatch[1].trim();
+      if (giftPart.includes('+')) {
+        const parts = giftPart.split('+').map(s => s.trim().replace(/^[\-\•\*\s]+/, '')).filter(Boolean);
+        parts.forEach(part => {
+          gifts.push({ name: part, quantity: 1 });
+        });
+      } else if (giftPart.length > 3 && !/^\d+\s*đ/i.test(giftPart) && !/^giảm/i.test(giftPart)) {
+        gifts.push({ name: giftPart, quantity: 1 });
+      }
+    }
+
+    return gifts;
+  }
+
   // ==========================================
   // RENDER CART & TÍNH TOÁN TỔNG TIỀN
   // ==========================================
@@ -2660,10 +2727,14 @@
             } else if (promoD > 0) {
               dText = `Giảm ${formatNumber(promoD)}đ`;
             }
+
+            const promoGifts = extractPromotionGifts(p);
+
             activePromos.push({
               name: pName,
               discountText: dText,
-              gift: p.benefit?.gift?.name || '',
+              gifts: promoGifts,
+              gift: promoGifts.length > 0 ? promoGifts.map(g => g.name).join(' + ') : '',
               couponCode: (p.coupon || p.benefit?.coupon || '').trim().toUpperCase()
             });
           }
@@ -2684,10 +2755,12 @@
           const dText = promoD > 0 ? `Giảm ${formatNumber(promoD)}đ` : '';
 
           if (!activePromos.some(ap => ap.name === mName)) {
+            const promoGifts = extractPromotionGifts({ ...mp, gift: giftName, name: mName });
             activePromos.push({
               name: mName,
               discountText: dText,
-              gift: giftName,
+              gifts: promoGifts,
+              gift: promoGifts.length > 0 ? promoGifts.map(g => g.name).join(' + ') : (giftName || ''),
               couponCode: couponCode
             });
           }
@@ -2698,6 +2771,7 @@
         activePromos.push({
           name: `CTKM ${branchLabel}`,
           discountText: `Giảm ${formatNumber(promoD)}đ`,
+          gifts: [],
           gift: '',
           couponCode: ''
         });
@@ -2714,10 +2788,25 @@
             ${activePromos.length > 0 ? `
               <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
                 ${activePromos.map((pr, prIdx) => {
-                  const targetGiftId = `giftStock_${sku}_${prIdx}`;
-                  if (pr.gift) {
-                    giftStockTasks.push({ giftName: pr.gift, sku, targetId: targetGiftId });
+                  if (pr.gifts && pr.gifts.length > 0) {
+                    pr.gifts.forEach((g, gIdx) => {
+                      const targetGiftId = `giftStock_${sku}_${prIdx}_${gIdx}`;
+                      giftStockTasks.push({
+                        giftName: g.name,
+                        giftSku: g.sku,
+                        sku: sku,
+                        targetId: targetGiftId
+                      });
+                    });
+                  } else if (pr.gift) {
+                    const targetGiftId = `giftStock_${sku}_${prIdx}_0`;
+                    giftStockTasks.push({
+                      giftName: pr.gift,
+                      sku: sku,
+                      targetId: targetGiftId
+                    });
                   }
+
                   return `
                   <div class="qo-promo-banner" title="${escapeHtml(pr.name)}">
                     <!-- Hàng trên: 2 cột (Trái: Tên CTKM, Phải: Mã giảm / Nút áp mã) -->
@@ -2745,15 +2834,33 @@
                       </div>
                     </div>
 
-                    <!-- Hàng dưới: Thông tin quà tặng và Block hiển thị tồn xuống hẳn phần dưới -->
-                    ${pr.gift ? `
+                    <!-- Hàng dưới: Bóc tách từng món quà tặng & tra cứu tồn/bin -->
+                    ${pr.gifts && pr.gifts.length > 0 ? `
+                      <div class="qo-promo-banner-bottom" style="gap: 6px;">
+                        ${pr.gifts.map((g, gIdx) => {
+                          const targetGiftId = `giftStock_${sku}_${prIdx}_${gIdx}`;
+                          return `
+                            <div class="qo-promo-gift-item" style="display: flex; flex-direction: column; gap: 2px; padding: 3px 0; ${gIdx > 0 ? 'border-top: 1px dotted #f1f5f9;' : ''}">
+                              <div class="qo-promo-banner-gift">
+                                🎁 Quà tặng ${pr.gifts.length > 1 ? `#${gIdx + 1}:` : ':'} 
+                                <strong>${escapeHtml(g.name)}</strong>
+                                ${g.quantity > 1 ? `<span style="color: #64748b; font-size: 11px;"> (SL: ${g.quantity})</span>` : ''}
+                              </div>
+                              <div class="qo-promo-gift-stock-wrap" id="${targetGiftId}">
+                                <span class="qo-gift-stock-loading">⏳ Đang tra cứu tồn quà tặng...</span>
+                              </div>
+                            </div>
+                          `;
+                        }).join('')}
+                      </div>
+                    ` : (pr.gift ? `
                       <div class="qo-promo-banner-bottom">
                         <div class="qo-promo-banner-gift">Quà tặng: <strong>${escapeHtml(pr.gift)}</strong></div>
-                        <div class="qo-promo-gift-stock-wrap" id="${targetGiftId}">
+                        <div class="qo-promo-gift-stock-wrap" id="giftStock_${sku}_${prIdx}_0">
                           <span class="qo-gift-stock-loading">⏳ Đang tra cứu tồn quà tặng...</span>
                         </div>
                       </div>
-                    ` : ''}
+                    ` : '')}
                   </div>
                 `;
                 }).join('')}
@@ -2817,7 +2924,7 @@
 
     // Tra cứu và hiển thị tồn kho quà tặng theo chi nhánh
     giftStockTasks.forEach(task => {
-      loadGiftStock(task.giftName, task.sku, currentBranchCode, task.targetId);
+      loadGiftStock(task.giftName, task.giftSku, task.sku, currentBranchCode, task.targetId);
     });
   }
 
@@ -2826,18 +2933,21 @@
   // ==========================================
   const giftStockCache = {};
 
-  async function loadGiftStock(giftName, parentSku, branch, targetId) {
+  async function loadGiftStock(giftName, giftSku, parentSku, branch, targetId) {
     const el = document.getElementById(targetId);
     if (!el) return;
 
-    const cacheKey = `${parentSku}_${giftName}_${branch}`;
+    const cacheKey = `${parentSku}_${giftSku || ''}_${giftName}_${branch}`;
     if (giftStockCache[cacheKey]) {
       renderGiftStockHtml(el, giftStockCache[cacheKey]);
       return;
     }
 
     try {
-      const url = `/api/quick-order/gift-stock?giftName=${encodeURIComponent(giftName)}&sku=${encodeURIComponent(parentSku)}&branch=${encodeURIComponent(branch)}`;
+      let url = `/api/quick-order/gift-stock?sku=${encodeURIComponent(parentSku)}&branch=${encodeURIComponent(branch)}`;
+      if (giftSku) url += `&giftSku=${encodeURIComponent(giftSku)}`;
+      if (giftName) url += `&giftName=${encodeURIComponent(giftName)}`;
+
       const res = await fetch(url).then(r => r.json());
       if (res && res.ok && res.found) {
         giftStockCache[cacheKey] = res;
@@ -2945,10 +3055,11 @@
       tPromos.forEach(tp => {
         const cCode = (tp.coupon || (tp.benefit && tp.benefit.coupon) || '').trim().toUpperCase();
         if (cCode && !suggestions.some(s => s.code === cCode)) {
+          const tpGifts = extractPromotionGifts(tp);
           suggestions.push({
             code: cCode,
             name: tp.name || tp.description || 'Ưu đãi mã giảm giá',
-            gift: tp.benefit?.gift?.name || '',
+            gift: tpGifts.length > 0 ? tpGifts.map(g => g.name).join(' + ') : '',
             sku: it.sku
           });
         }
@@ -3016,7 +3127,8 @@
         tPromos.forEach(tp => {
           const cCode = (tp.coupon || (tp.benefit && tp.benefit.coupon) || '').trim().toUpperCase();
           if (cCode === code) {
-            gift = tp.benefit?.gift?.name || '';
+            const tpGifts = extractPromotionGifts(tp);
+            gift = tpGifts.length > 0 ? tpGifts.map(g => g.name).join(' + ') : '';
             desc = tp.name || tp.description || desc;
           }
         });

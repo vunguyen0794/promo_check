@@ -15349,19 +15349,20 @@ app.get('/api/quick-order/gift-stock', async (req, res, next) => {
 }, requireAuth, async (req, res) => {
   try {
     const rawGiftName = String(req.query.giftName || '').trim();
+    const rawGiftSku = String(req.query.giftSku || '').trim();
     const parentSku = String(req.query.sku || '').trim();
     const userBranch = req.session?.user?.branch_code || 'CP01';
     const branch = String(req.query.branch || userBranch).toUpperCase().trim();
 
-    if (!rawGiftName && !parentSku) {
+    if (!rawGiftName && !parentSku && !rawGiftSku) {
       return res.status(400).json({ ok: false, error: 'Thiếu tên quà tặng hoặc SKU sản phẩm' });
     }
 
-    let giftSku = null;
-    let giftProductName = '';
+    let giftSku = rawGiftSku || null;
+    let giftProductName = rawGiftName || '';
 
-    // 1. Thử tra cứu từ promo_sku_master nếu có parentSku
-    if (parentSku) {
+    // 1. Thử tra cứu từ promo_sku_master nếu có parentSku và chưa có giftSku trực tiếp
+    if (!giftSku && parentSku) {
       const { data: pRows } = await supabase
         .from('promo_sku_master')
         .select('gift_sku, gift_name')
