@@ -1939,8 +1939,8 @@
 
   // Luồng hiển thị khi chưa lấy token: Mặc định branch & địa chỉ từ phân quyền Supabase
   let currentBranchCode = assignedBranchCode;
-  if (!branchConfigMap[currentBranchCode]) {
-    currentBranchCode = Object.keys(branchConfigMap).filter(k => k !== 'DEFAULT')[0] || 'CP01';
+  if (!currentBranchCode || !currentBranchCode.startsWith('CP') || !branchConfigMap[currentBranchCode]) {
+    currentBranchCode = Object.keys(branchConfigMap).filter(k => k.startsWith('CP'))[0] || 'CP01';
   }
 
   function onBranchChange(code) {
@@ -2655,15 +2655,17 @@
 
     // 4. Nếu trong tên CTKM (p.name hoặc p.description) có cụm từ "tặng bộ quà ... + ..." hoặc "tặng ... + ..."
     const fullName = (p.name || p.description || '').trim();
-    const tangMatch = fullName.match(/tặng\s+(?:bộ\s+quà\s+)?([^\(\)]+)/i);
+    const tangMatch = fullName.match(/tặng\s+(?:ngay|liền|thêm\s+ngay|thêm)?\s*(?:bộ\s+quà\s+)?([^\(\)]+)/i);
     if (tangMatch && tangMatch[1]) {
-      const giftPart = tangMatch[1].trim();
+      let giftPart = tangMatch[1].trim();
+      // Loại bỏ các từ đệm: "ngay 1 ", "1 ", "2 "
+      giftPart = giftPart.replace(/^(?:ngay|liền|thêm)?\s*(?:\d+\s*(?:cái|chiếc|món)?\s*)?/i, '').trim();
       if (giftPart.includes('+')) {
         const parts = giftPart.split('+').map(s => s.trim().replace(/^[\-\•\*\s]+/, '')).filter(Boolean);
         parts.forEach(part => {
           gifts.push({ name: part, quantity: 1 });
         });
-      } else if (giftPart.length > 3 && !/^\d+\s*đ/i.test(giftPart) && !/^giảm/i.test(giftPart)) {
+      } else if (giftPart.length >= 3 && !/^\d+\s*đ/i.test(giftPart) && !/^giảm/i.test(giftPart)) {
         gifts.push({ name: giftPart, quantity: 1 });
       }
     }

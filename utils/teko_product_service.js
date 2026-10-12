@@ -43,9 +43,10 @@ async function fetchTekoProductDetails(sku, terminalCode = 'phongvu', supabaseCl
 
   const cleanToken = token.trim().toLowerCase().startsWith('bearer ') ? token.trim() : `Bearer ${token.trim()}`;
   
-  // Xác định mã terminal hợp lệ của hệ thống Phong Vũ (CPxx hoặc phongvu)
+  // Xác định mã terminal hợp lệ của hệ thống showroom bán lẻ Phong Vũ (CPxx)
+  // Nếu là HCM.BD, DEFAULT hoặc mã văn phòng, chuyển sang CP01 để nhận đầy đủ CTKM quà tặng showroom POS
   const isCpCode = /^CP\d+$/i.test(String(terminalCode || '').trim());
-  const initialTerminal = isCpCode ? String(terminalCode).trim().toUpperCase() : 'phongvu';
+  const initialTerminal = isCpCode ? String(terminalCode).trim().toUpperCase() : 'CP01';
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -78,9 +79,9 @@ async function fetchTekoProductDetails(sku, terminalCode = 'phongvu', supabaseCl
       signal: controller.signal
     });
 
-    // Nếu mã chi nhánh hiện tại trả về 404 (ví dụ chi nhánh chưa đăng ký trên Teko Discovery), tự động fallback về 'phongvu'
-    if (!res.ok && initialTerminal !== 'phongvu') {
-      res = await fetch(`${TEKO_DISCOVERY_URL}?sku=${encodeURIComponent(sku)}&terminalCode=phongvu`, {
+    // Nếu mã chi nhánh hiện tại trả về 404 (ví dụ chi nhánh chưa đăng ký trên Teko Discovery), tự động fallback về showroom chính 'CP01'
+    if (!res.ok && initialTerminal !== 'CP01') {
+      res = await fetch(`${TEKO_DISCOVERY_URL}?sku=${encodeURIComponent(sku)}&terminalCode=CP01&terminalId=26`, {
         method: 'GET',
         headers: stealthHeaders,
         signal: controller.signal

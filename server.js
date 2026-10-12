@@ -2566,7 +2566,10 @@ app.get('/api/sku/:sku/details', async (req, res) => {
   try {
     const sku = (req.params.sku || '').trim();
     if (!sku) return res.status(400).json({ ok: false, error: 'Thiếu mã SKU.' });
-    const userBranch = String(req.query.branch || req.session?.user?.branch_code || 'CP01').toUpperCase().trim();
+    let userBranch = String(req.query.branch || req.session?.user?.branch_code || 'CP01').toUpperCase().trim();
+    if (!userBranch.startsWith('CP')) {
+      userBranch = 'CP01';
+    }
     const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
     const product = await getOrSyncProductData(sku, userBranch, supabase, forceRefresh);
     if (!product) return res.status(404).json({ ok: false, error: `Không tìm thấy sản phẩm với SKU: ${sku}` });
@@ -15180,11 +15183,22 @@ app.get('/quick-order', async (req, res, next) => {
   try {
     const user = req.session?.user;
 
-    const branchCode = user?.branch_code || 'CP01';
-    const branchInfo = BRANCH_CONFIG[branchCode] || BRANCH_CONFIG['DEFAULT'] || {
+    let branchCode = user?.branch_code || 'CP01';
+    if (!branchCode.startsWith('CP')) {
+      branchCode = 'CP01';
+    }
+    const branchInfo = BRANCH_CONFIG[branchCode] || BRANCH_CONFIG['CP01'] || {
       name: `Chi nhánh ${branchCode}`,
       address: 'Showroom Phong Vũ'
     };
+
+    // Chỉ lọc các showroom bán lẻ thực tế (CPxx) cho tính năng Tạo đơn nhanh
+    const showroomBranches = {};
+    for (const [k, v] of Object.entries(BRANCH_CONFIG)) {
+      if (k.startsWith('CP')) {
+        showroomBranches[k] = v;
+      }
+    }
 
     res.render('quick-order', {
       title: '🛒 Tạo Đơn Hàng Nhanh - SPOS Web',
@@ -15192,7 +15206,7 @@ app.get('/quick-order', async (req, res, next) => {
       user,
       branchCode,
       branchInfo,
-      branches: BRANCH_CONFIG
+      branches: showroomBranches
     });
   } catch (err) {
     console.error('Error rendering quick-order:', err);
