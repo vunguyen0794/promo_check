@@ -352,6 +352,19 @@
     line-height: 1.4;
   }
 
+  .qo-installment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: #4338ca;
+    line-height: 1.4;
+  }
+
   .qo-gift-sku-tag {
     font-family: monospace;
     font-weight: 700;
@@ -2710,6 +2723,9 @@
       
       // Tập hợp danh sách các CTKM áp dụng chính xác cho sản phẩm này
       const activePromos = [];
+      const installmentPromos = [];
+
+      // 1. Duyệt các CTKM từ Teko API (Nguồn chuẩn thời gian thực, có giá trị pháp lý khi tạo đơn)
       if (it.promotions && it.promotions.length > 0) {
         it.promotions.forEach(p => {
           const pName = (p.name || p.description || '').trim();
@@ -2717,6 +2733,8 @@
             const flatVal = p.benefit?.discount?.flat;
             const maxVal = p.benefit?.discount?.maxAmount;
             const pctVal = p.benefit?.discount?.percent;
+            const promoGifts = extractPromotionGifts(p);
+
             let dText = '';
             if (flatVal && flatVal > 0) {
               dText = `Giảm ${formatNumber(flatVal)}đ`;
@@ -2724,23 +2742,23 @@
               dText = `Giảm ${formatNumber(maxVal)}đ`;
             } else if (pctVal && pctVal > 0) {
               dText = `Giảm ${pctVal}%`;
-            } else if (promoD > 0) {
+            } else if (it.promotions.length === 1 && promoGifts.length === 0 && promoD > 0) {
               dText = `Giảm ${formatNumber(promoD)}đ`;
             }
-
-            const promoGifts = extractPromotionGifts(p);
 
             activePromos.push({
               name: pName,
               discountText: dText,
               gifts: promoGifts,
               gift: promoGifts.length > 0 ? promoGifts.map(g => g.name).join(' + ') : '',
-              couponCode: (p.coupon || p.benefit?.coupon || '').trim().toUpperCase()
+              couponCode: (p.coupon || p.benefit?.coupon || '').trim().toUpperCase(),
+              fromTeko: true
             });
           }
         });
       }
 
+      // 2. Duyệt các CTKM từ Google Sheets / Supabase (marketingPromotions)
       const mPromos = (it.marketingPromotions || it.marketing_promotions || []);
       if (mPromos.length > 0) {
         const brandStr = ((it.brand || '') + ' ' + (it.name || '')).toUpperCase();
@@ -2749,19 +2767,70 @@
           if (!mName) return;
           if (mName.includes('MÁY IN') && !brandStr.includes('MÁY IN')) return;
 
+          const sheetUpper = (mp.sheet || '').toUpperCase();
+          const nameUpper = mName.toUpperCase();
+
+          // 2.1. Phân loại Chính sách Trả góp / Hỗ trợ tài chính (Chỉ có trên docs/Google Sheets, không có trên Teko cart API)
+          const isInstallment = sheetUpper.includes('GÓP') || nameUpper.includes('TRẢ GÓP') || nameUpper.includes('GÓP 0%') ||
+            sheetUpper.includes('HOMECREDIT') || sheetUpper.includes('PAYOO') || sheetUpper.includes('SHINHAN') ||
+            nameUpper.includes('MỞ THẺ') || sheetUpper.includes('MỞ THẺ') || nameUpper.includes('VIB') || nameUpper.includes('EVO');
+
+          if (isInstallment) {
+            if (!installmentPromos.some(ip => ip.name === mName)) {
+              installmentPromos.push({
+                name: mName,
+                sheet: mp.sheet
+              });
+            }
+            return;
+          }
+
+          // 2.2. Khử trùng lặp: Nếu Teko API đã có CTKM tương tự (cùng quà tặng, cùng mã coupon hoặc cùng nội dung hãng), BỎ QUA dòng trùng lặp từ sheet!
           const couponInfo = resolvePromoCouponInfo(mp, brandStr);
           const couponCode = couponInfo ? couponInfo.code : '';
           const giftName = couponInfo ? couponInfo.gift : (mp.gift || '');
-          const dText = promoD > 0 ? `Giảm ${formatNumber(promoD)}đ` : '';
+
+          const isDuplicateWithTeko = activePromos.some(ap => {
+            // Trùng coupon
+            if (couponCode && ap.couponCode === couponCode) return true;
+
+            // Trùng loại quà tặng (ví dụ cả hai đều tặng USB, hoặc cả hai đều tặng Chuột/Ba lô)
+            if (giftName && ap.gifts && ap.gifts.length > 0) {
+              const cleanG = giftName.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+              if (cleanG.length >= 3 && ap.gifts.some(g => g.name.toLowerCase().includes(cleanG) || cleanG.includes(g.name.toLowerCase()))) {
+                return true;
+              }
+            }
+
+            // Trùng từ khóa tên hãng và danh mục quà (ví dụ "SANDISK" và "USB")
+            const apNameUpper = ap.name.toUpperCase();
+            if (nameUpper.includes('SANDISK') && apNameUpper.includes('SANDISK') && (nameUpper.includes('USB') || sheetUpper.includes('USB'))) {
+              return true;
+            }
+            if (nameUpper.includes('ASUS') && apNameUpper.includes('ASUS') && ap.gifts && ap.gifts.length > 0 && nameUpper.includes('TẶNG')) {
+              return true;
+            }
+
+            // Trùng tên
+            if (ap.name === mName) return true;
+
+            return false;
+          });
+
+          if (isDuplicateWithTeko) {
+            return; // Đã có trên Teko API với thông tin chuẩn xác và mã SKU quà tặng thực tế
+          }
+
+          const promoGifts = extractPromotionGifts({ ...mp, gift: giftName, name: mName });
 
           if (!activePromos.some(ap => ap.name === mName)) {
-            const promoGifts = extractPromotionGifts({ ...mp, gift: giftName, name: mName });
             activePromos.push({
               name: mName,
-              discountText: dText,
+              discountText: '', // CTKM sheet marketing không tự động gán tiền giảm nếu không có voucher
               gifts: promoGifts,
               gift: promoGifts.length > 0 ? promoGifts.map(g => g.name).join(' + ') : (giftName || ''),
-              couponCode: couponCode
+              couponCode: couponCode,
+              fromTeko: false
             });
           }
         });
@@ -2820,7 +2889,10 @@
                           <span class="qo-promo-banner-tag">${escapeHtml(pr.discountText)}</span>
                         ` : ''}
                         ${!pr.couponCode && pr.discountText ? `
-                          <span class="qo-promo-applied-badge" style="background: #ecfdf5; color: #047857; border-color: #a7f3d0; font-weight: 600;">✓ Tự động áp dụng đơn</span>
+                          <span class="qo-promo-applied-badge" style="background: #ecfdf5; color: #047857; border-color: #a7f3d0; font-weight: 600;">✓ Tự động giảm giá đơn</span>
+                        ` : ''}
+                        ${!pr.couponCode && !pr.discountText && ((pr.gifts && pr.gifts.length > 0) || pr.gift) ? `
+                          <span class="qo-promo-applied-badge" style="background: #f0fdf4; color: #166534; border-color: #bbf7d0; font-weight: 600;">✓ Quà tặng kèm đơn</span>
                         ` : ''}
                         ${pr.couponCode ? `
                           ${appliedVoucher && appliedVoucher.code === pr.couponCode ? `
@@ -2864,6 +2936,16 @@
                   </div>
                 `;
                 }).join('')}
+              </div>
+            ` : ''}
+            ${installmentPromos.length > 0 ? `
+              <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px;">
+                ${installmentPromos.map(ip => `
+                  <div class="qo-installment-badge" title="Chính sách trả góp qua đối tác tài chính">
+                    <span style="font-size: 11px;">💳</span>
+                    <span style="font-weight: 600;">${escapeHtml(ip.name)}</span>
+                  </div>
+                `).join('')}
               </div>
             ` : ''}
           </td>
