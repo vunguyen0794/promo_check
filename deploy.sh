@@ -3,6 +3,7 @@
 # Script tự động Deploy code từ máy lên VPS (222.255.184.49)
 # ========================================================
 set -e
+cd "$(dirname "$0")"
 
 VPS_HOST="222.255.184.49"
 VPS_USER="root"
