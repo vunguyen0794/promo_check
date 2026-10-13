@@ -9033,11 +9033,11 @@ app.get('/api/cron/sync-all', async (req, res) => {
     results.skus = await runBqSkuSync('Automation System');
     console.log('[CRON] SKU Sync OK');
 
-    // 2. Sync Inventory
-    const { syncInventory } = require('./sync_inventory');
-    await syncInventory();
-    results.inventory = { ok: true };
-    console.log('[CRON] Inventory Sync OK');
+    // 2. Sync Inventory (Tắt trên Vercel Cron để tránh timeout/quá tải)
+    // const { syncInventory } = require('./sync_inventory');
+    // await syncInventory();
+    results.inventory = { ok: true, skipped: true, message: 'Skipped for Vercel Cron' };
+    console.log('[CRON] Inventory Sync Skipped (Disabled on Vercel)');
 
     // 3. Sync Clearance
     await syncClearanceData();
