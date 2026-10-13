@@ -159,29 +159,36 @@
             }
 
             /* TIỆN ÍCH DROPDOWN TRIGGER */
-            .header-content .dropdown {
+            .dropdown {
                 position: relative;
-                display: flex;
+                display: inline-flex;
                 align-items: center;
             }
 
-            .header-content .dropdown #utilitiesDropdownToggle {
-                display: inline-flex;
+            #utilitiesDropdownToggle {
+                display: inline-flex !important;
                 align-items: center;
                 gap: 5px;
-                color: rgba(255, 255, 255, 0.9);
-                text-decoration: none;
-                padding: 7px 12px;
-                font-size: 13.5px;
-                font-weight: 500;
-                border-radius: 6px;
+                color: rgba(255, 255, 255, 0.9) !important;
+                text-decoration: none !important;
+                padding: 7px 12px !important;
+                font-size: 13.5px !important;
+                font-weight: 500 !important;
+                line-height: 1.4 !important;
+                border-radius: 6px !important;
+                background: transparent;
+                cursor: pointer;
+                user-select: none;
+                white-space: nowrap !important;
                 transition: background 0.15s ease, color 0.15s ease;
             }
 
-            .header-content .dropdown #utilitiesDropdownToggle:hover,
-            .header-content .dropdown #utilitiesDropdownToggle.active {
-                background: rgba(255, 255, 255, 0.16);
-                color: #ffffff;
+            #utilitiesDropdownToggle:hover,
+            #utilitiesDropdownToggle.active,
+            #utilitiesDropdownToggle.open,
+            .dropdown:hover #utilitiesDropdownToggle {
+                background: rgba(255, 255, 255, 0.16) !important;
+                color: #ffffff !important;
             }
 
             .dropdown-chevron {
@@ -190,34 +197,51 @@
                 margin-left: 2px;
             }
 
-            #utilitiesDropdownToggle.open .dropdown-chevron {
+            #utilitiesDropdownToggle.open .dropdown-chevron,
+            .dropdown:hover #utilitiesDropdownToggle .dropdown-chevron {
                 transform: rotate(180deg);
                 opacity: 1;
             }
 
             /* DROPDOWN MENU */
-            .header-content .dropdown .dropdown-menu#utilitiesDropdownMenu {
+            #utilitiesDropdownMenu {
                 position: absolute;
-                top: calc(100% + 6px);
+                top: calc(100% + 4px);
                 left: 0;
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 10px;
+                background: #ffffff !important;
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 10px !important;
                 min-width: 195px;
-                padding: 6px;
-                z-index: 1000;
-                box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
-                opacity: 0;
-                visibility: hidden;
-                transform: translateY(-6px);
-                transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.15s;
+                padding: 6px !important;
+                z-index: 1050 !important;
+                box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.14), 0 8px 10px -6px rgba(15, 23, 42, 0.04) !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+                transform: translateY(-6px) !important;
+                transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.15s !important;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+                display: block !important;
             }
 
-            .header-content .dropdown .dropdown-menu#utilitiesDropdownMenu.open {
-                opacity: 1;
-                visibility: visible;
-                transform: translateY(0);
+            /* Cầu nối hover 8px */
+            #utilitiesDropdownMenu::before {
+                content: '';
+                position: absolute;
+                top: -8px;
+                left: 0;
+                right: 0;
+                height: 8px;
+            }
+
+            /* Hiển thị khi click (.open) hoặc khi hover chuột trên Desktop */
+            #utilitiesDropdownMenu.open,
+            .dropdown:hover #utilitiesDropdownMenu {
+                opacity: 1 !important;
+                visibility: visible !important;
+                pointer-events: auto !important;
+                transform: translateY(0) !important;
+                display: block !important;
             }
 
             #utilitiesDropdownMenu a.dropdown-item,
@@ -1034,8 +1058,9 @@
                                         <span>QL CTKM</span>
                                     </a>
                                 <% } %>
+                            </nav>
 
-                                <% const utilityPages = ['quick-export', 'send-notification', 'policy', 'customer-care', 'pc-builder', 'quote-builder', 'clearance-check', 'queue-admin', 'queue-tv', 'queue-report']; %>
+                            <% const utilityPages = ['quick-export', 'send-notification', 'policy', 'customer-care', 'pc-builder', 'quote-builder', 'clearance-check', 'queue-admin', 'queue-tv', 'queue-report']; %>
                                 <div class="dropdown">
                                     <a href="#" id="utilitiesDropdownToggle"
                                         class="<%= utilityPages.includes(currentPage) ? 'active' : '' %>">
@@ -1086,7 +1111,6 @@
                                         </a>
                                     </div>
                                 </div>
-                            </nav>
                         </div>
 
                         <div class="header-right">
@@ -1399,19 +1423,42 @@
 
             // --- SỰ KIỆN LOAD TRANG ---
             document.addEventListener('DOMContentLoaded', function () {
-                // Logic Dropdown Tiện ích
+                // Logic Dropdown Tiện ích (Click & Hover)
                 const utilsBtn = document.getElementById('utilitiesDropdownToggle');
                 const utilsMenu = document.getElementById('utilitiesDropdownMenu');
+                const utilsDropdown = document.querySelector('.dropdown');
                 if (utilsBtn && utilsMenu) {
-                    utilsBtn.addEventListener('click', (e) => {
+                    utilsBtn.addEventListener('click', function (e) {
                         e.preventDefault();
-                        utilsMenu.classList.toggle('open');
-                        utilsBtn.classList.toggle('open');
+                        e.stopPropagation();
+                        const isOpen = utilsMenu.classList.contains('open');
+                        if (isOpen) {
+                            utilsMenu.classList.remove('open');
+                            utilsBtn.classList.remove('open');
+                            if (utilsDropdown) utilsDropdown.classList.remove('open');
+                        } else {
+                            const notifDropdown = document.getElementById('notifDropdown');
+                            if (notifDropdown) notifDropdown.classList.remove('show');
+
+                            utilsMenu.classList.add('open');
+                            utilsBtn.classList.add('open');
+                            if (utilsDropdown) utilsDropdown.classList.add('open');
+                        }
                     });
-                    document.addEventListener('click', (e) => {
+
+                    utilsMenu.addEventListener('click', function (e) {
+                        const link = e.target.closest('a');
+                        if (link && link.getAttribute('href') && link.getAttribute('href') !== '#') {
+                            return; // Cho phép điều hướng trang
+                        }
+                        e.stopPropagation();
+                    });
+
+                    document.addEventListener('click', function (e) {
                         if (!utilsBtn.contains(e.target) && !utilsMenu.contains(e.target)) {
                             utilsMenu.classList.remove('open');
                             utilsBtn.classList.remove('open');
+                            if (utilsDropdown) utilsDropdown.classList.remove('open');
                         }
                     });
                 }
