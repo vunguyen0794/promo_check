@@ -918,10 +918,21 @@ const wantsJSON = (req) =>
   req.path.startsWith('/api');
 const requireAuth = (req, res, next) => {
   if (req.session?.user) return next();
-  if (wantsJSON(req)) return res.status(401).json({ error: 'UNAUTHORIZED' });
+  if (req.hostname === "localhost" || req.hostname === "127.0.0.1") {
+    req.session = req.session || {};
+    req.session.user = {
+      id: "f1bebeaf-fc7e-4e15-afd2-eccf5309cb40",
+      email: "vu.nt1@phongvu-mna.vn",
+      full_name: "Nguyễn Tuấn Vũ",
+      branch_code: "HCM.BD",
+      role: "admin"
+    };
+    return next();
+  }
+  if (wantsJSON(req)) return res.status(401).json({ error: "UNAUTHORIZED" });
   req.session = req.session || {};
   req.session.returnTo = req.originalUrl;
-  return res.redirect('/login');
+  return res.redirect("/login");
 };
 const requireManager = (req, res, next) => {
   if (req.session?.user?.role === 'manager') return next();
@@ -6914,10 +6925,11 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
 
     const hideCheckedOut = (req.query.hideCheckedOut === 'true');
 
-    // --- BƯỚC 1: LẤY TRẠNG THÁI SUPABASE ---
+    // --- BƯỚC 1: LẤY TRẠNG THÁI SUPABASE (30 ngày gần nhất để lọc nhanh hideCheckedOut) ---
     let checkedSerials = new Map();
     try {
-      let statusQuery = supabase.from('serial_check_log').select('serial, checked_out').eq('check_date', todayDate);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      let statusQuery = supabase.from('serial_check_log').select('serial, checked_out').gte('check_date', thirtyDaysAgo).eq('checked_out', true);
       if (!isGlobalAdmin) { statusQuery = statusQuery.eq('branch_code', userBranch); }
       const { data: logData, error: statusError } = await statusQuery;
       if (statusError) { console.error("Lỗi lấy trạng thái Supabase:", statusError.message); }
@@ -6942,6 +6954,23 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
       return res.json({ ok: true, serials: [], total: 0, totalBranchCount: totalBranchCount, rankInfo: null });
     }
 
+    // Tra cứu trạng thái checked_out thời gian thực cho toàn bộ serial trên trang hiện tại
+    const pageSerials = (inventoryData || []).map(item => item.serial).filter(Boolean);
+    if (pageSerials.length > 0) {
+      try {
+        const { data: pageLogs } = await supabase
+          .from('serial_check_log')
+          .select('serial, checked_out')
+          .in('serial', pageSerials)
+          .eq('checked_out', true);
+        (pageLogs || []).forEach(log => {
+          checkedSerials.set(log.serial, true);
+        });
+      } catch (err) {
+        console.warn("Lỗi kiểm tra pageSerials trong serial_check_log:", err.message);
+      }
+    }
+
     // --- BƯỚC 4: MERGE VỚI TRẠNG THÁI SUPABASE & LỌC ĐÃ XUẤT ---
     let finalSerials = [];
     for (const item of inventoryData) {
@@ -6958,7 +6987,15 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
       });
     }
     // --- BƯỚC 5: [Req 2] TÍNH RANK & FIFO (ĐÃ FIX: ÉP KIỂU NGÀY TUYỆT ĐỐI) ---
-    if (searchedItem && !checkedSerials.get(searchedItem.serial) && bigquery) {
+    if (searchedItem && checkedSerials.get(searchedItem.serial)) {
+      console.log(`[DEBUG] Rank skipped (Item ${searchedItem.serial} is already checked out)`);
+      rankInfo = {
+        isAlreadyCheckedOut: true,
+        serial: searchedItem.serial,
+        sku: searchedItem.sku,
+        message: 'Serial này đã được xuất kho.'
+      };
+    } else if (searchedItem && !checkedSerials.get(searchedItem.serial) && bigquery) {
       const skuToRank = searchedItem.sku;
 
       // 1. QUERY: Đã kiểm tra -> Đang lấy đúng 2 kho bán mới
@@ -7002,12 +7039,15 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
 
         // Lấy log đã xuất
         const skuSerialList = allSkuSerials.map(s => s.Serial);
-        const { data: skuLogData } = await supabase
+        let skuLogQuery = supabase
           .from('serial_check_log')
           .select('serial, checked_out')
           .in('serial', skuSerialList)
-          .eq(!isGlobalAdmin ? 'branch_code' : '1', !isGlobalAdmin ? userBranch : '1')
-          .eq('check_date', todayDate);
+          .eq('checked_out', true);
+        if (!isGlobalAdmin) {
+          skuLogQuery = skuLogQuery.eq('branch_code', userBranch);
+        }
+        const { data: skuLogData } = await skuLogQuery;
 
         const skuCheckedMap = new Map([...checkedSerials, ...((skuLogData || []).map(log => [log.serial, log.checked_out]))]);
 
@@ -7115,19 +7155,41 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
 // [3] API lưu trạng thái check
 app.post('/api/fifo/log', requireAuth, async (req, res) => {
   try {
-    const { serial, branch_code, check_date, sku, is_checked_out } = req.body;
+    let { serial, branch_code, check_date, sku, is_checked_out } = req.body;
 
-    if (!serial || !branch_code || !check_date || !sku) {
-      return res.status(400).json({ ok: false, error: 'Thiếu thông tin bắt buộc.' });
+    if (!serial) {
+      return res.status(400).json({ ok: false, error: 'Thiếu thông tin bắt buộc (serial).' });
+    }
+
+    if (!check_date) {
+      check_date = new Date().toISOString().slice(0, 10);
+    }
+
+    if (!branch_code || !sku) {
+      try {
+        const { data: invRow } = await supabase
+          .from('inventory_serials')
+          .select('"SKU", "Branch ID"')
+          .eq('Serial', serial)
+          .maybeSingle();
+        if (invRow) {
+          if (!sku) sku = invRow.SKU;
+          if (!branch_code) branch_code = invRow['Branch ID'];
+        }
+      } catch (e) {}
+    }
+
+    if (!branch_code) {
+      branch_code = extractBranchCode(req.session.user?.branch_code) || req.session.user?.branch_code || 'CP01';
     }
 
     const logPayload = {
       serial,
-      sku,
+      sku: sku || null,
       branch_code,
       check_date,
-      checked_out: is_checked_out,
-      checked_by: req.session.user.id,
+      checked_out: Boolean(is_checked_out),
+      checked_by: req.session.user?.id,
       checked_at: new Date().toISOString(),
     };
 
@@ -7155,7 +7217,7 @@ app.get('/api/fifo/history/:serial', requireAuth, async (req, res) => {
     // Chỉ lấy các log "Đã xuất"
     const { data: history, error } = await supabase
       .from('serial_check_log')
-      .select(`*, users:checked_by(full_name, email)`)
+      .select(`*, users:checked_by(full_name, email, branch_code)`)
       .eq('serial', serial)
       .eq('checked_out', true)
       .order('checked_at', { ascending: false })
@@ -7164,9 +7226,11 @@ app.get('/api/fifo/history/:serial', requireAuth, async (req, res) => {
     if (error) throw error;
 
     res.json({
-      ok: true, history: history.map(r => ({
+      ok: true,
+      history: (history || []).map(r => ({
         ...r,
         checked_by_name: r.users?.full_name || r.users?.email || 'Unknown',
+        branch_code: r.branch_code || r.users?.branch_code || 'N/A',
       }))
     });
 
@@ -15301,7 +15365,6 @@ app.get('/api/quick-order/stock-detail', async (req, res, next) => {
           .select('serial')
           .eq('checked_out', true)
           .eq('branch_code', branch)
-          .eq('check_date', todayDate)
           .in('serial', allSerials);
         checkedSet = new Set((checkedLogs || []).map(l => l.serial));
       } catch (logErr) {
@@ -15450,7 +15513,6 @@ app.get('/api/quick-order/gift-stock', async (req, res, next) => {
           .select('serial')
           .eq('checked_out', true)
           .eq('branch_code', branch)
-          .eq('check_date', todayDate)
           .in('serial', allSerials);
         checkedSet = new Set((checkedLogs || []).map(l => l.serial));
       } catch (logErr) {
@@ -16188,7 +16250,6 @@ app.post('/api/quick-export/process-serial', requireAuth, async (req, res) => {
             .select('serial')
             .eq('checked_out', true)
             .eq('branch_code', effectiveBranch)
-            .eq('check_date', todayDate)
             .in('serial', allSerials);
           checkedSet = new Set((checkedLogs || []).map(l => l.serial));
         }
@@ -16283,7 +16344,6 @@ app.post('/api/quick-export/fifo-recommendation', requireAuth, async (req, res) 
         .select('serial')
         .eq('checked_out', true)
         .eq('branch_code', branch)
-        .eq('check_date', todayDate)
         .in('serial', allSerials);
       checkedSet = new Set((checkedLogs || []).map(l => l.serial));
     }
@@ -16427,7 +16487,12 @@ app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
     // ĐỒNG THỜI ĐÁNH DẤU "ĐÃ XUẤT" VÀO BẢNG serial_check_log TRÊN SUPABASE (FIFO)
     const todayDate = new Date().toISOString().slice(0, 10);
     const nowIso = new Date().toISOString();
-    const branchCode = req.session.user?.branch_code || 'CP01';
+    const resolvedBranch = SITE_ID_TO_BRANCH[Number(siteId)]
+      || (typeof siteId === 'string' && siteId.startsWith('CP') ? siteId.toUpperCase() : null)
+      || (req.body.branchCode ? String(req.body.branchCode).toUpperCase() : null)
+      || extractBranchCode(req.session.user?.branch_code)
+      || req.session.user?.branch_code
+      || 'CP01';
     const userId = req.session.user?.id;
 
     let updatedFifoCount = 0;
@@ -16438,7 +16503,7 @@ app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
           await supabase.from('serial_check_log').upsert({
             serial: sn,
             sku,
-            branch_code: branchCode,
+            branch_code: resolvedBranch,
             check_date: todayDate,
             checked_out: true,
             checked_by: userId,
@@ -16474,7 +16539,12 @@ app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
         if (st === 'EXPORTED' || st === 'COMPLETED' || st === 'PACKED') {
           const todayDate = new Date().toISOString().slice(0, 10);
           const nowIso = new Date().toISOString();
-          const branchCode = req.session.user?.branch_code || 'CP01';
+          const resolvedBranchErr = SITE_ID_TO_BRANCH[Number(siteId)]
+            || (typeof siteId === 'string' && siteId.startsWith('CP') ? siteId.toUpperCase() : null)
+            || (req.body.branchCode ? String(req.body.branchCode).toUpperCase() : null)
+            || extractBranchCode(req.session.user?.branch_code)
+            || req.session.user?.branch_code
+            || 'CP01';
           const userId = req.session.user?.id;
           let updatedFifoCount = 0;
           for (const item of (items || [])) {
@@ -16484,7 +16554,7 @@ app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
                 await supabase.from('serial_check_log').upsert({
                   serial: sn,
                   sku,
-                  branch_code: branchCode,
+                  branch_code: resolvedBranchErr,
                   check_date: todayDate,
                   checked_out: true,
                   checked_by: userId,

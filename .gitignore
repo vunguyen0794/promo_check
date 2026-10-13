@@ -19,4 +19,4 @@ hash.js
 scratch/
 .agent/
 .agents/skills/
-skills-lock.json
+skills-lock.json*.log
