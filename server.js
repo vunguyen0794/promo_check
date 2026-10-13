@@ -15118,6 +15118,7 @@ const SITE_ID_TO_BRANCH = {
   3480: 'CP67',
   29499: 'CP69',
   53019: 'CP74',
+  54290: 'CP75',
 };
 
 const BRANCH_TO_SITE_ID = {
@@ -15134,6 +15135,7 @@ const BRANCH_TO_SITE_ID = {
   'CP67': 3480,
   'CP69': 29499,
   'CP74': 53019,
+  'CP75': 54290,
 };
 
 function extractBranchCode(text) {
@@ -16375,18 +16377,28 @@ app.post('/api/quick-export/confirm-export', requireAuth, async (req, res) => {
     let movedSerialsCount = 0;
     for (const item of (items || [])) {
       for (const sn of (item.serials || [])) {
-        let snBin = serialBinMap[sn];
-        if (!snBin) {
-          try {
-            const tr = await quickExportService.getSerialTracking(sn, token, siteId);
-            snBin = tr.binId;
-          } catch (e) {}
+        // Luôn tra cứu vị trí thực tế thời gian thực của serial trên Teko WMS để tránh dùng cache/state cũ
+        let actualBinId = null;
+        try {
+          const tr = await quickExportService.getSerialTracking(sn, token, siteId);
+          if (tr && tr.binId) {
+            actualBinId = Number(tr.binId);
+          }
+        } catch (e) {}
+
+        const currentBinId = actualBinId || Number(serialBinMap[sn]);
+
+        // Nếu serial đã ở sẵn BIN soạn hàng (targetBinId) -> Bỏ qua, không cần luân chuyển
+        if (currentBinId && Number(currentBinId) === Number(targetBinId)) {
+          serialBinMap[sn] = targetBinId;
+          continue;
         }
-        if (snBin && Number(snBin) !== Number(targetBinId)) {
-          console.log(`[QuickExport] Bấm xác nhận: Đang tự động luân chuyển serial ${sn} từ BIN ${snBin} sang BIN soạn hàng ${targetBinId}...`);
+
+        if (currentBinId && Number(currentBinId) !== Number(targetBinId)) {
+          console.log(`[QuickExport] Bấm xác nhận: Đang tự động luân chuyển serial ${sn} từ BIN ${currentBinId} sang BIN soạn hàng ${targetBinId}...`);
           try {
             await quickExportService.moveBin({
-              fromBinId: Number(snBin),
+              fromBinId: Number(currentBinId),
               toBinId: Number(targetBinId),
               sku: item.sku,
               serial: sn,

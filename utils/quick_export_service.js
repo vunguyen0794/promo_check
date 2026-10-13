@@ -361,7 +361,7 @@ async function loadExportRequest(documentId, binId, token, siteId) {
       const branchToSiteMap = {
         'CP01': 7, 'CP02': 8, 'CP07': 9, 'CP05': 46, 'CP08': 54, 'CP40': 85,
         'CP46': 628, 'CP58': 763, 'CP62': 779, 'CP64': 1600, 'CP67': 3480,
-        'CP69': 29499, 'CP74': 53019
+        'CP69': 29499, 'CP74': 53019, 'CP75': 54290
       };
       if (!resolvedSiteId || isNaN(resolvedSiteId)) {
         resolvedSiteId = branchToSiteMap[resolvedBranchCode] || Number(siteId) || 53019;
@@ -458,6 +458,7 @@ async function loadExportRequest(documentId, binId, token, siteId) {
     3480: 'CP67',
     29499: 'CP69',
     53019: 'CP74',
+    54290: 'CP75',
   };
 
   // 1. Trích xuất mã chi nhánh bán (CPxx)
@@ -747,7 +748,7 @@ async function getStockQuantityByBin(sku, siteId, token) {
     const branchToSiteMap = {
       'CP01': 7, 'CP02': 8, 'CP07': 9, 'CP05': 46, 'CP08': 54, 'CP40': 85,
       'CP46': 628, 'CP58': 763, 'CP62': 779, 'CP64': 1600, 'CP67': 3480,
-      'CP69': 29499, 'CP74': 53019
+      'CP69': 29499, 'CP74': 53019, 'CP75': 54290
     };
     const bMatch = String(siteId || '').match(/CP\d+/i);
     if (bMatch && branchToSiteMap[bMatch[0].toUpperCase()]) {
