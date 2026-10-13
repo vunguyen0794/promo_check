@@ -350,6 +350,246 @@
 
 
 
+    /* --- BẢNG SO SÁNH GIÁ 3 ĐỐI THỦ (CPS | TGDD | FPT) --- */
+    .competitor-compare-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 18px 20px;
+        margin: 20px 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+    .comp-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .comp-header-left { flex: 1; }
+    .comp-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 3px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .comp-count-pill {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: #475569;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        padding: 1px 7px;
+        border-radius: 12px;
+    }
+    .comp-subtitle {
+        font-size: 12.5px;
+        color: #64748b;
+        margin: 0;
+    }
+    .comp-header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .comp-updated-time {
+        font-size: 11.5px;
+        color: #94a3b8;
+    }
+    .comp-btn-refresh {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 11px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.2s ease;
+    }
+    .comp-btn-refresh:hover {
+        background: #f8fafc;
+        border-color: #94a3b8;
+        color: #0f172a;
+    }
+    .comp-btn-refresh.loading svg {
+        animation: spinComp 0.75s linear infinite;
+    }
+    @keyframes spinComp {
+        to { transform: rotate(360deg); }
+    }
+    .comp-btn-history {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        color: #1e293b;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 11px;
+        border-radius: 6px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    .comp-btn-history:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    .comp-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 14px;
+    }
+
+    .comp-col {
+        background: #fafafa;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 170px;
+        position: relative;
+        transition: all 0.2s ease;
+    }
+    .comp-col.is-lowest {
+        border-color: #059669;
+        background: #f0fdf4;
+    }
+    .comp-col-top {
+        margin-bottom: 10px;
+    }
+    .comp-retailer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
+    .comp-retailer-tag {
+        font-size: 12px;
+        font-weight: 700;
+        color: #334155;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .comp-badge-lowest {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #065f46;
+        background: #d1fae5;
+        border: 1px solid #a7f3d0;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .comp-product-matched {
+        font-size: 11.5px;
+        color: #64748b;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        min-height: 32px;
+    }
+
+    .comp-price-box {
+        margin: 6px 0 10px 0;
+    }
+    .comp-current-price {
+        font-size: 19px;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+    .comp-original-price {
+        font-size: 11.5px;
+        color: #94a3b8;
+        text-decoration: line-through;
+        margin-top: 2px;
+    }
+    .comp-diff-tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-top: 5px;
+    }
+    .comp-diff-tag.lower {
+        color: #065f46;
+        background: #d1fae5;
+    }
+    .comp-diff-tag.higher {
+        color: #991b1b;
+        background: #fee2e2;
+    }
+    .comp-diff-tag.equal {
+        color: #475569;
+        background: #f1f5f9;
+    }
+
+    .comp-stock-tag {
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 4px;
+    }
+    .comp-stock-tag.in-stock { color: #047857; font-weight: 500; }
+    .comp-stock-tag.out-stock { color: #94a3b8; }
+
+    .comp-link-btn {
+        display: block;
+        text-align: center;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #2563eb;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 7px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        margin-top: 10px;
+    }
+    .comp-link-btn:hover {
+        background: #f8fafc;
+        border-color: #2563eb;
+    }
+
+    /* Skeleton Loading */
+    .comp-skeleton {
+        animation: compPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes compPulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 0.95; }
+    }
+    .comp-sk-bar {
+        background: #e2e8f0;
+        border-radius: 4px;
+        margin-bottom: 8px;
+    }
+    .comp-sk-bar.sm { height: 14px; width: 45%; }
+    .comp-sk-bar.lg { height: 26px; width: 75%; margin: 10px 0; }
+    .comp-sk-bar.md { height: 14px; width: 90%; }
+    .comp-sk-bar.btn { height: 30px; width: 100%; margin-top: 14px; }
+
+    @media (max-width: 768px) {
+        .comp-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+        .comp-header-right { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+        .comp-grid { grid-template-columns: 1fr; }
+    }
+
     /* --- [MỚI] MODERN HISTORY BANNER --- */
     .history-banner {
         background-color: #f0f9ff; /* Nền xanh dương nhạt hiện đại */
@@ -2260,19 +2500,59 @@
                 </div>
         </div>
 
-    <div class="history-banner">
-    <div class="info-group">
-        <div class="icon-box">🔎</div>
-        <div>
-            <h4 class="title-text">
-                Lịch sử so sánh giá
-                <span class="count-badge"><%= comparisonCount || 0 %> lần</span>
-            </h4>
-            <span style="font-size: 13px; color: #64748b;">Xem lại các lần so găng giá của SKU này.</span>
+    <!-- ============================================================ -->
+    <!-- BẢNG SO SÁNH GIÁ ĐỐI THỦ (CPS | TGDD | FPT) - UI/UX PRO MAX -->
+    <!-- ============================================================ -->
+    <div class="competitor-compare-card" id="competitorCompareSection"
+         data-sku="<%= typeof product !== 'undefined' && product ? product.sku : '' %>"
+         data-name="<%= typeof product !== 'undefined' && product ? (product.product_name || '') : '' %>"
+         data-brand="<%= typeof product !== 'undefined' && product ? (product.brand || '') : '' %>"
+         data-price="<%= typeof product !== 'undefined' && product ? Number(product.promo_price || product.list_price || 0) : 0 %>">
+        <div class="comp-header">
+            <div class="comp-header-left">
+                <h4 class="comp-title">
+                    Lịch sử so sánh giá
+                    <span class="comp-count-pill" title="Số lần ghi nhận so găng giá cho SKU này"><%= comparisonCount || 0 %> lần</span>
+                </h4>
+                <p class="comp-subtitle">Đối soát tự động giá bán thời gian thực tại CPS, TGDD và FPT Shop (sắp xếp từ thấp đến cao)</p>
+            </div>
+            <div class="comp-header-right">
+                <span class="comp-updated-time" id="compUpdatedTime">Đang nạp dữ liệu...</span>
+                <button type="button" class="comp-btn-refresh" id="btnRefreshCompetitors" title="Cập nhật giá mới nhất từ các đối thủ">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span>Làm mới giá</span>
+                </button>
+                <a href="/price-battle?sku=<%= product.sku %>" class="comp-btn-history">Chi tiết lịch sử →</a>
+            </div>
+        </div>
+
+        <!-- Lưới 3 cột: CPS | TGDD | FPT (Xếp thứ tự từ thấp đến cao) -->
+        <div class="comp-grid" id="competitorGrid">
+            <!-- Skeleton Loading ban đầu -->
+            <div class="comp-col comp-skeleton">
+                <div class="comp-sk-bar sm"></div>
+                <div class="comp-sk-bar lg"></div>
+                <div class="comp-sk-bar md"></div>
+                <div class="comp-sk-bar btn"></div>
+            </div>
+            <div class="comp-col comp-skeleton">
+                <div class="comp-sk-bar sm"></div>
+                <div class="comp-sk-bar lg"></div>
+                <div class="comp-sk-bar md"></div>
+                <div class="comp-sk-bar btn"></div>
+            </div>
+            <div class="comp-col comp-skeleton">
+                <div class="comp-sk-bar sm"></div>
+                <div class="comp-sk-bar lg"></div>
+                <div class="comp-sk-bar md"></div>
+                <div class="comp-sk-bar btn"></div>
+            </div>
         </div>
     </div>
-    <a href="/price-battle?sku=<%= product.sku %>" class="btn-view-modern">Xem chi tiết →</a>
-</div>
 
         <% if (typeof promoGroups !== 'undefined') { 
             if (promoGroups.other && promoGroups.other.length > 0) {
@@ -4124,4 +4404,143 @@ function closeAllCompatModal() {
 </div>
 <%- include('partials/toast') %>
 <%- include('partials/search-autocomplete') %>
+<script>
+(function() {
+    const sectionEl = document.getElementById("competitorCompareSection");
+    if (!sectionEl) return;
+
+    const sku = (sectionEl.dataset.sku || "").trim();
+    const productName = (sectionEl.dataset.name || "").trim();
+    const brand = (sectionEl.dataset.brand || "").trim();
+    const ourPrice = Number(sectionEl.dataset.price || 0);
+
+    if (!sku) return;
+
+    const gridEl = document.getElementById("competitorGrid");
+    const updatedEl = document.getElementById("compUpdatedTime");
+    const refreshBtn = document.getElementById("btnRefreshCompetitors");
+
+    function formatVND(n) {
+        return new Intl.NumberFormat("vi-VN").format(Number(n || 0)) + "đ";
+    }
+
+    function renderCompetitorCards(data) {
+        if (!gridEl) return;
+        const sorted = data.sorted || [];
+        if (!sorted || sorted.length === 0) {
+            gridEl.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #64748b; font-size: 13px;">Không tìm thấy thông tin đối thủ cho SKU này.</div>';
+            return;
+        }
+
+        let html = "";
+        sorted.forEach((item) => {
+            const isLowest = !!item.isLowest;
+            const hasPrice = item.price > 0;
+            const diff = Number(item.diff || 0);
+
+            let diffBadge = "";
+            if (hasPrice && ourPrice > 0) {
+                if (diff < 0) {
+                    diffBadge = '<div class="comp-diff-tag lower">Thấp hơn PV: ' + formatVND(diff) + '</div>';
+                } else if (diff > 0) {
+                    diffBadge = '<div class="comp-diff-tag higher">Cao hơn PV: +' + formatVND(diff) + '</div>';
+                } else {
+                    diffBadge = '<div class="comp-diff-tag equal">Bằng giá Phong Vũ</div>';
+                }
+            }
+
+            let priceContent = "";
+            if (hasPrice) {
+                priceContent = '<div class="comp-current-price">' + formatVND(item.price) + '</div>' +
+                    (item.originalPrice > item.price ? '<div class="comp-original-price">' + formatVND(item.originalPrice) + '</div>' : "") +
+                    diffBadge;
+            } else {
+                priceContent = '<div style="font-size: 14px; font-weight: 600; color: #94a3b8; margin-top: 4px;">Chưa có giá niêm yết</div>' +
+                    '<div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">Đối thủ không bán mã này</div>';
+            }
+
+            const stockText = hasPrice 
+                ? (item.inStock !== false ? '<div class="comp-stock-tag in-stock">● Còn hàng</div>' : '<div class="comp-stock-tag out-stock">Tạm hết hàng</div>')
+                : '';
+
+            const retailerCode = item.retailer || "CPS";
+            const retailerName = item.retailerName || retailerCode;
+
+            html += '<div class="comp-col ' + (isLowest ? 'is-lowest' : '') + '">' +
+                '<div class="comp-col-top">' +
+                    '<div class="comp-retailer-row">' +
+                        '<span class="comp-retailer-tag">' + retailerCode + ' | ' + retailerName + '</span>' +
+                        (isLowest ? '<span class="comp-badge-lowest">Giá thấp nhất</span>' : '') +
+                    '</div>' +
+                    '<div class="comp-product-matched" title="' + (item.name || '').replace(/"/g, '&quot;') + '">' +
+                        (item.name || retailerName) +
+                    '</div>' +
+                '</div>' +
+                '<div class="comp-price-box">' +
+                    priceContent +
+                    stockText +
+                '</div>' +
+                '<div>' +
+                    '<a href="' + (item.link || '#') + '" target="_blank" rel="noopener noreferrer" class="comp-link-btn">' +
+                        'Xem tại ' + retailerName + ' ↗' +
+                    '</a>' +
+                '</div>' +
+            '</div>';
+        });
+
+        gridEl.innerHTML = html;
+
+        if (updatedEl) {
+            const timeStr = data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "Vừa xong";
+            updatedEl.textContent = data.fromCache ? ('Cập nhật lúc ' + timeStr) : "Vừa cập nhật";
+        }
+    }
+
+    async function loadCompetitors(force) {
+        if (!gridEl) return;
+        if (refreshBtn) refreshBtn.classList.add("loading");
+        if (updatedEl) updatedEl.textContent = "Đang đối soát giá...";
+
+        try {
+            const url = '/api/competitor-prices?sku=' + encodeURIComponent(sku) +
+                '&name=' + encodeURIComponent(productName) +
+                '&brand=' + encodeURIComponent(brand) +
+                '&price=' + encodeURIComponent(ourPrice) +
+                (force ? '&force=1' : '');
+            const res = await fetch(url);
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+            const data = await res.json();
+            if (data.success) {
+                renderCompetitorCards(data);
+            } else {
+                if (updatedEl) updatedEl.textContent = "Chưa thể lấy giá";
+                if (gridEl) gridEl.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 24px; color: #64748b; font-size: 13px;">' + (data.error || 'Chưa tìm thấy thông tin đối thủ cho SKU này.') + '</div>';
+            }
+        } catch (e) {
+            console.warn("Lỗi tải dữ liệu đối thủ:", e);
+            if (updatedEl) updatedEl.textContent = "Lỗi kết nối";
+            if (gridEl) {
+                gridEl.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 24px; color: #64748b; font-size: 13px;">' +
+                    'Không thể tải dữ liệu đối soát giá (' + (e.message || 'Lỗi mạng') + '). ' +
+                    '<button type="button" onclick="window.__loadCompetitors && window.__loadCompetitors(true)" style="margin-left: 8px; color: #2563eb; background: none; border: none; cursor: pointer; text-decoration: underline; font-size: 13px; font-weight: 600;">Thử lại</button>' +
+                '</div>';
+            }
+        } finally {
+            if (refreshBtn) refreshBtn.classList.remove("loading");
+        }
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function() { loadCompetitors(false); });
+    } else {
+        setTimeout(function() { loadCompetitors(false); }, 150);
+    }
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", function() { loadCompetitors(true); });
+    }
+})();
+</script>
 <%- include('partials/footer') %>

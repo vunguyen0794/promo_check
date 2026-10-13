@@ -191,6 +191,9 @@
             div.addEventListener('click', function () {
               searchInput.value = item.sku; 
               resultsContainer.style.display = 'none';
+              if (typeof window.showGlobalPageLoader === 'function') {
+                window.showGlobalPageLoader('Tra cứu khuyến mãi', `Đang nạp chi tiết SKU ${item.sku}...`);
+              }
               window.location.href = `/search-promotion?sku=${encodeURIComponent(item.sku)}`;
             });
             

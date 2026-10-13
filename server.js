@@ -3191,6 +3191,171 @@ app.get('/api/skus-with-comparisons', async (req, res) => {
   }
 });
 
+// ============================================================
+// API: Tra cứu & Đối soát tự động giá 3 đối thủ (CPS | TGDD | FPT)
+// ============================================================
+const competitorPriceService = require("./services/competitorPriceService");
+
+app.get("/api/competitor-prices", async (req, res) => {
+  try {
+    const sku = (req.query.sku || "").trim();
+    if (!sku) {
+      return res.status(400).json({ success: false, error: "Thiếu mã SKU." });
+    }
+
+    const force = req.query.force === "1" || req.query.force === "true";
+    let productName = (req.query.name || req.query.product_name || "").trim();
+    let brand = (req.query.brand || "").trim();
+    let ourPrice = parseFloat(req.query.price || req.query.our_price) || 0;
+
+    // 1. Kiểm tra cache trong Supabase (nếu không force refresh)
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    if (!force) {
+      const { data: cachedRows } = await supabase
+        .from("price_comparisons")
+        .select("*")
+        .eq("sku", sku)
+        .gte("created_at", twelveHoursAgo)
+        .order("created_at", { ascending: false });
+
+      if (cachedRows && cachedRows.length > 0) {
+        const findComp = (codeKeywords) => {
+          return cachedRows.find(r => 
+            codeKeywords.some(k => (r.competitor_name || "").toLowerCase().includes(k.toLowerCase()))
+          );
+        };
+
+        const cpsRow = findComp(["cellphones", "cps"]);
+        const tgddRow = findComp(["thế giới di động", "thegioididong", "tgdd"]);
+        const fptRow = findComp(["fpt shop", "fptshop", "fpt"]);
+
+        if (cpsRow || tgddRow || fptRow) {
+          const mapRow = (row, code, name, defaultLink) => {
+            if (!row) {
+              return {
+                retailer: code,
+                retailerName: name,
+                name: "Chưa có thông tin",
+                price: 0,
+                originalPrice: 0,
+                link: defaultLink,
+                inStock: false,
+                diff: 0,
+                found: false
+              };
+            }
+            const p = Number(row.competitor_price || 0);
+            return {
+              retailer: code,
+              retailerName: name,
+              name: row.notes || row.product_name || name,
+              price: p,
+              originalPrice: p,
+              link: row.competitor_link || defaultLink,
+              inStock: row.stock_status !== "out_of_stock" && p > 0,
+              diff: ourPrice > 0 && p > 0 ? p - ourPrice : Number(row.price_difference || 0),
+              found: p > 0
+            };
+          };
+
+          const cps = mapRow(cpsRow, "CPS", "CellphoneS", "https://cellphones.com.vn");
+          const tgdd = mapRow(tgddRow, "TGDD", "Thế Giới Di Động", "https://www.thegioididong.com");
+          const fpt = mapRow(fptRow, "FPT", "FPT Shop", "https://fptshop.com.vn");
+
+          const list = [cps, tgdd, fpt];
+          const sorted = [...list].sort((a, b) => {
+            if (a.price > 0 && b.price > 0) return a.price - b.price;
+            if (a.price > 0) return -1;
+            if (b.price > 0) return 1;
+            return 0;
+          });
+          const validPriced = sorted.filter(x => x.price > 0);
+          if (validPriced.length > 0) validPriced[0].isLowest = true;
+
+          return res.json({
+            success: true,
+            fromCache: true,
+            sku,
+            productName: cachedRows[0]?.product_name || productName,
+            ourPrice,
+            competitors: { CPS: cps, TGDD: tgdd, FPT: fpt },
+            sorted,
+            updatedAt: cachedRows[0]?.created_at
+          });
+        }
+      }
+    }
+
+    // 2. Nếu chưa có thông tin sản phẩm, truy vấn bảng skus
+    if (!productName || ourPrice === 0) {
+      const { data: skuRow } = await supabase
+        .from("skus")
+        .select("sku, product_name, brand, list_price, promo_price")
+        .eq("sku", sku)
+        .maybeSingle();
+
+      if (skuRow) {
+        if (!productName) productName = skuRow.product_name || "";
+        if (!brand) brand = skuRow.brand || "";
+        if (ourPrice === 0) ourPrice = Number(skuRow.promo_price || skuRow.list_price || 0);
+      }
+    }
+
+    if (!productName) {
+      return res.status(404).json({ success: false, error: "Không tìm thấy thông tin sản phẩm cho SKU này." });
+    }
+
+    // 3. Cào đồng thời 3 đối thủ
+    const result = await competitorPriceService.fetchAllCompetitors({
+      sku,
+      productName,
+      brand,
+      targetPrice: ourPrice
+    });
+
+    // 4. Lưu cache vào bảng price_comparisons
+    (async () => {
+      try {
+        const rowsToInsert = [];
+        const comps = result.competitors;
+        for (const key of ["CPS", "TGDD", "FPT"]) {
+          const c = comps[key];
+          if (c && c.found && c.price > 0) {
+            rowsToInsert.push({
+              sku,
+              product_name: productName,
+              brand: brand || null,
+              our_price: ourPrice,
+              promo_price: ourPrice,
+              competitor_name: c.retailerName,
+              competitor_price: c.price,
+              competitor_link: c.link,
+              stock_status: c.inStock ? "available" : "out_of_stock",
+              price_difference: c.diff,
+              notes: c.name,
+              created_at: new Date().toISOString()
+            });
+          }
+        }
+        if (rowsToInsert.length > 0) {
+          await supabase.from("price_comparisons").insert(rowsToInsert);
+        }
+      } catch (saveErr) {
+        console.warn("[Competitor] Lỗi lưu cache price_comparisons:", saveErr.message);
+      }
+    })();
+
+    return res.json({
+      success: true,
+      fromCache: false,
+      ...result
+    });
+  } catch (err) {
+    console.error("[Competitor API Error]:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 async function getEligiblePromosForSku(skuCode) {
   // 1) Lấy giá SKU

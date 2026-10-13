@@ -928,6 +928,14 @@
                 from { transform: scale(0.92); opacity: 0; }
                 to { transform: scale(1); opacity: 1; }
             }
+            .loader-spinner-simple {
+                width: 36px;
+                height: 36px;
+                border: 3px solid #e2e8f0;
+                border-top-color: #2563eb;
+                border-radius: 50%;
+                animation: spinRing 0.75s linear infinite;
+            }
             .loader-spinner-wrapper {
                 position: relative;
                 width: 60px;
@@ -1012,14 +1020,8 @@
         <div id="global-page-loader" class="global-page-loader" aria-hidden="true">
             <div class="loader-backdrop"></div>
             <div class="loader-card">
-                <div class="loader-spinner-wrapper">
-                    <div class="loader-spinner-ring outer"></div>
-                    <div class="loader-spinner-ring inner"></div>
-                    <div class="loader-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="rgba(37,99,235,0.12)"/>
-                        </svg>
-                    </div>
+                <div class="loader-spinner-wrapper" style="width:40px; height:40px;">
+                    <div class="loader-spinner-simple"></div>
                 </div>
                 <div class="loader-text-group">
                     <h4 class="loader-title" id="globalLoaderTitle">Đang tải dữ liệu...</h4>
@@ -1679,9 +1681,27 @@
                     } else if (path.includes('/bom-')) {
                         title = 'BOM PCPV';
                         sub = 'Đang nạp cấu hình bộ linh kiện...';
+                    } else if (path.includes('/search-promotion')) {
+                        title = 'Tra cứu khuyến mãi';
+                        sub = 'Đang nạp thông tin sản phẩm & CTKM...';
                     }
 
                     window.showGlobalPageLoader(title, sub);
+                });
+
+                // Tự động chặn khi người dùng submit form tra cứu SKU
+                document.addEventListener('submit', function(e) {
+                    const form = e.target;
+                    if (!form) return;
+                    const action = (form.getAttribute('action') || '').toLowerCase();
+                    if (action.includes('/search-promotion') || form.id === 'searchForm') {
+                        const input = form.querySelector('input[name="sku"], input[name="query"], #skuSearch');
+                        const skuVal = input ? input.value.trim() : '';
+                        window.showGlobalPageLoader(
+                            'Tra cứu khuyến mãi',
+                            skuVal ? 'Đang nạp chi tiết SKU: ' + skuVal + '...' : 'Đang tổng hợp CTKM sản phẩm...'
+                        );
+                    }
                 });
             })();
         </script>
