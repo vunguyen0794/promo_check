@@ -25,18 +25,194 @@
         <link rel="icon" type="image/png" href="/favicon.png">
         <link rel="apple-touch-icon" href="/favicon.png">
         <style>
-            /* CSS phụ trợ menu */
-            .dropdown-menu a {
-                display: flex !important;
+            /* ===== TIỆN ÍCH DROPDOWN (CHUẨN UI/UX PRO MAX) ===== */
+            .header-content .dropdown {
+                position: relative;
+                display: flex;
                 align-items: center;
-                gap: 8px;
-                white-space: nowrap;
             }
 
-            .menu-icon {
-                width: 20px;
-                text-align: center;
-                font-size: 16px;
+            .header-content .dropdown #utilitiesDropdownToggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                color: rgba(255, 255, 255, 0.95);
+                text-decoration: none;
+                padding: 7px 12px;
+                font-size: 13.5px;
+                font-weight: 500;
+                border-radius: 6px;
+                transition: background 0.15s ease, color 0.15s ease;
+            }
+
+            .header-content .dropdown #utilitiesDropdownToggle:hover,
+            .header-content .dropdown #utilitiesDropdownToggle.active {
+                background: rgba(255, 255, 255, 0.16);
+                color: #ffffff;
+            }
+
+            .header-content .dropdown .dropdown-menu#utilitiesDropdownMenu {
+                position: absolute;
+                top: calc(100% + 6px);
+                left: 0;
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                min-width: 195px;
+                padding: 6px;
+                z-index: 1000;
+                box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+                opacity: 0;
+                visibility: hidden;
+                transform: translateY(-6px);
+                transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.15s;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+            }
+
+            .header-content .dropdown .dropdown-menu#utilitiesDropdownMenu.open {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0);
+            }
+
+            #utilitiesDropdownMenu a.dropdown-item,
+            #utilitiesDropdownMenu a {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                padding: 8px 12px !important;
+                margin: 1px 0;
+                border-radius: 6px;
+                font-size: 13.5px;
+                font-weight: 500;
+                line-height: 1.4;
+                color: #334155 !important;
+                text-decoration: none;
+                white-space: nowrap;
+                background: transparent;
+                transition: background-color 0.15s ease, color 0.15s ease;
+                box-sizing: border-box;
+            }
+
+            #utilitiesDropdownMenu a:hover,
+            #utilitiesDropdownMenu a.dropdown-item:hover {
+                background-color: #f1f5f9 !important;
+                color: #0f172a !important;
+            }
+
+            #utilitiesDropdownMenu a.active {
+                background-color: #eff6ff !important;
+                color: #2563eb !important;
+                font-weight: 600;
+            }
+
+            #utilitiesDropdownMenu .noti-admin-item {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            #utilitiesDropdownMenu .admin-badge {
+                font-size: 10.5px;
+                font-weight: 600;
+                padding: 1px 6px;
+                border-radius: 9999px;
+                background-color: #e0e7ff;
+                color: #4338ca;
+                letter-spacing: 0.02em;
+            }
+
+            /* Submenu Technician */
+            #utilitiesDropdownMenu .dropdown-submenu {
+                position: relative;
+                width: 100%;
+            }
+
+            #utilitiesDropdownMenu .dropdown-submenu > a {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            #utilitiesDropdownMenu .dropdown-submenu > a::after {
+                display: none !important;
+            }
+
+            #utilitiesDropdownMenu .dropdown-submenu-chevron {
+                color: #94a3b8;
+                transition: transform 0.15s ease, color 0.15s ease;
+                display: flex;
+                align-items: center;
+            }
+
+            #utilitiesDropdownMenu .dropdown-submenu:hover > a .dropdown-submenu-chevron {
+                color: #0f172a;
+            }
+
+            #utilitiesDropdownMenu .dropdown-menu-child {
+                position: absolute;
+                top: 0;
+                left: calc(100% + 4px);
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                min-width: 175px;
+                padding: 6px;
+                box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+                display: none;
+                z-index: 1050;
+                animation: fadeInSubmenu 0.15s ease-out;
+            }
+
+            @keyframes fadeInSubmenu {
+                from {
+                    opacity: 0;
+                    transform: translateX(-4px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+
+            #utilitiesDropdownMenu .dropdown-submenu:hover > .dropdown-menu-child {
+                display: block;
+            }
+
+            #utilitiesDropdownMenu .dropdown-menu-child a {
+                display: flex !important;
+                align-items: center;
+                padding: 8px 12px !important;
+                font-size: 13.5px;
+                font-weight: 500;
+                color: #334155 !important;
+                border-radius: 6px;
+                margin: 1px 0;
+                text-decoration: none;
+                transition: background-color 0.15s ease, color 0.15s ease;
+            }
+
+            #utilitiesDropdownMenu .dropdown-menu-child a:hover {
+                background-color: #f1f5f9 !important;
+                color: #0f172a !important;
+            }
+
+            #utilitiesDropdownMenu .dropdown-menu-child a.active {
+                background-color: #eff6ff !important;
+                color: #2563eb !important;
+                font-weight: 600;
+            }
+
+            @media (max-width: 768px) {
+                #utilitiesDropdownMenu .dropdown-submenu .dropdown-menu-child {
+                    position: static;
+                    box-shadow: none;
+                    border: 1px solid #f1f5f9;
+                    margin-left: 8px;
+                    padding-left: 10px;
+                    background: #f8fafc;
+                    display: block;
+                }
             }
 
             a.logo {
@@ -536,93 +712,52 @@
                                 <% } %>
                         </nav>
 
-                        <% const utilityPages=['quick-order', 'quick-export', 'policy', 'pc-builder' , 'quote-builder' , 'bom-check' , 'bom-dashboard'
-                            , 'clearance-check' , 'event-operations' , 'event-orders' , 'event-settings'
-                            , 'customer-care' , 'queue-admin' , 'queue-tv' ]; %>
+                        <% const utilityPages = ['quick-export', 'send-notification', 'policy', 'customer-care', 'pc-builder', 'quote-builder', 'clearance-check', 'queue-admin', 'queue-tv', 'queue-report']; %>
                             <div class="dropdown">
                                 <a href="#" id="utilitiesDropdownToggle"
-                                    style="display: flex; align-items: center; gap: 4px; color: white; text-decoration: none; padding: 6px 10px;"
                                     class="<%= utilityPages.includes(currentPage) ? 'active' : '' %>">
-                                    Tiện ích <span style="font-size: 10px;">▼</span>
+                                    Tiện ích <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8; margin-left: 2px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                 </a>
                                 <div class="dropdown-menu" id="utilitiesDropdownMenu">
                                     <a href="/quick-export" class="<%= currentPage === 'quick-export' ? 'active' : '' %>">
-                                        <span class="menu-icon">⚡</span> Xuất kho nhanh
+                                        <span>Xuất kho nhanh</span>
                                     </a>
-                                    <% if (user && ['vu.nt1@phongvu-mna.vn', 'thu.hm@phongvu-mna.vn'
-                                        ].includes(user.email)) { %>
-                                        <a href="/refunds"
-                                            class="<%= currentPage === 'refund_dashboard' ? 'active' : '' %>">💸 Hoàn
-                                            tiền</a>
-                                        <a href="/admin/send-notification" class="news-filters button"
-                                            style="background-color: #6366f1; color: white;">
-                                            🔔 Gửi Noti
+                                    <% if (user && ['vu.nt1@phongvu-mna.vn', 'thu.hm@phongvu-mna.vn'].includes(user.email)) { %>
+                                        <a href="/admin/send-notification" class="noti-admin-item <%= currentPage === 'send-notification' ? 'active' : '' %>">
+                                            <span>Gửi Noti</span>
+                                            <span class="admin-badge">Admin</span>
                                         </a>
-                                        <% } %>
-                                            <a href="/policy"
-                                                class="<%= currentPage === 'policy' ? 'active' : '' %>"><span
-                                                    class="menu-icon">📄</span> Chính sách</a>
-                                            <div class="dropdown-submenu">
-                                                <a href="#" class="dropdown-item"
-                                                    style="display: flex; justify-content: space-between; align-items: center;"><span>👨‍🔧
-                                                        Technician</span></a>
-                                                <div class="dropdown-menu-child">
-                                                    <a href="/queue/admin" class="dropdown-item">🎛 Điều phối
-                                                        (Admin)</a>
-                                                    <a href="/queue/tv" target="_blank" class="dropdown-item">📺 Màn
-                                                        hình TV</a>
-                                                    <a href="/queue/report" class="dropdown-item">📊 Báo cáo Dịch vụ</a>
-                                                </div>
-                                            </div>
-                                            <a href="/customer-care"
-                                                class="<%= currentPage === 'customer-care' ? 'active' : '' %>"><span
-                                                    class="menu-icon">📞</span> CSKH</a>
-                                            <a href="/pc-builder"><span class="menu-icon">🖥️</span> Build PC</a>
-                                            <a href="/quote-builder"><span class="menu-icon">📄</span> Báo giá nhanh</a>
-                                            <a href="/clearance-check"
-                                                class="<%= currentPage === 'clearance-check' ? 'active' : '' %>"><span
-                                                    class="menu-icon">🏷️</span> Hàng thanh lý</a>
-
-                                            <% if (user && (user.role==='manager' || user.role==='admin' )) { %>
-                                                <a href="/sales-dashboard"
-                                                    class="<%= currentPage === 'sales-dashboard' ? 'active' : '' %>"><span
-                                                        class="menu-icon">📈</span> Doanh Thu RT</a>
-                                                <!-- <a href="/executive-dashboard"
-                                                    class="<%= currentPage === 'executive-dashboard' ? 'active' : '' %>"><span
-                                                        class="menu-icon">📊</span> Executive Dashboard</a> -->
-                                                <% } %>
-                                            <div class="dropdown-submenu">
-                                                <a href="#" class="dropdown-item"
-                                                   style="display: flex; justify-content: space-between; align-items: center;"
-                                                   class="<%= ['bom-check','bom-dashboard'].includes(currentPage) ? 'active' : '' %>">
-                                                    <span>📦 BOM PCPV</span>
-                                                </a>
-                                                <div class="dropdown-menu-child">
-                                                    <a href="/bom-check" class="dropdown-item <%= currentPage === 'bom-check' ? 'active' : '' %>">🔍 Check BOM</a>
-                                                    <a href="/bom-dashboard" class="dropdown-item <%= currentPage === 'bom-dashboard' ? 'active' : '' %>">📊 Dashboard SKU</a>
-                                                </div>
-                                            </div>
-                                                    <% if (user && user.email==='vu.nt1@phongvu-mna.vn' ) { %>
-                                                        <% if (locals.isBranchEventActive) { %>
-                                                            <div style="border-top: 1px solid #eee; margin: 4px 0;">
-                                                            </div>
-                                                            <a href="/event-operations"
-                                                                class="<%= ['event-operations', 'event-orders'].includes(currentPage) ? 'active' : '' %>"><span
-                                                                    class="menu-icon">🎉</span> Vận hành Event</a>
-                                                            <% } %>
-                                                                <% if ((user.role==='manager' || user.role==='admin' )
-                                                                    && user.branch_code==='HCM.BD' ) { %>
-                                                                    <% if (!locals.isBranchEventActive) { %>
-                                                                        <div
-                                                                            style="border-top: 1px solid #eee; margin: 4px 0;">
-                                                                        </div>
-                                                                        <% } %>
-                                                                            <a href="/admin/event-settings"
-                                                                                class="<%= currentPage === 'event-settings' ? 'active' : '' %>"><span
-                                                                                    class="menu-icon">⚙️</span> Cài đặt
-                                                                                Event</a>
-                                                                            <% } %>
-                                                                                <% } %>
+                                    <% } %>
+                                    <a href="/policy" class="<%= currentPage === 'policy' ? 'active' : '' %>">
+                                        <span>Chính sách</span>
+                                    </a>
+                                    <div class="dropdown-submenu">
+                                        <a href="#" class="dropdown-item">
+                                            <span>Technician</span>
+                                            <span class="dropdown-submenu-chevron">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                                </svg>
+                                            </span>
+                                        </a>
+                                        <div class="dropdown-menu-child">
+                                            <a href="/queue/admin" class="<%= currentPage === 'queue-admin' ? 'active' : '' %>">Điều phối (Admin)</a>
+                                            <a href="/queue/tv" target="_blank">Màn hình TV</a>
+                                            <a href="/queue/report" class="<%= currentPage === 'queue-report' ? 'active' : '' %>">Báo cáo Dịch vụ</a>
+                                        </div>
+                                    </div>
+                                    <a href="/customer-care" class="<%= currentPage === 'customer-care' ? 'active' : '' %>">
+                                        <span>CSKH</span>
+                                    </a>
+                                    <a href="/pc-builder" class="<%= currentPage === 'pc-builder' ? 'active' : '' %>">
+                                        <span>Build PC</span>
+                                    </a>
+                                    <a href="/quote-builder" class="<%= currentPage === 'quote-builder' ? 'active' : '' %>">
+                                        <span>Báo giá nhanh</span>
+                                    </a>
+                                    <a href="/clearance-check" class="<%= currentPage === 'clearance-check' ? 'active' : '' %>">
+                                        <span>Hàng thanh lý</span>
+                                    </a>
                                 </div>
                             </div>
 
