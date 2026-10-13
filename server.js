@@ -384,7 +384,7 @@ const EXECUTIVE_BRANCH_LIST = [
   { id: 'CP46', name: 'Thủ Đức 1', region: 'HCM2' }, { id: 'CP58', name: 'CMT8', region: 'HCM1' },
   { id: 'CP62', name: 'PDL', region: 'HCM1' }, { id: 'CP64', name: 'Quận 12', region: 'HCM2' },
   { id: 'CP67', name: 'Thủ Đức 2', region: 'HCM2' }, { id: 'CP69', name: 'Dĩ An', region: 'HCM2' },
-  { id: 'CP75', name: 'Bình Thạnh', region: 'HCM1' }
+  { id: 'CP75', name: 'Phan Đăng Lưu 2', region: 'HCM1' }
 ];
 
 function parseLocalNoon(dStr) {
@@ -699,7 +699,7 @@ const BRANCH_CONFIG = {
   },
 
   'CP75': {
-    name: "PHONG VŨ (Chi nhánh Bình Thạnh)",
+    name: "PHONG VŨ (Showroom Phan Đăng Lưu 2)",
     address: "26B Phan Đăng Lưu, Phường Gia Định, Tp. Hồ Chí Minh",
     mst: "0304998358",
     hotline: "0287.308.8867",

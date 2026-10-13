@@ -59,6 +59,7 @@ const TEKO_TERMINAL_CONFIG = {
   'CP68': { id: 10014, siteId: 3495, name: 'CP68 - CHI NHÁNH 37' },
   'CP69': { id: 100213, siteId: 29499, name: 'CP69 - ĐỊA ĐIỂM KINH DOANH 58' },
   'CP74': { id: 100246, siteId: 53019, name: 'CP74 - 162-164 Khánh Hội, Phường Khánh Hội, Quận 4' },
+  'CP75': { id: 100247, siteId: 54290, name: 'CP75 - Showroom Phong Vũ Phan Đăng Lưu 2' },
   'CP90': { id: 3208, siteId: 3416, name: 'CP90 - CHI NHÁNH 30' },
 };
 
