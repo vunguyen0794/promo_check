@@ -6925,15 +6925,28 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
 
     const hideCheckedOut = (req.query.hideCheckedOut === 'true');
 
-    // --- BƯỚC 1: LẤY TRẠNG THÁI SUPABASE (30 ngày gần nhất để lọc nhanh hideCheckedOut) ---
-    let checkedSerials = new Map();
+    // --- BƯỚC 1: LẤY TRẠNG THÁI SUPABASE (THEO DÕI CHI NHÁNH XUẤT KHO - PHƯƠNG ÁN 3 TỐI ƯU) ---
+    // checkedBranchesBySerial: Map<serial, Set<branch_code>>
+    const checkedBranchesBySerial = new Map();
+    const addLogToBranchMap = (log) => {
+      if (!log || !log.serial || !log.checked_out) return;
+      const sn = String(log.serial).trim();
+      const br = String(log.branch_code || '').trim().toUpperCase();
+      if (!checkedBranchesBySerial.has(sn)) {
+        checkedBranchesBySerial.set(sn, new Set());
+      }
+      if (br) {
+        checkedBranchesBySerial.get(sn).add(br);
+      }
+    };
+
     try {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      let statusQuery = supabase.from('serial_check_log').select('serial, checked_out').gte('check_date', thirtyDaysAgo).eq('checked_out', true);
+      let statusQuery = supabase.from('serial_check_log').select('serial, checked_out, branch_code').gte('check_date', thirtyDaysAgo).eq('checked_out', true);
       if (!isGlobalAdmin) { statusQuery = statusQuery.eq('branch_code', userBranch); }
       const { data: logData, error: statusError } = await statusQuery;
       if (statusError) { console.error("Lỗi lấy trạng thái Supabase:", statusError.message); }
-      else { checkedSerials = new Map((logData || []).map(log => [log.serial, log.checked_out])); }
+      else { (logData || []).forEach(addLogToBranchMap); }
     } catch (e) { console.error("Lỗi nghiêm trọng khi lấy trạng thái Supabase:", e.message); }
 
     // --- BƯỚC 2: ĐẾM TỔNG SERIAL BIGQUERY (Giữ nguyên) ---
@@ -6960,21 +6973,24 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
       try {
         const { data: pageLogs } = await supabase
           .from('serial_check_log')
-          .select('serial, checked_out')
+          .select('serial, checked_out, branch_code')
           .in('serial', pageSerials)
           .eq('checked_out', true);
-        (pageLogs || []).forEach(log => {
-          checkedSerials.set(log.serial, true);
-        });
+        (pageLogs || []).forEach(addLogToBranchMap);
       } catch (err) {
         console.warn("Lỗi kiểm tra pageSerials trong serial_check_log:", err.message);
       }
     }
 
-    // --- BƯỚC 4: MERGE VỚI TRẠNG THÁI SUPABASE & LỌC ĐÃ XUẤT ---
+    // --- BƯỚC 4: MERGE VỚI TRẠNG THÁI SUPABASE (PHƯƠNG ÁN 3: ĐỐI CHIẾU THEO ĐÚNG CHI NHÁNH TỒN KHO) ---
     let finalSerials = [];
     for (const item of inventoryData) {
-      const isChecked = checkedSerials.get(item.serial) || false;
+      const itemBranch = String(item.branch_id || '').trim().toUpperCase();
+      const branchSet = checkedBranchesBySerial.get(item.serial);
+      // Serial CHỈ ĐƯỢC COI LÀ ĐÃ XUẤT nếu chi nhánh xuất ghi trong log trùng khớp với chi nhánh đang sở hữu serial hiện tại!
+      // Nếu đã từng xuất ở kho A nhưng nay nhập về kho B (chuyển kho), tại kho B serial vẫn là CÒN TỒN!
+      const isChecked = Boolean(branchSet && itemBranch && branchSet.has(itemBranch));
+      const hasOtherBranchHistory = Boolean(branchSet && branchSet.size > 0 && !isChecked);
 
       if (hideCheckedOut && isChecked) {
         continue;
@@ -6984,18 +7000,24 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
         ...item,
         date_in_ms: item.date_in ? new Date(item.date_in).getTime() : 0,
         is_checked_out: isChecked,
+        has_other_branch_history: hasOtherBranchHistory,
       });
     }
-    // --- BƯỚC 5: [Req 2] TÍNH RANK & FIFO (ĐÃ FIX: ÉP KIỂU NGÀY TUYỆT ĐỐI) ---
-    if (searchedItem && checkedSerials.get(searchedItem.serial)) {
-      console.log(`[DEBUG] Rank skipped (Item ${searchedItem.serial} is already checked out)`);
+    // --- BƯỚC 5: [Req 2] TÍNH RANK & FIFO (ĐỐI CHIẾU THEO CHI NHÁNH ĐANG XÉT) ---
+    const searchedBranch = searchedItem ? String(searchedItem.branch_id || '').trim().toUpperCase() : '';
+    const searchedBranchSet = searchedItem ? checkedBranchesBySerial.get(searchedItem.serial) : null;
+    const isSearchedCheckedOut = Boolean(searchedBranchSet && searchedBranch && searchedBranchSet.has(searchedBranch));
+
+    if (searchedItem && isSearchedCheckedOut) {
+      console.log(`[DEBUG] Rank skipped (Item ${searchedItem.serial} is already checked out at ${searchedBranch})`);
       rankInfo = {
         isAlreadyCheckedOut: true,
         serial: searchedItem.serial,
         sku: searchedItem.sku,
-        message: 'Serial này đã được xuất kho.'
+        branch: searchedBranch,
+        message: `Serial này đã được xuất kho tại chi nhánh ${searchedBranch}.`
       };
-    } else if (searchedItem && !checkedSerials.get(searchedItem.serial) && bigquery) {
+    } else if (searchedItem && bigquery) {
       const skuToRank = searchedItem.sku;
 
       // 1. QUERY: Đã kiểm tra -> Đang lấy đúng 2 kho bán mới
@@ -7037,11 +7059,11 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
           }
         }
 
-        // Lấy log đã xuất
+        // Lấy log đã xuất cho các serial cùng SKU
         const skuSerialList = allSkuSerials.map(s => s.Serial);
         let skuLogQuery = supabase
           .from('serial_check_log')
-          .select('serial, checked_out')
+          .select('serial, checked_out, branch_code')
           .in('serial', skuSerialList)
           .eq('checked_out', true);
         if (!isGlobalAdmin) {
@@ -7049,10 +7071,16 @@ app.get('/api/fifo/serials', requireAuth, async (req, res) => {
         }
         const { data: skuLogData } = await skuLogQuery;
 
-        const skuCheckedMap = new Map([...checkedSerials, ...((skuLogData || []).map(log => [log.serial, log.checked_out]))]);
+        // Chỉ loại trừ serial khỏi hàng đợi FIFO nếu nó đã xuất TẠI CHI NHÁNH ĐANG XÉT
+        const targetBranch = (searchedBranch || userBranch || '').toUpperCase().trim();
+        const skuCheckedSet = new Set(
+          (skuLogData || [])
+            .filter(log => !targetBranch || String(log.branch_code || '').toUpperCase().trim() === targetBranch)
+            .map(log => log.serial)
+        );
 
-        // Lọc serial còn tồn (Active)
-        const activeSkuSerials = allSkuSerials.filter(s => !skuCheckedMap.get(s.Serial));
+        // Lọc serial còn tồn tại chi nhánh này (Active)
+        const activeSkuSerials = allSkuSerials.filter(s => !skuCheckedSet.has(s.Serial));
 
         if (activeSkuSerials.length > 0) {
 
@@ -11936,9 +11964,9 @@ app.post('/forgot-password', async (req, res) => {
       });
     }
 
-    // Tạo token ngẫu nhiên & Hạn dùng 1 tiếng
+    // Tạo token ngẫu nhiên & Hạn dùng 24 tiếng (tránh hết hạn khi nhân viên check trễ)
     const token = crypto.randomBytes(32).toString('hex');
-    const expiry = new Date(Date.now() + 3600000); // +1 giờ
+    const expiry = new Date(Date.now() + 24 * 3600000); // +24 giờ
 
     // Lưu vào DB
     await supabase
@@ -11946,21 +11974,28 @@ app.post('/forgot-password', async (req, res) => {
       .update({ reset_token: token, reset_token_expiry: expiry })
       .eq('id', user.id);
 
-    // Tạo link (Tự động nhận diện localhost hay vercel)
+    // Tạo link (Tự động nhận diện domain hoặc host)
     const resetLink = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
 
-    // Gửi mail
+    const senderEmail = process.env.EMAIL_USER || 'vunguyen0794@gmail.com';
+
+    // Gửi mail với From khớp địa chỉ SMTP (tránh bị Google Workspace chặn vì lỗi giả mạo domain phongvu.vn)
     await transporter.sendMail({
-      from: '"Phong Vu System" <no-reply@phongvu.vn>',
+      from: `"Phong Vũ Hệ Thống" <${senderEmail}>`,
       to: email,
-      subject: 'Yêu cầu đặt lại mật khẩu',
+      subject: '[Phong Vũ] Yêu cầu đặt lại mật khẩu',
       html: `
-                <h3>Yêu cầu đặt lại mật khẩu</h3>
-                <p>Bạn (hoặc ai đó) đã yêu cầu lấy lại mật khẩu cho tài khoản: <b>${email}</b></p>
-                <p>Vui lòng bấm vào link dưới đây để đặt mật khẩu mới (Link hết hạn sau 1 giờ):</p>
-                <a href="${resetLink}" style="background:#0d6efd; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">Đặt lại mật khẩu</a>
-                <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
-            `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+          <h3 style="color: #2563eb; margin-top: 0;">Yêu cầu đặt lại mật khẩu</h3>
+          <p>Xin chào, bạn (hoặc ai đó) vừa yêu cầu đặt lại mật khẩu cho tài khoản: <b>${email}</b></p>
+          <p>Vui lòng bấm vào nút bên dưới để tạo mật khẩu mới (Link có hiệu lực trong <b>24 giờ</b>):</p>
+          <div style="text-align: center; margin: 25px 0;">
+            <a href="${resetLink}" style="background:#2563eb; color:white; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight: bold; display: inline-block;">Đặt lại mật khẩu</a>
+          </div>
+          <p style="font-size: 13px; color: #64748b;">Nếu nút trên không bấm được, bạn có thể copy link sau dán vào trình duyệt:<br><a href="${resetLink}" style="color: #2563eb; word-break: break-all;">${resetLink}</a></p>
+          <p style="font-size: 12px; color: #94a3b8; margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 10px;">Nếu bạn không yêu cầu hành động này, vui lòng bỏ qua email.</p>
+        </div>
+      `
     });
 
     res.render('forgot-password', {
@@ -11981,20 +12016,34 @@ app.post('/forgot-password', async (req, res) => {
 
 // 3. Link từ Email bấm vào -> Hiện form đổi pass
 app.get('/reset-password', async (req, res) => {
-  const { token } = req.query;
+  const token = String(req.query.token || '').trim();
 
-  // Check token hợp lệ & còn hạn
-  const { data: user } = await supabase
+  if (!token) {
+    return res.render('login', {
+      title: 'Đăng nhập', currentPage: 'login', time: '',
+      error: 'Link đặt lại mật khẩu không hợp lệ. Vui lòng thử lại.'
+    });
+  }
+
+  // Tra cứu user theo token (dùng maybeSingle để không throw lỗi nếu không tìm thấy)
+  const { data: user, error: userErr } = await supabase
     .from('users')
-    .select('id')
+    .select('id, email, reset_token_expiry')
     .eq('reset_token', token)
-    .gt('reset_token_expiry', new Date().toISOString()) // Expiry > Thời gian hiện tại
-    .single();
+    .maybeSingle();
 
   if (!user) {
     return res.render('login', {
       title: 'Đăng nhập', currentPage: 'login', time: '',
-      error: 'Link không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.'
+      error: 'Link không hợp lệ hoặc đã được sử dụng. Nếu bạn đã yêu cầu link mới, vui lòng kiểm tra email mới nhất.'
+    });
+  }
+
+  // Kiểm tra thời hạn token (24 tiếng)
+  if (user.reset_token_expiry && new Date(user.reset_token_expiry).getTime() < Date.now()) {
+    return res.render('login', {
+      title: 'Đăng nhập', currentPage: 'login', time: '',
+      error: 'Link đặt lại mật khẩu đã hết hạn (chỉ có hiệu lực trong 24 giờ). Vui lòng gửi lại yêu cầu quên mật khẩu.'
     });
   }
 
@@ -12133,9 +12182,10 @@ app.post('/request-reactivation', async (req, res) => {
       lastSeenText = new Date(user.last_seen).toLocaleString('vi-VN');
     }
 
-    // Gửi email cho Admin
+    const senderEmail = process.env.EMAIL_USER || 'vunguyen0794@gmail.com';
+    // Gửi email cho Admin với From khớp tài khoản gửi
     await transporter.sendMail({
-      from: '"Phong Vu System" <no-reply@phongvu.vn>',
+      from: `"Phong Vũ Hệ Thống" <${senderEmail}>`,
       to: adminEmail,
       subject: `🔔 [Kích hoạt tài khoản ngủ đông] ${user.full_name || user.email} (${user.email}) - ${user.branch_code || 'CP01'}`,
       html: `
@@ -12268,8 +12318,9 @@ app.get('/api/auth/approve-reactivation', async (req, res) => {
 
     // Gửi email báo cho nhân viên biết đã được duyệt
     try {
+      const senderEmail = process.env.EMAIL_USER || 'vunguyen0794@gmail.com';
       await transporter.sendMail({
-        from: '"Phong Vu System" <no-reply@phongvu.vn>',
+        from: `"Phong Vũ Hệ Thống" <${senderEmail}>`,
         to: record.email,
         subject: '🎉 Tài khoản của bạn đã được kích hoạt lại thành công',
         html: `
@@ -16611,3 +16662,51 @@ if (process.env.VERCEL || require.main !== module) {
 }
 
  
+// API dành riêng cho Admin/Manager: Tạo link reset password trực tiếp cho user (dự phòng khi mail bị chặn)
+app.post('/api/admin/create-reset-link', requireAuth, async (req, res) => {
+  try {
+    const userRole = req.session.user?.role;
+    const userBranch = req.session.user?.branch_code;
+    const isGlobalAdmin = (userRole === 'admin' || userBranch === 'HCM.BD');
+    if (!isGlobalAdmin && userRole !== 'manager') {
+      return res.status(403).json({ success: false, error: 'Không có quyền thực hiện.' });
+    }
+
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Thiếu email nhân viên.' });
+    }
+
+    const { data: targetUser } = await supabase
+      .from('users')
+      .select('id, email, full_name')
+      .ilike('email', email.trim())
+      .maybeSingle();
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'Không tìm thấy tài khoản với email này.' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 24 * 3600000); // 24 giờ
+
+    await supabase
+      .from('users')
+      .update({ reset_token: token, reset_token_expiry: expiry, is_active: true })
+      .eq('id', targetUser.id);
+
+    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
+
+    res.json({
+      success: true,
+      email: targetUser.email,
+      fullName: targetUser.full_name,
+      resetUrl,
+      token,
+      expiresIn: '24 giờ',
+      message: `Đã tạo link đổi mật khẩu thành công cho ${targetUser.email}. Bạn có thể copy link này gửi trực tiếp qua Zalo/Chat cho nhân viên.`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});

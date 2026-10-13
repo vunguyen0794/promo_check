@@ -3165,6 +3165,7 @@
         const docInputEl = document.getElementById('txtDocumentId');
         if (docInputEl) {
             docInputEl.addEventListener('paste', function(e) {
+                e.preventDefault();
                 const text = (e.clipboardData || window.clipboardData)?.getData('text');
                 if (text) {
                     const clean = text.trim();
@@ -3185,6 +3186,7 @@
         const serialInputEl = document.getElementById('txtSerialScan');
         if (serialInputEl) {
             serialInputEl.addEventListener('paste', function(e) {
+                e.preventDefault();
                 const text = (e.clipboardData || window.clipboardData)?.getData('text');
                 if (text) {
                     const clean = text.trim();
