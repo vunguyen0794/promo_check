@@ -127,13 +127,16 @@ const bigquery = new Proxy({}, {
 });
 
 // === CÀI ĐẶT LỊCH SYNC TỰ ĐỘNG BQ INVENTORY (7:30 AM Giờ Việt Nam) ===
-cron.schedule('30 7 * * *', () => {
-  console.log("[CRON] Bắt đầu đồng bộ định kỳ dữ liệu BQ -> Supabase (07:30 AM)...");
-  syncInventory();
-}, {
-  scheduled: true,
-  timezone: "Asia/Ho_Chi_Minh"
-});
+// Đã chuyển giao quản lý tồn kho độc quyền cho Task Scheduler 'PromotionApp_Inventory_Sync' trên máy local lúc 07:30 AM
+// để tránh xung đột song song gây duplicate số liệu và tiết kiệm BigQuery Quota.
+// (Admin vẫn có thể kích hoạt thủ công qua endpoint /api/admin/sync-inventory khi cần).
+// cron.schedule('30 7 * * *', () => {
+//   console.log("[CRON] Bắt đầu đồng bộ định kỳ dữ liệu BQ -> Supabase (07:30 AM)...");
+//   syncInventory();
+// }, {
+//   scheduled: true,
+//   timezone: "Asia/Ho_Chi_Minh"
+// });
 
 // === CÀI ĐẶT LỊCH QUÉT TỰ ĐỘNG CTKM GOOGLE SHEETS (06:30 AM & 13:30 PM Giờ Việt Nam) ===
 cron.schedule('30 6 * * *', async () => {
