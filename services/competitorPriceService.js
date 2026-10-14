@@ -267,6 +267,41 @@ function pickBest(candidates, targetKeyword, targetPrice, originalName = '') {
 /**
  * 1. CellphoneS (CPS) Scraper
  */
+/**
+ * Kiểm tra trạng thái còn hàng của CellphoneS:
+ * - schema.org/OutOfStock, nhãn TẠM HẾT HÀNG, SẮP VỀ HÀNG, Đăng ký nhận thông tin khi có hàng: Hết hàng
+ * - schema.org/InStock hoặc nút mua hàng hợp lệ: Còn hàng
+ */
+async function checkCpsStock(url) {
+  if (!url || !url.startsWith('http')) return true;
+  try {
+    const res = await axios.get(url, {
+      headers: {
+        'user-agent': USER_AGENT,
+        'referer': 'https://cellphones.com.vn/'
+      },
+      timeout: 3500
+    });
+    const html = res.data;
+    if (typeof html !== 'string') return true;
+
+    const isOutOfStock =
+      html.includes('schema.org/OutOfStock') ||
+      html.includes('schema.org\\/OutOfStock') ||
+      html.includes('schema.org\u002FOutOfStock') ||
+      html.includes('title-out-stock') ||
+      html.includes('TẠM HẾT HÀNG') ||
+      html.includes('SẮP VỀ HÀNG') ||
+      html.includes('HẾT HÀNG TẠM THỜI') ||
+      html.includes('Đăng ký nhận thông tin khi có hàng');
+
+    return !isOutOfStock;
+  } catch (err) {
+    console.warn('[CPS Stock Check Warning]:', err.message);
+    return true;
+  }
+}
+
 async function searchCPS(keyword, targetPrice, originalName = '') {
   const fetchGraphql = async (kw) => {
     const query = `query advanced_search {
@@ -313,17 +348,33 @@ async function searchCPS(keyword, targetPrice, originalName = '') {
     // 1st attempt: exact cleaned keyword
     const items = await fetchGraphql(keyword);
     let match = pickBest(items, keyword, targetPrice, originalName);
-    if (match) return match;
 
     // Fallback: If keyword has hyphenated suffix like G614PH-TS118W or - 83UE000UVN
-    const broaderKeyword = keyword.replace(/-[A-Za-z0-9]+/g, '').replace(/\s+/g, ' ').trim();
-    if (broaderKeyword && broaderKeyword !== keyword) {
-      const broaderItems = await fetchGraphql(broaderKeyword);
-      match = pickBest(broaderItems, broaderKeyword, targetPrice, originalName);
-      if (match) return match;
+    if (!match) {
+      const broaderKeyword = keyword.replace(/-[A-Za-z0-9]+/g, '').replace(/\s+/g, ' ').trim();
+      if (broaderKeyword && broaderKeyword !== keyword) {
+        const broaderItems = await fetchGraphql(broaderKeyword);
+        match = pickBest(broaderItems, broaderKeyword, targetPrice, originalName);
+      }
     }
 
-    return null;
+    // 3rd attempt: Model code
+    if (!match) {
+      const codes = extractModelCodes(originalName || keyword);
+      for (const code of codes) {
+        if (code.length >= 5) {
+          const codeItems = await fetchGraphql(code);
+          match = pickBest(codeItems, keyword, targetPrice, originalName);
+          if (match) break;
+        }
+      }
+    }
+
+    if (match && match.link && match.link.startsWith('http')) {
+      match.inStock = await checkCpsStock(match.link);
+    }
+
+    return match;
   } catch (err) {
     console.warn('[Competitor] CPS scrape warning:', err.message);
     return null;
