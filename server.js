@@ -3229,7 +3229,66 @@ app.get("/api/competitor-prices", async (req, res) => {
         const tgddRow = findComp(["thế giới di động", "thegioididong", "tgdd"]);
         const fptRow = findComp(["fpt shop", "fptshop", "fpt"]);
 
-        if (cpsRow || tgddRow || fptRow) {
+        // Kiểm tra tính hợp lệ của bản ghi cache (tránh dùng lại cache bị lệch biến thể như Pro vs Pro Max)
+        const extractCodes = (text) => {
+          const matches = (text || "").match(/\b[A-Za-z0-9]*[0-9]+[A-Za-z0-9]*\b/g) || [];
+          return matches
+            .map(m => m.toLowerCase().replace(/[^a-z0-9]/g, ""))
+            .filter(m => m.length >= 4 && /[a-z]/.test(m) && /[0-9]/.test(m));
+        };
+
+        const isRowValid = (row, pName) => {
+          if (!row || !row.notes || !pName) return true;
+          const p = pName.toLowerCase();
+          const n = (row.notes || "").toLowerCase();
+
+          // 1. iPhone Pro Max vs Pro vs Plus
+          if (p.includes("iphone") || n.includes("iphone")) {
+            const pHasMax = /\bmax\b/.test(p);
+            const nHasMax = /\bmax\b/.test(n);
+            if (pHasMax !== nHasMax) return false;
+            const pHasPro = /\bpro\b/.test(p);
+            const nHasPro = /\bpro\b/.test(n);
+            if (pHasPro !== nHasPro) return false;
+            const pHasPlus = /\bplus\b/.test(p);
+            const nHasPlus = /\bplus\b/.test(n);
+            if (pHasPlus !== nHasPlus) return false;
+          }
+
+          // 2. Series conflicts
+          if (p.includes("rog") && (n.includes("zenbook") || n.includes("vivobook") || n.includes("tuf"))) return false;
+          if (p.includes("ideapad") && (n.includes("thinkpad") || n.includes("legion"))) return false;
+
+          // 3. Screen size conflict (13 vs 14 vs 15 vs 16)
+          const pSize = p.match(/\b(13|14|15|16|17)(?:\s*inch|\b|[A-Z])/i);
+          const nSize = n.match(/\b(13|14|15|16|17)(?:\s*inch|\b|[A-Z])/i);
+          if (pSize && nSize && pSize[1] !== nSize[1] && (p.includes("laptop") || p.includes("ideapad") || p.includes("macbook") || p.includes("zenbook"))) {
+            return false;
+          }
+
+          // 4. Model codes conflict (e.g. 13IWC11 vs 14IPH11)
+          const pCodes = extractCodes(p);
+          const nCodes = extractCodes(n);
+          if (pCodes.length > 0 && nCodes.length > 0) {
+            let hasMatch = false;
+            for (const pc of pCodes) {
+              for (const nc of nCodes) {
+                if (pc === nc || pc.includes(nc) || nc.includes(pc)) {
+                  hasMatch = true;
+                  break;
+                }
+              }
+              if (hasMatch) break;
+            }
+            if (!hasMatch) return false;
+          }
+
+          return true;
+        };
+
+        const cacheIsValid = isRowValid(cpsRow, productName) && isRowValid(tgddRow, productName) && isRowValid(fptRow, productName);
+
+        if (cacheIsValid && (cpsRow || tgddRow || fptRow)) {
           const mapRow = (row, code, name, defaultLink) => {
             if (!row) {
               return {
@@ -3316,12 +3375,14 @@ app.get("/api/competitor-prices", async (req, res) => {
     // 4. Lưu cache vào bảng price_comparisons
     (async () => {
       try {
+        const userId = req.session?.user?.id || null;
         const rowsToInsert = [];
         const comps = result.competitors;
         for (const key of ["CPS", "TGDD", "FPT"]) {
           const c = comps[key];
           if (c && c.found && c.price > 0) {
             rowsToInsert.push({
+              user_id: userId,
               sku,
               product_name: productName,
               brand: brand || null,
@@ -3345,13 +3406,116 @@ app.get("/api/competitor-prices", async (req, res) => {
       }
     })();
 
+    // Đếm tổng số phiên so sánh cho SKU (bao gồm cả phiên vừa lưu)
+    let totalSessions = 1;
+    try {
+      const { data: allSkuRows } = await supabase
+        .from("price_comparisons")
+        .select("created_at")
+        .eq("sku", sku);
+      if (allSkuRows && allSkuRows.length > 0) {
+        const sTimes = [];
+        for (const r of allSkuRows) {
+          const t = new Date(r.created_at).getTime();
+          if (!sTimes.some(st => Math.abs(t - st) <= 90000)) sTimes.push(t);
+        }
+        totalSessions = Math.max(1, sTimes.length);
+      }
+    } catch (_) {}
+
     return res.json({
       success: true,
       fromCache: false,
+      totalSessions,
       ...result
     });
   } catch (err) {
     console.error("[Competitor API Error]:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// API: Lịch sử so sánh giá đa đối thủ theo SKU (cho Popup Modal)
+// ============================================================
+app.get("/api/competitor-prices/history", async (req, res) => {
+  try {
+    const sku = (req.query.sku || "").trim();
+    if (!sku) {
+      return res.status(400).json({ success: false, error: "Thiếu mã SKU." });
+    }
+
+    const { data: records, error } = await supabase
+      .from("price_comparisons")
+      .select("*, users:user_id (id, full_name, email)")
+      .eq("sku", sku)
+      .order("created_at", { ascending: false })
+      .limit(60);
+
+    if (error) throw error;
+
+    // Nhóm các bản ghi theo phiên (cùng thời gian hoặc gần nhau trong 90s)
+    const sessions = [];
+    (records || []).forEach(r => {
+      const time = new Date(r.created_at).getTime();
+      const user = r.users ? (r.users.full_name || r.users.email) : "Hệ thống tự động";
+      const compName = (r.competitor_name || "").toLowerCase();
+
+      let session = sessions.find(s => {
+        const sTime = new Date(s.createdAt).getTime();
+        return Math.abs(time - sTime) <= 90000 && s.userName === user;
+      });
+
+      if (!session) {
+        session = {
+          createdAt: r.created_at,
+          userName: user,
+          ourPrice: Number(r.our_price || r.promo_price || 0),
+          cps: null,
+          tgdd: null,
+          fpt: null
+        };
+        sessions.push(session);
+      }
+
+      const itemData = {
+        price: Number(r.competitor_price || 0),
+        link: r.competitor_link || "",
+        name: r.notes || r.product_name || "",
+        stock: r.stock_status || "available"
+      };
+
+      if (compName.includes("cellphones") || compName.includes("cps")) {
+        session.cps = itemData;
+      } else if (compName.includes("thế giới di động") || compName.includes("thegioididong") || compName.includes("tgdd")) {
+        session.tgdd = itemData;
+      } else if (compName.includes("fpt")) {
+        session.fpt = itemData;
+      }
+    });
+
+    sessions.forEach(s => {
+      const valid = [
+        { code: "CPS", price: s.cps?.price || 0 },
+        { code: "TGDD", price: s.tgdd?.price || 0 },
+        { code: "FPT", price: s.fpt?.price || 0 }
+      ].filter(x => x.price > 0);
+      if (valid.length > 0) {
+        valid.sort((a, b) => a.price - b.price);
+        s.lowestRetailer = valid[0].code;
+      } else {
+        s.lowestRetailer = null;
+      }
+    });
+
+    return res.json({
+      success: true,
+      sku,
+      totalSessions: sessions.length,
+      history: sessions
+    });
+  } catch (err) {
+    console.error("[Competitor History API Error]:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -3499,14 +3663,28 @@ app.all('/search-promotion', requireAuth, async (req, res) => {
     }
 
     try {
-      const { count } = await supabase
+      const { data: compRows } = await supabase
         .from('price_comparisons')
-        .select('*', { count: 'exact', head: true }) // Chỉ lấy số lượng (nhẹ server)
-        .eq('sku', product.sku);
+        .select('created_at')
+        .eq('sku', product.sku)
+        .order('created_at', { ascending: false });
 
-      comparisonCount = count || 0;
+      if (compRows && compRows.length > 0) {
+        // Gom các bản ghi cùng 1 lượt quét (trong vòng 90s) thành 1 lần so sánh
+        const sessionTimes = [];
+        for (const r of compRows) {
+          const t = new Date(r.created_at).getTime();
+          if (!sessionTimes.some(st => Math.abs(t - st) <= 90000)) {
+            sessionTimes.push(t);
+          }
+        }
+        comparisonCount = sessionTimes.length;
+      } else {
+        comparisonCount = 0;
+      }
     } catch (errCount) {
-      console.error("Lỗi đếm chiến giá:", errCount);
+      console.error("Lỗi đếm số phiên so sánh giá:", errCount);
+      comparisonCount = 0;
     }
     const price = Number(product.list_price || product.promo_price || 0);
     console.log(`[DEBUG] Bước 1: Đã tìm thấy sản phẩm - Tên: ${product.product_name}, Giá gốc: ${product.list_price || 0}đ, Giá KM: ${product.promo_price || 0}đ`);

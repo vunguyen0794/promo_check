@@ -350,6 +350,241 @@
 
 
 
+    /* --- POPUP MODAL LỊCH SỬ SO SÁNH GIÁ --- */
+    .comp-modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .comp-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .comp-modal-dialog {
+        position: relative;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.18);
+        width: 100%;
+        max-width: 920px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        z-index: 1;
+        overflow: hidden;
+        animation: compModalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes compModalPopIn {
+        from { transform: scale(0.96); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    .comp-modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #ffffff;
+    }
+    .comp-modal-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 3px 0;
+    }
+    .comp-modal-subtitle {
+        font-size: 12.5px;
+        color: #64748b;
+        margin: 0;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 760px;
+    }
+    .comp-modal-close-btn {
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        color: #64748b;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+    }
+    .comp-modal-close-btn:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+
+    .comp-modal-body {
+        padding: 0;
+        overflow-y: auto;
+        max-height: calc(85vh - 130px);
+        background: #ffffff;
+    }
+
+    .comp-history-loading {
+        padding: 40px 20px;
+        text-align: center;
+        color: #64748b;
+        font-size: 13px;
+    }
+    .comp-history-empty {
+        padding: 40px 20px;
+        text-align: center;
+        color: #64748b;
+        font-size: 13.5px;
+    }
+
+    .comp-history-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+    .comp-history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+        text-align: left;
+    }
+    .comp-history-table thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fafc;
+        color: #334155;
+        font-weight: 600;
+        padding: 11px 14px;
+        border-bottom: 1px solid #e2e8f0;
+        z-index: 2;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .comp-history-table thead th.th-competitor {
+        text-align: right;
+        padding-right: 18px;
+    }
+    .comp-history-table tbody tr {
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.15s ease;
+    }
+    .comp-history-table tbody tr:hover {
+        background: #f8fafc;
+    }
+    .comp-history-table td {
+        padding: 12px 14px;
+        vertical-align: middle;
+        color: #1e293b;
+    }
+    .comp-cell-time {
+        font-size: 12px;
+        font-weight: 600;
+        color: #334155;
+        white-space: nowrap;
+    }
+    .comp-cell-user {
+        font-size: 12px;
+        color: #475569;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+    }
+    .comp-cell-price {
+        text-align: right;
+        padding-right: 18px;
+        white-space: nowrap;
+    }
+    .comp-price-val {
+        font-weight: 700;
+        font-size: 13.5px;
+        color: #0f172a;
+    }
+    .comp-price-val.lowest {
+        color: #047857;
+    }
+    .comp-price-empty {
+        color: #94a3b8;
+        font-size: 12px;
+    }
+    .comp-link-icon {
+        display: inline-block;
+        margin-left: 5px;
+        color: #2563eb;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 11.5px;
+    }
+    .comp-link-icon:hover {
+        text-decoration: underline;
+    }
+    .comp-lowest-tag {
+        display: inline-block;
+        background: #d1fae5;
+        color: #065f46;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-left: 4px;
+        vertical-align: middle;
+    }
+
+    .comp-modal-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 20px;
+        border-top: 1px solid #e2e8f0;
+        background: #fafafa;
+    }
+    .comp-modal-link-battle {
+        font-size: 12px;
+        font-weight: 600;
+        color: #2563eb;
+        text-decoration: none;
+        margin-right: 12px;
+    }
+    .comp-modal-link-battle:hover {
+        text-decoration: underline;
+    }
+    .comp-modal-btn-close {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 7px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .comp-modal-btn-close:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    @media (max-width: 768px) {
+        .comp-modal-dialog { width: 98%; max-height: 92vh; }
+        .comp-modal-header { padding: 14px 16px; }
+        .comp-modal-footer { padding: 10px 16px; flex-direction: column; align-items: stretch; }
+        .comp-modal-footer-right { display: flex; justify-content: space-between; align-items: center; }
+    }
+
     /* --- BẢNG SO SÁNH GIÁ 3 ĐỐI THỦ (CPS | TGDD | FPT) --- */
     .competitor-compare-card {
         background: #ffffff;
@@ -2512,7 +2747,7 @@
             <div class="comp-header-left">
                 <h4 class="comp-title">
                     Lịch sử so sánh giá
-                    <span class="comp-count-pill" title="Số lần ghi nhận so găng giá cho SKU này"><%= comparisonCount || 0 %> lần</span>
+                    <span class="comp-count-pill" id="compSessionCountPill" title="Số lần ghi nhận so găng giá cho SKU này"><%= comparisonCount || 0 %> lần</span>
                 </h4>
                 <p class="comp-subtitle">Đối soát tự động giá bán thời gian thực tại CPS, TGDD và FPT Shop (sắp xếp từ thấp đến cao)</p>
             </div>
@@ -2526,7 +2761,7 @@
                     </svg>
                     <span>Làm mới giá</span>
                 </button>
-                <a href="/price-battle?sku=<%= product.sku %>" class="comp-btn-history">Chi tiết lịch sử →</a>
+                <button type="button" class="comp-btn-history" id="btnOpenCompHistoryModal" onclick="window.openCompHistoryModal && window.openCompHistoryModal()">Chi tiết lịch sử →</button>
             </div>
         </div>
 
@@ -4402,6 +4637,66 @@ function closeAllCompatModal() {
         </div>
     </div>
 </div>
+<!-- ============================================================ -->
+<!-- POPUP MODAL: LỊCH SỬ SO SÁNH GIÁ ĐỐI THỦ (CPS | TGDD | FPT) -->
+<!-- ============================================================ -->
+<div id="compHistoryModal" class="comp-modal-overlay" aria-hidden="true" style="display: none;">
+    <div class="comp-modal-backdrop" onclick="window.closeCompHistoryModal && window.closeCompHistoryModal()"></div>
+    <div class="comp-modal-dialog">
+        <div class="comp-modal-header">
+            <div class="comp-modal-header-info">
+                <h3 class="comp-modal-title">Lịch sử so sánh giá thị trường</h3>
+                <p class="comp-modal-subtitle" id="compModalSubtitle">SKU: <%= typeof product !== 'undefined' && product ? product.sku : '' %> - <%= typeof product !== 'undefined' && product ? (product.product_name || '') : '' %></p>
+            </div>
+            <button type="button" class="comp-modal-close-btn" onclick="window.closeCompHistoryModal && window.closeCompHistoryModal()" title="Đóng popup">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="comp-modal-body">
+            <div id="compHistoryLoading" class="comp-history-loading">
+                <div class="loader-spinner-simple" style="margin: 0 auto 10px auto;"></div>
+                <span>Đang nạp danh sách lịch sử so sánh giá...</span>
+            </div>
+            
+            <div id="compHistoryEmpty" class="comp-history-empty" style="display: none;">
+                <p>Chưa có lượt ghi nhận so sánh giá nào cho SKU này.</p>
+            </div>
+
+            <div id="compHistoryTableWrap" class="comp-history-table-wrap" style="display: none;">
+                <table class="comp-history-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 130px;">Thời gian</th>
+                            <th style="width: 140px;">Người so sánh</th>
+                            <th class="th-competitor">CPS (CellphoneS)</th>
+                            <th class="th-competitor">TGDD (Thế Giới Di Động)</th>
+                            <th class="th-competitor">FPT (FPT Shop)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="compHistoryTableBody">
+                        <!-- Dynamic rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="comp-modal-footer">
+            <div class="comp-modal-footer-left">
+                <span id="compModalTotalSessions" style="font-size: 12.5px; color: #64748b; font-weight: 500;"></span>
+            </div>
+            <div class="comp-modal-footer-right">
+                <button type="button" class="comp-modal-btn-close" onclick="window.closeCompHistoryModal && window.closeCompHistoryModal()">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <%- include('partials/toast') %>
 <%- include('partials/search-autocomplete') %>
 <script>
@@ -4426,6 +4721,10 @@ function closeAllCompatModal() {
 
     function renderCompetitorCards(data) {
         if (!gridEl) return;
+        if (data && data.totalSessions !== undefined) {
+            const pill = document.getElementById("compSessionCountPill");
+            if (pill) pill.textContent = data.totalSessions + " lần";
+        }
         const sorted = data.sorted || [];
         if (!sorted || sorted.length === 0) {
             gridEl.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #64748b; font-size: 13px;">Không tìm thấy thông tin đối thủ cho SKU này.</div>';
@@ -4540,6 +4839,106 @@ function closeAllCompatModal() {
 
     if (refreshBtn) {
         refreshBtn.addEventListener("click", function() { loadCompetitors(true); });
+    }
+
+    // ============================================================
+    // MODAL LỊCH SỬ SO SÁNH GIÁ (POPUP)
+    // ============================================================
+    const historyModalEl = document.getElementById("compHistoryModal");
+    const historyTableBody = document.getElementById("compHistoryTableBody");
+    const historyLoadingEl = document.getElementById("compHistoryLoading");
+    const historyEmptyEl = document.getElementById("compHistoryEmpty");
+    const historyTableWrap = document.getElementById("compHistoryTableWrap");
+    const modalTotalSessionsEl = document.getElementById("compModalTotalSessions");
+
+    window.openCompHistoryModal = function() {
+        if (!historyModalEl) return;
+        historyModalEl.style.display = "flex";
+        historyModalEl.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+        loadHistoryData();
+    };
+
+    window.closeCompHistoryModal = function() {
+        if (!historyModalEl) return;
+        historyModalEl.style.display = "none";
+        historyModalEl.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+    };
+
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape" && historyModalEl && historyModalEl.style.display === "flex") {
+            window.closeCompHistoryModal();
+        }
+    });
+
+    async function loadHistoryData() {
+        if (!historyTableBody) return;
+        if (historyLoadingEl) historyLoadingEl.style.display = "block";
+        if (historyEmptyEl) historyEmptyEl.style.display = "none";
+        if (historyTableWrap) historyTableWrap.style.display = "none";
+
+        try {
+            const res = await fetch('/api/competitor-prices/history?sku=' + encodeURIComponent(sku));
+            const data = await res.json();
+            if (historyLoadingEl) historyLoadingEl.style.display = "none";
+
+            if (!data.success || !data.history || data.history.length === 0) {
+                if (historyEmptyEl) historyEmptyEl.style.display = "block";
+                if (modalTotalSessionsEl) modalTotalSessionsEl.textContent = "Chưa có lượt ghi nhận";
+                return;
+            }
+
+            if (modalTotalSessionsEl) {
+                modalTotalSessionsEl.textContent = 'Tổng cộng: ' + data.history.length + ' phiên đối soát giá';
+            }
+
+            function fmtPriceCell(comp, isLowest) {
+                if (!comp || !comp.price) {
+                    return '<span class="comp-price-empty">—</span>';
+                }
+                const linkHtml = comp.link ? ('<a href="' + comp.link + '" target="_blank" rel="noopener noreferrer" class="comp-link-icon" title="Mở trang sản phẩm">↗</a>') : '';
+                const lowestBadge = isLowest ? '<span class="comp-lowest-tag">Thấp nhất</span>' : '';
+                return '<span class="comp-price-val ' + (isLowest ? 'lowest' : '') + '">' + formatVND(comp.price) + '</span>' + lowestBadge + linkHtml;
+            }
+
+            function fmtDate(iso) {
+                if (!iso) return '—';
+                const d = new Date(iso);
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                const hours = String(d.getHours()).padStart(2, '0');
+                const mins = String(d.getMinutes()).padStart(2, '0');
+                return hours + ':' + mins + ' ' + day + '/' + month + '/' + year;
+            }
+
+            let rowsHtml = '';
+            data.history.forEach(function(s) {
+                const cpsCell = fmtPriceCell(s.cps, s.lowestRetailer === 'CPS');
+                const tgddCell = fmtPriceCell(s.tgdd, s.lowestRetailer === 'TGDD');
+                const fptCell = fmtPriceCell(s.fpt, s.lowestRetailer === 'FPT');
+                const userCls = s.userName === 'Hệ thống tự động' ? 'comp-cell-user system' : 'comp-cell-user';
+
+                rowsHtml += '<tr>' +
+                    '<td class="comp-cell-time">' + fmtDate(s.createdAt) + '</td>' +
+                    '<td class="' + userCls + '" title="' + s.userName + '">' + s.userName + '</td>' +
+                    '<td class="comp-cell-price">' + cpsCell + '</td>' +
+                    '<td class="comp-cell-price">' + tgddCell + '</td>' +
+                    '<td class="comp-cell-price">' + fptCell + '</td>' +
+                '</tr>';
+            });
+
+            historyTableBody.innerHTML = rowsHtml;
+            if (historyTableWrap) historyTableWrap.style.display = "block";
+        } catch (e) {
+            console.error("Lỗi nạp lịch sử giá:", e);
+            if (historyLoadingEl) historyLoadingEl.style.display = "none";
+            if (historyEmptyEl) {
+                historyEmptyEl.innerHTML = '<p style="color:#ef4444;">Không thể tải lịch sử giá: ' + e.message + '</p>';
+                historyEmptyEl.style.display = "block";
+            }
+        }
     }
 })();
 </script>
